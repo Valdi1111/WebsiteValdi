@@ -1,0 +1,18 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Anime{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {{ encore_entry_link_tags('anime') }}
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('anime') }}
+{% endblock %}
+
+{% block body %}
+    <div id="root">
+    </div>
+{% endblock %}

@@ -1,21 +1,79 @@
-version: '3'
+version: '3.9'
 
 services:
-###> doctrine/doctrine-bundle ###
-  database:
-    image: postgres:${POSTGRES_VERSION:-16}-alpine
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-app}
-      # You should definitely change the password in production
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-!ChangeMe!}
-      POSTGRES_USER: ${POSTGRES_USER:-app}
-    volumes:
-      - database_data:/var/lib/postgresql/data:rw
-      # You may use a bind-mounted host directory instead, so that it is harder to accidentally remove the volume and lose all your data!
-      # - ./docker/db/data:/var/lib/postgresql/data:rw
-###< doctrine/doctrine-bundle ###
+    php-8.3-fpm:
+        image: php-8.3-fpm
+        build:
+            context: .
+            dockerfile: ./docker/php/Dockerfile
+        volumes:
+            - ./:/var/www/html
+        depends_on:
+            - mysql
+            - mercure
+        networks:
+            - backend
+    apache-httpd:
+        image: apache-httpd
+        build:
+            context: .
+            dockerfile: ./docker/apache/Dockerfile
+        volumes:
+            - ./:/var/www/html
+        ports:
+            - "8080:80"
+        depends_on:
+            - php-8.3-fpm
+        networks:
+            - backend
+    mysql:
+        image: mysql
+        restart: unless-stopped
+        environment:
+            MYSQL_ROOT_PASSWORD: "!ChangeMe!"
+        volumes:
+            - mysql-data:/var/lib/mysql
+        ports:
+            - "3306:3306"
+        networks:
+            - backend
+    mercure:
+        image: dunglas/mercure
+        restart: unless-stopped
+        environment:
+            # Uncomment the following line to disable HTTPS
+            #SERVER_NAME: ":80"
+            MERCURE_PUBLISHER_JWT_KEY: "!ChangeThisMercureHubJWTSecretKey!"
+            MERCURE_SUBSCRIBER_JWT_KEY: "!ChangeThisMercureHubJWTSecretKey!"
+        # Uncomment the following line to enable the development mode
+        command: /usr/bin/caddy run --config /etc/caddy/Caddyfile.dev
+        volumes:
+            - mercure_data:/data
+            - mercure_config:/config
+        ports:
+            - "80:80"
+            - "443:443"
+        networks:
+            - backend
+    webpack:
+        image: webpack
+        working_dir: /app
+        build:
+            context: .
+            dockerfile: ./docker/webpack/Dockerfile
+        volumes:
+            - ./:/app
+            - /app/node_modules
 
 volumes:
-###> doctrine/doctrine-bundle ###
-  database_data:
-###< doctrine/doctrine-bundle ###
+    mysql-data:
+        name: "website-valdi-mysql"
+    mercure_data:
+        name: "mercure_data"
+    mercure_config:
+        name: "mercure_config"
+
+networks:
+    backend:
+        name: "backend"
+        driver: bridge

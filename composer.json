@@ -10,12 +10,15 @@
         "doctrine/doctrine-bundle": "^2.11",
         "doctrine/doctrine-migrations-bundle": "^3.3",
         "doctrine/orm": "^2.17",
+        "liip/imagine-bundle": "^2.12",
+        "norkunas/youtube-dl-php": "dev-master",
         "phpdocumentor/reflection-docblock": "^5.3",
         "phpstan/phpdoc-parser": "^1.25",
         "symfony/asset": "7.0.*",
         "symfony/asset-mapper": "7.0.*",
         "symfony/console": "7.0.*",
         "symfony/doctrine-messenger": "7.0.*",
+        "symfony/dom-crawler": "7.0.*",
         "symfony/dotenv": "7.0.*",
         "symfony/expression-language": "7.0.*",
         "symfony/flex": "^2",
@@ -37,9 +40,11 @@
         "symfony/string": "7.0.*",
         "symfony/translation": "7.0.*",
         "symfony/twig-bundle": "7.0.*",
+        "symfony/uid": "7.0.*",
         "symfony/ux-turbo": "^2.14",
         "symfony/validator": "7.0.*",
         "symfony/web-link": "7.0.*",
+        "symfony/webpack-encore-bundle": "^2.1",
         "symfony/yaml": "7.0.*",
         "twig/extra-bundle": "^2.12|^3.0",
         "twig/twig": "^2.12|^3.0"
@@ -54,12 +59,20 @@
     },
     "autoload": {
         "psr-4": {
-            "App\\": "src/"
+            "App\\": "src/",
+            "App\\CoreBundle\\": "src/CoreBundle/src/",
+            "App\\AnimeBundle\\": "src/AnimeBundle/src/",
+            "App\\BooksBundle\\": "src/BooksBundle/src/",
+            "App\\VideosBundle\\": "src/VideosBundle/src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "App\\Tests\\": "tests/"
+            "App\\Tests\\": "tests/",
+            "App\\CoreBundle\\Tests\\": "src/CoreBundle/tests/",
+            "App\\AnimeBundle\\Tests\\": "src/AnimeBundle/tests/",
+            "App\\BooksBundle\\Tests\\": "src/BooksBundle/tests/",
+            "App\\VideosBundle\\Tests\\": "src/VideosBundle/tests/"
         }
     },
     "replace": {

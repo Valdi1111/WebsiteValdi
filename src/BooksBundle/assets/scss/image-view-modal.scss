@@ -1,0 +1,36 @@
+@import "~bootstrap/scss/functions";
+@import "~bootstrap/scss/variables";
+@import "~bootstrap/scss/mixins";
+
+#image-view-modal .modal-footer {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto auto;
+  grid-template-areas: "slider slider slider slider slider"
+    "copy download . left right";
+}
+
+#image-view-modal .modal-footer > button:nth-child(1) {
+  grid-area: copy;
+}
+
+#image-view-modal .modal-footer > button:nth-child(2) {
+  grid-area: download;
+}
+
+#image-view-modal .modal-footer > button:nth-child(4) {
+  grid-area: left;
+}
+
+#image-view-modal .modal-footer > button:nth-child(5) {
+  grid-area: right;
+}
+
+#image-view-modal .modal-footer > div:nth-child(3) {
+  grid-area: slider;
+}
+
+@include media-breakpoint-up(sm) {
+  #image-view-modal .modal-footer {
+    grid-template-areas: "copy download slider left right";
+  }
+}

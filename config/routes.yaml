@@ -1,5 +1,17 @@
-controllers:
-    resource:
-        path: ../src/Controller/
-        namespace: App\Controller
-    type: attribute
+#controllers:
+#    resource:
+#        path: ../src/Controller/
+#        namespace: App\Controller
+#    type: attribute
+
+core:
+    resource: '@CoreBundle/config/routing.yaml'
+
+anime:
+    resource: '@AnimeBundle/config/routing.yaml'
+
+books:
+    resource: '@BooksBundle/config/routing.yaml'
+
+videos:
+    resource: '@VideosBundle/config/routing.yaml'

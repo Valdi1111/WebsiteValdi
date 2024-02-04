@@ -1,5 +1,10 @@
 twig:
     file_name_pattern: '*.twig'
+    paths:
+        src/CoreBundle/templates: 'CoreBundle'
+        src/AnimeBundle/templates: 'AnimeBundle'
+        src/BooksBundle/templates: 'BooksBundle'
+        src/VideosBundle/templates: 'VideosBundle'
 
 when@test:
     twig:

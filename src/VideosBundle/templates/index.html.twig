@@ -1,0 +1,18 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Videos{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {{ encore_entry_link_tags('videos') }}
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('videos') }}
+{% endblock %}
+
+{% block body %}
+    <div id="root">
+    </div>
+{% endblock %}

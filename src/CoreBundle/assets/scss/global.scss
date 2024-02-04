@@ -1,0 +1,79 @@
+$link-decoration: none;
+
+@import "~bootstrap/scss/bootstrap";
+
+.accordion {
+  --#{$prefix}accordion-active-bg: #{$accordion-button-active-bg};
+  --#{$prefix}accordion-border-color: #{$accordion-border-color};
+}
+
+.list-group {
+  --#{$prefix}list-group-active-bg: #{$accordion-button-active-bg};
+  --#{$prefix}list-group-active-border-color: #{$accordion-border-color};
+}
+
+$fa-font-path: "~@fortawesome/fontawesome-free/webfonts";
+@import "~@fortawesome/fontawesome-free/scss/fontawesome";
+@import "~@fortawesome/fontawesome-free/scss/solid";
+@import "~@fortawesome/fontawesome-free/scss/regular";
+@import "~@fortawesome/fontawesome-free/scss/brands";
+
+//@import "../books/scss/image-view-modal";
+
+.min-width-0 {
+  min-width: 0;
+}
+
+.min-height-0 {
+  min-height: 0;
+}
+
+.cursor-default {
+  cursor: default !important;
+}
+
+.cursor-pointer {
+  cursor: pointer !important;
+}
+
+.cursor-wait {
+  cursor: wait !important;
+}
+
+.cursor-text {
+  cursor: text !important;
+}
+
+::-webkit-scrollbar-track {
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  background-color: var(--#{$prefix}border-color);
+}
+
+::-webkit-scrollbar-corner {
+  background-color: var(--#{$prefix}body-bg);
+}
+
+.btn-icon, .btn-social {
+  display: inline-flex;
+  align-content: center !important;
+  justify-content: center !important;
+  padding: 0.6rem 0.75rem !important;
+}
+
+.btn-social:hover {
+  opacity: 0.7;
+}
+
+.btn-social > i {
+  width: 32px;
+  height: 32px;
+}

@@ -1,0 +1,19 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Books{% endblock %}
+{% block favicon %}{{ asset('images/books/favicon.ico') }}{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {{ encore_entry_link_tags('books') }}
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('books') }}
+{% endblock %}
+
+{% block body %}
+    <div id="root">
+    </div>
+{% endblock %}

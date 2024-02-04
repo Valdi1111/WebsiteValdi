@@ -19,9 +19,11 @@ services:
             context: .
             dockerfile: ./docker/apache/Dockerfile
         volumes:
+            - ./docker/apache/vhosts:/usr/local/apache2/conf/extra/docker
+            - ./docker/apache/certs:/etc/ssl/certs
             - ./:/var/www/html
         ports:
-            - "8080:80"
+            - "8443:443"
         depends_on:
             - php-8.3-fpm
         networks:
@@ -41,18 +43,20 @@ services:
         image: dunglas/mercure
         restart: unless-stopped
         environment:
-            # Uncomment the following line to disable HTTPS
-            #SERVER_NAME: ":80"
+            # Comment the following line to enable HTTPS
+            SERVER_NAME: ":80"
             MERCURE_PUBLISHER_JWT_KEY: "!ChangeThisMercureHubJWTSecretKey!"
             MERCURE_SUBSCRIBER_JWT_KEY: "!ChangeThisMercureHubJWTSecretKey!"
-        # Uncomment the following line to enable the development mode
+            # Set the URL of your Symfony project (without trailing slash!) as value of the cors_origins directive
+            #MERCURE_EXTRA_DIRECTIVES: |
+            #    cors_origins http://127.0.0.1:8000
+        # Comment the following line to disable the development mode
         command: /usr/bin/caddy run --config /etc/caddy/Caddyfile.dev
         volumes:
             - mercure_data:/data
             - mercure_config:/config
         ports:
-            - "80:80"
-            - "443:443"
+            - "3000:80"
         networks:
             - backend
     webpack:
@@ -69,9 +73,9 @@ volumes:
     mysql-data:
         name: "website-valdi-mysql"
     mercure_data:
-        name: "mercure_data"
+        name: "website-valdi-mercure-data"
     mercure_config:
-        name: "mercure_config"
+        name: "website-valdi-mercure-config"
 
 networks:
     backend:

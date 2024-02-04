@@ -4,13 +4,4 @@ controllers:
         namespace: App\CoreBundle\Controller
     type: attribute
     name_prefix: core_
-    prefix: /
-
-when@prod:
-    controllers:
-        resource:
-            path: ../src/Controller/
-            namespace: App\CoreBundle\Controller
-        type: attribute
-        name_prefix: core_
-        #host: core.valdi.ovh
+    #host: core.valdi.ovh

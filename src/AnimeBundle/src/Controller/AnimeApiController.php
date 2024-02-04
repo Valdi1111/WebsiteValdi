@@ -12,6 +12,8 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Mercure\HubInterface;
+use Symfony\Component\Mercure\Update;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[Route('/api', name: 'api_')]
@@ -21,6 +23,23 @@ class AnimeApiController extends AbstractController
     public function __construct(private readonly EntityManagerInterface $animeEntityManager, private readonly MyAnimeListService $malService, private readonly AnimeWorldService $awService)
     {
     }
+
+    /*
+    #[Route('/test-pub', name: 'test_pub', methods: ['GET'])]
+    public function testPub(HubInterface $hub): Response
+    {
+        $this->denyAccessUnlessGranted('ROLE_USER');
+        $update = new Update(
+            'https://books.valdi.ovh/books/updates',
+            json_encode(['status' => 'OutOfStock']),
+            true
+        );
+
+        $hub->publish($update);
+
+        return new Response('published!');
+    }
+    */
 
     #[Route('/list/anime', name: 'list_anime', methods: ['GET'])]
     public function apiListAnime(): Response

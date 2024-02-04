@@ -4,13 +4,4 @@ controllers:
         namespace: App\BooksBundle\Controller
     type: attribute
     name_prefix: books_
-    prefix: /books
-
-when@prod:
-    controllers:
-        resource:
-            path: ../src/Controller/
-            namespace: App\BooksBundle\Controller
-        type: attribute
-        name_prefix: books_
-        host: books.valdi.ovh
+    host: books.valdi.ovh

@@ -35,5 +35,6 @@ yarn-error.log
 /public/media/cache/
 ###< liip/imagine-bundle ###
 
+/docker/apache/certs
 /compose.override.yaml
 /.idea/

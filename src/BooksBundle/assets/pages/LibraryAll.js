@@ -16,10 +16,8 @@ export default function LibraryAll() {
     const ws = React.useRef(null);
 
     React.useEffect(() => {
-        if (ws.current) {
-            ws.current.close();
-        }
         refreshBooks();
+        return stopWebsocket;
     }, []);
 
     // Handle book add/recreate/delete
@@ -53,6 +51,12 @@ export default function LibraryAll() {
         ws.current.onmessage = event => {
             // Will be called every time an update is published by the server
             console.log(JSON.parse(event.data));
+        }
+    }
+
+    function stopWebsocket() {
+        if (ws.current) {
+            ws.current.close();
         }
     }
 

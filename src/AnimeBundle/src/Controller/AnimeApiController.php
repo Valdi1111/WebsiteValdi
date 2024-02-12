@@ -24,18 +24,18 @@ class AnimeApiController extends AbstractController
     {
     }
 
-    #[Route('/test-pub', name: 'test_pub', methods: ['GET'])]
-    public function testPub(HubInterface $hub): Response
-    {
-        $this->denyAccessUnlessGranted('ROLE_USER');
-        $update = new Update(
-            'https://books.valdi.ovh/library/shelves/33',
-            json_encode(['status' => 'OutOfStock']),
-            true
-        );
-        $hub->publish($update);
-        return new Response('published!');
-    }
+    //#[Route('/test-pub', name: 'test_pub', methods: ['GET'])]
+    //public function testPub(HubInterface $hub): Response
+    //{
+    //    $this->denyAccessUnlessGranted('ROLE_USER');
+    //    $update = new Update(
+    //        'https://books.valdi.ovh/library/shelves/33',
+    //        json_encode(['status' => 'OutOfStock']),
+    //        true
+    //    );
+    //    $hub->publish($update);
+    //    return new Response('published!');
+    //}
 
     #[Route('/list/anime', name: 'list_anime', methods: ['GET'])]
     public function apiListAnime(): Response

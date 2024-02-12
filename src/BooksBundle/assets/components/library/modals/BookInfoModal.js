@@ -1,10 +1,9 @@
-import {getMetadata} from "../../../api/book";
-import missingCover from "../../../images/missing-cover.png";
+import {getMetadata, MISSING_COVER} from "../../../api/book";
 import React from "react";
 
 export default function BookInfoModal() {
     const [path, setPath] = React.useState('');
-    const [cover, setCover] = React.useState(missingCover);
+    const [cover, setCover] = React.useState(MISSING_COVER);
     const [title, setTitle] = React.useState('');
     const [creator, setCreator] = React.useState('');
     const [publisher, setPublisher] = React.useState('');
@@ -21,7 +20,7 @@ export default function BookInfoModal() {
             setPath(e.relatedTarget.getAttribute("data-bs-url"));
             getMetadata(id).then(
                 res => {
-                    setCover(res.data.cover ? res.data.cover : missingCover);
+                    setCover(res.data.cover ? res.data.cover : MISSING_COVER);
                     setTitle(res.data.title);
                     setCreator(res.data.creator);
                     setPublisher(res.data.publisher);
@@ -36,7 +35,7 @@ export default function BookInfoModal() {
         });
         modal.current.addEventListener("hidden.bs.modal", (e) => {
             setPath('');
-            setCover(missingCover);
+            setCover(MISSING_COVER);
             setTitle('');
             setCreator('');
             setPublisher('');

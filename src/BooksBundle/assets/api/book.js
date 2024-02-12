@@ -2,6 +2,7 @@ import {API_URL} from "../constants";
 import { Book } from "epubjs";
 import axios from "axios";
 
+export const MISSING_COVER = `/build/books/images/missing-cover.png`;
 export const EPUB_URL = `${API_URL}/epub`;
 
 const locale = 'en-US';

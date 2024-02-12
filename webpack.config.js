@@ -22,10 +22,10 @@ Encore
     //.setManifestKeyPrefix('build/')
 
     .copyFiles([
-        {from: path.resolve(__dirname, 'src/AnimeBundle/public/'), to: 'anime/[path][name].[hash:8].[ext]'},
-        {from: path.resolve(__dirname, 'src/BooksBundle/public/'), to: 'books/[path][name].[hash:8].[ext]'},
-        {from: path.resolve(__dirname, 'src/CoreBundle/public/'), to: 'core/[path][name].[hash:8].[ext]'},
-        {from: path.resolve(__dirname, 'src/VideosBundle/public/'), to: 'videos/[path][name].[hash:8].[ext]'},
+        {from: path.resolve(__dirname, 'src/AnimeBundle/public/'), to: 'anime/[path][name].[ext]'},
+        {from: path.resolve(__dirname, 'src/BooksBundle/public/'), to: 'books/[path][name].[ext]'},
+        {from: path.resolve(__dirname, 'src/CoreBundle/public/'), to: 'core/[path][name].[ext]'},
+        {from: path.resolve(__dirname, 'src/VideosBundle/public/'), to: 'videos/[path][name].[ext]'},
     ])
 
     /*

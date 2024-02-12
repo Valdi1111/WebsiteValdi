@@ -1,19 +1,98 @@
-version: '3'
+version: '3.9'
 
 services:
-###> doctrine/doctrine-bundle ###
-  database:
-    ports:
-      - "5432"
-###< doctrine/doctrine-bundle ###
+    php-8.3-fpm:
+        image: php-8.3-fpm
+        build:
+            context: .
+            dockerfile: ./docker/php/Dockerfile
+        volumes:
+            - ./:/var/www/html
+            - elements_1:/media/Elements_1
+            - elements_2:/media/Elements_2
+        depends_on:
+            - mysql
+            - mercure
+        networks:
+            - backend
+    apache-httpd:
+        image: apache-httpd
+        build:
+            context: .
+            dockerfile: ./docker/apache/Dockerfile
+        volumes:
+            - ./docker/apache/vhosts:/usr/local/apache2/conf/extra/docker
+            - ./docker/apache/certs:/etc/ssl/certs
+            - ./:/var/www/html
+        ports:
+            - "8443:443"
+        depends_on:
+            - php-8.3-fpm
+        networks:
+            - backend
+    mysql:
+        image: mysql
+        restart: unless-stopped
+        environment:
+            MYSQL_ROOT_PASSWORD: "masterkey"
+        volumes:
+            - mysql-data:/var/lib/mysql
+        ports:
+            - "3309:3306"
+        networks:
+            - backend
+    mercure:
+        image: dunglas/mercure
+        restart: unless-stopped
+        environment:
+            # Uncomment the following line to disable HTTPS
+            SERVER_NAME: ":80"
+            MERCURE_PUBLISHER_JWT_KEY: "UTJ^zmEVTJXRBQ25W*KzUDnxLIF@@3C6"
+            MERCURE_SUBSCRIBER_JWT_KEY: "UTJ^zmEVTJXRBQ25W*KzUDnxLIF@@3C6"
+            # Set the URL of your Symfony project (without trailing slash!) as value of the cors_origins directive
+            #MERCURE_EXTRA_DIRECTIVES: |
+            #    cookie_name valdi.ovh
+            #    cors_origins http://127.0.0.1:8000
+        # Comment the following line to disable the development mode
+        command: /usr/bin/caddy run --config /etc/caddy/Caddyfile.dev
+        volumes:
+            - mercure_data:/data
+            - mercure_config:/config
+        ports:
+            - "3000:80"
+        networks:
+            - backend
+    webpack:
+        image: webpack
+        working_dir: /app
+        build:
+            context: .
+            dockerfile: ./docker/webpack/Dockerfile
+        volumes:
+            - ./:/app
+            - /app/node_modules
 
-###> symfony/mailer ###
-  mailer:
-    image: axllent/mailpit
-    ports:
-      - "1025"
-      - "8025"
-    environment:
-      MP_SMTP_AUTH_ACCEPT_ANY: 1
-      MP_SMTP_AUTH_ALLOW_INSECURE: 1
-###< symfony/mailer ###
+volumes:
+    mysql-data:
+        name: "website-valdi-mysql"
+    mercure_data:
+        name: "website-valdi-mercure-data"
+    mercure_config:
+        name: "website-valdi-mercure-config"
+    elements_1:
+        name: "elements_1"
+        driver_opts:
+            type: "cifs"
+            device: //192.168.1.170/Elements_1
+            o: "username=davide,password=39D4shXQ"
+    elements_2:
+        name: "elements_2"
+        driver_opts:
+            type: "cifs"
+            device: //192.168.1.170/Elements_2
+            o: "username=davide,password=39D4shXQ"
+
+networks:
+    backend:
+        name: "backend"
+        driver: bridge

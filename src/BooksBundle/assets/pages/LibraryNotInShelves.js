@@ -12,8 +12,13 @@ export default function LibraryNotInShelves() {
     const [books, setBooks] = React.useState([]);
     const [page, setPage] = React.useState(1);
     const [loading, setLoading] = React.useState(true);
+    /** @type {MutableRefObject<EventSource>}*/
+    const ws = React.useRef(null);
 
     React.useEffect(() => {
+        if (ws.current) {
+            ws.current.close();
+        }
         refreshBooks();
     }, []);
 
@@ -49,9 +54,23 @@ export default function LibraryNotInShelves() {
                 setBooks(res.data.slice(0, BOOKS_PER_PAGE * page));
                 setHasMore(res.data.length > BOOKS_PER_PAGE * page);
                 setLoading(false);
+                // Websocket
+                startWebsocket();
             },
             err => console.error(err)
         );
+    }
+
+    function startWebsocket() {
+        // Append the topic(s) to subscribe as query parameter
+        const hub = new URL(MERCURE_HUB_URL, window.origin);
+        hub.searchParams.append('topic', `https://books.valdi.ovh/library/not-in-shelves`);
+        // Subscribe to updates
+        ws.current = new EventSource(hub, {withCredentials: true});
+        ws.current.onmessage = event => {
+            // Will be called every time an update is published by the server
+            console.log(JSON.parse(event.data));
+        }
     }
 
     function loadMore() {

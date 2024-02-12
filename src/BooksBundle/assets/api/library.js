@@ -1,7 +1,6 @@
 import {API_URL} from "../constants";
 import axios from "axios";
 
-export const MISSING_COVER_URL = '/images/books/missing-cover.png';
 export const BOOKS_PER_PAGE = 20;
 
 export function getCoverUrl(id) {

@@ -14,8 +14,13 @@ export default function LibraryShelvesId() {
     const [content, setContent] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
     const navigate = useNavigate();
+    /** @type {MutableRefObject<EventSource>}*/
+    const ws = React.useRef(null);
 
     React.useEffect(() => {
+        if (ws.current) {
+            ws.current.close();
+        }
         if (shelf) {
             refreshContent();
         }
@@ -63,9 +68,23 @@ export default function LibraryShelvesId() {
                 allShelves[i]._count = res.data.length;
                 setShelves([...allShelves]);
                 setLoading(false);
+                // Websocket
+                startWebsocket();
             },
             err => console.error(err)
         );
+    }
+
+    function startWebsocket() {
+        // Append the topic(s) to subscribe as query parameter
+        const hub = new URL(MERCURE_HUB_URL, window.origin);
+        hub.searchParams.append('topic', `https://books.valdi.ovh/library/shelves/${shelf.id}`);
+        // Subscribe to updates
+        ws.current = new EventSource(hub, {withCredentials: true});
+        ws.current.onmessage = event => {
+            // Will be called every time an update is published by the server
+            console.log(JSON.parse(event.data));
+        }
     }
 
     function onShelfEdit(data) {

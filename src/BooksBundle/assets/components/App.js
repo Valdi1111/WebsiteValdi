@@ -28,21 +28,6 @@ export default function App() {
         elem[0].setAttribute('data-bs-theme', theme);
     }, [theme]);
 
-    /*
-    React.useEffect(() => {
-        // Append the topic(s) to subscribe as query parameter
-        const hub = new URL(MERCURE_HUB_URL, window.origin);
-        hub.searchParams.append('topic', 'https://books.valdi.ovh/books/updates');
-
-        // Subscribe to updates
-        const eventSource = new EventSource(hub, {withCredentials: true});
-        eventSource.onmessage = event => {
-            // Will be called every time an update is published by the server
-            console.log(JSON.parse(event.data));
-        }
-    }, []);
-    */
-
     return (
         <ThemeContext.Provider value={[theme, setTheme]}>
             <ThemeChangeModal/>

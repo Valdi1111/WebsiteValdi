@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\File\File;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
+use Symfony\Component\Mercure\Authorization;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Uid\Uuid;
 
@@ -37,9 +38,10 @@ class BooksApiController extends AbstractController
     }
 
     #[Route('/books/all', name: 'books_all', methods: ['GET'])]
-    public function apiBooksAll(Request $req, CacheManager $imagineCacheManager): Response
+    public function apiBooksAll(Request $req, CacheManager $imagineCacheManager, Authorization $authorization): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
+        $authorization->setCookie($req, ["https://books.valdi.ovh/library/all"]);
         if (!$req->query->has('limit')) {
             return $this->json(['error' => true, 'message' => "Parameter limit not found."], 400);
         }
@@ -53,9 +55,10 @@ class BooksApiController extends AbstractController
     }
 
     #[Route('/books/not-in-shelves', name: 'books_not_in_shelves', methods: ['GET'])]
-    public function apiBooksNotInShelves(Request $req, CacheManager $imagineCacheManager): Response
+    public function apiBooksNotInShelves(Request $req, CacheManager $imagineCacheManager, Authorization $authorization): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
+        $authorization->setCookie($req, ["https://books.valdi.ovh/library/not-in-shelves"]);
         if (!$req->query->has('limit')) {
             return $this->json(['error' => true, 'message' => "Parameter limit not found."], 400);
         }
@@ -398,9 +401,10 @@ class BooksApiController extends AbstractController
     }
 
     #[Route('/shelves/{shelfId}/books', name: 'shelves_id_books', requirements: ['shelfId' => '\d+'], methods: ['GET'])]
-    public function apiShelvesIdBooks(Request $req, int $shelfId, CacheManager $imagineCacheManager): Response
+    public function apiShelvesIdBooks(Request $req, int $shelfId, CacheManager $imagineCacheManager, Authorization $authorization): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
+        $authorization->setCookie($req, ["https://books.valdi.ovh/library/shelves/$shelfId"]);
         $shelf = $this->booksEntityManager->getRepository(Shelf::class)->findOneBy(['id' => $shelfId]);
         if (!$shelf) {
             return $this->json(['error' => true, 'message' => "Shelf not found."], 400);

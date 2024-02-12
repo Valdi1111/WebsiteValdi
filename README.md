@@ -5,6 +5,8 @@
 src/CoreBundle/
     assets/
     config/
+        routing.yaml
+        services.yaml
     public/
     src/
         Controller/
@@ -35,7 +37,19 @@ class CoreBundle extends AbstractBundle
 
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
     {
+        // Load parameters
+        $container->parameters()->set('core.some_param', $config['some_param']);
+        // Load services
         $container->import('./config/services.yaml');
+    }
+
+    // Custom configuration
+    public function configure(DefinitionConfigurator $definition): void
+    {
+        $definition->rootNode()
+            ->children()
+                ->scalarNode('some_param')->defaultNull()->end()
+            ->end();
     }
 
 }
@@ -112,5 +126,30 @@ return [
 ```yaml
 core:
     resource: '@CoreBundle/config/routing.yaml'
-    prefix: /core
+```
+
+### Aggiungere a `webpack.config.js`
+```javascript
+Encore
+    ...
+    .addAliases({
+        ...
+        '@CoreBundle': path.resolve(__dirname, 'src/CoreBundle/assets/'),
+    })
+    ...
+    .copyFiles([
+        ...
+        {from: path.resolve(__dirname, 'src/CoreBundle/public/'), to: 'core/[path][name].[hash:8].[ext]'},
+    ])
+    ...
+```
+
+### Aggiungere a `phpstorm.config.js`
+```javascript
+System.config({
+    "paths": {
+        ...
+        "@CoreBundle/*": "./src/CoreBundle/assets/*",
+    }
+});
 ```

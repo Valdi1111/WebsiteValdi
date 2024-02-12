@@ -21,6 +21,13 @@ Encore
     // only needed for CDN's or subdirectory deploy
     //.setManifestKeyPrefix('build/')
 
+    .copyFiles([
+        {from: path.resolve(__dirname, 'src/AnimeBundle/public/'), to: 'anime/[path][name].[hash:8].[ext]'},
+        {from: path.resolve(__dirname, 'src/BooksBundle/public/'), to: 'books/[path][name].[hash:8].[ext]'},
+        {from: path.resolve(__dirname, 'src/CoreBundle/public/'), to: 'core/[path][name].[hash:8].[ext]'},
+        {from: path.resolve(__dirname, 'src/VideosBundle/public/'), to: 'videos/[path][name].[hash:8].[ext]'},
+    ])
+
     /*
      * ENTRY CONFIG
      *
@@ -73,12 +80,12 @@ Encore
     // uncomment if you use React
     .enableReactPreset()
 
-    // uncomment to get integrity="..." attributes on your script & link tags
-    // requires WebpackEncoreBundle 1.4 or higher
-    //.enableIntegrityHashes(Encore.isProduction())
+// uncomment to get integrity="..." attributes on your script & link tags
+// requires WebpackEncoreBundle 1.4 or higher
+//.enableIntegrityHashes(Encore.isProduction())
 
-    // uncomment if you're having problems with a jQuery plugin
-    //.autoProvidejQuery()
+// uncomment if you're having problems with a jQuery plugin
+//.autoProvidejQuery()
 ;
 
 module.exports = Encore.getWebpackConfig();

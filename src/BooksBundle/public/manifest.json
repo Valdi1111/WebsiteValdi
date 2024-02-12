@@ -1,0 +1,93 @@
+{
+    "name": "Books Valdi",
+    "short_name": "Books",
+    "start_url": "https://books.valdi.ovh",
+    "display": "standalone",
+    "background_color": "#2c2c2c",
+    "lang": "en",
+    "scope": "/",
+    "description": "Read light novels online",
+    "categories": [
+        "books"
+    ],
+    "id": "/",
+    "prefer_related_applications": false,
+    "protocol_handlers": [
+        {
+            "protocol": "web+booksvaldi",
+            "url": "https://books.valdi.ovh/%s"
+        }
+    ],
+    "related_applications": [],
+    "dir": "ltr",
+    "display_override": [
+        "window-controls-overlay",
+        "standalone",
+        "minimal-ui",
+        "fullscreen",
+        "browser"
+    ],
+    "edge_side_panel": {
+        "preferred_width": 400
+    },
+    "orientation": "portrait-primary",
+    "theme_color": "#2c2c2c",
+    "icons": [
+        {
+            "src": "/images/books/favicon.ico",
+            "type": "image/x-icon",
+            "sizes": "256x256",
+            "purpose": "any"
+        },
+        {
+            "src": "/images/books/favicon.ico",
+            "type": "image/x-icon",
+            "sizes": "256x256",
+            "purpose": "maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "All books",
+            "short_name": "All books",
+            "description": "All books",
+            "url": "/library/all",
+            "icons": [
+                {
+                    "src": "/images/books/favicon.ico",
+                    "type": "image/x-icon",
+                    "sizes": "256x256",
+                    "purpose": "any"
+                }
+            ]
+        },
+        {
+            "name": "Shelves",
+            "short_name": "Shelves",
+            "description": "Shelves",
+            "url": "/library/shelves",
+            "icons": [
+                {
+                    "src": "/images/books/favicon.ico",
+                    "type": "image/x-icon",
+                    "sizes": "256x256",
+                    "purpose": "any"
+                }
+            ]
+        },
+        {
+            "name": "Not in shelves",
+            "short_name": "Not in shelves",
+            "description": "Not in shelves",
+            "url": "/library/not-in-shelves",
+            "icons": [
+                {
+                    "src": "/images/books/favicon.ico",
+                    "type": "image/x-icon",
+                    "sizes": "256x256",
+                    "purpose": "any"
+                }
+            ]
+        }
+    ]
+}

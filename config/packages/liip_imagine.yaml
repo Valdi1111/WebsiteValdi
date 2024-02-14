@@ -2,9 +2,6 @@
 liip_imagine:
     # valid drivers options include "gd" or "gmagick" or "imagick"
     driver: "imagick"
-    # configure webp
-    webp:
-        generate: true
     # configure resolvers
     resolvers:
         # setup the default resolver

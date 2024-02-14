@@ -38,7 +38,7 @@ class BooksApiController extends AbstractController
     }
 
     #[Route('/books/all', name: 'books_all', methods: ['GET'])]
-    public function apiBooksAll(Request $req, CacheManager $imagineCacheManager, Authorization $authorization): Response
+    public function apiBooksAll(Request $req, CacheManager $cacheManager, Authorization $authorization): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $authorization->setCookie($req, ["https://books.valdi.ovh/library/all"]);
@@ -51,11 +51,11 @@ class BooksApiController extends AbstractController
         $limit = $req->query->getInt('limit');
         $offset = $req->query->getInt('offset');
         $books = $this->booksEntityManager->getRepository(Book::class)->getAll($limit, $offset);
-        return $this->jsonBooks($imagineCacheManager, $books, false);
+        return $this->jsonBooks($cacheManager, $books, false);
     }
 
     #[Route('/books/not-in-shelves', name: 'books_not_in_shelves', methods: ['GET'])]
-    public function apiBooksNotInShelves(Request $req, CacheManager $imagineCacheManager, Authorization $authorization): Response
+    public function apiBooksNotInShelves(Request $req, CacheManager $cacheManager, Authorization $authorization): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $authorization->setCookie($req, ["https://books.valdi.ovh/library/not-in-shelves"]);
@@ -68,7 +68,7 @@ class BooksApiController extends AbstractController
         $limit = $req->query->getInt('limit');
         $offset = $req->query->getInt('offset');
         $books = $this->booksEntityManager->getRepository(Book::class)->getNotInShelves($limit, $offset);
-        return $this->jsonBooks($imagineCacheManager, $books);
+        return $this->jsonBooks($cacheManager, $books);
     }
 
     private function searchFiles(array &$all, string $baseFolder, string $path = ""): void
@@ -147,7 +147,7 @@ class BooksApiController extends AbstractController
     }
 
     #[Route('/books/{bookId}', name: 'books_id_get', requirements: ['bookId' => '\d+'], methods: ['GET'])]
-    public function apiBooksIdGet(Request $req, int $bookId, CacheManager $imagineCacheManager): Response
+    public function apiBooksIdGet(Request $req, int $bookId, CacheManager $cacheManager): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $book = $this->booksEntityManager->getRepository(Book::class)->findOneBy(['id' => $bookId]);
@@ -158,7 +158,7 @@ class BooksApiController extends AbstractController
             'id' => $book->getId(),
             'url' => $book->getUrl(),
             'book_cache' => [
-                'cover' => $this->generateCoverThumbnail($imagineCacheManager, $book, 'books_cover'),
+                'cover' => $this->generateCoverThumbnail($cacheManager, $book, 'books_cover'),
                 'navigation' => $book->getBookCache()->getNavigation(),
                 'locations' => $book->getBookCache()->getLocations(),
             ],
@@ -197,7 +197,7 @@ class BooksApiController extends AbstractController
     }
 
     #[Route('/books/{bookId}', name: 'books_id_delete', requirements: ['bookId' => '\d+'], methods: ['DELETE'])]
-    public function apiBooksIdDelete(Request $req, int $bookId): Response
+    public function apiBooksIdDelete(Request $req, int $bookId, CacheManager $cacheManager): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $book = $this->booksEntityManager->getRepository(Book::class)->findOneBy(['id' => $bookId]);
@@ -205,7 +205,7 @@ class BooksApiController extends AbstractController
             return $this->json(['error' => true, 'message' => "Book not found."], 400);
         }
         $cache = $book->getBookCache();
-        $this->removeCoverFile($cache);
+        $this->removeCoverFile($cacheManager, $cache);
         $this->booksEntityManager->remove($cache);
         $this->booksEntityManager->remove($book->getBookMetadata());
         $this->booksEntityManager->remove($book->getBookProgress());
@@ -215,21 +215,23 @@ class BooksApiController extends AbstractController
         return $this->json([]);
     }
 
-    public function removeCoverFile(BookCache $book): void
+    public function removeCoverFile(CacheManager $cacheManager, BookCache $book): void
     {
         if (!$book->getCover()) {
             return;
         }
-        $filepath = $this->getParameter('books.covers_folder') . '/' . $book->getCover();
-        if (file_exists($filepath)) {
-            unlink($filepath);
+        $filepath = '/' . $book->getCover();
+        $cacheManager->remove($filepath);
+        $fullpath = $this->getParameter('books.covers_folder') . $filepath;
+        if (file_exists($fullpath)) {
+            unlink($fullpath);
         }
         $book->setCover(null);
         $this->booksEntityManager->flush();
     }
 
     #[Route('/books/{bookId}/cover', name: 'books_id_cover_get', requirements: ['bookId' => '\d+'], methods: ['GET'])]
-    public function apiBooksIdCoverGet(Request $req, int $bookId, CacheManager $imagineCacheManager): Response
+    public function apiBooksIdCoverGet(Request $req, int $bookId): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $book = $this->booksEntityManager->getRepository(BookCache::class)->findOneBy(['book_id' => $bookId]);
@@ -241,14 +243,14 @@ class BooksApiController extends AbstractController
     }
 
     #[Route('/books/{bookId}/cover', name: 'books_id_cover_add', requirements: ['bookId' => '\d+'], methods: ['POST'])]
-    public function apiBooksIdCoverAdd(Request $req, int $bookId): Response
+    public function apiBooksIdCoverAdd(Request $req, int $bookId, CacheManager $cacheManager): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $book = $this->booksEntityManager->getRepository(BookCache::class)->findOneBy(['book_id' => $bookId]);
         if (!$book) {
             return $this->json(['error' => true, 'message' => "Book not found."], 400);
         }
-        $this->removeCoverFile($book);
+        $this->removeCoverFile($cacheManager, $book);
         if ($req->files->has('cover')) {
             $uuid = Uuid::v7()->toRfc4122();
             $cover = $req->files->get('cover');
@@ -260,14 +262,14 @@ class BooksApiController extends AbstractController
     }
 
     #[Route('/books/{bookId}/cover', name: 'books_id_cover_delete', requirements: ['bookId' => '\d+'], methods: ['DELETE'])]
-    public function apiBooksIdCoverDelete(Request $req, int $bookId): Response
+    public function apiBooksIdCoverDelete(Request $req, int $bookId, CacheManager $cacheManager): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $book = $this->booksEntityManager->getRepository(BookCache::class)->findOneBy(['book_id' => $bookId]);
         if (!$book) {
             return $this->json(['error' => true, 'message' => "Book not found."], 400);
         }
-        $this->removeCoverFile($book);
+        $this->removeCoverFile($cacheManager, $book);
         $this->booksEntityManager->flush();
         return $this->json([]);
     }
@@ -299,7 +301,7 @@ class BooksApiController extends AbstractController
     }
 
     #[Route('/books/{bookId}/metadata', name: 'books_id_metadata', requirements: ['bookId' => '\d+'], methods: ['GET'])]
-    public function apiBooksIdMetadata(Request $req, int $bookId, CacheManager $imagineCacheManager): Response
+    public function apiBooksIdMetadata(Request $req, int $bookId, CacheManager $cacheManager): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $book = $this->booksEntityManager->getRepository(Book::class)->findOneBy(['id' => $bookId]);
@@ -307,7 +309,7 @@ class BooksApiController extends AbstractController
             return $this->json(['error' => true, 'message' => "Book not found."], 400);
         }
         $json = $book->getBookMetadata()->jsonSerialize();
-        $json['cover'] = $this->generateCoverThumbnail($imagineCacheManager, $book, 'books_cover');
+        $json['cover'] = $this->generateCoverThumbnail($cacheManager, $book, 'books_cover');
         return $this->json($json);
     }
 
@@ -401,7 +403,7 @@ class BooksApiController extends AbstractController
     }
 
     #[Route('/shelves/{shelfId}/books', name: 'shelves_id_books', requirements: ['shelfId' => '\d+'], methods: ['GET'])]
-    public function apiShelvesIdBooks(Request $req, int $shelfId, CacheManager $imagineCacheManager, Authorization $authorization): Response
+    public function apiShelvesIdBooks(Request $req, int $shelfId, CacheManager $cacheManager, Authorization $authorization): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $authorization->setCookie($req, ["https://books.valdi.ovh/library/shelves/$shelfId"]);
@@ -410,16 +412,16 @@ class BooksApiController extends AbstractController
             return $this->json(['error' => true, 'message' => "Shelf not found."], 400);
         }
         $books = $this->booksEntityManager->getRepository(Book::class)->getShelfBooks($shelfId);
-        return $this->jsonBooks($imagineCacheManager, $books);
+        return $this->jsonBooks($cacheManager, $books);
     }
 
     /**
-     * @param CacheManager $imagineCacheManager
+     * @param CacheManager $cacheManager
      * @param Book[] $books
      * @param bool $hideShelf show shelf?
      * @return Response
      */
-    private function jsonBooks(CacheManager $imagineCacheManager, array $books, bool $hideShelf = true): Response
+    private function jsonBooks(CacheManager $cacheManager, array $books, bool $hideShelf = true): Response
     {
         $json = [];
         foreach ($books as $book) {
@@ -429,7 +431,7 @@ class BooksApiController extends AbstractController
                 'shelf_id' => $book->getShelfId(),
                 'hide_shelf' => $hideShelf,
                 'book_cache' => [
-                    'cover' => $this->generateCoverThumbnail($imagineCacheManager, $book, 'books_thumb'),
+                    'cover' => $this->generateCoverThumbnail($cacheManager, $book, 'books_thumb'),
                 ],
                 'book_metadata' => [
                     'title' => $book->getBookMetadata()->getTitle(),
@@ -445,15 +447,15 @@ class BooksApiController extends AbstractController
     }
 
     /**
-     * @param CacheManager $imagineCacheManager
+     * @param CacheManager $cacheManager
      * @param Book $book
      * @param string $filter
      * @return string|null
      */
-    private function generateCoverThumbnail(CacheManager $imagineCacheManager, Book $book, string $filter): ?string
+    private function generateCoverThumbnail(CacheManager $cacheManager, Book $book, string $filter): ?string
     {
         if ($book->getBookCache()->getCover()) {
-            return $imagineCacheManager->getBrowserPath("/" . $book->getBookCache()->getCover(), $filter);
+            return $cacheManager->getBrowserPath("/" . $book->getBookCache()->getCover(), $filter);
         }
         return null;
     }

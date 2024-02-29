@@ -21,12 +21,12 @@ Encore
     // only needed for CDN's or subdirectory deploy
     //.setManifestKeyPrefix('build/')
 
-    .copyFiles([
-        {from: path.resolve(__dirname, 'src/AnimeBundle/public/'), to: 'anime/[path][name].[ext]'},
-        {from: path.resolve(__dirname, 'src/BooksBundle/public/'), to: 'books/[path][name].[ext]'},
-        {from: path.resolve(__dirname, 'src/CoreBundle/public/'), to: 'core/[path][name].[ext]'},
-        {from: path.resolve(__dirname, 'src/VideosBundle/public/'), to: 'videos/[path][name].[ext]'},
-    ])
+    //.copyFiles([
+    //    {from: path.resolve(__dirname, 'src/AnimeBundle/public/'), to: 'anime/[path][name].[ext]'},
+    //    {from: path.resolve(__dirname, 'src/BooksBundle/public/'), to: 'books/[path][name].[ext]'},
+    //    {from: path.resolve(__dirname, 'src/CoreBundle/public/'), to: 'core/[path][name].[ext]'},
+    //    {from: path.resolve(__dirname, 'src/VideosBundle/public/'), to: 'videos/[path][name].[ext]'},
+    //])
 
     /*
      * ENTRY CONFIG

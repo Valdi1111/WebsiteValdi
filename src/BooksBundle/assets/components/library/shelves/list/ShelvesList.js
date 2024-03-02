@@ -1,6 +1,6 @@
+import LoadingComponent from "@BooksBundle/components/LoadingComponent";
 import ShelvesListButtons from "./buttons/ShelvesListButtons";
 import ShelvesListItem from "./ShelvesListItem";
-import LoadingComponent from "../../../LoadingComponent";
 import React from 'react';
 
 export default function ShelvesList({loading, shelves, shelf}) {

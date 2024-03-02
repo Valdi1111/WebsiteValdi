@@ -1,12 +1,12 @@
-import LoadingComponent from "../LoadingComponent";
-import ImageViewModal from "./modals/ImageViewModal";
+import ImageViewModal from "@BooksBundle/components/books/modals/ImageViewModal";
+import LoadingComponent from "@BooksBundle/components/LoadingComponent";
 import {
     FONT, FONTS, FONT_SIZE,
     SPACING, MARGINS, WIDTH,
     FORCE_FONT, FORCE_FONT_SIZE, JUSTIFY,
     LAYOUT, LAYOUTS, UPDATE_LAST_READ
 } from "./BookConstants";
-import {BookSettingsContext} from "../Contexts";
+import {BookSettingsContext} from "@BooksBundle/components/Contexts";
 import React from "react";
 
 export default function BookLayout({children}) {

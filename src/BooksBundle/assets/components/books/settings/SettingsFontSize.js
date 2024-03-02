@@ -1,4 +1,4 @@
-import {useBookSettings} from "../../Contexts";
+import {useBookSettings} from "@BooksBundle/components/Contexts";
 import {FONT_SIZE, FONT_SIZES} from "../BookConstants";
 import React from "react";
 

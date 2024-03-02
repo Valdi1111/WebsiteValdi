@@ -1,4 +1,4 @@
-import {API_URL} from "../constants";
+import {API_URL} from "@BooksBundle/constants";
 import axios from "axios";
 
 export async function getShelves() {

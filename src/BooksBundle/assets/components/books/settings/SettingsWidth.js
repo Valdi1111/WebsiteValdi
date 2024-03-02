@@ -1,6 +1,6 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faMinus, faPlus } from "@fortawesome/free-solid-svg-icons";
-import {useBookSettings} from "../../Contexts";
+import {useBookSettings} from "@BooksBundle/components/Contexts";
 import {WIDTH} from "../BookConstants";
 import React from "react";
 

@@ -1,4 +1,4 @@
-import { deleteShelf } from "../../../../api/shelves";
+import { deleteShelf } from "@BooksBundle/api/shelves";
 import React from "react";
 
 export default function ShelfDeleteModal({ update }) {

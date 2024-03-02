@@ -1,4 +1,4 @@
-import LoadingComponent from "../../LoadingComponent";
+import LoadingComponent from "@BooksBundle/components/LoadingComponent";
 import React from "react";
 
 export default function BookLoadingScreen({ loaded }) {

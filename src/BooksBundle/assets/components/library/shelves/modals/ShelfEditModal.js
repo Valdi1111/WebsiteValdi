@@ -1,4 +1,4 @@
-import { editShelf } from "../../../../api/shelves";
+import { editShelf } from "@BooksBundle/api/shelves";
 import React from "react";
 
 export default function ShelfEditModal({ update }) {

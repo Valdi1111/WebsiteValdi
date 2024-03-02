@@ -1,5 +1,5 @@
-import {THEMES} from "../../../ThemeConstants";
-import {useThemes} from "../../../Contexts";
+import {THEMES} from "@BooksBundle/components/ThemeConstants";
+import {useThemes} from "@BooksBundle/components/Contexts";
 import ModalTheme from "./ModalTheme";
 import React from "react";
 

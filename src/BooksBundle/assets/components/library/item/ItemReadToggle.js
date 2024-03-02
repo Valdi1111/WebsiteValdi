@@ -1,4 +1,4 @@
-import { markRead, markUnread } from "../../../api/book";
+import { markRead, markUnread } from "@BooksBundle/api/book";
 import React from "react";
 
 /**

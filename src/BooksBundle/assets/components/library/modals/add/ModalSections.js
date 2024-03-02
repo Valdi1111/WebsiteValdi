@@ -1,4 +1,4 @@
-import LoadingComponent from "../../../LoadingComponent";
+import LoadingComponent from "@BooksBundle/components/LoadingComponent";
 import ModalSection from "./ModalSection";
 import React from "react";
 

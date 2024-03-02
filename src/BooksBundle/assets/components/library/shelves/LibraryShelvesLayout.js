@@ -1,5 +1,5 @@
-import { ShelvesContext } from "../../Contexts";
-import {getShelves} from "../../../api/shelves";
+import { ShelvesContext } from "@BooksBundle/components/Contexts";
+import {getShelves} from "@BooksBundle/api/shelves";
 import LibraryLayout from "../LibraryLayout";
 import ShelfAddModal from "./modals/ShelfAddModal";
 import ShelvesList from "./list/ShelvesList";

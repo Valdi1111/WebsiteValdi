@@ -1,6 +1,6 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCheckCircle } from "@fortawesome/free-solid-svg-icons";
-import { formatReadPercent } from "../../../api/book";
+import { formatReadPercent } from "@BooksBundle/api/book";
 import React from "react";
 
 export default function ItemProgress({ page, total }) {

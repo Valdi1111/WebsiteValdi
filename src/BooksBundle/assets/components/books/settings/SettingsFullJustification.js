@@ -1,4 +1,4 @@
-import {useBookSettings} from "../../Contexts";
+import {useBookSettings} from "@BooksBundle/components/Contexts";
 import {JUSTIFY} from "../BookConstants";
 import React from "react";
 

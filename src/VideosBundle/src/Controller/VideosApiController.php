@@ -6,13 +6,13 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\File;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Attribute\Route;
 
 #[Route('/api', name: 'api_')]
 class VideosApiController extends AbstractController
 {
 
-    #[Route('/videos/{path}', name: 'epub', requirements: ['path' => '.*'], methods: ['GET'])]
+    #[Route('/videos/{path}', name: 'videos', requirements: ['path' => '.*'], methods: ['GET'])]
     public function apiVideos(Request $req, string $path): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');

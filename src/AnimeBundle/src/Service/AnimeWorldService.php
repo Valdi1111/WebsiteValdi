@@ -5,6 +5,8 @@ namespace App\AnimeBundle\Service;
 use App\AnimeBundle\Entity\EpisodeDownload;
 use App\AnimeBundle\Entity\ListAnime;
 use App\AnimeBundle\Entity\SeasonFolder;
+use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
+use App\AnimeBundle\Exception\UnhandledWebsiteException;
 use Doctrine\ORM\EntityManagerInterface;
 use Exception;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
@@ -104,13 +106,15 @@ class AnimeWorldService
      * @param bool $allEpisodes query all episodes
      * @param bool $filter filter if not present in MyAnimeList cache
      * @param bool $save save to database
-     * @return EpisodeDownload|EpisodeDownload[]
+     * @return EpisodeDownload[]
+     * @throws UnhandledWebsiteException
+     * @throws CacheAnimeNotFoundException
      * @throws Exception
      */
-    public function createEpisodeDownloads(string $url, bool $allEpisodes = false, bool $filter = true, bool $save = true): EpisodeDownload|array
+    public function createEpisodeDownloads(string $url, bool $allEpisodes = false, bool $filter = true, bool $save = true): array
     {
-        if(!str_starts_with($url, $this->params->get('anime.aw.url'))) {
-            throw new Exception("This service cannot handle the given url.");
+        if (!str_starts_with($url, $this->params->get('anime.aw.url'))) {
+            throw new UnhandledWebsiteException();
         }
         $episodeUrl = preg_replace("/.*\/\/[^\/]*/", "", $url);
         $globalCrawler = $this->fetchEpisodePage($episodeUrl);
@@ -118,7 +122,7 @@ class AnimeWorldService
         if ($filter) {
             $anime = $this->animeEntityManager->getRepository(ListAnime::class)->findOneBy(['id' => $malId]);
             if (!$anime) {
-                throw new Exception("Anime not found in MyAnimeList cache. Anime id = " . $malId);
+                throw new CacheAnimeNotFoundException($malId);
             }
         }
 
@@ -126,19 +130,16 @@ class AnimeWorldService
         $folder = $this->processFolder($malId);
 
         $episodes = [];
-        if (!$allEpisodes) {
-            $items = $globalCrawler->filter("div.server.active ul.episodes.range li.episode a.active");
-        } else {
-            $items = $globalCrawler->filter("div.server.active ul.episodes.range li.episode a");
-        }
+        $items = $globalCrawler->filter("div.server.active ul.episodes.range li.episode a" . ($allEpisodes ? "" : ".active"));
         foreach ($items as $item) {
             $itemCrawler = new Crawler($item);
-            $episodes[] = $this->getEpisodeObject($globalCrawler, $itemCrawler, $folder, $malId, $alId);
-        }
-        if($save) {
-            foreach ($episodes as $episode) {
+            $episode = $this->getEpisodeObject($globalCrawler, $itemCrawler, $folder, $malId, $alId);
+            if ($save) {
                 $this->animeEntityManager->persist($episode);
             }
+            $episodes[] = $episode;
+        }
+        if ($save) {
             $this->animeEntityManager->flush();
         }
         return $episodes;

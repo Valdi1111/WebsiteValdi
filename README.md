@@ -1,3 +1,19 @@
+## Apache
+sudo a2enmod ssl
+sudo a2enmod headers
+sudo a2enmod proxy
+sudo a2enmod proxy_http
+sudo a2enmod rewrite
+sudo a2enmod proxy_fcgi setenvif
+sudo a2enconf php8.3-fpm
+
+sudo a2dismod mpm_prefork
+sudo a2enmod mpm_event
+
+sudo a2enmod http2
+
+https://gist.github.com/GAS85/38eb5954a27d64ae9ac17d01bfe9898c
+
 ## Creazione di un nuovo Bundle
 
 ### Creare il bundle con la seguente struttura

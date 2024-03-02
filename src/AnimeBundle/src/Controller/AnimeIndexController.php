@@ -13,7 +13,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class AnimeIndexController extends AbstractController
 {
 
-    #[Route('/{path}', name: 'index', requirements: ['path' => '.*'], methods: ['GET'], priority: -10)]
+    #[Route('/{path}', name: 'index', requirements: ['path' => '^(?!api/).*'], methods: ['GET'], priority: -10)]
     public function index(Request $request, HubInterface $hub, Discovery $discovery, Authorization $authorization): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');

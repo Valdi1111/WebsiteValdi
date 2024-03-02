@@ -1,0 +1,11 @@
+framework:
+    assets:
+        packages:
+            anime:
+                base_path: '/bundles/anime'
+            books:
+                base_path: '/bundles/books'
+            core:
+                base_path: '/bundles/core'
+            videos:
+                base_path: '/bundles/videos'

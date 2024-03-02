@@ -73,13 +73,6 @@ class CoreBundle extends AbstractBundle
 
 ### Creare il file di configurazione `src/CoreBundle/config/services.yaml`
 ```yaml
-# This file is the entry point to configure your own services.
-# Files in the packages/ subdirectory configure your dependencies.
-
-# Put parameters here that don't need to change on each machine where the app is deployed
-# https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
-parameters:
-
 services:
     # default configuration for services in *this* file
     _defaults:
@@ -103,21 +96,26 @@ services:
 ### Aggiungere a `composer.json`
 ```json
 {
-    ...
     "autoload": {
         "psr-4": {
-            ...
             "App\\CoreBundle\\": "src/CoreBundle/src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            ...
             "App\\CoreBundle\\Tests\\": "src/CoreBundle/tests/"
         }
-    },
-    ...
+    }
 }
+```
+
+### Aggiungere a `config/packages/assets.yaml`
+```yaml
+framework:
+    assets:
+        packages:
+            core:
+                base_path: '/bundles/core'
 ```
 
 ### Aggiungere a `config/packages/twig.yaml`
@@ -133,7 +131,6 @@ twig:
 <?php
 
 return [
-    ...
     App\CoreBundle\CoreBundle::class => ['all' => true],
 ];
 ```
@@ -144,27 +141,26 @@ core:
     resource: '@CoreBundle/config/routing.yaml'
 ```
 
+### Aggiungere a `config/services.yaml`
+```yaml
+services:
+    App\:
+        exclude:
+            - '../src/CoreBundle/'
+```
+
 ### Aggiungere a `webpack.config.js`
 ```javascript
 Encore
-    ...
     .addAliases({
-        ...
         '@CoreBundle': path.resolve(__dirname, 'src/CoreBundle/assets/'),
     })
-    ...
-    .copyFiles([
-        ...
-        {from: path.resolve(__dirname, 'src/CoreBundle/public/'), to: 'core/[path][name].[ext]'},
-    ])
-    ...
 ```
 
 ### Aggiungere a `phpstorm.config.js`
 ```javascript
 System.config({
     "paths": {
-        ...
         "@CoreBundle/*": "./src/CoreBundle/assets/*",
     }
 });

@@ -1,15 +1,15 @@
 import {BrowserRouter, Navigate, Route, Routes} from "react-router-dom";
-import ThemeChangeModal from "./library/modals/theme/ThemeChangeModal";
-import LibraryLayout from "./library/LibraryLayout";
-import LibraryAll from "../pages/LibraryAll";
-import LibraryNotInShelves from "../pages/LibraryNotInShelves";
-import LibraryShelvesLayout from "./library/shelves/LibraryShelvesLayout";
-import LibraryShelvesId from "../pages/LibraryShelvesId";
-import BookLayout from "./books/BookLayout";
-import BookId from "../pages/BookId";
-import {THEMES, THEME} from "./ThemeConstants";
-import {ThemeContext} from "./Contexts";
-import * as constants from "../constants";
+import ThemeChangeModal from "@BooksBundle/components/library/modals/theme/ThemeChangeModal";
+import LibraryShelvesLayout from "@BooksBundle/components/library/shelves/LibraryShelvesLayout";
+import LibraryLayout from "@BooksBundle/components/library/LibraryLayout";
+import BookLayout from "@BooksBundle/components/books/BookLayout";
+import LibraryAll from "@BooksBundle/pages/LibraryAll";
+import LibraryShelvesId from "@BooksBundle/pages/LibraryShelvesId";
+import LibraryNotInShelves from "@BooksBundle/pages/LibraryNotInShelves";
+import BookId from "@BooksBundle/pages/BookId";
+import {THEMES, THEME} from "@BooksBundle/components/ThemeConstants";
+import {ThemeContext} from "@BooksBundle/components/Contexts";
+import * as constants from "@BooksBundle/constants";
 import React from 'react';
 
 export default function App() {

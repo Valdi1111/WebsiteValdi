@@ -1,4 +1,5 @@
 import React from 'react';
+import avatar from '@CoreBundle/images/core-avatar.png';
 
 export default function HeaderNav({navbar, dropdown}) {
 
@@ -19,7 +20,7 @@ export default function HeaderNav({navbar, dropdown}) {
                 <div className="dropdown order-1 order-md-2">
                     <div className="link-secondary dropdown-toggle cursor-pointer" data-bs-toggle="dropdown"
                          aria-expanded={false}>
-                        <img src="/bundles/core/images/avatar.png" alt="Avatar" className="rounded-circle" width={40} height={40}/>
+                        <img src={avatar} alt="Avatar" className="rounded-circle" width={40} height={40}/>
                     </div>
                     <ul className="dropdown-menu dropdown-menu-end">
                         {dropdown}

@@ -1,4 +1,4 @@
-import * as api from "../api";
+import * as api from "@AnimeBundle/api";
 import React from 'react';
 import {DateTime} from "luxon";
 import DownloadsRow from "./DownloadsRow";

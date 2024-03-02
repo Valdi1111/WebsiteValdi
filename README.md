@@ -20,6 +20,7 @@ https://gist.github.com/GAS85/38eb5954a27d64ae9ac17d01bfe9898c
 ```
 src/CoreBundle/
     assets/
+        images/
     config/
         routing.yaml
         services.yaml
@@ -109,15 +110,6 @@ services:
 }
 ```
 
-### Aggiungere a `config/packages/assets.yaml`
-```yaml
-framework:
-    assets:
-        packages:
-            core:
-                base_path: '/bundles/core'
-```
-
 ### Aggiungere a `config/packages/twig.yaml`
 ```yaml
 twig:
@@ -155,6 +147,10 @@ Encore
     .addAliases({
         '@CoreBundle': path.resolve(__dirname, 'src/CoreBundle/assets/'),
     })
+    .copyFiles([
+        {from: path.resolve(__dirname, 'src/CoreBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
+        {from: path.resolve(__dirname, 'src/CoreBundle/assets/'), to: '[path][name].[hash:8].[ext]', pattern: /\.json$/},
+    ])
 ```
 
 ### Aggiungere a `phpstorm.config.js`

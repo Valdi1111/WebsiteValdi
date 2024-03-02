@@ -2,7 +2,7 @@ import {BrowserRouter, Navigate, Route, Routes} from "react-router-dom";
 import HeaderNav from "@CoreBundle/components/HeaderNav";
 import HeaderNavItem from "@CoreBundle/components/HeaderNavItem";
 import Downloads from "./Downloads";
-import * as constants from "../constants";
+import * as constants from "@AnimeBundle/constants";
 import React from 'react';
 
 export default function App() {

@@ -1,7 +1,7 @@
 {% extends 'base.html.twig' %}
 
 {% block title %}Books{% endblock %}
-{% block favicon %}{{ asset('images/favicon.ico', 'books') }}{% endblock %}
+{% block favicon %}{{ asset('build/images/books-favicon.ico') }}{% endblock %}
 
 {% block stylesheets %}
     {{ parent() }}
@@ -17,7 +17,7 @@
 {% endblock %}
 
 {% block head %}
-    <link rel="manifest" href="{{ asset('manifest.json', 'books') }}" crossorigin="use-credentials">
+    <link rel="manifest" href="{{ asset('build/books-manifest.json') }}" crossorigin="use-credentials">
 {% endblock %}
 
 {% block body %}

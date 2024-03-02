@@ -21,12 +21,16 @@ Encore
     // only needed for CDN's or subdirectory deploy
     //.setManifestKeyPrefix('build/')
 
-    //.copyFiles([
-    //    {from: path.resolve(__dirname, 'src/AnimeBundle/public/'), to: 'anime/[path][name].[ext]'},
-    //    {from: path.resolve(__dirname, 'src/BooksBundle/public/'), to: 'books/[path][name].[ext]'},
-    //    {from: path.resolve(__dirname, 'src/CoreBundle/public/'), to: 'core/[path][name].[ext]'},
-    //    {from: path.resolve(__dirname, 'src/VideosBundle/public/'), to: 'videos/[path][name].[ext]'},
-    //])
+    .copyFiles([
+        {from: path.resolve(__dirname, 'src/AnimeBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
+        {from: path.resolve(__dirname, 'src/AnimeBundle/assets/'), to: '[path][name].[hash:8].[ext]', pattern: /\.json$/},
+        {from: path.resolve(__dirname, 'src/BooksBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
+        {from: path.resolve(__dirname, 'src/BooksBundle/assets/'), to: '[path][name].[hash:8].[ext]', pattern: /\.json$/},
+        {from: path.resolve(__dirname, 'src/CoreBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
+        {from: path.resolve(__dirname, 'src/CoreBundle/assets/'), to: '[path][name].[hash:8].[ext]', pattern: /\.json$/},
+        {from: path.resolve(__dirname, 'src/VideosBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
+        {from: path.resolve(__dirname, 'src/VideosBundle/assets/'), to: '[path][name].[hash:8].[ext]', pattern: /\.json$/},
+    ])
 
     /*
      * ENTRY CONFIG

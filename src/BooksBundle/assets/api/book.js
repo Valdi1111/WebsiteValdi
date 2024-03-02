@@ -1,8 +1,7 @@
-import {API_URL} from "../constants";
+import {API_URL} from "@BooksBundle/constants";
 import { Book } from "epubjs";
 import axios from "axios";
 
-export const MISSING_COVER = `/bundles/books/images/missing-cover.png`;
 export const EPUB_URL = `${API_URL}/epub`;
 
 const locale = 'en-US';

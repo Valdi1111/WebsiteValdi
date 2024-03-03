@@ -2,7 +2,12 @@ monolog:
     channels:
         - deprecation # Deprecations are logged in the dedicated "deprecation" channel when it exists
         - elephant_io
-        - aw_handler
+        - anime
+        - anime_aw_handler
+        - anime_episode_downloader
+        - books
+        - core
+        - videos
 
 when@dev:
     monolog:

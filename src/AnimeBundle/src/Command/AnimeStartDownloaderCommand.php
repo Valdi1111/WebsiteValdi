@@ -23,7 +23,7 @@ class AnimeStartDownloaderCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $episode = $this->animeEntityManager->getRepository(EpisodeDownload::class)->findOneBy(['state' => EpisodeDownloadState::created]);
+        $episode = $this->animeEntityManager->getRepository(EpisodeDownload::class)->findOneBy(['state' => EpisodeDownloadState::created], ['created' => 'ASC']);
         if (!$episode) {
             return Command::SUCCESS;
         }

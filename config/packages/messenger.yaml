@@ -1,24 +1,31 @@
 framework:
     messenger:
-        failure_transport: failed
+        failure_transport: core_failed
 
         transports:
             # https://symfony.com/doc/current/messenger.html#transport-configuration
-            async:
-                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
-                options:
-                    use_notify: true
-                    check_delayed_interval: 60000
+            core_failed: '%env(CORE_MESSENGER_TRANSPORT_DSN)%?queue_name=failed'
+            core_async:
+                dsn: '%env(CORE_MESSENGER_TRANSPORT_DSN)%'
                 retry_strategy:
                     max_retries: 3
                     multiplier: 2
-            failed: 'doctrine://default?queue_name=failed'
+            anime_episode_download:
+                dsn: '%env(ANIME_MESSENGER_TRANSPORT_DSN)%'
+                failure_transport: anime_episode_download_failed
+                options:
+                    queue_name: episode-download
+                retry_strategy:
+                    max_retries: 3
+                    delay: 60000
+                    multiplier: 3
+            anime_episode_download_failed: '%env(ANIME_MESSENGER_TRANSPORT_DSN)%?queue_name=episode-download-failed'
             # sync: 'sync://'
 
         routing:
-            Symfony\Component\Mailer\Messenger\SendEmailMessage: async
-            Symfony\Component\Notifier\Message\ChatMessage: async
-            Symfony\Component\Notifier\Message\SmsMessage: async
+            Symfony\Component\Mailer\Messenger\SendEmailMessage: core_async
+            Symfony\Component\Notifier\Message\ChatMessage: core_async
+            Symfony\Component\Notifier\Message\SmsMessage: core_async
 
             # Route your messages to the transports
-            # 'App\Message\YourMessage': async
+            App\AnimeBundle\Message\EpisodeDownloadNotification: anime_episode_download

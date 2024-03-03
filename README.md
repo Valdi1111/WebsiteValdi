@@ -1,3 +1,18 @@
+## Debug
+`php bin/console debug:scheduler`
+`php bin/console debug:messenger`
+
+## Workers
+`php bin/console messenger:consume scheduler_default -vvv`
+`php bin/console messenger:consume anime_episode_download -vvv`
+
+## youtube-dlp
+Install ffmpeg and ffprobe
+`sudo apt install ffmpeg -y`
+Install youtube-dlp
+`wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp`
+`chmod a+rx /usr/local/bin/yt-dlp`
+
 ## Apache
 sudo a2enmod ssl
 sudo a2enmod headers
@@ -26,9 +41,15 @@ src/CoreBundle/
         services.yaml
     public/
     src/
-        Controller/
-        Entity/
-        Repository/
+        Command/
+        Controller/ [required]
+        Entity/ [required]
+        Exception/
+        Message/
+        MessageHandler/
+        Repository/ [required]
+        Scheduler/
+        Service/
     templates/
     tests/
     translations/

@@ -19,7 +19,7 @@ use Symfony\Component\ErrorHandler\Error\UndefinedMethodError;
 class AnimeAwSocketListener extends Command
 {
 
-    public function __construct(private readonly LoggerInterface $elephantIoLogger, private readonly LoggerInterface $awHandlerLogger, private readonly AnimeWorldService $awService, private readonly ParameterBagInterface $params, string $name = null)
+    public function __construct(private readonly LoggerInterface $elephantIoLogger, private readonly LoggerInterface $animeAwHandlerLogger, private readonly AnimeWorldService $awService, private readonly ParameterBagInterface $params, string $name = null)
     {
         parent::__construct($name);
     }
@@ -43,10 +43,10 @@ class AnimeAwSocketListener extends Command
                 try {
                     $this->{"handle" . str_replace('_', '', ucwords($packet->event, "_"))}($packet->data);
                 } catch (UndefinedMethodError $e) {
-                    $this->awHandlerLogger->error($e->getMessage());
+                    $this->animeAwHandlerLogger->error($e->getMessage());
                 }
             } catch (Exception $e) {
-                $this->awHandlerLogger->error("Error while parsing data from socket.io", ['exception' => $e]);
+                $this->animeAwHandlerLogger->error("Error while parsing data from socket.io", ['exception' => $e]);
             }
         }
         return Command::SUCCESS;
@@ -54,7 +54,7 @@ class AnimeAwSocketListener extends Command
 
     protected function handleAuthorized(array $data): void
     {
-        $this->awHandlerLogger->info("Successfully connected", [
+        $this->animeAwHandlerLogger->info("Successfully connected", [
             'id' => $data['auth']['id'],
             'usersId' => $data['auth']['usersId'],
             'scopes' => $data['auth']['scopes'],
@@ -110,7 +110,7 @@ class AnimeAwSocketListener extends Command
      */
     protected function handleEventEpisode(array $data): void
     {
-        $this->awHandlerLogger->info("Received EventEpisode", [
+        $this->animeAwHandlerLogger->info("Received EventEpisode", [
             'id' => $data['anime']['id'],
             'title' => $data['anime']['title'],
             'episode' => $data['episode']['link'],
@@ -121,16 +121,16 @@ class AnimeAwSocketListener extends Command
         try {
             $episodes = $this->awService->createEpisodeDownloads($data['episode']['link']);
             if (!count($episodes)) {
-                $this->awHandlerLogger->error("No episode found!", ['episode' => $data['episode']]);
+                $this->animeAwHandlerLogger->error("No episode found!", ['episode' => $data['episode']]);
                 return;
             }
-            $this->awHandlerLogger->info("Added episode!", [
+            $this->animeAwHandlerLogger->info("Added episode!", [
                     'file' => $episodes[0]->getFile(),
                     'episode' => $episodes[0]->getEpisode(),
                     'malId' => $episodes[0]->getMalId()]
             );
         } catch (CacheAnimeNotFoundException $e) {
-            $this->awHandlerLogger->warning($e->getMessage());
+            $this->animeAwHandlerLogger->warning($e->getMessage());
         }
     }
 

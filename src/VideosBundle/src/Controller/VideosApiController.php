@@ -2,7 +2,9 @@
 
 namespace App\VideosBundle\Controller;
 
+use App\CoreBundle\Controller\FileManagerTrait;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\File\File;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -11,12 +13,19 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/api', name: 'api_')]
 class VideosApiController extends AbstractController
 {
+    use FileManagerTrait;
+
+    const FILE_MANAGER_PATH = '/fileManager';
+
+    public function __construct(#[Autowire('%videos.base_folder%')] private readonly string $baseFolder)
+    {
+    }
 
     #[Route('/videos/{path}', name: 'videos', requirements: ['path' => '.*'], methods: ['GET'])]
     public function apiVideos(Request $req, string $path): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $filepath = $this->getParameter('videos.base_folder') . '/' . $path;
+        $filepath = $this->baseFolder . '/' . $path;
         if (!file_exists($filepath)) {
             return $this->json(['error' => true, 'message' => "Video file not found."], 400);
         }
@@ -52,7 +61,7 @@ class VideosApiController extends AbstractController
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $path = $path ? '/' . $path : "";
-        $files = $this->searchFiles($this->getParameter('videos.base_folder'), $path);
+        $files = $this->searchFiles($this->baseFolder, $path);
         if (!$files) {
             return $this->json(['error' => true, 'message' => "This is not a folder."], 400);
         }

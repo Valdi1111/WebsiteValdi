@@ -1,6 +1,13 @@
-import React from 'react';
 import avatar from '@CoreBundle/images/core-avatar.png';
+import React from 'react';
 
+/**
+ * Navigation header
+ * @param {JSX.Element} navbar content of the navbar
+ * @param {JSX.Element} dropdown content of the dropdown
+ * @returns {JSX.Element}
+ * @constructor
+ */
 export default function HeaderNav({navbar, dropdown}) {
 
     return (

@@ -4,11 +4,27 @@
 
 {% block stylesheets %}
     {{ parent() }}
+    <!-- Webix Library -->
+    <link rel="stylesheet" href="{{ asset('bundles/core/filemanager/webix/webix.css') }}" type="text/css">
+    <!-- File Manager -->
+    <link rel="stylesheet" href="{{ asset('bundles/core/filemanager/filemanager.css') }}" type="text/css">
     {{ encore_entry_link_tags('videos') }}
+    <style>
+        div.webix_view.webix_fmanager_preview img {
+            object-fit: contain;
+        }
+        div.webix_dataview_item.tiles div.webix_fmanager_card_preview.file img {
+            object-fit: contain;
+        }
+    </style>
 {% endblock %}
 
 {% block javascripts %}
     {{ parent() }}
+    <!-- Webix Library -->
+    <script src="{{ asset('bundles/core/filemanager/webix/webix.js') }}" type="text/javascript"></script>
+    <!-- File Manager -->
+    <script src="{{ asset('bundles/core/filemanager/filemanager.js') }}" type="text/javascript"></script>
     {{ encore_entry_script_tags('videos') }}
 {% endblock %}
 

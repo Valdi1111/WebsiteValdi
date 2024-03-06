@@ -116,8 +116,12 @@ trait FileManagerTrait
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $path = $req->query->getString('id');
+        $search = $req->query->getString('search');
         $finder = new Finder();
         $finder->depth('== 0')->files()->in($this->baseFolder . $path);
+        if (!empty($search)) {
+            $finder->name("/(?i)($search)/");
+        }
         $files = [];
         foreach ($finder as $file) {
             $files[] = $this->getFileSerialize($path, $file);

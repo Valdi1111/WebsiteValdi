@@ -47,7 +47,7 @@ export default function Videos() {
     return (
         <div className="d-flex flex-column vh-100 vw-100">
             <video id="player">
-                <source src={`api/videos${searchParams.get('path')}`} type="video/mp4"/>
+                <source src={`api/fileManager/direct?id=${searchParams.get('path')}`} type="video/mp4"/>
             </video>
         </div>
     );

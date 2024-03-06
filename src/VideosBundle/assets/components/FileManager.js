@@ -13,6 +13,9 @@ export default function FileManager() {
                 override: new Map([
                     [fileManager.services.Backend, Backend],
                     [fileManager.services.Operations, Operations],
+                    [fileManager.views.cards, Cards],
+                    [fileManager.views.list, List],
+                    [fileManager.views.folders, Folders],
                 ]),
             });
             app.render(divRef.current);
@@ -25,6 +28,26 @@ export default function FileManager() {
         </MainLayout>
     );
 
+}
+
+function sortFiles(data, dir) {
+    const nDir = dir === "asc" ? 1 : -1;
+    //complex sorting by value while excluding "back to parent" label
+    data.sort(function (a, b) {
+        if (
+            a.value === ".." ||
+            (a.type === "folder" && b.type !== "folder")
+        )
+            return -1 * nDir;
+        if (
+            b.value === ".." ||
+            (b.type === "folder" && a.type !== "folder")
+        )
+            return 1 * nDir;
+        return a.value < b.value ? -1 : a.value > b.value ? 1 : 0;
+    }, dir);
+
+    this.$$("table").sort("value", dir);
 }
 
 class Backend extends fileManager.services.Backend {
@@ -50,6 +73,35 @@ class Operations extends fileManager.services.Operations {
                 window.open(this.backend().directLink(files[i].id), "_blank");
             }
         }
+    }
+
+}
+
+class Cards extends fileManager.views.cards {
+
+    RenderData(data) {
+        super.RenderData(data);
+        // wait until data is returned from backend/cache, then sort it
+        data.waitData.then(() => sortFiles.call(this, data, "asc"));
+    }
+
+}
+
+class List extends fileManager.views.list {
+
+    RenderData(data) {
+        super.RenderData(data);
+        // wait until data is returned from backend/cache, then sort it
+        data.waitData.then(() => sortFiles.call(this, data, "asc"));
+    }
+
+}
+
+class Folders extends fileManager.views.folders {
+
+    GetFsStats(force) {
+        super.GetFsStats(force);
+        this.Tree.sort("#value#", "asc", "string");
     }
 
 }

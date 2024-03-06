@@ -9,8 +9,6 @@ export default function MainLayout({children}) {
             <HeaderNav
                 navbar={<>
                     <HeaderNavItem path="/files" name="Files"/>
-                    <HeaderNavItem path="/videos" name="Videos"/>
-                    <HeaderNavItem path="/fileManager" name="Filemanager"/>
                 </>}
                 dropdown={
                     <li><span className="dropdown-item cursor-pointer">Prova 1</span></li>

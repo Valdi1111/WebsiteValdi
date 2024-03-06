@@ -95,7 +95,7 @@ trait FileManagerTrait
     private function getFoldersRecursive(string $path): array
     {
         $finder = new Finder();
-        $finder->depth('== 0')->directories()->in($this->baseFolder . $path)->sortByName();
+        $finder->depth('== 0')->directories()->in($this->baseFolder . $path);
         $folders = [];
         foreach ($finder as $folder) {
             $folders[] = $this->getFolderSerialize($path, $folder);
@@ -117,7 +117,7 @@ trait FileManagerTrait
         $this->denyAccessUnlessGranted('ROLE_USER');
         $path = $req->query->getString('id');
         $finder = new Finder();
-        $finder->depth('== 0')->files()->in($this->baseFolder . $path)->sortByName();
+        $finder->depth('== 0')->files()->in($this->baseFolder . $path);
         $files = [];
         foreach ($finder as $file) {
             $files[] = $this->getFileSerialize($path, $file);
@@ -139,13 +139,13 @@ trait FileManagerTrait
             ],
             'features' => [
                 'preview' => [
-                    'code' => true,
                     'document' => true,
                     'image' => true,
                 ],
                 'meta' => [
                     'audio' => true,
                     'image' => true,
+                    'video' => true,
                 ],
             ],
         ]);
@@ -222,16 +222,41 @@ trait FileManagerTrait
         return $this->file($file, $file->getFilename());
     }
 
+    #[Route(self::FILE_MANAGER_PATH . '/text', name: 'fileManager_text_get', methods: ['GET'])]
+    public function fileManagerTextGet(Request $req): Response
+    {
+        $this->denyAccessUnlessGranted('ROLE_USER');
+        $path = $req->query->getString('id');
+        $file = new File($this->baseFolder . $path);
+        return new Response($file->getContent());
+    }
+
+    #[Route(self::FILE_MANAGER_PATH . '/text', name: 'fileManager_text_post', methods: ['POST'])]
+    public function fileManagerTextPost(Request $req): Response
+    {
+        $this->denyAccessUnlessGranted('ROLE_USER');
+        $path = $req->request->getString('id');
+        $content = $req->request->get('content');
+        $file = new File($this->baseFolder . $path);
+        $filesystem = new Filesystem();
+        $filesystem->dumpFile($file->getPathname(), $content);
+        $relative = '/' . Path::makeRelative($file->getPathname(), $this->baseFolder);
+        return $this->json($this->getFileSerialize($relative, $file));
+    }
+
     #[Route(self::FILE_MANAGER_PATH . '/icons/{skin}/{size}/{type}/{name}', name: 'fileManager_icons_skin', methods: ['GET'])]
     #[Route(self::FILE_MANAGER_PATH . '/icons/{size}/{type}/{name}', name: 'fileManager_icons', methods: ['GET'])]
     public function fileManagerIcons(Request $req, string $size, string $type, string $name): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $file = new File("bundles/core/filemanager/icons/$size/types/$name", false);
-        if($file->isFile()) {
+        $file = new File("bundles/core/filemanager/icons/$size/$name", false);
+        if ($file->isFile()) {
             return $this->file($file, $file->getFilename());
         }
-        $file = new File("bundles/core/filemanager/icons/$size/$name", false);
+        $file = new File("bundles/core/filemanager/icons/$size/types/$type.svg", false);
+        if ($file->isFile()) {
+            return $this->file($file, $file->getFilename());
+        }
         return $this->file($file, $file->getFilename());
     }
 

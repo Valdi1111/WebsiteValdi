@@ -16,8 +16,8 @@
 ## Mercure
 * Download mercure server from [repository](https://github.com/dunglas/mercure/releases)
 * Create and start mercure service
-  * systemctl enable mercure.service
-  * systemctl start mercure.service
+  * `systemctl enable mercure.service`
+  * `systemctl start mercure.service`
 
 ## Deploy
 * Stop all running workers `php bin/console messenger:stop-workers`
@@ -29,17 +29,17 @@
 
 ## Services
 * Command messenger:consume core_async
-  * systemctl enable website-messenger-core.service
-  * systemctl start website-messenger-core.service
+  * `systemctl enable website-messenger-core.service`
+  * `systemctl start website-messenger-core.service`
 * Command messenger:consume scheduler_default
-  * systemctl enable website-scheduler-default.service
-  * systemctl start website-scheduler-default.service
+  * `systemctl enable website-scheduler-default.service`
+  * `systemctl start website-scheduler-default.service`
 * Command anime:aw-socket-listener
-  * systemctl enable website-anime-aw-socket.service
-  * systemctl start website-anime-aw-socket.service
+  * `systemctl enable website-anime-aw-socket.service`
+  * `systemctl start website-anime-aw-socket.service`
 * Command messenger:consume anime_episode_download
-  * systemctl enable website-anime-episode-download@{1..12}.service
-  * systemctl start website-anime-episode-download@{1..12}.service
+  * `systemctl enable website-anime-episode-download@{1..12}.service`
+  * `systemctl start website-anime-episode-download@{1..12}.service`
 
 ## Creazione di un nuovo Bundle
 

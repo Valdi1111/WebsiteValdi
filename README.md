@@ -1,8 +1,10 @@
 ## Debug
 `php bin/console debug:scheduler`
 `php bin/console debug:messenger`
+`php bin/console messenger:stats`
 
 ## Workers
+`php bin/console messenger:setup-transports`
 `php bin/console messenger:consume scheduler_default -vvv`
 `php bin/console messenger:consume anime_episode_download -vvv`
 

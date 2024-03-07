@@ -29,6 +29,33 @@ sudo a2enmod http2
 
 https://gist.github.com/GAS85/38eb5954a27d64ae9ac17d01bfe9898c
 
+## Mercure
+
+## Deploy
+Stop all running workers `php bin/console messenger:stop-workers`
+Copy new files
+
+composer install
+
+php bin/console cache:clear
+php bin/console assets:install
+
+npm run build
+
+## Services
+
+systemctl enable website-messenger-core.service
+systemctl start website-messenger-core.service
+
+systemctl enable website-scheduler-default.service
+systemctl start website-scheduler-default.service
+
+systemctl enable website-anime-aw-socket.service
+systemctl start website-anime-aw-socket.service
+
+systemctl enable website-anime-episode-download@{1..20}.service
+systemctl start website-anime-episode-download@{1..20}.service
+
 ## Creazione di un nuovo Bundle
 
 ### Creare il bundle con la seguente struttura

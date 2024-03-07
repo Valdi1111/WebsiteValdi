@@ -2,6 +2,7 @@
 
 namespace App\AnimeBundle\Command;
 
+use App\AnimeBundle\Message\EpisodeDownloadNotification;
 use App\AnimeBundle\Service\AnimeWorldService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -9,11 +10,15 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsCommand(name: 'anime:add-download', description: 'Anime add download')]
 class AnimeAddDownloadCommand extends Command
 {
-    public function __construct(private readonly AnimeWorldService $awService, string $name = null)
+    public function __construct(
+        private readonly AnimeWorldService $awService,
+        private readonly MessageBusInterface $bus,
+        string $name = null)
     {
         parent::__construct($name);
     }
@@ -44,6 +49,7 @@ class AnimeAddDownloadCommand extends Command
         $output->writeln("");
         foreach ($episodes as $episode) {
             $output->writeln($episode->getEpisode() . " - " . $episode->getFile());
+            $this->bus->dispatch(new EpisodeDownloadNotification($episode->getId()));
         }
         $output->writeln("");
         return Command::SUCCESS;

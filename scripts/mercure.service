@@ -1,0 +1,19 @@
+[Unit]
+Description=Mercure.Rocks service
+After=network.target
+StartLimitBurst=5
+StartLimitIntervalSec=33
+
+[Service]
+Type=simple
+WorkingDirectory=/tmp
+Environment=JWT_KEY=!ChangeThisMercureHubJWTSecretKey!
+Environment=ADDR=:3000
+ExecStart=/var/www/mercure/mercure
+StandardOutput=file:/var/log/mercure.log
+StandardError=file:/var/log/mercure.log
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,15 @@
+[Unit]
+Description=Website anime AnimeWorld socket handler
+After=network.target
+StartLimitBurst=5
+StartLimitIntervalSec=33
+
+[Service]
+Type=simple
+WorkingDirectory=/path/to/your/app
+ExecStart=/path/to/php /path/to/your/app/bin/console anime:aw-socket-listener
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -12,14 +12,17 @@ doctrine:
                 url: '%env(resolve:CORE_DATABASE_URL)%'
                 mapping_types:
                     enum: string
+                    bit: boolean
             anime:
                 url: '%env(resolve:ANIME_DATABASE_URL)%'
                 mapping_types:
                     enum: string
+                    bit: boolean
             books:
                 url: '%env(resolve:BOOKS_DATABASE_URL)%'
                 mapping_types:
                     enum: string
+                    bit: boolean
         default_connection: core
     orm:
         auto_generate_proxy_classes: true

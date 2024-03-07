@@ -1,62 +1,59 @@
 ## Debug
-`php bin/console debug:scheduler`
-`php bin/console debug:messenger`
-`php bin/console messenger:stats`
+* `php bin/console debug:scheduler`
+* `php bin/console debug:messenger`
+* `php bin/console messenger:stats`
 
 ## Workers
-`php bin/console messenger:setup-transports`
-`php bin/console messenger:consume scheduler_default -vvv`
-`php bin/console messenger:consume anime_episode_download -vvv`
+* `php bin/console messenger:setup-transports`
+* `php bin/console messenger:consume scheduler_default -vvv`
+* `php bin/console messenger:consume anime_episode_download -vvv`
 
 ## youtube-dlp
-Install ffmpeg and ffprobe
-`sudo apt install ffmpeg -y`
-Install youtube-dlp
-`wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp`
-`chmod a+rx /usr/local/bin/yt-dlp`
+* Install ffmpeg and ffprobe `sudo apt install ffmpeg -y`
+* Install youtube-dlp
+  * `wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp`
+  * `chmod a+rx /usr/local/bin/yt-dlp`
 
 ## Apache
-sudo a2enmod ssl
-sudo a2enmod headers
-sudo a2enmod proxy
-sudo a2enmod proxy_http
-sudo a2enmod rewrite
-sudo a2enmod proxy_fcgi setenvif
-sudo a2enconf php8.3-fpm
-
-sudo a2dismod mpm_prefork
-sudo a2enmod mpm_event
-
-sudo a2enmod http2
-
-https://gist.github.com/GAS85/38eb5954a27d64ae9ac17d01bfe9898c
+* sudo a2enmod ssl
+* sudo a2enmod headers
+* sudo a2enmod proxy
+* sudo a2enmod proxy_http
+* sudo a2enmod rewrite
+* sudo a2enmod proxy_fcgi setenvif
+* sudo a2enconf php8.3-fpm
+* sudo a2dismod mpm_prefork
+* sudo a2enmod mpm_event
+* sudo a2enmod http2
+* https://gist.github.com/GAS85/38eb5954a27d64ae9ac17d01bfe9898c
 
 ## Mercure
 
 ## Deploy
-Stop all running workers `php bin/console messenger:stop-workers`
-Copy new files
-
-composer install
-
-php bin/console cache:clear
-php bin/console assets:install
-
-npm run build
+* Stop all running workers `php bin/console messenger:stop-workers`
+* Copy new files
+* Install php packages `composer install`
+* Clear symfony cache `php bin/console cache:clear`
+* Install assets from bundles `php bin/console assets:install`
+* Install node packages `npm run build`
 
 ## Services
 
-systemctl enable website-messenger-core.service
-systemctl start website-messenger-core.service
+### Command messenger:consume core_async
+* systemctl enable website-messenger-core.service
+* systemctl start website-messenger-core.service
 
-systemctl enable website-scheduler-default.service
-systemctl start website-scheduler-default.service
+### Command messenger:consume scheduler_default
+* systemctl enable website-scheduler-default.service
+* systemctl start website-scheduler-default.service
 
-systemctl enable website-anime-aw-socket.service
-systemctl start website-anime-aw-socket.service
+### Command anime:aw-socket-listener
+* systemctl enable website-anime-aw-socket.service
+* systemctl start website-anime-aw-socket.service
 
-systemctl enable website-anime-episode-download@{1..20}.service
-systemctl start website-anime-episode-download@{1..20}.service
+### Command messenger:consume anime_episode_download
+* systemctl enable website-anime-episode-download@{1..12}.service
+* systemctl start website-anime-episode-download@{1..12}.service
 
 ## Creazione di un nuovo Bundle
 

@@ -7,7 +7,7 @@ use App\AnimeBundle\Entity\EpisodeDownloadState;
 use App\AnimeBundle\Message\EpisodeDownloadNotification;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use YoutubeDl\Options;
 use YoutubeDl\YoutubeDl;
@@ -16,7 +16,11 @@ use YoutubeDl\YoutubeDl;
 class EpisodeDownloadNotificationHandler
 {
 
-    public function __construct(private readonly LoggerInterface $animeEpisodeDownloaderLogger, private readonly EntityManagerInterface $animeEntityManager, private readonly ParameterBagInterface $params)
+    public function __construct(
+        private readonly LoggerInterface $animeEpisodeDownloaderLogger,
+        private readonly EntityManagerInterface $animeEntityManager,
+        #[Autowire('%anime.youtube_dl.path%')] private readonly string $youtubeDlPath,
+        #[Autowire('%anime.base_folder%')] private readonly string $baseFolder)
     {
     }
 
@@ -29,7 +33,7 @@ class EpisodeDownloadNotificationHandler
         }
         $this->animeEpisodeDownloaderLogger->info("Found episode in queue", ['id' => $episode->getId()]);
         $yt = new YoutubeDl();
-        $binPath = $this->params->get('anime.youtube_dl.path');
+        $binPath = $this->youtubeDlPath;
         if ($binPath) {
             $yt->setBinPath($binPath);
         }
@@ -53,7 +57,7 @@ class EpisodeDownloadNotificationHandler
             Options::create()
                 ->output('%(title)s.%(ext)s')
                 ->noCheckCertificate(true)
-                ->downloadPath($this->params->get('anime.base_folder') . $episode->getFolder())
+                ->downloadPath($this->baseFolder . $episode->getFolder())
                 ->url($episode->getDownloadUrl())
         );
         foreach ($collection->getVideos() as $video) {

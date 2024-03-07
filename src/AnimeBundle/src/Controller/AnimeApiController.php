@@ -21,7 +21,10 @@ use Symfony\Component\Routing\Attribute\Route;
 class AnimeApiController extends AbstractController
 {
 
-    public function __construct(private readonly EntityManagerInterface $animeEntityManager, private readonly MyAnimeListService $malService, private readonly AnimeWorldService $awService)
+    public function __construct(
+        private readonly EntityManagerInterface $animeEntityManager,
+        private readonly MyAnimeListService $malService,
+        private readonly AnimeWorldService $awService)
     {
     }
 

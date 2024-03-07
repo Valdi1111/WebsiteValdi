@@ -9,14 +9,18 @@ use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
 use App\AnimeBundle\Exception\UnhandledWebsiteException;
 use Doctrine\ORM\EntityManagerInterface;
 use Exception;
-use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class AnimeWorldService
 {
 
-    public function __construct(private readonly EntityManagerInterface $animeEntityManager, private readonly HttpClientInterface $awClient, private readonly ParameterBagInterface $params)
+    public function __construct(
+        private readonly EntityManagerInterface $animeEntityManager,
+        private readonly HttpClientInterface $awClient,
+        #[Autowire('%anime.temp_folder%')] private readonly string $tempFolder,
+        #[Autowire('%anime.aw.url%')] private readonly string $awUrl)
     {
     }
 
@@ -27,7 +31,7 @@ class AnimeWorldService
      */
     private function fetchEpisodePage(string $episodeUrl): Crawler
     {
-        $response = $this->awClient->request('GET', $this->params->get('anime.aw.url') . $episodeUrl);
+        $response = $this->awClient->request('GET', $this->awUrl . $episodeUrl);
         if ($response->getStatusCode() !== 200) {
             throw new Exception("Error fetching page from AnimeWorld. Http code = " . $response->getStatusCode());
         }
@@ -71,7 +75,7 @@ class AnimeWorldService
         if ($folder) {
             return $folder->getFolder();
         }
-        return $this->params->get('anime.temp_folder');
+        return $this->tempFolder;
     }
 
     /**
@@ -113,7 +117,7 @@ class AnimeWorldService
      */
     public function createEpisodeDownloads(string $url, bool $allEpisodes = false, bool $filter = true, bool $save = true): array
     {
-        if (!str_starts_with($url, $this->params->get('anime.aw.url'))) {
+        if (!str_starts_with($url, $this->awUrl)) {
             throw new UnhandledWebsiteException();
         }
         $episodeUrl = preg_replace("/.*\/\/[^\/]*/", "", $url);

@@ -3,7 +3,6 @@
 namespace App\AnimeBundle\Command;
 
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
-use App\AnimeBundle\Exception\UnhandledWebsiteException;
 use App\AnimeBundle\Service\AnimeWorldService;
 use ElephantIO\Client;
 use Exception;
@@ -12,26 +11,33 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\ErrorHandler\Error\UndefinedMethodError;
 
 #[AsCommand(name: 'anime:aw-socket-listener', description: 'Start anime world socket listener')]
 class AnimeAwSocketListener extends Command
 {
 
-    public function __construct(private readonly LoggerInterface $elephantIoLogger, private readonly LoggerInterface $animeAwHandlerLogger, private readonly AnimeWorldService $awService, private readonly ParameterBagInterface $params, string $name = null)
+    public function __construct(
+        private readonly LoggerInterface $elephantIoLogger,
+        private readonly LoggerInterface $animeAwHandlerLogger,
+        private readonly AnimeWorldService $awService,
+        #[Autowire('%anime.aw.api_url%')] private readonly string $awApiUrl,
+        #[Autowire('%anime.aw.client_id%')] private readonly string $awClientId,
+        #[Autowire('%anime.aw.api_key%')] private readonly string $awApiKey,
+        string $name = null)
     {
         parent::__construct($name);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $client = Client::create($this->params->get('anime.aw.api_url'), ['client' => Client::CLIENT_4X, 'logger' => $this->elephantIoLogger]);
+        $client = Client::create($this->awApiUrl, ['client' => Client::CLIENT_4X, 'logger' => $this->elephantIoLogger]);
         $client->connect();
         $client->emit('authorization', [
             'auth' => [
-                'clientId' => $this->params->get('anime.aw.client_id'),
-                'apiKey' => $this->params->get('anime.aw.api_key')
+                'clientId' => $this->awClientId,
+                'apiKey' => $this->awApiKey,
             ]
         ]);
         while (true) {

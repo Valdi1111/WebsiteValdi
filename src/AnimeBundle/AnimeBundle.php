@@ -18,6 +18,7 @@ class AnimeBundle extends AbstractBundle
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
     {
         $container->import('./config/services.yaml');
+        $container->parameters()->set('anime.domain_name', $config['domain_name']);
         $container->parameters()->set('anime.base_folder', $config['base_folder']);
         $container->parameters()->set('anime.temp_folder', $config['temp_folder']);
         $container->parameters()->set('anime.download_extension', $config['download_extension']);
@@ -35,6 +36,7 @@ class AnimeBundle extends AbstractBundle
     {
         $definition->rootNode()
             ->children()
+            ->scalarNode('domain_name')->defaultNull()->end()
             ->scalarNode('base_folder')->defaultNull()->end()
             ->scalarNode('temp_folder')->defaultNull()->end()
             ->scalarNode('download_extension')->defaultNull()->end()

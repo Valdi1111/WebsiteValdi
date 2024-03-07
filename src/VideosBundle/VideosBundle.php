@@ -18,6 +18,7 @@ class VideosBundle extends AbstractBundle
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
     {
         $container->import('./config/services.yaml');
+        $container->parameters()->set('videos.domain_name', $config['domain_name']);
         $container->parameters()->set('videos.base_folder', $config['base_folder']);
     }
 
@@ -25,6 +26,7 @@ class VideosBundle extends AbstractBundle
     {
         $definition->rootNode()
             ->children()
+                ->scalarNode('domain_name')->defaultNull()->end()
                 ->scalarNode('base_folder')->defaultNull()->end()
             ->end();
     }

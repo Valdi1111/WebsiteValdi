@@ -4,4 +4,4 @@ controllers:
         namespace: App\VideosBundle\Controller
     type: attribute
     name_prefix: videos_
-    host: videos.valdi.ovh
+    host: '%videos.domain_name%'

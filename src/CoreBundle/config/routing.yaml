@@ -4,4 +4,4 @@ controllers:
         namespace: App\CoreBundle\Controller
     type: attribute
     name_prefix: core_
-    #host: core.valdi.ovh
+    #host: '%core.domain_name%'

@@ -4,4 +4,4 @@ controllers:
         namespace: App\BooksBundle\Controller
     type: attribute
     name_prefix: books_
-    host: books.valdi.ovh
+    host: '%books.domain_name%'

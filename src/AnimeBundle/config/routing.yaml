@@ -4,4 +4,4 @@ controllers:
         namespace: App\AnimeBundle\Controller
     type: attribute
     name_prefix: anime_
-    host: anime.valdi.ovh
+    host: '%anime.domain_name%'

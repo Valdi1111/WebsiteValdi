@@ -54,7 +54,7 @@ function sortFiles(data, dir) {
 class Backend extends fileManager.services.Backend {
 
     openLink(id, download) {
-        return `videos?path=${encodeURIComponent(id)}`
+        return `videos?id=${encodeURIComponent(id)}`
     }
 
 }

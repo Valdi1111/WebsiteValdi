@@ -5,7 +5,6 @@ import React from "react";
 
 export default function Videos() {
     const [searchParams, setSearchParams] = useSearchParams();
-    const plyrRef = React.useRef();
 
     React.useEffect(() => {
         const player = new Plyr('#player', {
@@ -39,15 +38,13 @@ export default function Videos() {
         player.on('ready', (e) => {
             const instance = e.detail.plyr;
             instance.fullscreen.enter();
-            //e.target.classList.add("w-100")
-            //e.target.classList.add("h-100")
         });
     }, []);
 
     return (
         <div className="d-flex flex-column vh-100 vw-100">
             <video id="player">
-                <source src={`api/fileManager/direct?id=${searchParams.get('path')}`} type="video/mp4"/>
+                <source src={`api/fileManager/direct?id=${encodeURIComponent(searchParams.get('id'))}`} type="video/mp4"/>
             </video>
         </div>
     );

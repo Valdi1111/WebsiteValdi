@@ -37,7 +37,7 @@
 * Command anime:aw-socket-listener
   * `systemctl enable website-anime-aw-socket.service`
   * `systemctl start website-anime-aw-socket.service`
-* Command messenger:consume anime_episode_download
+* Command messenger:consume anime_episode_download (currently unused)
   * `systemctl enable website-anime-episode-download@{1..12}.service`
   * `systemctl start website-anime-episode-download@{1..12}.service`
 

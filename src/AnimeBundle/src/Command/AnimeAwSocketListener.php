@@ -14,6 +14,10 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\ErrorHandler\Error\UndefinedMethodError;
 
+/**
+ * Al momento non viene utilizzato il client di socket.io di php.
+ * Si utilizza ancora il client node che effettua una HTTP POST quando riceve un nuovo anime.
+ */
 #[AsCommand(name: 'anime:aw-socket-listener', description: 'Start anime world socket listener')]
 class AnimeAwSocketListener extends Command
 {
@@ -43,7 +47,7 @@ class AnimeAwSocketListener extends Command
         while (true) {
             try {
                 $packet = $client->drain();
-                if (!$packet) {
+                if (!$packet || !$packet->event) {
                     continue;
                 }
                 try {
@@ -53,6 +57,17 @@ class AnimeAwSocketListener extends Command
                 }
             } catch (Exception $e) {
                 $this->animeAwHandlerLogger->error("Error while parsing data from socket.io", ['exception' => $e]);
+                //if($e->getMessage() === 'Stream disconnected') {
+                //    $client->disconnect();
+                //    $client->connect();
+                //    $client->emit('authorization', [
+                //        'auth' => [
+                //            'clientId' => $this->awClientId,
+                //            'apiKey' => $this->awApiKey,
+                //        ]
+                //    ]);
+                //    continue;
+                //}
             }
         }
         return Command::SUCCESS;

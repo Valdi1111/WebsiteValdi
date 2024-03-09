@@ -1,0 +1,2 @@
+anime:
+    resource: '@AnimeBundle/config/routing.yaml'

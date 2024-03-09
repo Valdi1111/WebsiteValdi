@@ -1,0 +1,4 @@
+books:
+    domain_name: 'books.%domain_name%'
+    base_folder: '%env(BOOKS_BASE_FOLDER)%'
+    covers_folder: '%env(BOOKS_COVERS_FOLDER)%'

@@ -1,0 +1,2 @@
+books:
+    resource: '@BooksBundle/config/routing.yaml'

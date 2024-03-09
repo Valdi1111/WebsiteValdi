@@ -1,0 +1,16 @@
+anime:
+    domain_name: 'anime.%domain_name%'
+    base_folder: '%env(ANIME_BASE_FOLDER)%'
+    temp_folder: '%env(ANIME_TEMP_FOLDER)%'
+    download_extension: '%env(ANIME_DOWNLOAD_EXTENSION)%'
+    mal:
+        url: '%env(MAL_URL)%'
+        client_id: '%env(MAL_CLIENT_ID)%'
+        client_secret: '%env(MAL_CLIENT_SECRET)%'
+    aw:
+        url: '%env(AW_URL)%'
+        api_url: '%env(AW_API_URL)%'
+        client_id: '%env(AW_CLIENT_ID)%'
+        api_key: '%env(AW_API_KEY)%'
+    youtube_dl:
+        path: '%env(YOUTUBE_DL_PATH)%'

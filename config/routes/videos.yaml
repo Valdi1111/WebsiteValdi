@@ -1,0 +1,2 @@
+videos:
+    resource: '@VideosBundle/config/routing.yaml'

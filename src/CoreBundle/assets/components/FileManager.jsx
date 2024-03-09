@@ -1,7 +1,12 @@
-import MainLayout from "@VideosBundle/components/MainLayout";
 import React from "react";
 
-export default function FileManager() {
+/**
+ * Webix file manager wrapper
+ * @param apiUrl base api url
+ * @returns {JSX.Element}
+ * @constructor
+ */
+export default function FileManager({apiUrl}) {
     const divRef = React.useRef();
     React.useEffect(() => {
         webix.ready(function () {
@@ -9,7 +14,7 @@ export default function FileManager() {
             webix.CustomScroll.init();
 
             const app = new fileManager.App({
-                url: "/api/fileManager/",
+                url: apiUrl,
                 override: new Map([
                     [fileManager.services.Backend, Backend],
                     [fileManager.services.Operations, Operations],
@@ -22,11 +27,7 @@ export default function FileManager() {
         });
     }, []);
 
-    return (
-        <MainLayout>
-            <div ref={divRef} className="flex-grow-1"></div>
-        </MainLayout>
-    );
+    return <main ref={divRef} className="flex-grow-1"></main>;
 
 }
 
@@ -53,7 +54,7 @@ function sortFiles(data, dir) {
 class Backend extends fileManager.services.Backend {
 
     openLink(id, download) {
-        return `videos?id=${encodeURIComponent(id)}`
+        return `/videos?id=${encodeURIComponent(id)}`
     }
 
 }

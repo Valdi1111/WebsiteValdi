@@ -9,8 +9,10 @@ use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
 use App\AnimeBundle\Message\EpisodeDownloadNotification;
 use App\AnimeBundle\Service\AnimeWorldService;
 use App\AnimeBundle\Service\MyAnimeListService;
+use App\CoreBundle\Controller\FileManagerTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -20,8 +22,12 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/api', name: 'api_')]
 class AnimeApiController extends AbstractController
 {
+    use FileManagerTrait;
+
+    const FILE_MANAGER_PATH = '/fileManager';
 
     public function __construct(
+        #[Autowire('%anime.base_folder%')] private readonly string $baseFolder,
         private readonly EntityManagerInterface $animeEntityManager,
         private readonly MyAnimeListService $malService,
         private readonly AnimeWorldService $awService)

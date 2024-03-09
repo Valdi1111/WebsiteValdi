@@ -6,14 +6,14 @@
 {% block stylesheets %}
     {{ parent() }}
     {{ encore_entry_link_tags('books') }}
-    <script>
-        const MERCURE_HUB_URL = '{{ mercure_hub_url }}';
-    </script>
 {% endblock %}
 
 {% block javascripts %}
     {{ parent() }}
     {{ encore_entry_script_tags('books') }}
+    <script>
+        const MERCURE_HUB_URL = '{{ mercure_hub_url }}';
+    </script>
 {% endblock %}
 
 {% block head %}

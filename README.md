@@ -160,7 +160,17 @@ return [
 ];
 ```
 
-### Aggiungere a `config/routes.yaml`
+### Creare il file del bundle in `config/packages/`
+```yaml
+core:
+    domain_name: 'core.%domain_name%'
+
+twig:
+    globals:
+        core_domain_name: '%core.domain_name%'
+```
+
+### Creare il file del bundle in `config/routes/`
 ```yaml
 core:
     resource: '@CoreBundle/config/routing.yaml'

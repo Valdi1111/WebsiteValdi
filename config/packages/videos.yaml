@@ -1,3 +1,7 @@
 videos:
     domain_name: 'videos.%domain_name%'
     base_folder: '%env(VIDEOS_BASE_FOLDER)%'
+
+twig:
+    globals:
+        videos_domain_name: '%videos.domain_name%'

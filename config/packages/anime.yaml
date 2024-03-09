@@ -14,3 +14,7 @@ anime:
         api_key: '%env(AW_API_KEY)%'
     youtube_dl:
         path: '%env(YOUTUBE_DL_PATH)%'
+
+twig:
+    globals:
+        anime_domain_name: '%anime.domain_name%'

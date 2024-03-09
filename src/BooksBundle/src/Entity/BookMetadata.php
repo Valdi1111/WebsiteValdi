@@ -7,7 +7,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Table(name: 'book_metadata')]
 #[ORM\Entity(repositoryClass: BookMetadataRepository::class)]
-class BookMetadata implements \JsonSerializable
+class BookMetadata
 {
     #[ORM\Id]
     #[ORM\Column]
@@ -145,7 +145,7 @@ class BookMetadata implements \JsonSerializable
         return $this;
     }
 
-    public function jsonSerialize(): array
+    public function toJson(): array
     {
         return [
             'title' => $this->getTitle(),

@@ -12,7 +12,6 @@ export default function FileManager() {
                 url: "/api/fileManager/",
                 override: new Map([
                     [fileManager.services.Backend, Backend],
-                    [fileManager.services.LocalData, LocalData],
                     [fileManager.services.Operations, Operations],
                     [fileManager.views.cards, Cards],
                     [fileManager.views.list, List],
@@ -55,14 +54,6 @@ class Backend extends fileManager.services.Backend {
 
     openLink(id, download) {
         return `videos?id=${encodeURIComponent(id)}`
-    }
-
-}
-
-class LocalData extends fileManager.services.LocalData {
-
-    defaultTree() {
-        return [{ value: "Videos", id: "../files", open: true }];
     }
 
 }

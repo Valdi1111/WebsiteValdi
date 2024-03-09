@@ -3,6 +3,8 @@
 namespace App\BooksBundle\Entity;
 
 use App\BooksBundle\Repository\ShelfRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Table(name: 'shelf')]
@@ -20,7 +22,17 @@ class Shelf implements \JsonSerializable
     #[ORM\Column(length: 255)]
     private ?string $name = null;
 
-    private ?int $_count = null;
+    /**
+     * @var Collection<int, ShelfBook>
+     */
+    #[ORM\OneToMany(mappedBy: 'shelf', targetEntity: ShelfBook::class)]
+    #[ORM\OrderBy(['url' => 'ASC'])]
+    private Collection $books;
+
+    public function __construct()
+    {
+        $this->books = new ArrayCollection();
+    }
 
     public function getId(): ?int
     {
@@ -52,31 +64,20 @@ class Shelf implements \JsonSerializable
     }
 
     /**
-     * @return ?int
+     * @return Collection<int, ShelfBook>
      */
-    public function getCount(): ?int
+    public function getBooks(): Collection
     {
-        return $this->_count;
-    }
-
-    /**
-     * @param int $count
-     */
-    public function setCount(int $count): void
-    {
-        $this->_count = $count;
+        return $this->books;
     }
 
     public function jsonSerialize(): array
     {
-        $json = [
+        return [
             'id' => $this->getId(),
             'path' => $this->getPath(),
             'name' => $this->getName(),
+            '_count' => $this->getBooks()->count(),
         ];
-        if($this->getCount() !== null) {
-            $json['_count'] = $this->getCount();
-        }
-        return $json;
     }
 }

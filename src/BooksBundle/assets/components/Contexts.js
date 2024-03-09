@@ -8,14 +8,6 @@ export function useThemes() {
 }
 
 
-export const LibraryUpdateContext = React.createContext({});
-LibraryUpdateContext.displayName = 'LibraryUpdateContext';
-
-export function useLibraryUpdate() {
-    return React.useContext(LibraryUpdateContext);
-}
-
-
 export const ShelvesContext = React.createContext([]);
 ShelvesContext.displayName = 'ShelvesContext';
 

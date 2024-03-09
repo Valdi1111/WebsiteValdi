@@ -1,16 +1,16 @@
-import BookHeader from "../components/books/header/BookHeader";
-import BookFooter from "../components/books/footer/BookFooter";
-import BookBody from "../components/books/body/BookBody";
+import BookHeader from "@BooksBundle/components/books/header/BookHeader";
+import BookFooter from "@BooksBundle/components/books/footer/BookFooter";
+import BookBody from "@BooksBundle/components/books/body/BookBody";
 import {
     FONT, FONTS, FONT_SIZE,
     SPACING, MARGINS, WIDTH,
     FORCE_FONT, FORCE_FONT_SIZE, JUSTIFY,
     LAYOUT, LAYOUTS,
     UPDATE_LAST_READ, isWheelAllowed
-} from "../components/books/BookConstants";
-import {useBookSettings, useThemes} from "../components/Contexts";
-import {THEMES} from "../components/ThemeConstants";
-import {EPUB_URL, getBook, updatePosition} from "../api/book";
+} from "@BooksBundle/components/books/BookConstants";
+import {useBookSettings, useThemes} from "@BooksBundle/components/Contexts";
+import {THEMES} from "@BooksBundle/components/ThemeConstants";
+import {EPUB_URL, getBook, updatePosition} from "@BooksBundle/api/book";
 import {useParams} from "react-router-dom";
 import {Helmet} from "react-helmet";
 import {Book, EpubCFI} from "epubjs";
@@ -93,7 +93,7 @@ export default function BookId() {
         getBook(bookId).then(
             res => {
                 console.log("Loading book", bookId);
-                book.current = new Book(EPUB_URL + res.data.url);
+                book.current = new Book(`${EPUB_URL}/${res.data.id}`, {openAs: 'epub'});
                 setTitle(res.data.book_metadata.title);
                 navigation.current = res.data.book_cache.navigation;
                 setMark(res.data.book_progress);

@@ -28,11 +28,11 @@ class BookRepository extends ServiceEntityRepository
     /**
      * @param ?int $limit
      * @param ?int $offset
-     * @param array $orders
+     * @param array<string, string> $orderBy
      * @param ?int $shelfId
      * @return Book[]
      */
-    private function _books(?int $limit, ?int $offset, array $orders, ?int $shelfId = null): array
+    private function books(?int $limit, ?int $offset, array $orderBy, ?int $shelfId = null): array
     {
         $qb = $this->createQueryBuilder('b')
             ->addSelect('bm', 'bc', 'bp')
@@ -44,8 +44,8 @@ class BookRepository extends ServiceEntityRepository
         } else if ($shelfId) {
             $qb->andWhere("b.shelf_id = :shelfId")->setParameter("shelfId", $shelfId);
         }
-        foreach ($orders as $order) {
-            $qb->addOrderBy($order['sort'], $order['order']);
+        foreach ($orderBy as $sort => $order) {
+            $qb->addOrderBy($sort, $order);
         }
         if ($limit) {
             $qb->setMaxResults($limit);
@@ -69,10 +69,7 @@ class BookRepository extends ServiceEntityRepository
      */
     public function getAll(int $limit, int $offset): array
     {
-        return $this->_books($limit, $offset, [
-            ['sort' => "bp.last_read", 'order' => "DESC"],
-            ['sort' => "b.id", 'order' => "DESC"]
-        ]);
+        return $this->books($limit, $offset, ["bp.last_read" => "DESC", "b.id" => "DESC"]);
     }
 
     /**
@@ -82,16 +79,7 @@ class BookRepository extends ServiceEntityRepository
      */
     public function getNotInShelves(int $limit, int $offset): array
     {
-        return $this->_books($limit, $offset, [['sort' => "b.url", 'order' => "ASC"]], -1);
-    }
-
-    /**
-     * @param int $shelfId
-     * @return Book[]
-     */
-    public function getShelfBooks(int $shelfId): array
-    {
-        return $this->_books(null, null, [['sort' => "b.url", 'order' => "ASC"]], $shelfId);
+        return $this->books($limit, $offset, ["b.url" => "ASC"], -1);
     }
 
     /**

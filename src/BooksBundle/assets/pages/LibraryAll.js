@@ -1,42 +1,31 @@
-import {useLibraryUpdate} from "../components/Contexts";
-import {BOOKS_PER_PAGE, getBooksAll} from "../api/library";
-import LibraryItemAdder from "../components/library/item/LibraryItemAdder";
-import LibraryItem from "../components/library/item/LibraryItem";
-import LoadingComponent from "../components/LoadingComponent";
+import {BOOKS_PER_PAGE, getBooksAll} from "@BooksBundle/api/library";
+import LibraryItemAdder from "@BooksBundle/components/library/item/LibraryItemAdder";
+import LibraryItem from "@BooksBundle/components/library/item/LibraryItem";
+import LoadingComponent from "@BooksBundle/components/LoadingComponent";
 import {Helmet} from "react-helmet";
 import React from "react";
 
 export default function LibraryAll() {
-    const [update, setUpdate] = useLibraryUpdate();
     const [hasMore, setHasMore] = React.useState(false);
-    const [books, setBooks] = React.useState([]);
-    const [page, setPage] = React.useState(1);
     const [loading, setLoading] = React.useState(true);
+    const [loadingMore, setLoadingMore] = React.useState(false);
+    const books = React.useRef([]);
+    const page = React.useRef(1);
     /** @type {MutableRefObject<EventSource>}*/
     const ws = React.useRef(null);
 
     React.useEffect(() => {
-        refreshBooks();
+        refreshBooks().then(() => startWebsocket());
         return stopWebsocket;
     }, []);
 
-    // Handle book add/recreate/delete
-    React.useEffect(() => {
-        if (update.type !== 'add' && update.type !== 'recreate' && update.type !== 'delete') {
-            return;
-        }
-        refreshBooks();
-    }, [update]);
-
     function refreshBooks() {
         setLoading(true);
-        getBooksAll(BOOKS_PER_PAGE * page + 1, 0).then(
+        return getBooksAll(BOOKS_PER_PAGE * page.current + 1, 0).then(
             res => {
-                setBooks(res.data.slice(0, BOOKS_PER_PAGE * page));
-                setHasMore(res.data.length > BOOKS_PER_PAGE * page);
+                books.current = res.data.slice(0, BOOKS_PER_PAGE * page.current);
+                setHasMore(res.data.length > BOOKS_PER_PAGE * page.current);
                 setLoading(false);
-                // Websocket
-                startWebsocket();
             },
             err => console.error(err)
         );
@@ -48,9 +37,25 @@ export default function LibraryAll() {
         hub.searchParams.append('topic', `https://books.valdi.ovh/library/all`);
         // Subscribe to updates
         ws.current = new EventSource(hub, {withCredentials: true});
-        ws.current.onmessage = event => {
-            // Will be called every time an update is published by the server
-            console.log(JSON.parse(event.data));
+        ws.current.addEventListener('message', handleWebsocket);
+    }
+
+    /**
+     * Will be called every time an update is published by the server
+     * @param event
+     */
+    function handleWebsocket(event) {
+        const json = JSON.parse(event.data);
+        if (json.action === 'book:add') {
+            refreshBooks();
+        }
+        if (json.action === 'book:recreate') {
+            refreshBooks();
+        }
+        if (json.action === 'book:remove') {
+            if (books.current.find(b => b.id === parseInt(json.book.id))) {
+                refreshBooks();
+            }
         }
     }
 
@@ -61,11 +66,13 @@ export default function LibraryAll() {
     }
 
     function loadMore() {
-        getBooksAll(BOOKS_PER_PAGE + 1, BOOKS_PER_PAGE * page).then(
+        setLoadingMore(true);
+        getBooksAll(BOOKS_PER_PAGE + 1, BOOKS_PER_PAGE * page.current).then(
             res => {
-                setBooks([...books, ...res.data.slice(0, BOOKS_PER_PAGE)]);
+                books.current.push(...res.data.slice(0, BOOKS_PER_PAGE));
                 setHasMore(res.data.length > BOOKS_PER_PAGE);
-                setPage(page + 1);
+                page.current++;
+                setLoadingMore(false);
             },
             err => console.error(err)
         );
@@ -79,8 +86,8 @@ export default function LibraryAll() {
             <div className="flex-grow-1 overflow-y-scroll">
                 {loading ? <LoadingComponent/> :
                     <div className="mx-0 row">
-                        {books.map(book => <LibraryItem key={book.id} book={book}/>)}
-                        <LibraryItemAdder hasMore={hasMore} loadMore={loadMore}/>
+                        {books.current.map(book => <LibraryItem key={book.id} book={book}/>)}
+                        <LibraryItemAdder hasMore={hasMore} loadMore={loadMore} loadingMore={loadingMore}/>
                     </div>
                 }
             </div>

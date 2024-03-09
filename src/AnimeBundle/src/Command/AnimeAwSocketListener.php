@@ -36,7 +36,12 @@ class AnimeAwSocketListener extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $client = Client::create($this->awApiUrl, ['client' => Client::CLIENT_4X, 'logger' => $this->elephantIoLogger]);
+        $client = Client::create($this->awApiUrl, [
+            'client' => Client::CLIENT_4X,
+            'logger' => $this->elephantIoLogger,
+            //'transport' => 'polling',
+            //'transports' => ['polling'],
+        ]);
         $client->connect();
         $client->emit('authorization', [
             'auth' => [

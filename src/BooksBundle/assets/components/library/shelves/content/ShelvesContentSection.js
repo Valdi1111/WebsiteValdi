@@ -1,4 +1,4 @@
-import LibraryItem from "../../item/LibraryItem";
+import LibraryItem from "@BooksBundle/components/library/item/LibraryItem";
 import React from 'react';
 
 export default function ShelvesContentSection({ uid, shelf, books }) {
@@ -15,7 +15,7 @@ export default function ShelvesContentSection({ uid, shelf, books }) {
             </h2>
             <div id={body} className="accordion-collapse collapse show" aria-labelledby={header}>
                 <div className="accordion-body row mx-0 p-0">
-                    {books.map(b => <LibraryItem key={b.id} book={b}/>)}
+                    {books.map(b => <LibraryItem key={b.id} book={b} hide_shelf={true}/>)}
                 </div>
             </div>
         </div>

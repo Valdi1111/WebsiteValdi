@@ -9,8 +9,18 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEllipsis } from "@fortawesome/free-solid-svg-icons";
 import React from "react";
 
+/**
+ * @typedef {{id: int, url: string, shelf_id: int, book_cache: {cover: string}, book_metadata: {title: string, creator: string}, book_progress: {page: int, total: int}}} BookProps
+ */
+
+/**
+ * @param {{hide_shelf: boolean|undefined, book: BookProps}} props
+ * @returns {JSX.Element}
+ * @constructor
+ */
 export default function LibraryItem(props) {
-    const { id, shelf_id, hide_shelf, url } = props.book;
+    const hide_shelf = props.hide_shelf | false;
+    const { id, shelf_id, url } = props.book;
     const { cover } = props.book.book_cache;
     const { title, creator } = props.book.book_metadata;
     const { total } = props.book.book_progress;

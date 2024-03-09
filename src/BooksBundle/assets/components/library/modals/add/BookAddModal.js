@@ -1,12 +1,12 @@
-import { findNewBooks } from "../../../../api/library";
-import { createBook } from "../../../../api/book";
+import { findNewBooks } from "@BooksBundle/api/library";
+import { createBook } from "@BooksBundle/api/book";
 import ModalSections from "./ModalSections";
 import React from "react";
 
 export const PREFIX = 'book-add-modal';
 export const CHECKBOX_NAME = PREFIX + '-select-book';
 
-export default function BookAddModal({ update }) {
+export default function BookAddModal() {
     const [content, setContent] = React.useState({});
     const [selected, setSelected] = React.useState(0);
     const modal = React.useRef();
@@ -37,7 +37,7 @@ export default function BookAddModal({ update }) {
         }
         Promise.all(Array.from(elems).map(e => createBook(e.value))).then(
             data => {
-                update(data);
+                //update(data);
             },
             err => console.error(err)
         );

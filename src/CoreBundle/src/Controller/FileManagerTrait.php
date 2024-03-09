@@ -58,6 +58,7 @@ trait FileManagerTrait
         'avi' => 'video',
         'mkv' => 'video',
         'ogv' => 'video',
+        'mov' => 'video',
 
         'png' => 'image',
         'jpg' => 'image',

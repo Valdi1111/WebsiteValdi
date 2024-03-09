@@ -1,15 +1,14 @@
-import {useLibraryUpdate, useShelves} from "../components/Contexts";
-import {getBooksInShelf} from "../api/shelves";
-import ShelfEditModal from "../components/library/shelves/modals/ShelfEditModal";
-import ShelfDeleteModal from "../components/library/shelves/modals/ShelfDeleteModal";
-import ShelvesContent from "../components/library/shelves/content/ShelvesContent";
-import LoadingComponent from "../components/LoadingComponent";
+import {useShelves} from "@BooksBundle/components/Contexts";
+import {getBooksInShelf} from "@BooksBundle/api/shelves";
+import ShelfEditModal from "@BooksBundle/components/library/shelves/modals/ShelfEditModal";
+import ShelfDeleteModal from "@BooksBundle/components/library/shelves/modals/ShelfDeleteModal";
+import ShelvesContent from "@BooksBundle/components/library/shelves/content/ShelvesContent";
+import LoadingComponent from "@BooksBundle/components/LoadingComponent";
 import {useNavigate} from "react-router-dom";
 import {Helmet} from "react-helmet";
 import React from "react";
 
 export default function LibraryShelvesId() {
-    const [update, setUpdate] = useLibraryUpdate();
     const [shelves, setShelves, refreshShelves, shelf, setShelf] = useShelves();
     const [content, setContent] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
@@ -19,35 +18,14 @@ export default function LibraryShelvesId() {
 
     React.useEffect(() => {
         if (shelf) {
-            refreshContent();
+            refreshContent().then(() => startWebsocket());
         }
         return stopWebsocket;
     }, [shelf]);
 
-    // Handle book add/recreate/delete
-    React.useEffect(() => {
-        if (update.type === 'add') {
-            let flag = false;
-            for (const item of update.items) {
-                if (item.shelf_id === shelf.id) {
-                    flag = true;
-                }
-            }
-            if (flag) {
-                refreshContent();
-            }
-        }
-        if (update.type === 'recreate') {
-            refreshContent();
-        }
-        if (update.type === 'delete') {
-            refreshContent();
-        }
-    }, [update]);
-
     function refreshContent() {
         setLoading(true);
-        getBooksInShelf(shelf.id).then(
+        return getBooksInShelf(shelf.id).then(
             res => {
                 // Update content
                 const data = {};
@@ -66,8 +44,6 @@ export default function LibraryShelvesId() {
                 allShelves[i]._count = res.data.length;
                 setShelves([...allShelves]);
                 setLoading(false);
-                // Websocket
-                startWebsocket();
             },
             err => console.error(err)
         );
@@ -79,9 +55,23 @@ export default function LibraryShelvesId() {
         hub.searchParams.append('topic', `https://books.valdi.ovh/library/shelves/${shelf.id}`);
         // Subscribe to updates
         ws.current = new EventSource(hub, {withCredentials: true});
-        ws.current.onmessage = event => {
-            // Will be called every time an update is published by the server
-            console.log(JSON.parse(event.data));
+        ws.current.addEventListener('message', handleWebsocket);
+    }
+
+    /**
+     * Will be called every time an update is published by the server
+     * @param event
+     */
+    function handleWebsocket(event) {
+        const json = JSON.parse(event.data);
+        if (json.action === 'book:add') {
+            refreshContent();
+        }
+        if (json.action === 'book:recreate') {
+            refreshContent();
+        }
+        if (json.action === 'book:remove') {
+            refreshContent();
         }
     }
 

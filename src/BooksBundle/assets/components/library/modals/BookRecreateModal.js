@@ -1,7 +1,7 @@
-import { recreateBookCache } from "../../../api/book";
+import { recreateBookCache } from "@BooksBundle/api/book";
 import React from "react";
 
-export default function BookRecreateModal({ update }) {
+export default function BookRecreateModal() {
     const [id, setId] = React.useState(null);
     const [title, setTitle] = React.useState('');
     const [url, setUrl] = React.useState('');
@@ -31,7 +31,7 @@ export default function BookRecreateModal({ update }) {
         recreateBookCache(url, id).then(
             data => {
                 console.log("Book", data.id, "Cache recreated successfully!");
-                update(data);
+                //update(data);
             },
             err => console.error(err)
         );

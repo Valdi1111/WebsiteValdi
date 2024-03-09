@@ -1,7 +1,7 @@
-import { deleteBook } from "../../../api/book";
+import { deleteBook } from "@BooksBundle/api/book";
 import React from "react";
 
-export default function BookDeleteModal({ update }) {
+export default function BookDeleteModal() {
     const [id, setId] = React.useState(null);
     const [title, setTitle] = React.useState('');
     const btn = React.useRef();
@@ -28,7 +28,7 @@ export default function BookDeleteModal({ update }) {
         deleteBook(id).then(
             res => {
                 console.log("Book", id, "Deleted successfully!");
-                update(id);
+                //update(id);
             },
             err => console.error(err)
         );

@@ -30,8 +30,8 @@ export default function App() {
         // webix theme
         const links = document.getElementsByTagName('link');
         for (const link of links) {
-            if(/bundles\/core\/webix\/skins\/\w+.css/.test(link.href)) {
-                link.href = link.href.replace(/\w+.css/, THEMES[theme].webix);
+            if(link.rel === 'stylesheet' && /\/bundles\/core\/(docmanager|filemanager|gantt|scheduler|webix)\/skins\/\w+.css/.test(link.getAttribute('href'))) {
+                link.setAttribute('href', link.getAttribute('href').replace(/\w+.css/, THEMES[theme].webix));
             }
         }
     }, [theme]);

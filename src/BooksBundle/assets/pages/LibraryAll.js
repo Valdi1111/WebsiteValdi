@@ -83,7 +83,7 @@ export default function LibraryAll() {
             <Helmet>
                 <title>All books</title>
             </Helmet>
-            <div className="flex-grow-1 overflow-y-scroll">
+            <div className="flex-grow-1 overflow-y-scroll border-top">
                 {loading ? <LoadingComponent/> :
                     <div className="mx-0 row">
                         {books.current.map(book => <LibraryItem key={book.id} book={book}/>)}

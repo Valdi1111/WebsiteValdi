@@ -23,13 +23,9 @@ Encore
 
     .copyFiles([
         {from: path.resolve(__dirname, 'src/AnimeBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
-        {from: path.resolve(__dirname, 'src/AnimeBundle/assets/'), to: '[path][name].[hash:8].[ext]', pattern: /\.json$/},
         {from: path.resolve(__dirname, 'src/BooksBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
-        {from: path.resolve(__dirname, 'src/BooksBundle/assets/'), to: '[path][name].[hash:8].[ext]', pattern: /\.json$/},
         {from: path.resolve(__dirname, 'src/CoreBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
-        {from: path.resolve(__dirname, 'src/CoreBundle/assets/'), to: '[path][name].[hash:8].[ext]', pattern: /\.json$/},
         {from: path.resolve(__dirname, 'src/VideosBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
-        {from: path.resolve(__dirname, 'src/VideosBundle/assets/'), to: '[path][name].[hash:8].[ext]', pattern: /\.json$/},
     ])
 
     /*

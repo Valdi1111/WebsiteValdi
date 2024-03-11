@@ -11,6 +11,7 @@ use App\BooksBundle\Repository\BookCacheRepository;
 use App\BooksBundle\Repository\BookProgressRepository;
 use App\BooksBundle\Repository\BookRepository;
 use App\BooksBundle\Repository\ShelfRepository;
+use App\CoreBundle\Controller\FileManagerTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Liip\ImagineBundle\Imagine\Cache\CacheManager;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -28,6 +29,9 @@ use Symfony\Component\Uid\Uuid;
 #[Route('/api', name: 'api_')]
 class BooksApiController extends AbstractController
 {
+    use FileManagerTrait;
+
+    const FILE_MANAGER_PATH = '/fileManager';
 
     const CHANNEL_LIBRARY_ALL = 'https://books.valdi.ovh/library/all';
     const CHANNEL_LIBRARY_SHELVES = 'https://books.valdi.ovh/library/shelves';

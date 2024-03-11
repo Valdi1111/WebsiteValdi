@@ -19,6 +19,7 @@ export default function LibraryLayout({ children }) {
                     <HeaderNavItem path="/library/all" name="All books"/>
                     <HeaderNavItem path="/library/shelves" name="Shelves"/>
                     <HeaderNavItem path="/library/not-in-shelves" name="Not in shelves"/>
+                    <HeaderNavItem path="/files" name="Files"/>
                 </>}
                 dropdown={<>
                     <li><span className="dropdown-item cursor-pointer" data-bs-toggle="modal"

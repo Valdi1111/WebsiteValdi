@@ -2,7 +2,7 @@ import React from "react";
 
 /**
  * Webix file manager wrapper
- * @param apiUrl base api url
+ * @param {string} apiUrl base api url
  * @returns {JSX.Element}
  * @constructor
  */

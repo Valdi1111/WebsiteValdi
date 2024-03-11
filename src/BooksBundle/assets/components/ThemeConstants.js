@@ -7,14 +7,16 @@ export const THEMES = {
         css: {
             body: { background: '#fff', color: '#212529' },
             'a:link': { color: '#0d6efd' }
-        }
+        },
+        webix: 'material.css',
     },
     dark: {
         name: 'Dark',
         css: {
             body: { background: '#212529', color: '#dee2e6' },
             'a:link': { color: '#6ea8fe' }
-        }
+        },
+        webix: 'dark.css',
     },
     //light: {
     //    name: 'Light',

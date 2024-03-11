@@ -53,7 +53,7 @@ export default function LibraryShelvesLayout({ children }) {
                 <title>Shelves</title>
             </Helmet>
             <LibraryLayout>
-                <div className="flex-grow-1 d-flex flex-row">
+                <div className="flex-grow-1 d-flex flex-row border-top">
                     <ShelfAddModal update={onShelfAdd}/>
                     <ShelvesList loading={loading} shelves={shelves} shelf={shelf}/>
                     {children}

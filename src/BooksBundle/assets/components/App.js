@@ -7,6 +7,7 @@ import LibraryAll from "@BooksBundle/pages/LibraryAll";
 import LibraryShelvesId from "@BooksBundle/pages/LibraryShelvesId";
 import LibraryNotInShelves from "@BooksBundle/pages/LibraryNotInShelves";
 import BookId from "@BooksBundle/pages/BookId";
+import FileManager from "@CoreBundle/components/FileManager";
 import {THEMES, THEME} from "@BooksBundle/components/ThemeConstants";
 import {ThemeContext} from "@BooksBundle/components/Contexts";
 import * as constants from "@BooksBundle/constants";
@@ -26,6 +27,13 @@ export default function App() {
             return;
         }
         elem[0].setAttribute('data-bs-theme', theme);
+        // webix theme
+        const links = document.getElementsByTagName('link');
+        for (const link of links) {
+            if(/bundles\/core\/webix\/skins\/\w+.css/.test(link.href)) {
+                link.href = link.href.replace(/\w+.css/, THEMES[theme].webix);
+            }
+        }
     }, [theme]);
 
     return (
@@ -58,6 +66,11 @@ export default function App() {
                             <BookLayout>
                                 <BookId/>
                             </BookLayout>
+                        }/>
+                        <Route path="/files" element={
+                            <LibraryLayout>
+                                <FileManager apiUrl="/api/fileManager/"/>
+                            </LibraryLayout>
                         }/>
                     </Routes>
                 </BrowserRouter>

@@ -32,10 +32,7 @@ class BooksIndexController extends AbstractController
             "display" => "standalone",
             "display_override" => [
                 "window-controls-overlay",
-                "standalone",
                 "minimal-ui",
-                "fullscreen",
-                "browser"
             ],
             "prefer_related_applications" => false,
             "protocol_handlers" => [
@@ -72,7 +69,7 @@ class BooksIndexController extends AbstractController
                     "url" => "/library/all",
                     "icons" => [
                         [
-                            "src" => "/bundles/books/images/icon.svg",
+                            "src" => "/bundles/books/icon.svg",
                             "type" => "image/svg+xml",
                             "sizes" => "48x48 72x72 96x96 128x128 256x256 512x512",
                             "purpose" => "any"
@@ -86,7 +83,7 @@ class BooksIndexController extends AbstractController
                     "url" => "/library/shelves",
                     "icons" => [
                         [
-                            "src" => "/bundles/books/images/icon.svg",
+                            "src" => "/bundles/books/icon.svg",
                             "type" => "image/svg+xml",
                             "sizes" => "48x48 72x72 96x96 128x128 256x256 512x512",
                             "purpose" => "any"
@@ -100,7 +97,7 @@ class BooksIndexController extends AbstractController
                     "url" => "/library/not-in-shelves",
                     "icons" => [
                         [
-                            "src" => "/bundles/books/images/icon.svg",
+                            "src" => "/bundles/books/icon.svg",
                             "type" => "image/svg+xml",
                             "sizes" => "48x48 72x72 96x96 128x128 256x256 512x512",
                             "purpose" => "any"

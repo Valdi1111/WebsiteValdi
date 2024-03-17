@@ -45,7 +45,8 @@ class AnimeApiController extends AbstractController
     public function apiListAnimeRefresh(): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        return $this->json($this->malService->refreshAnimeCache());
+        $this->malService->scheduleRefreshAnimeCache();
+        return $this->json(['ok' => true]);
     }
 
     #[Route('/list/manga', name: 'list_manga', methods: ['GET'])]
@@ -59,7 +60,8 @@ class AnimeApiController extends AbstractController
     public function apiListMangaRefresh(): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        return $this->json($this->malService->refreshMangaCache());
+        $this->malService->scheduleRefreshMangaCache();
+        return $this->json(['ok' => true]);
     }
 
     #[Route('/downloads', name: 'downloads_all', methods: ['GET'])]

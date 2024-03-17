@@ -29,3 +29,5 @@ framework:
 
             # Route your messages to the transports
             App\AnimeBundle\Message\EpisodeDownloadNotification: anime_episode_download
+            App\AnimeBundle\Message\AnimeCacheRefreshNotification: core_async
+            App\AnimeBundle\Message\MangaCacheRefreshNotification: core_async

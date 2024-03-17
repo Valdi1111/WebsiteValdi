@@ -7,20 +7,23 @@ use App\AnimeBundle\Entity\ListAnimeStatus;
 use App\AnimeBundle\Entity\ListManga;
 use App\AnimeBundle\Entity\ListMangaStatus;
 use App\AnimeBundle\Exception\CacheRefreshException;
+use App\AnimeBundle\Message\AnimeCacheRefreshNotification;
+use App\AnimeBundle\Message\MangaCacheRefreshNotification;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Scheduler\Attribute\AsCronTask;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-#[AsCronTask('@midnight', method: 'refreshAnimeCache')]
-#[AsCronTask('@midnight', method: 'refreshMangaCache')]
+#[AsCronTask('@midnight', method: 'scheduleRefreshAnimeCache')]
+#[AsCronTask('@midnight', method: 'scheduleRefreshMangaCache')]
 class MyAnimeListService
 {
     const FETCH_URL = 'https://api.myanimelist.net/v2/users/%1$s/%2$slist?nsfw=true&fields=list_status&limit=%3$d';
     const USER = 'Valdi_1111';
     const LIMIT = 1000;
 
-    public function __construct(private readonly LoggerInterface $animeLogger, private readonly EntityManagerInterface $animeEntityManager, private readonly HttpClientInterface $malApiClient)
+    public function __construct(private readonly LoggerInterface $animeLogger, private readonly EntityManagerInterface $animeEntityManager, private readonly HttpClientInterface $malApiClient, private readonly MessageBusInterface $bus)
     {
     }
 
@@ -70,6 +73,7 @@ class MyAnimeListService
     }
 
     /**
+     * Refresh anime cache
      * @return ?ListAnime[]
      */
     public function refreshAnimeCache(): ?array
@@ -78,11 +82,30 @@ class MyAnimeListService
     }
 
     /**
+     * Refresh manga cache
      * @return ?ListManga[]
      */
     public function refreshMangaCache(): ?array
     {
         return $this->refreshCache('manga', ListManga::class, ListMangaStatus::class);
+    }
+
+    /**
+     * Refresh anime cache async
+     * @return void
+     */
+    public function scheduleRefreshAnimeCache(): void
+    {
+        $this->bus->dispatch(new AnimeCacheRefreshNotification());
+    }
+
+    /**
+     * Refresh manga cache async
+     * @return void
+     */
+    public function scheduleRefreshMangaCache(): void
+    {
+        $this->bus->dispatch(new MangaCacheRefreshNotification());
     }
 
 }

@@ -1,3 +1,6 @@
+## Database
+Create tables for user, token, etc with `php bin/console doctrine:schema:update --dump-sql`
+
 ## youtube-dlp
 * Install ffmpeg and ffprobe `sudo apt install ffmpeg -y`
 * Install youtube-dlp
@@ -20,12 +23,12 @@
   * `systemctl start mercure.service`
 
 ## Deploy
-* Stop all running workers `php bin/console messenger:stop-workers`
 * Copy new files
 * Install php packages `composer install`
 * Clear symfony cache `php bin/console cache:clear`
 * Install assets from bundles `php bin/console assets:install`
 * Install node packages `npm run build`
+* Restart all running workers `php bin/console messenger:stop-workers`
 
 ## Services
 * Command messenger:consume core_async
@@ -41,9 +44,9 @@
   * `systemctl enable website-anime-episode-download@{1..12}.service`
   * `systemctl start website-anime-episode-download@{1..12}.service`
 
-## Creazione di un nuovo Bundle
+## Create a new Bundle
 
-### Creare il bundle con la seguente struttura
+### Create the following structure
 ```
 src/CoreBundle/
     assets/
@@ -54,20 +57,20 @@ src/CoreBundle/
     public/
     src/
         Command/
-        Controller/ [required]
-        Entity/ [required]
-        Exception/
-        Message/
-        MessageHandler/
-        Repository/ [required]
-        Scheduler/
-        Service/
+        Controller/
+        Entity/
+        Exception/ [optional]
+        Message/ [optional]
+        MessageHandler/ [optional]
+        Repository/
+        Scheduler/ [optional]
+        Service/ [optional]
     templates/
     tests/
     translations/
 ```
 
-### Creare il file del bundle `src/CoreBundle/CoreBundle.php`
+### Create the bundle file `src/CoreBundle/CoreBundle.php`
 ```php
 <?php
 
@@ -105,7 +108,7 @@ class CoreBundle extends AbstractBundle
 }
 ```
 
-### Creare il file di configurazione `src/CoreBundle/config/services.yaml`
+### Create the configuration file `src/CoreBundle/config/services.yaml` to enable bundle services and autowiring
 ```yaml
 services:
     # default configuration for services in *this* file
@@ -127,7 +130,7 @@ services:
 
 ```
 
-### Aggiungere a `composer.json`
+### Add to `composer.json`
 ```json
 {
     "autoload": {
@@ -143,7 +146,7 @@ services:
 }
 ```
 
-### Aggiungere a `config/packages/twig.yaml`
+### Add to `config/packages/twig.yaml`
 ```yaml
 twig:
     file_name_pattern: '*.twig'
@@ -151,7 +154,7 @@ twig:
         src/CoreBundle/templates: 'CoreBundle'
 ```
 
-### Aggiungere a `config/Kernel.php`
+### Add to `config/Kernel.php` to enable the bundle
 ```php
 <?php
 
@@ -160,7 +163,7 @@ return [
 ];
 ```
 
-### Creare il file del bundle in `config/packages/`
+### Create the configuration file `config/packages/core.yaml` to implement bundle config and templates
 ```yaml
 core:
     domain_name: 'core.%domain_name%'
@@ -170,13 +173,13 @@ twig:
         core_domain_name: '%core.domain_name%'
 ```
 
-### Creare il file del bundle in `config/routes/`
+### Create the configuration file `config/routes/core.yaml` to implement bundle routes
 ```yaml
 core:
     resource: '@CoreBundle/config/routing.yaml'
 ```
 
-### Aggiungere a `config/services.yaml`
+### Add to `config/services.yaml`
 ```yaml
 services:
     App\:
@@ -184,7 +187,7 @@ services:
             - '../src/CoreBundle/'
 ```
 
-### Aggiungere a `webpack.config.js`
+### Add to `webpack.config.js`
 ```javascript
 Encore
     .addAliases({
@@ -195,7 +198,7 @@ Encore
     ])
 ```
 
-### Aggiungere a `phpstorm.config.js`
+### Add to `phpstorm.config.js`
 ```javascript
 System.config({
     "paths": {

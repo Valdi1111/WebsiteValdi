@@ -3,10 +3,11 @@ import React from "react";
 /**
  * Webix file manager wrapper
  * @param {string} apiUrl base api url
+ * @param {string} initialPath path selected on open
  * @returns {JSX.Element}
  * @constructor
  */
-export default function FileManager({apiUrl}) {
+export default function FileManager({apiUrl, initialPath = '/'}) {
     const divRef = React.useRef();
     React.useEffect(() => {
         webix.ready(function () {
@@ -15,6 +16,7 @@ export default function FileManager({apiUrl}) {
 
             const app = new fileManager.App({
                 url: apiUrl,
+                path: initialPath,
                 override: new Map([
                     [fileManager.services.Backend, Backend],
                     [fileManager.services.Operations, Operations],

@@ -39,9 +39,9 @@ class BooksApiController extends AbstractController
     const CHANNEL_LIBRARY_NOT_IN_SHELVES = 'https://books.valdi.ovh/library/not-in-shelves';
 
     public function __construct(
-        #[Autowire('%books.base_folder%')] private readonly string $baseFolder, 
+        #[Autowire('%books.base_folder%')] private readonly string   $baseFolder,
         #[Autowire('%books.covers_folder%')] private readonly string $coversFolder,
-        private readonly EntityManagerInterface $booksEntityManager)
+        private readonly EntityManagerInterface                      $entityManager)
     {
     }
 
@@ -168,22 +168,22 @@ class BooksApiController extends AbstractController
                 $book->setShelfId($shelf->getId());
             }
         }
-        $this->booksEntityManager->persist($book);
-        $this->booksEntityManager->flush();
+        $this->entityManager->persist($book);
+        $this->entityManager->flush();
 
         $bookCache = (new BookCache())->setBookId($book->getId())->setLocations($body['locations'])->setNavigation($body['navigation']);
-        $this->booksEntityManager->persist($bookCache);
+        $this->entityManager->persist($bookCache);
         $book->setBookCache($bookCache);
 
         $bookMetadata = (new BookMetadata())->setBookId($book->getId())->fromJson($body['metadata']);
-        $this->booksEntityManager->persist($bookMetadata);
+        $this->entityManager->persist($bookMetadata);
         $book->setBookMetadata($bookMetadata);
 
         $bookProgress = (new BookProgress())->setBookId($book->getId());
-        $this->booksEntityManager->persist($bookProgress);
+        $this->entityManager->persist($bookProgress);
         $book->setBookProgress($bookProgress);
 
-        $this->booksEntityManager->flush();
+        $this->entityManager->flush();
 
         $hub->publish(new Update(
             [
@@ -230,7 +230,7 @@ class BooksApiController extends AbstractController
         }
         $book->getBookCache()->setLocations($body['locations'])->setNavigation($body['navigation']);
         $book->getBookMetadata()->fromJson($body['metadata']);
-        $this->booksEntityManager->flush();
+        $this->entityManager->flush();
         return $this->json(['id' => $book->getId(), 'shelf_id' => $book->getShelfId()]);
     }
 
@@ -244,13 +244,13 @@ class BooksApiController extends AbstractController
         }
         $this->removeCoverFile($cacheManager, $book->getBookCache());
 
-        $this->booksEntityManager->remove($book->getBookCache());
-        $this->booksEntityManager->remove($book->getBookMetadata());
-        $this->booksEntityManager->remove($book->getBookProgress());
-        $this->booksEntityManager->flush();
+        $this->entityManager->remove($book->getBookCache());
+        $this->entityManager->remove($book->getBookMetadata());
+        $this->entityManager->remove($book->getBookProgress());
+        $this->entityManager->flush();
 
-        $this->booksEntityManager->remove($book);
-        $this->booksEntityManager->flush();
+        $this->entityManager->remove($book);
+        $this->entityManager->flush();
 
         $hub->publish(new Update(
             [
@@ -278,7 +278,7 @@ class BooksApiController extends AbstractController
             unlink($fullpath);
         }
         $book->setCover(null);
-        $this->booksEntityManager->flush();
+        $this->entityManager->flush();
     }
 
     #[Route('/books/{bookId}/cover', name: 'books_id_cover_get', requirements: ['bookId' => '\d+'], methods: ['GET'])]
@@ -310,7 +310,7 @@ class BooksApiController extends AbstractController
             $cover = $req->files->get('cover');
             $cover->move($this->coversFolder, $uuid);
             $book->setCover($uuid);
-            $this->booksEntityManager->flush();
+            $this->entityManager->flush();
         }
         return $this->json([]);
     }
@@ -324,7 +324,7 @@ class BooksApiController extends AbstractController
             return $this->json(['error' => true, 'message' => "Book not found."], 400);
         }
         $this->removeCoverFile($cacheManager, $book);
-        $this->booksEntityManager->flush();
+        $this->entityManager->flush();
         return $this->json([]);
     }
 
@@ -337,7 +337,7 @@ class BooksApiController extends AbstractController
             return $this->json(['error' => true, 'message' => "Book not found."], 400);
         }
         $book->setPosition(null)->setPage(-1);
-        $this->booksEntityManager->flush();
+        $this->entityManager->flush();
         return $this->json([]);
     }
 
@@ -350,7 +350,7 @@ class BooksApiController extends AbstractController
             return $this->json(['error' => true, 'message' => "Book not found."], 400);
         }
         $book->setPosition(null)->setPage(0);
-        $this->booksEntityManager->flush();
+        $this->entityManager->flush();
         return $this->json([]);
     }
 
@@ -384,7 +384,7 @@ class BooksApiController extends AbstractController
         if (array_key_exists('update', $body) && $body['update']) {
             $book->updateLastRead();
         }
-        $this->booksEntityManager->flush();
+        $this->entityManager->flush();
         return $this->json([]);
     }
 
@@ -407,13 +407,13 @@ class BooksApiController extends AbstractController
             return $this->json(['error' => true, 'message' => "Parameter name not found."], 400);
         }
         $shelf = (new Shelf())->setPath($body['path'])->setName($body['name']);
-        $this->booksEntityManager->persist($shelf);
-        $this->booksEntityManager->flush();
+        $this->entityManager->persist($shelf);
+        $this->entityManager->flush();
         $books = $bookRepo->getWithPath($shelf->getPath());
         foreach ($books as $book) {
             $book->setShelfId($shelf->getId());
         }
-        $this->booksEntityManager->flush();
+        $this->entityManager->flush();
         return $this->json($shelf);
     }
 
@@ -430,7 +430,7 @@ class BooksApiController extends AbstractController
             return $this->json(['error' => true, 'message' => "Shelf not found."], 400);
         }
         $shelf->setName($body['name']);
-        $this->booksEntityManager->flush();
+        $this->entityManager->flush();
         return $this->json($shelf);
     }
 
@@ -445,9 +445,9 @@ class BooksApiController extends AbstractController
         foreach ($bookRepo->findBy(['shelf_id' => $shelf->getId()]) as $book) {
             $book->setShelfId(null);
         }
-        $this->booksEntityManager->flush();
-        $this->booksEntityManager->remove($shelf);
-        $this->booksEntityManager->flush();
+        $this->entityManager->flush();
+        $this->entityManager->remove($shelf);
+        $this->entityManager->flush();
         return $this->json([]);
     }
 

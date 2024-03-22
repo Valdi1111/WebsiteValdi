@@ -23,7 +23,11 @@ class MyAnimeListService
     const USER = 'Valdi_1111';
     const LIMIT = 1000;
 
-    public function __construct(private readonly LoggerInterface $animeLogger, private readonly EntityManagerInterface $animeEntityManager, private readonly HttpClientInterface $malApiClient, private readonly MessageBusInterface $bus)
+    public function __construct(
+        private readonly LoggerInterface        $animeLogger,
+        private readonly EntityManagerInterface $entityManager,
+        private readonly HttpClientInterface    $malApiClient,
+        private readonly MessageBusInterface    $bus)
     {
     }
 
@@ -59,15 +63,15 @@ class MyAnimeListService
         } catch (\Throwable $e) {
             throw new CacheRefreshException($type, $e);
         }
-        $oldList = $this->animeEntityManager->getRepository($class)->findAll();
+        $oldList = $this->entityManager->getRepository($class)->findAll();
         foreach ($oldList as $anime) {
-            $this->animeEntityManager->remove($anime);
+            $this->entityManager->remove($anime);
         }
-        $this->animeEntityManager->flush();
+        $this->entityManager->flush();
         foreach ($newList as $anime) {
-            $this->animeEntityManager->persist($anime);
+            $this->entityManager->persist($anime);
         }
-        $this->animeEntityManager->flush();
+        $this->entityManager->flush();
         $this->animeLogger->info("Successfully refreshed $type cache! (found (" . count($newList) . ") entries)");
         return $newList;
     }

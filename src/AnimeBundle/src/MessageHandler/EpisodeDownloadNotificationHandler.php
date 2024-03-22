@@ -17,16 +17,16 @@ class EpisodeDownloadNotificationHandler
 {
 
     public function __construct(
-        private readonly LoggerInterface $animeEpisodeDownloaderLogger,
-        private readonly EntityManagerInterface $animeEntityManager,
+        private readonly LoggerInterface                               $animeEpisodeDownloaderLogger,
+        private readonly EntityManagerInterface                        $entityManager,
         #[Autowire('%anime.youtube_dl.path%')] private readonly string $youtubeDlPath,
-        #[Autowire('%anime.base_folder%')] private readonly string $baseFolder)
+        #[Autowire('%anime.base_folder%')] private readonly string     $baseFolder)
     {
     }
 
     public function __invoke(EpisodeDownloadNotification $message): void
     {
-        $episode = $this->animeEntityManager->getRepository(EpisodeDownload::class)->findOneBy(['id' => $message->getId()]);
+        $episode = $this->entityManager->getRepository(EpisodeDownload::class)->findOneBy(['id' => $message->getId()]);
         if (!$episode) {
             $this->animeEpisodeDownloaderLogger->info("No episode found in queue");
             return;
@@ -52,7 +52,7 @@ class EpisodeDownloadNotificationHandler
         });
         */
         $episode->setState(EpisodeDownloadState::downloading)->setStarted(new \DateTime());
-        $this->animeEntityManager->flush();
+        $this->entityManager->flush();
         $collection = $yt->download(
             Options::create()
                 ->output('%(title)s.%(ext)s')
@@ -66,7 +66,7 @@ class EpisodeDownloadNotificationHandler
             } else {
                 $episode->setState(EpisodeDownloadState::completed)->setCompleted(new \DateTime());
             }
-            $this->animeEntityManager->flush();
+            $this->entityManager->flush();
         }
     }
 }

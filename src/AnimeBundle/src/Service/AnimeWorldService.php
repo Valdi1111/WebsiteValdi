@@ -17,10 +17,10 @@ class AnimeWorldService
 {
 
     public function __construct(
-        private readonly EntityManagerInterface $animeEntityManager,
-        private readonly HttpClientInterface $awClient,
+        private readonly EntityManagerInterface                    $entityManager,
+        private readonly HttpClientInterface                       $awClient,
         #[Autowire('%anime.temp_folder%')] private readonly string $tempFolder,
-        #[Autowire('%anime.aw.url%')] private readonly string $awUrl)
+        #[Autowire('%anime.aw.url%')] private readonly string      $awUrl)
     {
     }
 
@@ -71,7 +71,7 @@ class AnimeWorldService
 
     private function processFolder(?int $malId): string
     {
-        $folder = $this->animeEntityManager->getRepository(SeasonFolder::class)->findOneBy(['id' => $malId]);
+        $folder = $this->entityManager->getRepository(SeasonFolder::class)->findOneBy(['id' => $malId]);
         if ($folder) {
             return $folder->getFolder();
         }
@@ -124,7 +124,7 @@ class AnimeWorldService
         $globalCrawler = $this->fetchEpisodePage($episodeUrl);
         $malId = $this->scrapeIdFromButton($globalCrawler, 'mal-button');
         if ($filter) {
-            $anime = $this->animeEntityManager->getRepository(ListAnime::class)->findOneBy(['id' => $malId]);
+            $anime = $this->entityManager->getRepository(ListAnime::class)->findOneBy(['id' => $malId]);
             if (!$anime) {
                 throw new CacheAnimeNotFoundException($malId);
             }
@@ -139,12 +139,12 @@ class AnimeWorldService
             $itemCrawler = new Crawler($item);
             $episode = $this->getEpisodeObject($globalCrawler, $itemCrawler, $folder, $malId, $alId);
             if ($save) {
-                $this->animeEntityManager->persist($episode);
+                $this->entityManager->persist($episode);
             }
             $episodes[] = $episode;
         }
         if ($save) {
-            $this->animeEntityManager->flush();
+            $this->entityManager->flush();
         }
         return $episodes;
     }

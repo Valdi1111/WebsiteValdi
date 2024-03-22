@@ -28,9 +28,9 @@ class AnimeApiController extends AbstractController
 
     public function __construct(
         #[Autowire('%anime.base_folder%')] private readonly string $baseFolder,
-        private readonly EntityManagerInterface $animeEntityManager,
-        private readonly MyAnimeListService $malService,
-        private readonly AnimeWorldService $awService)
+        private readonly EntityManagerInterface                    $entityManager,
+        private readonly MyAnimeListService                        $malService,
+        private readonly AnimeWorldService                         $awService)
     {
     }
 
@@ -38,7 +38,7 @@ class AnimeApiController extends AbstractController
     public function apiListAnime(): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        return $this->json($this->animeEntityManager->getRepository(ListAnime::class)->findAll());
+        return $this->json($this->entityManager->getRepository(ListAnime::class)->findAll());
     }
 
     #[Route('/list/anime/refresh', name: 'list_anime_refresh', methods: ['POST'])]
@@ -53,7 +53,7 @@ class AnimeApiController extends AbstractController
     public function apiListManga(): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        return $this->json($this->animeEntityManager->getRepository(ListManga::class)->findAll());
+        return $this->json($this->entityManager->getRepository(ListManga::class)->findAll());
     }
 
     #[Route('/list/manga/refresh', name: 'list_manga_refresh', methods: ['POST'])]
@@ -68,14 +68,14 @@ class AnimeApiController extends AbstractController
     public function apiDownloadsAll(): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        return $this->json($this->animeEntityManager->getRepository(EpisodeDownload::class)->findAll());
+        return $this->json($this->entityManager->getRepository(EpisodeDownload::class)->findAll());
     }
 
     #[Route('/downloads', name: 'downloads_add', methods: ['POST'])]
     public function apiDownloadsAdd(Request $req, MessageBusInterface $bus): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        if(!$req->request->has("url")) {
+        if (!$req->request->has("url")) {
             throw new BadRequestException("Parameter url not found.");
         }
         $url = $req->request->getString("url");

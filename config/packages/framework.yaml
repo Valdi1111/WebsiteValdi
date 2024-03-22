@@ -19,15 +19,6 @@ framework:
     php_errors:
         log: true
 
-    http_client:
-        scoped_clients:
-            mal.api.client:
-                base_uri: '%anime.mal.url%'
-                headers:
-                    X-MAL-CLIENT-ID: '%anime.mal.client_id%'
-            aw.client:
-                base_uri: '%anime.aw.url%'
-
 when@test:
     framework:
         test: true

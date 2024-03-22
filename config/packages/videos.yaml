@@ -3,5 +3,7 @@ videos:
     base_folder: '%env(VIDEOS_BASE_FOLDER)%'
 
 twig:
+    paths:
+        src/VideosBundle/templates: 'VideosBundle'
     globals:
         videos_domain_name: '%videos.domain_name%'

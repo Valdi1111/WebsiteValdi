@@ -146,14 +146,6 @@ services:
 }
 ```
 
-### Add to `config/packages/twig.yaml`
-```yaml
-twig:
-    file_name_pattern: '*.twig'
-    paths:
-        src/CoreBundle/templates: 'CoreBundle'
-```
-
 ### Add to `config/Kernel.php` to enable the bundle
 ```php
 <?php
@@ -169,6 +161,8 @@ core:
     domain_name: 'core.%domain_name%'
 
 twig:
+    paths:
+        src/CoreBundle/templates: 'CoreBundle'
     globals:
         core_domain_name: '%core.domain_name%'
 ```
@@ -177,14 +171,6 @@ twig:
 ```yaml
 core:
     resource: '@CoreBundle/config/routing.yaml'
-```
-
-### Add to `config/services.yaml`
-```yaml
-services:
-    App\:
-        exclude:
-            - '../src/CoreBundle/'
 ```
 
 ### Add to `webpack.config.js`

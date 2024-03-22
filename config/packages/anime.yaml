@@ -16,5 +16,44 @@ anime:
         path: '%env(YOUTUBE_DL_PATH)%'
 
 twig:
+    paths:
+        src/AnimeBundle/templates: 'AnimeBundle'
     globals:
         anime_domain_name: '%anime.domain_name%'
+
+doctrine:
+    orm:
+        mappings:
+            App\AnimeBundle:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/AnimeBundle/src/Entity'
+                prefix: 'App\AnimeBundle\Entity'
+                alias: AnimeBundle
+
+framework:
+    messenger:
+        transports:
+            # https://symfony.com/doc/current/messenger.html#transport-configuration
+            anime_episode_download_failed: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=anime_episode_download_failed'
+            anime_episode_download:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                failure_transport: anime_episode_download_failed
+                options:
+                    queue_name: anime_episode_download
+                retry_strategy:
+                    max_retries: 3
+                    delay: 60000
+                    multiplier: 3
+        routing:
+            App\AnimeBundle\Message\EpisodeDownloadNotification: anime_episode_download
+            App\AnimeBundle\Message\AnimeCacheRefreshNotification: core_async
+            App\AnimeBundle\Message\MangaCacheRefreshNotification: core_async
+    http_client:
+        scoped_clients:
+            mal.api.client:
+                base_uri: '%anime.mal.url%'
+                headers:
+                    X-MAL-CLIENT-ID: '%anime.mal.client_id%'
+            aw.client:
+                base_uri: '%anime.aw.url%'

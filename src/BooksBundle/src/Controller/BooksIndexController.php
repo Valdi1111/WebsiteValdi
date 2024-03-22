@@ -31,7 +31,7 @@ class BooksIndexController extends AbstractController
             "id" => "/",
             "display" => "standalone",
             "display_override" => [
-                "window-controls-overlay",
+                //"window-controls-overlay",
                 "minimal-ui",
             ],
             "prefer_related_applications" => false,

@@ -4,22 +4,24 @@ framework:
 
         transports:
             # https://symfony.com/doc/current/messenger.html#transport-configuration
-            core_failed: '%env(CORE_MESSENGER_TRANSPORT_DSN)%?queue_name=failed'
+            core_failed: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=failed'
             core_async:
-                dsn: '%env(CORE_MESSENGER_TRANSPORT_DSN)%'
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    queue_name: core_async
                 retry_strategy:
                     max_retries: 3
                     multiplier: 2
+            anime_episode_download_failed: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=anime_episode_download_failed'
             anime_episode_download:
-                dsn: '%env(ANIME_MESSENGER_TRANSPORT_DSN)%'
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
                 failure_transport: anime_episode_download_failed
                 options:
-                    queue_name: episode-download
+                    queue_name: anime_episode_download
                 retry_strategy:
                     max_retries: 3
                     delay: 60000
                     multiplier: 3
-            anime_episode_download_failed: '%env(ANIME_MESSENGER_TRANSPORT_DSN)%?queue_name=episode-download-failed'
             # sync: 'sync://'
 
         buses:

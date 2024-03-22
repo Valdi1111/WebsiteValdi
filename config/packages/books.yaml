@@ -4,5 +4,17 @@ books:
     covers_folder: '%env(BOOKS_COVERS_FOLDER)%'
 
 twig:
+    paths:
+        src/BooksBundle/templates: 'BooksBundle'
     globals:
         books_domain_name: '%books.domain_name%'
+
+doctrine:
+    orm:
+        mappings:
+            App\BooksBundle:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/BooksBundle/src/Entity'
+                prefix: 'App\BooksBundle\Entity'
+                alias: BooksBundle

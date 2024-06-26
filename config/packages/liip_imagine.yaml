@@ -12,30 +12,3 @@ liip_imagine:
     filter_sets:
         # use the default cache configuration
         cache: ~
-        # the name of the "filter set"
-        books_thumb:
-            # adjust the image quality
-            format: webp
-            quality: 75
-            # list of transformations to apply (the "filters")
-            filters:
-                thumbnail:
-                    # set the thumbnail size to "32x32" pixels
-                    size: [300, 450]
-                    mode: inset
-                    allow_upscale: false
-        books_cover:
-            # adjust the image quality
-            format: webp
-            quality: 80
-            # list of transformations to apply (the "filters")
-            filters:
-                thumbnail:
-                    # set the thumbnail size to "32x32" pixels
-                    size: [600, 900]
-                    mode: inset
-                    allow_upscale: false
-    loaders:
-        default:
-            filesystem:
-                data_root: '%env(BOOKS_COVERS_FOLDER)%'

@@ -17,7 +17,7 @@ class VideosIndexController extends AbstractController
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $discovery->addLink($request);
-        return $this->render('@VideosBundle/index.html.twig', [
+        return $this->render('@Videos/index.html.twig', [
             'mercure_hub_url' => $hub->getPublicUrl(),
         ]);
     }

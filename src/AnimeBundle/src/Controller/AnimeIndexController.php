@@ -17,7 +17,7 @@ class AnimeIndexController extends AbstractController
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $discovery->addLink($request);
-        return $this->render('@AnimeBundle/index.html.twig', [
+        return $this->render('@Anime/index.html.twig', [
             'mercure_hub_url' => $hub->getPublicUrl(),
         ]);
     }

@@ -161,8 +161,6 @@ core:
     domain_name: 'core.%domain_name%'
 
 twig:
-    paths:
-        src/CoreBundle/templates: 'CoreBundle'
     globals:
         core_domain_name: '%core.domain_name%'
 ```

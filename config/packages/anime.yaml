@@ -16,8 +16,6 @@ anime:
         path: '%env(YOUTUBE_DL_PATH)%'
 
 twig:
-    paths:
-        src/AnimeBundle/templates: 'AnimeBundle'
     globals:
         anime_domain_name: '%anime.domain_name%'
 

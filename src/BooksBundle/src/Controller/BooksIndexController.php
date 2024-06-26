@@ -113,7 +113,7 @@ class BooksIndexController extends AbstractController
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $discovery->addLink($request);
-        return $this->render('@BooksBundle/index.html.twig', [
+        return $this->render('@Books/index.html.twig', [
             'mercure_hub_url' => $hub->getPublicUrl(),
         ]);
     }

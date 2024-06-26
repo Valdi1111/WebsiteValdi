@@ -1,8 +1,6 @@
 core:
 
 twig:
-    paths:
-        src/CoreBundle/templates: 'CoreBundle'
 
 doctrine:
     orm:
@@ -13,3 +11,21 @@ doctrine:
                 dir: '%kernel.project_dir%/src/CoreBundle/src/Entity'
                 prefix: 'App\CoreBundle\Entity'
                 alias: CoreBundle
+
+framework:
+    messenger:
+        failure_transport: core_failed
+        transports:
+            # https://symfony.com/doc/current/messenger.html#transport-configuration
+            core_failed: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=failed'
+            core_async:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    queue_name: core_async
+                retry_strategy:
+                    max_retries: 3
+                    multiplier: 2
+        routing:
+            Symfony\Component\Mailer\Messenger\SendEmailMessage: core_async
+            Symfony\Component\Notifier\Message\ChatMessage: core_async
+            Symfony\Component\Notifier\Message\SmsMessage: core_async

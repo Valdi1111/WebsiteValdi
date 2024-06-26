@@ -3,9 +3,7 @@
 namespace App\AnimeBundle\Service;
 
 use App\AnimeBundle\Entity\ListAnime;
-use App\AnimeBundle\Entity\ListAnimeStatus;
 use App\AnimeBundle\Entity\ListManga;
-use App\AnimeBundle\Entity\ListMangaStatus;
 use App\AnimeBundle\Exception\CacheRefreshException;
 use App\AnimeBundle\Message\AnimeCacheRefreshNotification;
 use App\AnimeBundle\Message\MangaCacheRefreshNotification;
@@ -19,9 +17,11 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 #[AsCronTask('@midnight', method: 'scheduleRefreshMangaCache')]
 class MyAnimeListService
 {
-    const FETCH_URL = 'https://api.myanimelist.net/v2/users/%1$s/%2$slist?nsfw=true&fields=list_status&limit=%3$d';
+    const FETCH_URL = 'https://api.myanimelist.net/v2/users/%1$s/%2$slist?nsfw=true&limit=%3$d&fields=%4$s';
     const USER = 'Valdi_1111';
     const LIMIT = 1000;
+    const FIELDS_ANIME = ['id', 'title', 'alternative_titles', 'nsfw', 'media_type', 'num_episodes', 'list_status'];
+    const FIELDS_MANGA = ['id', 'title', 'alternative_titles', 'nsfw', 'media_type', 'num_volumes', 'num_chapters', 'list_status'];
 
     public function __construct(
         private readonly LoggerInterface        $animeLogger,
@@ -33,15 +33,15 @@ class MyAnimeListService
 
     /**
      * @param $type string
+     * @param $fields string[]
      * @param $class class-string
-     * @param $statusClass class-string
-     * @return ListAnime[]|ListManga[]|null
+     * @return ListAnime[]|ListManga[]
      */
-    private function refreshCache(string $type, string $class, string $statusClass): ?array
+    private function refreshCache(string $type, array $fields, string $class): array
     {
         $this->animeLogger->info("Refreshing $type cache...");
         $newList = [];
-        $next = sprintf(self::FETCH_URL, self::USER, $type, self::LIMIT);
+        $next = sprintf(self::FETCH_URL, self::USER, $type, self::LIMIT, implode(',', $fields));
         try {
             while ($next) {
                 $response = $this->malApiClient->request('GET', $next);
@@ -54,20 +54,17 @@ class MyAnimeListService
                     $next = $content['paging']['next'];
                 }
                 foreach ($content['data'] as $data) {
-                    $newList[] = (new $class)
-                        ->setId($data['node']['id'])
-                        ->setTitle($data['node']['title'])
-                        ->setStatus($statusClass::tryFrom($data['list_status']['status']));
+                    $newList[] = (new $class)->deserializeMal($data);
                 }
             }
         } catch (\Throwable $e) {
             throw new CacheRefreshException($type, $e);
         }
-        $oldList = $this->entityManager->getRepository($class)->findAll();
-        foreach ($oldList as $anime) {
-            $this->entityManager->remove($anime);
-        }
-        $this->entityManager->flush();
+        $this->entityManager->getRepository($class)
+            ->createQueryBuilder('e')
+            ->delete()
+            ->getQuery()
+            ->execute();
         foreach ($newList as $anime) {
             $this->entityManager->persist($anime);
         }
@@ -78,20 +75,20 @@ class MyAnimeListService
 
     /**
      * Refresh anime cache
-     * @return ?ListAnime[]
+     * @return ListAnime[]
      */
-    public function refreshAnimeCache(): ?array
+    public function refreshAnimeCache(): array
     {
-        return $this->refreshCache('anime', ListAnime::class, ListAnimeStatus::class);
+        return $this->refreshCache('anime', self::FIELDS_ANIME, ListAnime::class);
     }
 
     /**
      * Refresh manga cache
-     * @return ?ListManga[]
+     * @return ListManga[]
      */
-    public function refreshMangaCache(): ?array
+    public function refreshMangaCache(): array
     {
-        return $this->refreshCache('manga', ListManga::class, ListMangaStatus::class);
+        return $this->refreshCache('manga', self::FIELDS_MANGA, ListManga::class);
     }
 
     /**

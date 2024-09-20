@@ -2,11 +2,11 @@
 
 namespace App\AnimeBundle\Entity;
 
-use App\AnimeBundle\Repository\MalListAnimeRepository;
+use App\AnimeBundle\Repository\ListAnimeRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Table(name: 'list_anime')]
-#[ORM\Entity(repositoryClass: MalListAnimeRepository::class)]
+#[ORM\Entity(repositoryClass: ListAnimeRepository::class)]
 class ListAnime implements \JsonSerializable
 {
     #[ORM\Id]

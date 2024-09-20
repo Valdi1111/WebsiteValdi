@@ -2,12 +2,12 @@
 
 namespace App\AnimeBundle\Entity;
 
-use App\AnimeBundle\Repository\AwDownloadRepository;
+use App\AnimeBundle\Repository\EpisodeDownloadRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Table(name: 'episode_download')]
-#[ORM\Entity(repositoryClass: AwDownloadRepository::class)]
+#[ORM\Entity(repositoryClass: EpisodeDownloadRepository::class)]
 class EpisodeDownload implements \JsonSerializable
 {
     #[ORM\Id]

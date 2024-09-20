@@ -3,15 +3,17 @@ anime:
     base_folder: '%env(ANIME_BASE_FOLDER)%'
     temp_folder: '%env(ANIME_TEMP_FOLDER)%'
     download_extension: '%env(ANIME_DOWNLOAD_EXTENSION)%'
-    mal:
-        url: '%env(MAL_URL)%'
+    myanimelist:
+        url: 'https://api.myanimelist.net'
         client_id: '%env(MAL_CLIENT_ID)%'
         client_secret: '%env(MAL_CLIENT_SECRET)%'
-    aw:
-        url: '%env(AW_URL)%'
-        api_url: '%env(AW_API_URL)%'
+    animeworld:
+        url: 'https://www.animeworld.so'
+        api_url: 'https://api.animeworld.so'
         client_id: '%env(AW_CLIENT_ID)%'
         api_key: '%env(AW_API_KEY)%'
+    animeunity:
+        url: 'https://www.animeunity.to'
     youtube_dl:
         path: '%env(YOUTUBE_DL_PATH)%'
 
@@ -49,9 +51,9 @@ framework:
             App\AnimeBundle\Message\MangaCacheRefreshNotification: core_async
     http_client:
         scoped_clients:
-            mal.api.client:
-                base_uri: '%anime.mal.url%'
+            anime.myanimelist.client:
+                base_uri: '%anime.myanimelist.url%'
                 headers:
-                    X-MAL-CLIENT-ID: '%anime.mal.client_id%'
-            aw.client:
-                base_uri: '%anime.aw.url%'
+                    X-MAL-CLIENT-ID: '%anime.myanimelist.client_id%'
+            anime.animeworld.client:
+                base_uri: '%anime.animeworld.url%'

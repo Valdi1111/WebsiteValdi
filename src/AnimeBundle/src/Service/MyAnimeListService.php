@@ -15,18 +15,18 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 #[AsCronTask('@midnight', method: 'scheduleRefreshAnimeCache')]
 #[AsCronTask('@midnight', method: 'scheduleRefreshMangaCache')]
-class MyAnimeListService
+readonly class MyAnimeListService
 {
-    const FETCH_URL = 'https://api.myanimelist.net/v2/users/%1$s/%2$slist?nsfw=true&limit=%3$d&fields=%4$s';
-    const USER = 'Valdi_1111';
-    const LIMIT = 1000;
-    const FIELDS_ANIME = ['id', 'title', 'alternative_titles', 'nsfw', 'media_type', 'num_episodes', 'list_status'];
-    const FIELDS_MANGA = ['id', 'title', 'alternative_titles', 'nsfw', 'media_type', 'num_volumes', 'num_chapters', 'list_status'];
+    const string FETCH_URL = 'https://api.myanimelist.net/v2/users/%1$s/%2$slist?nsfw=true&limit=%3$d&fields=%4$s';
+    const string USER = 'Valdi_1111';
+    const int LIMIT = 1000;
+    const array FIELDS_ANIME = ['id', 'title', 'alternative_titles', 'nsfw', 'media_type', 'num_episodes', 'list_status'];
+    const array FIELDS_MANGA = ['id', 'title', 'alternative_titles', 'nsfw', 'media_type', 'num_volumes', 'num_chapters', 'list_status'];
 
     public function __construct(
         private readonly LoggerInterface        $animeLogger,
         private readonly EntityManagerInterface $entityManager,
-        private readonly HttpClientInterface    $malApiClient,
+        private readonly HttpClientInterface    $animeMyanimelistClient,
         private readonly MessageBusInterface    $bus)
     {
     }
@@ -41,10 +41,10 @@ class MyAnimeListService
     {
         $this->animeLogger->info("Refreshing $type cache...");
         $newList = [];
-        $next = sprintf(self::FETCH_URL, self::USER, $type, self::LIMIT, implode(',', $fields));
         try {
+            $next = sprintf(self::FETCH_URL, self::USER, $type, self::LIMIT, implode(',', $fields));
             while ($next) {
-                $response = $this->malApiClient->request('GET', $next);
+                $response = $this->animeMyanimelistClient->request('GET', $next);
                 if ($response->getStatusCode() !== 200) {
                     throw new \RuntimeException("Error fetching list from MyAnimeList. (Http code {$response->getStatusCode()})");
                 }

@@ -2,6 +2,7 @@
 
 namespace App\AnimeBundle;
 
+use App\AnimeBundle\DependencyInjection\Compiler\AnimeDownloaderPass;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -22,13 +23,14 @@ class AnimeBundle extends AbstractBundle
         $container->parameters()->set('anime.base_folder', $config['base_folder']);
         $container->parameters()->set('anime.temp_folder', $config['temp_folder']);
         $container->parameters()->set('anime.download_extension', $config['download_extension']);
-        $container->parameters()->set('anime.mal.url', $config['mal']['url']);
-        $container->parameters()->set('anime.mal.client_id', $config['mal']['client_id']);
-        $container->parameters()->set('anime.mal.client_secret', $config['mal']['client_secret']);
-        $container->parameters()->set('anime.aw.url', $config['aw']['url']);
-        $container->parameters()->set('anime.aw.api_url', $config['aw']['api_url']);
-        $container->parameters()->set('anime.aw.client_id', $config['aw']['client_id']);
-        $container->parameters()->set('anime.aw.api_key', $config['aw']['api_key']);
+        $container->parameters()->set('anime.myanimelist.url', $config['myanimelist']['url']);
+        $container->parameters()->set('anime.myanimelist.client_id', $config['myanimelist']['client_id']);
+        $container->parameters()->set('anime.myanimelist.client_secret', $config['myanimelist']['client_secret']);
+        $container->parameters()->set('anime.animeworld.url', $config['animeworld']['url']);
+        $container->parameters()->set('anime.animeworld.api_url', $config['animeworld']['api_url']);
+        $container->parameters()->set('anime.animeworld.client_id', $config['animeworld']['client_id']);
+        $container->parameters()->set('anime.animeworld.api_key', $config['animeworld']['api_key']);
+        $container->parameters()->set('anime.animeunity.url', $config['animeunity']['url']);
         $container->parameters()->set('anime.youtube_dl.path', $config['youtube_dl']['path']);
     }
 
@@ -40,14 +42,14 @@ class AnimeBundle extends AbstractBundle
             ->scalarNode('base_folder')->defaultNull()->end()
             ->scalarNode('temp_folder')->defaultNull()->end()
             ->scalarNode('download_extension')->defaultNull()->end()
-            ->arrayNode('mal')
+            ->arrayNode('myanimelist')
                 ->children()
                     ->scalarNode('url')->defaultNull()->end()
                     ->scalarNode('client_id')->defaultNull()->end()
                     ->scalarNode('client_secret')->defaultNull()->end()
                 ->end()
             ->end()
-            ->arrayNode('aw')
+            ->arrayNode('animeworld')
                 ->children()
                     ->scalarNode('url')->defaultNull()->end()
                     ->scalarNode('api_url')->defaultNull()->end()
@@ -55,11 +57,22 @@ class AnimeBundle extends AbstractBundle
                     ->scalarNode('api_key')->defaultNull()->end()
                 ->end()
             ->end()
+            ->arrayNode('animeunity')
+                ->children()
+                    ->scalarNode('url')->defaultNull()->end()
+                ->end()
+            ->end()
             ->arrayNode('youtube_dl')
                 ->children()
                     ->scalarNode('path')->defaultNull()->end()
                 ->end()
             ->end();
+    }
+
+    public function build(ContainerBuilder $container): void
+    {
+        parent::build($container);
+        $container->addCompilerPass(new AnimeDownloaderPass());
     }
 
 }

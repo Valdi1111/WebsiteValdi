@@ -2,11 +2,11 @@
 
 namespace App\AnimeBundle\Entity;
 
-use App\AnimeBundle\Repository\MalFolderRepository;
+use App\AnimeBundle\Repository\SeasonFolderRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Table(name: 'season_folder')]
-#[ORM\Entity(repositoryClass: MalFolderRepository::class)]
+#[ORM\Entity(repositoryClass: SeasonFolderRepository::class)]
 class SeasonFolder
 {
     #[ORM\Id]

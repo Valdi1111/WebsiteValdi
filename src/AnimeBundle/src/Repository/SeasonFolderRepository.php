@@ -14,7 +14,7 @@ use Doctrine\Persistence\ManagerRegistry;
  * @method SeasonFolder[]    findAll()
  * @method SeasonFolder[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
  */
-class MalFolderRepository extends ServiceEntityRepository
+class SeasonFolderRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
     {

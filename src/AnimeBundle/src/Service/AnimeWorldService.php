@@ -6,21 +6,25 @@ use App\AnimeBundle\Entity\EpisodeDownload;
 use App\AnimeBundle\Entity\ListAnime;
 use App\AnimeBundle\Entity\SeasonFolder;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
-use App\AnimeBundle\Exception\UnhandledWebsiteException;
 use Doctrine\ORM\EntityManagerInterface;
 use Exception;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-class AnimeWorldService
+#[AsAlias('anime.downloader.animeworld')]
+#[AsAlias('App\AnimeBundle\Service\AnimeDownloaderInterface $animeWorldDownloader')]
+#[AutoconfigureTag('anime.downloader', attributes: ['config' => 'anime.animeworld'])]
+readonly class AnimeWorldService implements AnimeDownloaderInterface
 {
 
     public function __construct(
-        private readonly EntityManagerInterface                    $entityManager,
-        private readonly HttpClientInterface                       $awClient,
-        #[Autowire('%anime.temp_folder%')] private readonly string $tempFolder,
-        #[Autowire('%anime.aw.url%')] private readonly string      $awUrl)
+        private EntityManagerInterface                       $entityManager,
+        private HttpClientInterface                          $animeAnimeworldClient,
+        #[Autowire('%anime.temp_folder%')] private string    $tempFolder,
+        #[Autowire('%anime.animeworld.url%')] private string $websiteUrl)
     {
     }
 
@@ -31,7 +35,7 @@ class AnimeWorldService
      */
     private function fetchEpisodePage(string $episodeUrl): Crawler
     {
-        $response = $this->awClient->request('GET', $this->awUrl . $episodeUrl);
+        $response = $this->animeAnimeworldClient->request('GET', $this->getWebsiteUrl() . $episodeUrl);
         if ($response->getStatusCode() !== 200) {
             throw new Exception("Error fetching page from AnimeWorld. Http code = " . $response->getStatusCode());
         }
@@ -106,22 +110,11 @@ class AnimeWorldService
     }
 
     /**
-     * @param string $url anime url (with hostname)
-     * @param bool $allEpisodes query all episodes
-     * @param bool $filter filter if not present in MyAnimeList cache
-     * @param bool $save save to database
-     * @return EpisodeDownload[]
-     * @throws UnhandledWebsiteException
-     * @throws CacheAnimeNotFoundException
-     * @throws Exception
+     * @inheritDoc
      */
-    public function createEpisodeDownloads(string $url, bool $allEpisodes = false, bool $filter = true, bool $save = true): array
+    public function createEpisodeDownloads(string $urlPath, bool $allEpisodes = false, bool $filter = true, bool $save = true): array
     {
-        if (!str_starts_with($url, $this->awUrl)) {
-            throw new UnhandledWebsiteException();
-        }
-        $episodeUrl = preg_replace("/.*\/\/[^\/]*/", "", $url);
-        $globalCrawler = $this->fetchEpisodePage($episodeUrl);
+        $globalCrawler = $this->fetchEpisodePage($urlPath);
         $malId = $this->scrapeIdFromButton($globalCrawler, 'mal-button');
         if ($filter) {
             $anime = $this->entityManager->getRepository(ListAnime::class)->findOneBy(['id' => $malId]);
@@ -149,4 +142,8 @@ class AnimeWorldService
         return $episodes;
     }
 
+    public function getWebsiteUrl(): string
+    {
+        return $this->websiteUrl;
+    }
 }

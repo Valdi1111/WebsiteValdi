@@ -180,7 +180,7 @@ export default function BookId() {
             }
             contents.documentElement.ontouchend = e => {
                 end = e.changedTouches[0];
-                const area = $('#book-view');
+                const area = document.getElementById('book-view');
                 if (area) {
                     const bound = area.getBoundingClientRect();
                     const hr = (end.screenX - start.screenX) / bound.width;

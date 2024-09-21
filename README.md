@@ -13,14 +13,46 @@ Create tables for user, token, etc with `php bin/console doctrine:schema:update 
 * `sudo a2enmod ssl headers proxy proxy_http rewrite proxy_fcgi setenvif`
 * `sudo a2enconf php8.3-fpm`
 * `sudo a2dismod mpm_prefork`
+* `sudo a2enmod mpm_event`
+
+### Enable http2
 * `sudo a2enmod mpm_event http2`
 * [Http2 tutorial](https://gist.github.com/GAS85/38eb5954a27d64ae9ac17d01bfe9898c)
+
+```aiignore
+<IfModule http2_module>
+    Protocols h2 h2c http/1.1
+    H2Direct on
+</IfModule>
+```
+
+### Enable mod SendFile
+* `sudo apt-get install libapache2-mod-xsendfile`
+* `sudo a2enmod xsendfile`
+
+```aiignore
+XSendFile On
+XSendFilePath /media
+ProxyFCGISetEnvIf "true" HTTP_X_SENDFILE_TYPE "X-Sendfile"
+```
 
 ## Mercure
 * Download mercure server from [repository](https://github.com/dunglas/mercure/releases)
 * Create and start mercure service
   * `systemctl enable mercure.service`
   * `systemctl start mercure.service`
+
+```aiignore
+<Location "/mercure-hub">
+    SetEnvIf Origin "^https?://[^/]*(valdi)\.ovh" ORIGIN=$0
+    Header set Access-Control-Allow-Origin %{ORIGIN}e env=ORIGIN
+    Header set Access-Control-Allow-Credentials "true" env=ORIGIN
+    Header merge Vary Origin
+    
+    ProxyPass http://localhost:3000/.well-known/mercure
+    ProxyPassReverse http://localhost:3000/.well-known/mercure
+</Location>
+```
 
 ## Deploy
 * Copy new files

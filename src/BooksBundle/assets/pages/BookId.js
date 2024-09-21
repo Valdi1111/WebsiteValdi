@@ -15,6 +15,8 @@ import {useParams} from "react-router-dom";
 import {Helmet} from "react-helmet";
 import {Book, EpubCFI} from "epubjs";
 import React from "react";
+import $ from "jquery";
+import "@BooksBundle/scss/iframe.css";
 
 export default function BookId() {
     const [settings, setSetting] = useBookSettings();
@@ -131,12 +133,13 @@ export default function BookId() {
      * @param localMark {{position: string|null, page: int}} book's bookmark
      */
     function updateLayout(localMark) {
-        const area = document.getElementById('book-view');
-        area.innerHTML = '';
+        const $area = $("#book-view");
+        $area.empty();
         const gap = parseInt(settings[MARGINS]);
         const width = parseInt(settings[WIDTH]) + gap;
-        let rendition = book.current.renderTo(area, {
+        let rendition = book.current.renderTo($area.get(0), {
             ...LAYOUTS[settings[LAYOUT]].settings,
+            allowScriptedContent: true,
             width: width,
             height: '100%',
             gap: gap
@@ -152,7 +155,7 @@ export default function BookId() {
         rendition.on('click', async e => {
             if (e.target.tagName.toLowerCase() === 'img' || e.target.tagName.toLowerCase() === 'image') {
                 const {default: Modal} = await import("bootstrap/js/dist/modal");
-                new Modal(document.getElementById('image-view-modal')).show(e.target);
+                new Modal($('#image-view-modal')).show(e.target);
             }
         });
         // Turn page on mouse wheel
@@ -177,7 +180,7 @@ export default function BookId() {
             }
             contents.documentElement.ontouchend = e => {
                 end = e.changedTouches[0];
-                const area = document.getElementById('book-view');
+                const area = $('#book-view');
                 if (area) {
                     const bound = area.getBoundingClientRect();
                     const hr = (end.screenX - start.screenX) / bound.width;

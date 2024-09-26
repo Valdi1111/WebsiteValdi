@@ -22,6 +22,10 @@ interface AnimeDownloaderInterface
      */
     public function createEpisodeDownloads(string $urlPath, bool $allEpisodes = false, bool $filter = true, bool $save = true): array;
 
+    /**
+     * Website base url
+     * @return string
+     */
     public function getWebsiteUrl(): string;
 
 }

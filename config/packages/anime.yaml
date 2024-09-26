@@ -2,7 +2,6 @@ anime:
     domain_name: 'anime.%domain_name%'
     base_folder: '%env(ANIME_BASE_FOLDER)%'
     temp_folder: '%env(ANIME_TEMP_FOLDER)%'
-    download_extension: '%env(ANIME_DOWNLOAD_EXTENSION)%'
     myanimelist:
         url: 'https://api.myanimelist.net'
         client_id: '%env(MAL_CLIENT_ID)%'
@@ -57,3 +56,5 @@ framework:
                     X-MAL-CLIENT-ID: '%anime.myanimelist.client_id%'
             anime.animeworld.client:
                 base_uri: '%anime.animeworld.url%'
+            anime.animeunity.client:
+                base_uri: '%anime.animeunity.url%'

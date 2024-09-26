@@ -22,7 +22,6 @@ class AnimeBundle extends AbstractBundle
         $container->parameters()->set('anime.domain_name', $config['domain_name']);
         $container->parameters()->set('anime.base_folder', $config['base_folder']);
         $container->parameters()->set('anime.temp_folder', $config['temp_folder']);
-        $container->parameters()->set('anime.download_extension', $config['download_extension']);
         $container->parameters()->set('anime.myanimelist.url', $config['myanimelist']['url']);
         $container->parameters()->set('anime.myanimelist.client_id', $config['myanimelist']['client_id']);
         $container->parameters()->set('anime.myanimelist.client_secret', $config['myanimelist']['client_secret']);
@@ -41,7 +40,6 @@ class AnimeBundle extends AbstractBundle
             ->scalarNode('domain_name')->defaultNull()->end()
             ->scalarNode('base_folder')->defaultNull()->end()
             ->scalarNode('temp_folder')->defaultNull()->end()
-            ->scalarNode('download_extension')->defaultNull()->end()
             ->arrayNode('myanimelist')
                 ->children()
                     ->scalarNode('url')->defaultNull()->end()

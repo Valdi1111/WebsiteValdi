@@ -29,18 +29,17 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
     }
 
     /**
-     * Get anime page from episode url
-     * @param string $episodeUrl episode url
-     * @return Crawler anime page
+     * Fetch page from url and create a crawler
+     * @param string $url episode url
+     * @return Crawler page
      */
-    private function fetchEpisodePage(string $episodeUrl): Crawler
+    private function fetchPage(string $url): Crawler
     {
-        $response = $this->animeAnimeworldClient->request('GET', $this->getWebsiteUrl() . $episodeUrl);
+        $response = $this->animeAnimeworldClient->request('GET', $url);
         if ($response->getStatusCode() !== 200) {
             throw new Exception("Error fetching page from AnimeWorld. Http code = " . $response->getStatusCode());
         }
-        $content = $response->getContent();
-        return new Crawler($content);
+        return new Crawler($response->getContent());
     }
 
     /**
@@ -103,7 +102,7 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
         if ($itemCrawler->matches(".active")) {
             $this->scrapeEpisodeFile($globalCrawler, $episode);
         } else {
-            $episodeCrawler = $this->fetchEpisodePage($itemCrawler->attr("href"));
+            $episodeCrawler = $this->fetchPage($itemCrawler->attr("href"));
             $this->scrapeEpisodeFile($episodeCrawler, $episode);
         }
         return $episode;
@@ -114,7 +113,7 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
      */
     public function createEpisodeDownloads(string $urlPath, bool $allEpisodes = false, bool $filter = true, bool $save = true): array
     {
-        $globalCrawler = $this->fetchEpisodePage($urlPath);
+        $globalCrawler = $this->fetchPage($urlPath);
         $malId = $this->scrapeIdFromButton($globalCrawler, 'mal-button');
         if ($filter) {
             $anime = $this->entityManager->getRepository(ListAnime::class)->findOneBy(['id' => $malId]);
@@ -129,8 +128,7 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
         $episodes = [];
         $items = $globalCrawler->filter("div.server.active ul.episodes.range li.episode a" . ($allEpisodes ? "" : ".active"));
         foreach ($items as $item) {
-            $itemCrawler = new Crawler($item);
-            $episode = $this->getEpisodeObject($globalCrawler, $itemCrawler, $folder, $malId, $alId);
+            $episode = $this->getEpisodeObject($globalCrawler, new Crawler($item), $folder, $malId, $alId);
             if ($save) {
                 $this->entityManager->persist($episode);
             }
@@ -142,6 +140,9 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
         return $episodes;
     }
 
+    /**
+     * @inheritDoc
+     */
     public function getWebsiteUrl(): string
     {
         return $this->websiteUrl;

@@ -6,6 +6,10 @@ anime:
         url: 'https://api.myanimelist.net'
         client_id: '%env(MAL_CLIENT_ID)%'
         client_secret: '%env(MAL_CLIENT_SECRET)%'
+    anilist:
+        url: 'https://graphql.anilist.co'
+        client_id: '%env(AL_CLIENT_ID)%'
+        client_secret: '%env(AL_CLIENT_SECRET)%'
     animeworld:
         url: 'https://www.animeworld.so'
         api_url: 'https://api.animeworld.so'

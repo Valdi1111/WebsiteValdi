@@ -5,6 +5,7 @@ namespace App\BooksBundle\Entity;
 use App\BooksBundle\Repository\ShelfRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Table(name: 'shelf')]
@@ -22,6 +23,9 @@ class Shelf implements \JsonSerializable
     #[ORM\Column(length: 255)]
     private ?string $name = null;
 
+    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    private ?\DateTimeInterface $created;
+
     /**
      * @var Collection<int, ShelfBook>
      */
@@ -31,6 +35,7 @@ class Shelf implements \JsonSerializable
 
     public function __construct()
     {
+        $this->created = new \DateTime();
         $this->books = new ArrayCollection();
     }
 
@@ -59,6 +64,18 @@ class Shelf implements \JsonSerializable
     public function setName(string $name): static
     {
         $this->name = $name;
+
+        return $this;
+    }
+
+    public function getCreated(): \DateTimeInterface
+    {
+        return $this->created;
+    }
+
+    public function setCreated(\DateTimeInterface $created): static
+    {
+        $this->created = $created;
 
         return $this;
     }

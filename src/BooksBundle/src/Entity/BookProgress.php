@@ -3,6 +3,7 @@
 namespace App\BooksBundle\Entity;
 
 use App\BooksBundle\Repository\BookProgressRepository;
+use App\CoreBundle\Entity\User;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -11,8 +12,14 @@ use Doctrine\ORM\Mapping as ORM;
 class BookProgress
 {
     #[ORM\Id]
-    #[ORM\Column]
-    private ?int $book_id = null;
+    #[ORM\ManyToOne(targetEntity: AbstractBook::class, inversedBy: 'progresses')]
+    #[ORM\JoinColumn(name: 'book_id', referencedColumnName: 'id', nullable: false)]
+    private ?AbstractBook $book = null;
+
+    #[ORM\Id]
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', nullable: false)]
+    private ?User $user = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $position = null;
@@ -28,14 +35,26 @@ class BookProgress
         $this->last_read = new \DateTime();
     }
 
-    public function getBookId(): ?int
+    public function getBook(): ?AbstractBook
     {
-        return $this->book_id;
+        return $this->book;
     }
 
-    public function setBookId(int $book_id): static
+    public function setBook(?AbstractBook $book): self
     {
-        $this->book_id = $book_id;
+        $this->book = $book;
+
+        return $this;
+    }
+
+    public function getUser(): ?User
+    {
+        return $this->user;
+    }
+
+    public function setUser(?User $user): self
+    {
+        $this->user = $user;
 
         return $this;
     }

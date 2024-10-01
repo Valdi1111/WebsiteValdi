@@ -3,11 +3,9 @@
 namespace App\BooksBundle\Repository;
 
 use App\BooksBundle\Entity\Book;
-use App\BooksBundle\Entity\BookCache;
-use App\BooksBundle\Entity\BookMetadata;
-use App\BooksBundle\Entity\BookProgress;
+use App\CoreBundle\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
-use Doctrine\ORM\Query\Expr\Join;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -26,26 +24,24 @@ class BookRepository extends ServiceEntityRepository
     }
 
     /**
+     * @param User $user
      * @param ?int $limit
      * @param ?int $offset
-     * @param array<string, string> $orderBy
      * @param ?int $shelfId
-     * @return Book[]
+     * @return QueryBuilder
      */
-    private function books(?int $limit, ?int $offset, array $orderBy, ?int $shelfId = null): array
+    private function books(User $user, ?int $limit, ?int $offset, ?int $shelfId = null): QueryBuilder
     {
         $qb = $this->createQueryBuilder('b')
-            ->addSelect('bm', 'bc', 'bp')
-            ->innerJoin(BookMetadata::class, 'bm', Join::WITH, "b.id = bm.book_id")
-            ->innerJoin(BookCache::class, 'bc', Join::WITH, "b.id = bc.book_id")
-            ->innerJoin(BookProgress::class, 'bp', Join::WITH, "b.id = bp.book_id");
+            ->select('b AS book')
+            ->leftJoin('b.progresses', 'bp')
+            ->andWhere('bp.user = :userId OR bp.user IS NULL')
+            ->setParameter('userId', $user->getId());
         if ($shelfId === -1) {
             $qb->andWhere("b.shelf_id IS NULL");
         } else if ($shelfId) {
-            $qb->andWhere("b.shelf_id = :shelfId")->setParameter("shelfId", $shelfId);
-        }
-        foreach ($orderBy as $sort => $order) {
-            $qb->addOrderBy($sort, $order);
+            $qb->andWhere("b.shelf_id = :shelfId")
+                ->setParameter("shelfId", $shelfId);
         }
         if ($limit) {
             $qb->setMaxResults($limit);
@@ -53,33 +49,47 @@ class BookRepository extends ServiceEntityRepository
         if ($offset) {
             $qb->setFirstResult($offset);
         }
+        return $qb;
+    }
+
+    /**
+     * @param User $user
+     * @param int $limit
+     * @param int $offset
+     * @return Book[]
+     */
+    public function getAll(User $user, int $limit, int $offset): array
+    {
+        $results = $this->books($user, $limit, $offset)
+            ->addSelect('COALESCE(bp.last_read, b.created) AS orderColumn')
+            ->addOrderBy('orderColumn', 'DESC')
+            ->addOrderBy('b.id', 'DESC')
+            ->getQuery()
+            ->getResult();
         $books = [];
-        foreach ($qb->getQuery()->getResult() as $item) {
-            if ($item instanceof Book) {
-                $books[] = $item;
-            }
+        foreach ($results as $result) {
+            $books[] = $result['book'];
         }
         return $books;
     }
 
     /**
+     * @param User $user
      * @param int $limit
      * @param int $offset
      * @return Book[]
      */
-    public function getAll(int $limit, int $offset): array
+    public function getNotInShelves(User $user, int $limit, int $offset): array
     {
-        return $this->books($limit, $offset, ["bp.last_read" => "DESC", "b.id" => "DESC"]);
-    }
-
-    /**
-     * @param int $limit
-     * @param int $offset
-     * @return Book[]
-     */
-    public function getNotInShelves(int $limit, int $offset): array
-    {
-        return $this->books($limit, $offset, ["b.url" => "ASC"], -1);
+        $results = $this->books($user, $limit, $offset, -1)
+            ->addOrderBy('b.url', 'ASC')
+            ->getQuery()
+            ->getResult();
+        $books = [];
+        foreach ($results as $result) {
+            $books[] = $result['book'];
+        }
+        return $books;
     }
 
     /**

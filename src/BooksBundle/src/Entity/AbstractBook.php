@@ -2,9 +2,13 @@
 
 namespace App\BooksBundle\Entity;
 
+use App\CoreBundle\Entity\User;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\ORM\Mapping\JoinColumn;
+use Doctrine\ORM\Mapping\OneToMany;
 use Liip\ImagineBundle\Imagine\Cache\CacheManager;
 
 #[ORM\MappedSuperclass]
@@ -24,21 +28,22 @@ class AbstractBook
     #[ORM\Column(nullable: true)]
     private ?int $shelf_id = null;
 
-    #[ORM\OneToOne(targetEntity: BookMetadata::class)]
+    #[ORM\OneToOne(targetEntity: BookMetadata::class, cascade: ['persist', 'remove'])]
     #[JoinColumn(name: 'id', referencedColumnName: 'book_id')]
-    private ?BookMetadata $bookMetadata = null;
+    private ?BookMetadata $metadata = null;
 
-    #[ORM\OneToOne(targetEntity: BookCache::class)]
+    #[ORM\OneToOne(targetEntity: BookCache::class, cascade: ['persist', 'remove'])]
     #[JoinColumn(name: 'id', referencedColumnName: 'book_id')]
-    private ?BookCache $bookCache = null;
+    private ?BookCache $cache = null;
 
-    #[ORM\OneToOne(targetEntity: BookProgress::class)]
-    #[JoinColumn(name: 'id', referencedColumnName: 'book_id')]
-    private ?BookProgress $bookProgress = null;
+    /** @var Collection<int, BookProgress> */
+    #[OneToMany(mappedBy: 'book', targetEntity: BookProgress::class, cascade: ['persist', 'remove'], fetch: 'EAGER', indexBy: 'user_id')]
+    private Collection $progresses;
 
     public function __construct()
     {
         $this->created = new \DateTime();
+        $this->progresses = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -82,38 +87,58 @@ class AbstractBook
         return $this;
     }
 
-    public function getBookMetadata(): ?BookMetadata
+    public function getMetadata(): ?BookMetadata
     {
-        return $this->bookMetadata;
+        return $this->metadata;
     }
 
-    public function setBookMetadata(BookMetadata $bookMetadata): static
+    public function setMetadata(BookMetadata $metadata): static
     {
-        $this->bookMetadata = $bookMetadata;
+        $this->metadata = $metadata;
 
         return $this;
     }
 
-    public function getBookCache(): ?BookCache
+    public function getCache(): ?BookCache
     {
-        return $this->bookCache;
+        return $this->cache;
     }
 
-    public function setBookCache(BookCache $bookCache): static
+    public function setCache(BookCache $cache): static
     {
-        $this->bookCache = $bookCache;
+        $this->cache = $cache;
 
         return $this;
     }
 
-    public function getBookProgress(): ?BookProgress
+    /** @return Collection<int, BookProgress> */
+    public function getProgresses(): Collection
     {
-        return $this->bookProgress;
+        return $this->progresses;
     }
 
-    public function setBookProgress(BookProgress $bookProgress): static
+    public function getProgress(User $user): ?BookProgress
     {
-        $this->bookProgress = $bookProgress;
+        return $this->progresses->get($user->getId());
+    }
+
+    public function addProgress(BookProgress $progress): self
+    {
+        if (!$this->progresses->contains($progress)) {
+            $this->progresses[] = $progress;
+            $progress->setBook($this);
+        }
+
+        return $this;
+    }
+
+    public function removeProgress(BookProgress $progress): self
+    {
+        if ($this->progresses->removeElement($progress)) {
+            if ($progress->getBook() === $this) {
+                $progress->setBook(null);
+            }
+        }
 
         return $this;
     }
@@ -125,20 +150,22 @@ class AbstractBook
      */
     public function toJsonMetadata(CacheManager $cacheManager, string $cover = 'cover'): array
     {
-        $json = $this->getBookMetadata()->toJson();
+        $json = $this->getMetadata()->toJson();
         $json['cover'] = $this->generateCoverThumbnail($cacheManager, "books_$cover");
         return $json;
     }
 
     /**
+     * @param User $user
      * @param CacheManager $cacheManager
      * @param string $cover
      * @param bool $fullCache
      * @param bool $fullProgress
      * @return array
      */
-    public function toJson(CacheManager $cacheManager, string $cover = 'thumb', bool $fullCache = false, bool $fullProgress = false): array
+    public function toJson(User $user, CacheManager $cacheManager, string $cover = 'thumb', bool $fullCache = false, bool $fullProgress = false): array
     {
+        $bp = $this->getProgress($user);
         $json = [
             'id' => $this->getId(),
             'url' => $this->getUrl(),
@@ -147,20 +174,20 @@ class AbstractBook
                 'cover' => $this->generateCoverThumbnail($cacheManager, "books_$cover"),
             ],
             'book_metadata' => [
-                'title' => $this->getBookMetadata()->getTitle(),
-                'creator' => $this->getBookMetadata()->getCreator(),
+                'title' => $this->getMetadata()->getTitle(),
+                'creator' => $this->getMetadata()->getCreator(),
             ],
             'book_progress' => [
-                'page' => $this->getBookProgress()->getPage(),
-                'total' => count($this->getBookCache()->getLocations()),
+                'page' => $bp ? $bp->getPage() : 0,
+                'total' => count($this->getCache()->getLocations()),
             ],
         ];
-        if($fullCache) {
-            $json['book_cache']['navigation'] = $this->getBookCache()->getNavigation();
-            $json['book_cache']['locations'] = $this->getBookCache()->getLocations();
+        if ($fullCache) {
+            $json['book_cache']['navigation'] = $this->getCache()->getNavigation();
+            $json['book_cache']['locations'] = $this->getCache()->getLocations();
         }
-        if($fullProgress) {
-            $json['book_progress']['position'] = $this->getBookProgress()->getPosition();
+        if ($fullProgress) {
+            $json['book_progress']['position'] = $bp?->getPosition();
         }
         return $json;
     }
@@ -172,8 +199,8 @@ class AbstractBook
      */
     public function generateCoverThumbnail(CacheManager $cacheManager, string $filter): ?string
     {
-        if ($this->getBookCache()->getCover()) {
-            return $cacheManager->getBrowserPath("/" . $this->getBookCache()->getCover(), $filter);
+        if ($this->getCache()->getCover()) {
+            return $cacheManager->getBrowserPath("/" . $this->getCache()->getCover(), $filter);
         }
         return null;
     }

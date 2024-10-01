@@ -341,10 +341,10 @@ class BooksApiController extends AbstractController
     }
 
     #[Route('/shelves', name: 'shelves', methods: ['GET'], format: 'json')]
-    public function apiShelves(Request $req, ShelfRepository $shelfRepo): Response
+    public function apiShelves(Request $req, #[MapEntity(class: Shelf::class, expr: 'repository.findBy({}, {"name": "ASC"})')] iterable $shelves): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        return $this->json($shelfRepo->findBy([], ['name' => 'ASC']));
+        return $this->json($shelves);
     }
 
     #[Route('/shelves', name: 'shelves_add', methods: ['POST'], format: 'json')]
@@ -383,10 +383,10 @@ class BooksApiController extends AbstractController
     }
 
     #[Route('/shelves/{id}', name: 'shelves_id_delete', requirements: ['id' => '\d+'], methods: ['DELETE'], format: 'json')]
-    public function apiShelvesDelete(Request $req, #[MapEntity(message: "Shelf not found.")] Shelf $shelf, BookRepository $bookRepo): Response
+    public function apiShelvesDelete(Request $req, #[MapEntity(message: "Shelf not found.")] Shelf $shelf, #[MapEntity(class: Book::class, expr: 'repository.findBy({"shelf_id": id})')] iterable $books): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        foreach ($bookRepo->findBy(['shelf_id' => $shelf->getId()]) as $book) {
+        foreach ($books as $book) {
             $book->setShelfId(null);
         }
         $this->entityManager->flush();

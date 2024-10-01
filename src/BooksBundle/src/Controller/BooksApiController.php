@@ -7,13 +7,12 @@ use App\BooksBundle\Entity\BookCache;
 use App\BooksBundle\Entity\BookMetadata;
 use App\BooksBundle\Entity\BookProgress;
 use App\BooksBundle\Entity\Shelf;
-use App\BooksBundle\Repository\BookCacheRepository;
-use App\BooksBundle\Repository\BookProgressRepository;
 use App\BooksBundle\Repository\BookRepository;
 use App\BooksBundle\Repository\ShelfRepository;
 use App\CoreBundle\Controller\FileManagerTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Liip\ImagineBundle\Imagine\Cache\CacheManager;
+use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\File\File;
@@ -45,14 +44,10 @@ class BooksApiController extends AbstractController
     {
     }
 
-    #[Route('/epub/{bookId}', name: 'epub_id_get', requirements: ['bookId' => '\d+'], methods: ['GET'], priority: 10)]
-    public function apiEpubId(Request $req, int $bookId, BookRepository $bookRepo): Response
+    #[Route('/epub/{id}', name: 'epub_id_get', requirements: ['id' => '\d+'], methods: ['GET'], priority: 10)]
+    public function apiEpubId(Request $req, #[MapEntity(message: "Book not found.")] Book $book): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $book = $bookRepo->findOneBy(['id' => $bookId]);
-        if (!$book) {
-            return $this->json(['error' => true, 'message' => "Book not found."], 400);
-        }
         return $this->getEpubFile($book->getUrl());
     }
 
@@ -73,7 +68,7 @@ class BooksApiController extends AbstractController
         return $this->file(new File($filepath), 'book.epub');
     }
 
-    #[Route('/books/all', name: 'books_all', methods: ['GET'])]
+    #[Route('/books/all', name: 'books_all', methods: ['GET'], format: 'json')]
     public function apiBooksAll(Request $req, BookRepository $bookRepo, CacheManager $cacheManager, Authorization $authorization): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
@@ -89,7 +84,7 @@ class BooksApiController extends AbstractController
         return $this->json(array_map(fn($b) => $b->toJson($cacheManager), $bookRepo->getAll($limit, $offset)));
     }
 
-    #[Route('/books/not-in-shelves', name: 'books_not_in_shelves', methods: ['GET'])]
+    #[Route('/books/not-in-shelves', name: 'books_not_in_shelves', methods: ['GET'], format: 'json')]
     public function apiBooksNotInShelves(Request $req, BookRepository $bookRepo, CacheManager $cacheManager, Authorization $authorization): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
@@ -122,7 +117,7 @@ class BooksApiController extends AbstractController
         }
     }
 
-    #[Route('/books/find-new', name: 'books_find_new', methods: ['GET'])]
+    #[Route('/books/find-new', name: 'books_find_new', methods: ['GET'], format: 'json')]
     public function apiBooksFindNew(Request $req, BookRepository $bookRepo): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
@@ -143,7 +138,7 @@ class BooksApiController extends AbstractController
         return $this->json($res);
     }
 
-    #[Route('/books', name: 'books_add', methods: ['POST'])]
+    #[Route('/books', name: 'books_add', methods: ['POST'], format: 'json')]
     public function apiBooksAdd(Request $req, ShelfRepository $shelfRepo, HubInterface $hub, CacheManager $cacheManager): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
@@ -199,19 +194,15 @@ class BooksApiController extends AbstractController
         return $this->json(['id' => $book->getId(), 'shelf_id' => $book->getShelfId()]);
     }
 
-    #[Route('/books/{bookId}', name: 'books_id_get', requirements: ['bookId' => '\d+'], methods: ['GET'])]
-    public function apiBooksIdGet(Request $req, int $bookId, BookRepository $bookRepo, CacheManager $cacheManager): Response
+    #[Route('/books/{id}', name: 'books_id_get', requirements: ['id' => '\d+'], methods: ['GET'], format: 'json')]
+    public function apiBooksIdGet(Request $req, #[MapEntity(message: "Book not found.")] Book $book, CacheManager $cacheManager): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $book = $bookRepo->findOneBy(['id' => $bookId]);
-        if (!$book) {
-            return $this->json(['error' => true, 'message' => "Book not found."], 400);
-        }
         return $this->json($book->toJson($cacheManager, 'cover', true, true));
     }
 
-    #[Route('/books/{bookId}', name: 'books_id_edit', requirements: ['bookId' => '\d+'], methods: ['PUT'])]
-    public function apiBooksIdEdit(Request $req, int $bookId, BookRepository $bookRepo): Response
+    #[Route('/books/{id}', name: 'books_id_edit', requirements: ['id' => '\d+'], methods: ['PUT'], format: 'json')]
+    public function apiBooksIdEdit(Request $req, #[MapEntity(message: "Book not found.")] Book $book): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $body = $req->toArray();
@@ -224,31 +215,20 @@ class BooksApiController extends AbstractController
         if (!array_key_exists('metadata', $body)) {
             return $this->json(['error' => true, 'message' => "Parameter metadata not found."], 400);
         }
-        $book = $bookRepo->findOneBy(['id' => $bookId]);
-        if (!$book) {
-            return $this->json(['error' => true, 'message' => "Book not found."], 400);
-        }
         $book->getBookCache()->setLocations($body['locations'])->setNavigation($body['navigation']);
         $book->getBookMetadata()->fromJson($body['metadata']);
         $this->entityManager->flush();
         return $this->json(['id' => $book->getId(), 'shelf_id' => $book->getShelfId()]);
     }
 
-    #[Route('/books/{bookId}', name: 'books_id_delete', requirements: ['bookId' => '\d+'], methods: ['DELETE'])]
-    public function apiBooksIdDelete(Request $req, int $bookId, BookRepository $bookRepo, HubInterface $hub, CacheManager $cacheManager): Response
+    #[Route('/books/{id}', name: 'books_id_delete', requirements: ['id' => '\d+'], methods: ['DELETE'], format: 'json')]
+    public function apiBooksIdDelete(Request $req, #[MapEntity(message: "Book not found.")] Book $book, HubInterface $hub, CacheManager $cacheManager): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $book = $bookRepo->findOneBy(['id' => $bookId]);
-        if (!$book) {
-            return $this->json(['error' => true, 'message' => "Book not found."], 400);
-        }
         $this->removeCoverFile($cacheManager, $book->getBookCache());
 
-        $this->entityManager->remove($book->getBookCache());
-        $this->entityManager->remove($book->getBookMetadata());
-        $this->entityManager->remove($book->getBookProgress());
-        $this->entityManager->flush();
-
+        // Get id before delete
+        $bookId = $book->getId();
         $this->entityManager->remove($book);
         $this->entityManager->flush();
 
@@ -281,14 +261,10 @@ class BooksApiController extends AbstractController
         $this->entityManager->flush();
     }
 
-    #[Route('/books/{bookId}/cover', name: 'books_id_cover_get', requirements: ['bookId' => '\d+'], methods: ['GET'])]
-    public function apiBooksIdCoverGet(Request $req, int $bookId, BookCacheRepository $bookCacheRepo): Response
+    #[Route('/books/{id}/cover', name: 'books_id_cover_get', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function apiBooksIdCoverGet(Request $req, #[MapEntity(message: "Book not found.")] BookCache $book): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $book = $bookCacheRepo->findOneBy(['book_id' => $bookId]);
-        if (!$book) {
-            return $this->json(['error' => true, 'message' => "Book not found."], 400);
-        }
         return $this->file(
             new File($this->coversFolder . '/' . $book->getCover()),
             $book->getCover(),
@@ -296,14 +272,10 @@ class BooksApiController extends AbstractController
         );
     }
 
-    #[Route('/books/{bookId}/cover', name: 'books_id_cover_add', requirements: ['bookId' => '\d+'], methods: ['POST'])]
-    public function apiBooksIdCoverAdd(Request $req, int $bookId, BookCacheRepository $bookCacheRepo, CacheManager $cacheManager): Response
+    #[Route('/books/{id}/cover', name: 'books_id_cover_add', requirements: ['id' => '\d+'], methods: ['POST'], format: 'json')]
+    public function apiBooksIdCoverAdd(Request $req, #[MapEntity(message: "Book not found.")] BookCache $book, CacheManager $cacheManager): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $book = $bookCacheRepo->findOneBy(['book_id' => $bookId]);
-        if (!$book) {
-            return $this->json(['error' => true, 'message' => "Book not found."], 400);
-        }
         $this->removeCoverFile($cacheManager, $book);
         if ($req->files->has('cover')) {
             $uuid = Uuid::v7()->toRfc4122();
@@ -315,58 +287,42 @@ class BooksApiController extends AbstractController
         return $this->json([]);
     }
 
-    #[Route('/books/{bookId}/cover', name: 'books_id_cover_delete', requirements: ['bookId' => '\d+'], methods: ['DELETE'])]
-    public function apiBooksIdCoverDelete(Request $req, int $bookId, BookCacheRepository $bookCacheRepo, CacheManager $cacheManager): Response
+    #[Route('/books/{id}/cover', name: 'books_id_cover_delete', requirements: ['id' => '\d+'], methods: ['DELETE'], format: 'json')]
+    public function apiBooksIdCoverDelete(Request $req, #[MapEntity(message: "Book not found.")] BookCache $book, CacheManager $cacheManager): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $book = $bookCacheRepo->findOneBy(['book_id' => $bookId]);
-        if (!$book) {
-            return $this->json(['error' => true, 'message' => "Book not found."], 400);
-        }
         $this->removeCoverFile($cacheManager, $book);
         $this->entityManager->flush();
         return $this->json([]);
     }
 
-    #[Route('/books/{bookId}/mark-read', name: 'books_id_mark_read', requirements: ['bookId' => '\d+'], methods: ['PUT'])]
-    public function apiBooksIdMarkRead(Request $req, int $bookId, BookProgressRepository $bookProgressRepo): Response
+    #[Route('/books/{id}/mark-read', name: 'books_id_mark_read', requirements: ['id' => '\d+'], methods: ['PUT'], format: 'json')]
+    public function apiBooksIdMarkRead(Request $req, #[MapEntity(message: "Book not found.")] BookProgress $book): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $book = $bookProgressRepo->findOneBy(['book_id' => $bookId]);
-        if (!$book) {
-            return $this->json(['error' => true, 'message' => "Book not found."], 400);
-        }
         $book->setPosition(null)->setPage(-1);
         $this->entityManager->flush();
         return $this->json([]);
     }
 
-    #[Route('/books/{bookId}/mark-unread', name: 'books_id_mark_unread', requirements: ['bookId' => '\d+'], methods: ['PUT'])]
-    public function apiBooksIdMarkUnread(Request $req, int $bookId, BookProgressRepository $bookProgressRepo): Response
+    #[Route('/books/{id}/mark-unread', name: 'books_id_mark_unread', requirements: ['id' => '\d+'], methods: ['PUT'], format: 'json')]
+    public function apiBooksIdMarkUnread(Request $req, #[MapEntity(message: "Book not found.")] BookProgress $book): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $book = $bookProgressRepo->findOneBy(['book_id' => $bookId]);
-        if (!$book) {
-            return $this->json(['error' => true, 'message' => "Book not found."], 400);
-        }
         $book->setPosition(null)->setPage(0);
         $this->entityManager->flush();
         return $this->json([]);
     }
 
-    #[Route('/books/{bookId}/metadata', name: 'books_id_metadata', requirements: ['bookId' => '\d+'], methods: ['GET'])]
-    public function apiBooksIdMetadata(Request $req, int $bookId, BookRepository $bookRepo, CacheManager $cacheManager): Response
+    #[Route('/books/{id}/metadata', name: 'books_id_metadata', requirements: ['id' => '\d+'], methods: ['GET'], format: 'json')]
+    public function apiBooksIdMetadata(Request $req, #[MapEntity(message: "Book not found.")] Book $book, CacheManager $cacheManager): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $book = $bookRepo->findOneBy(['id' => $bookId]);
-        if (!$book) {
-            return $this->json(['error' => true, 'message' => "Book not found."], 400);
-        }
         return $this->json($book->toJsonMetadata($cacheManager));
     }
 
-    #[Route('/books/{bookId}/position', name: 'books_id_position', requirements: ['bookId' => '\d+'], methods: ['PUT'])]
-    public function apiBooksIdPosition(Request $req, int $bookId, BookProgressRepository $bookProgressRepo): Response
+    #[Route('/books/{id}/position', name: 'books_id_position', requirements: ['id' => '\d+'], methods: ['PUT'], format: 'json')]
+    public function apiBooksIdPosition(Request $req, #[MapEntity(message: "Book not found.")] BookProgress $book): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $body = $req->toArray();
@@ -376,10 +332,6 @@ class BooksApiController extends AbstractController
         if (!array_key_exists('page', $body)) {
             return $this->json(['error' => true, 'message' => "Parameter page not found."], 400);
         }
-        $book = $bookProgressRepo->findOneBy(['book_id' => $bookId]);
-        if (!$book) {
-            return $this->json(['error' => true, 'message' => "Book not found."], 400);
-        }
         $book->setPosition($body['position'])->setPage($body['page']);
         if (array_key_exists('update', $body) && $body['update']) {
             $book->updateLastRead();
@@ -388,14 +340,14 @@ class BooksApiController extends AbstractController
         return $this->json([]);
     }
 
-    #[Route('/shelves', name: 'shelves', methods: ['GET'])]
+    #[Route('/shelves', name: 'shelves', methods: ['GET'], format: 'json')]
     public function apiShelves(Request $req, ShelfRepository $shelfRepo): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         return $this->json($shelfRepo->findBy([], ['name' => 'ASC']));
     }
 
-    #[Route('/shelves', name: 'shelves_add', methods: ['POST'])]
+    #[Route('/shelves', name: 'shelves_add', methods: ['POST'], format: 'json')]
     public function apiShelvesAdd(Request $req, BookRepository $bookRepo): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
@@ -417,31 +369,23 @@ class BooksApiController extends AbstractController
         return $this->json($shelf);
     }
 
-    #[Route('/shelves/{shelfId}', name: 'shelves_id_edit', requirements: ['shelfId' => '\d+'], methods: ['PUT'])]
-    public function apiShelvesEdit(Request $req, int $shelfId, ShelfRepository $shelfRepo): Response
+    #[Route('/shelves/{id}', name: 'shelves_id_edit', requirements: ['id' => '\d+'], methods: ['PUT'], format: 'json')]
+    public function apiShelvesEdit(Request $req, #[MapEntity(message: "Shelf not found.")] Shelf $shelf): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $body = $req->toArray();
         if (!array_key_exists('name', $body)) {
             return $this->json(['error' => true, 'message' => "Parameter name not found."], 400);
         }
-        $shelf = $shelfRepo->findOneBy(['id' => $shelfId]);
-        if (!$shelf) {
-            return $this->json(['error' => true, 'message' => "Shelf not found."], 400);
-        }
         $shelf->setName($body['name']);
         $this->entityManager->flush();
         return $this->json($shelf);
     }
 
-    #[Route('/shelves/{shelfId}', name: 'shelves_id_delete', requirements: ['shelfId' => '\d+'], methods: ['DELETE'])]
-    public function apiShelvesDelete(Request $req, int $shelfId, ShelfRepository $shelfRepo, BookRepository $bookRepo): Response
+    #[Route('/shelves/{id}', name: 'shelves_id_delete', requirements: ['id' => '\d+'], methods: ['DELETE'], format: 'json')]
+    public function apiShelvesDelete(Request $req, #[MapEntity(message: "Shelf not found.")] Shelf $shelf, BookRepository $bookRepo): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $shelf = $shelfRepo->findOneBy(['id' => $shelfId]);
-        if (!$shelf) {
-            return $this->json(['error' => true, 'message' => "Shelf not found."], 400);
-        }
         foreach ($bookRepo->findBy(['shelf_id' => $shelf->getId()]) as $book) {
             $book->setShelfId(null);
         }
@@ -451,15 +395,11 @@ class BooksApiController extends AbstractController
         return $this->json([]);
     }
 
-    #[Route('/shelves/{shelfId}/books', name: 'shelves_id_books', requirements: ['shelfId' => '\d+'], methods: ['GET'])]
-    public function apiShelvesIdBooks(Request $req, int $shelfId, ShelfRepository $shelfRepo, BookRepository $bookRepo, CacheManager $cacheManager, Authorization $authorization): Response
+    #[Route('/shelves/{id}/books', name: 'shelves_id_books', requirements: ['id' => '\d+'], methods: ['GET'], format: 'json')]
+    public function apiShelvesIdBooks(Request $req, #[MapEntity(message: "Shelf not found.")] Shelf $shelf, CacheManager $cacheManager, Authorization $authorization): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $authorization->setCookie($req, [sprintf(self::CHANNEL_LIBRARY_SHELVES_ID, $shelfId)]);
-        $shelf = $shelfRepo->findOneBy(['id' => $shelfId]);
-        if (!$shelf) {
-            return $this->json(['error' => true, 'message' => "Shelf not found."], 400);
-        }
+        $authorization->setCookie($req, [sprintf(self::CHANNEL_LIBRARY_SHELVES_ID, $shelf->getId())]);
         return $this->json(array_map(fn($b) => $b->toJson($cacheManager), $shelf->getBooks()->toArray()));
     }
 

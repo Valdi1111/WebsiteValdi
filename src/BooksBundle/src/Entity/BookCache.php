@@ -4,6 +4,7 @@ namespace App\BooksBundle\Entity;
 
 use App\BooksBundle\Repository\BookCacheRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Serializer\Attribute\Ignore;
 
 #[ORM\Table(name: 'book_cache')]
@@ -24,6 +25,7 @@ class BookCache
     #[ORM\Column]
     private array $locations = [];
 
+    #[Groups(['book:list'])]
     #[ORM\Column(nullable: true, insertable: false, updatable: false)]
     private ?int $pages = null;
 

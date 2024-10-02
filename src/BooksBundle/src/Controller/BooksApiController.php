@@ -74,7 +74,7 @@ class BooksApiController extends AbstractController
     }
 
     #[Route('/books/all', name: 'books_all', methods: ['GET'], format: 'json')]
-    public function apiBooksAll(Request $req, #[CurrentUser] ?User $user, BookRepository $bookRepo, CacheManager $cacheManager, Authorization $authorization): Response
+    public function apiBooksAll(Request $req, #[CurrentUser] ?User $user, BookRepository $bookRepo, Authorization $authorization): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $authorization->setCookie($req, [self::CHANNEL_LIBRARY_ALL]);
@@ -90,7 +90,7 @@ class BooksApiController extends AbstractController
     }
 
     #[Route('/books/not-in-shelves', name: 'books_not_in_shelves', methods: ['GET'], format: 'json')]
-    public function apiBooksNotInShelves(Request $req, #[CurrentUser] ?User $user, BookRepository $bookRepo, CacheManager $cacheManager, Authorization $authorization): Response
+    public function apiBooksNotInShelves(Request $req, #[CurrentUser] ?User $user, BookRepository $bookRepo, Authorization $authorization): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $authorization->setCookie($req, [self::CHANNEL_LIBRARY_NOT_IN_SHELVES]);
@@ -144,7 +144,7 @@ class BooksApiController extends AbstractController
     }
 
     #[Route('/books', name: 'books_add', methods: ['POST'], format: 'json')]
-    public function apiBooksAdd(Request $req, #[CurrentUser] ?User $user, ShelfRepository $shelfRepo, HubInterface $hub, CacheManager $cacheManager): Response
+    public function apiBooksAdd(Request $req, #[CurrentUser] ?User $user, ShelfRepository $shelfRepo, NormalizerInterface $normalizer, HubInterface $hub): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         if (!$req->getPayload()->has('url')) {
@@ -197,7 +197,7 @@ class BooksApiController extends AbstractController
             ],
             json_encode([
                 'action' => 'book:add',
-                'book' => $book->toJson($user, $cacheManager),
+                'book' => $normalizer->normalize($book, null, ['groups' => ['book:list']]),
             ]),
             true
         ));
@@ -205,7 +205,7 @@ class BooksApiController extends AbstractController
     }
 
     #[Route('/books/{id}', name: 'books_id_get', requirements: ['id' => '\d+'], methods: ['GET'], format: 'json')]
-    public function apiBooksIdGet(Request $req, #[CurrentUser] ?User $user, #[MapEntity(message: "Book not found.")] Book $book, CacheManager $cacheManager): Response
+    public function apiBooksIdGet(Request $req, #[CurrentUser] ?User $user, #[MapEntity(message: "Book not found.")] Book $book): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         return $this->json($book, 200, [], [BookNormalizer::COVER_FILTER => 'books_cover']);
@@ -328,7 +328,7 @@ class BooksApiController extends AbstractController
     }
 
     #[Route('/books/{id}/metadata', name: 'books_id_metadata', requirements: ['id' => '\d+'], methods: ['GET'], format: 'json')]
-    public function apiBooksIdMetadata(Request $req, #[MapEntity(message: "Book not found.")] Book $book, CacheManager $cacheManager): Response
+    public function apiBooksIdMetadata(Request $req, #[MapEntity(message: "Book not found.")] Book $book): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         return $this->json($book, 200, [], [BookNormalizer::ONLY_METADATA => true]);
@@ -411,7 +411,7 @@ class BooksApiController extends AbstractController
     }
 
     #[Route('/shelves/{id}/books', name: 'shelves_id_books', requirements: ['id' => '\d+'], methods: ['GET'], format: 'json')]
-    public function apiShelvesIdBooks(Request $req, #[CurrentUser] ?User $user, #[MapEntity(message: "Shelf not found.")] Shelf $shelf, CacheManager $cacheManager, Authorization $authorization): Response
+    public function apiShelvesIdBooks(Request $req, #[MapEntity(message: "Shelf not found.")] Shelf $shelf, Authorization $authorization): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $authorization->setCookie($req, [sprintf(self::CHANNEL_LIBRARY_SHELVES_ID, $shelf->getId())]);

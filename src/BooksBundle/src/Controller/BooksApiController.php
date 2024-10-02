@@ -7,6 +7,7 @@ use App\BooksBundle\Entity\BookCache;
 use App\BooksBundle\Entity\BookMetadata;
 use App\BooksBundle\Entity\BookProgress;
 use App\BooksBundle\Entity\Shelf;
+use App\BooksBundle\Normalizer\BookNormalizer;
 use App\BooksBundle\Repository\BookRepository;
 use App\BooksBundle\Repository\ShelfRepository;
 use App\CoreBundle\Controller\FileManagerTrait;
@@ -20,11 +21,13 @@ use Symfony\Component\HttpFoundation\File\File;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Mercure\Authorization;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
+use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 use Symfony\Component\Uid\Uuid;
 
 #[Route('/api', name: 'api_')]
@@ -32,12 +35,12 @@ class BooksApiController extends AbstractController
 {
     use FileManagerTrait;
 
-    const FILE_MANAGER_PATH = '/fileManager';
+    const string FILE_MANAGER_PATH = '/fileManager';
 
-    const CHANNEL_LIBRARY_ALL = 'https://books.valdi.ovh/library/all';
-    const CHANNEL_LIBRARY_SHELVES = 'https://books.valdi.ovh/library/shelves';
-    const CHANNEL_LIBRARY_SHELVES_ID = 'https://books.valdi.ovh/library/shelves/%d';
-    const CHANNEL_LIBRARY_NOT_IN_SHELVES = 'https://books.valdi.ovh/library/not-in-shelves';
+    const string CHANNEL_LIBRARY_ALL = 'https://books.valdi.ovh/library/all';
+    const string CHANNEL_LIBRARY_SHELVES = 'https://books.valdi.ovh/library/shelves';
+    const string CHANNEL_LIBRARY_SHELVES_ID = 'https://books.valdi.ovh/library/shelves/%d';
+    const string CHANNEL_LIBRARY_NOT_IN_SHELVES = 'https://books.valdi.ovh/library/not-in-shelves';
 
     public function __construct(
         #[Autowire('%books.base_folder%')] private readonly string   $baseFolder,
@@ -65,7 +68,7 @@ class BooksApiController extends AbstractController
     {
         $filepath = $this->baseFolder . '/' . $path;
         if (!file_exists($filepath)) {
-            return $this->json(['error' => true, 'message' => "Epub file not found."], 400);
+            throw new BadRequestHttpException("Epub file not found.");
         }
         return $this->file(new File($filepath), 'book.epub');
     }
@@ -76,14 +79,14 @@ class BooksApiController extends AbstractController
         $this->denyAccessUnlessGranted('ROLE_USER');
         $authorization->setCookie($req, [self::CHANNEL_LIBRARY_ALL]);
         if (!$req->query->has('limit')) {
-            return $this->json(['error' => true, 'message' => "Parameter limit not found."], 400);
+            throw new BadRequestHttpException("Parameter 'limit' not found.");
         }
         if (!$req->query->has('offset')) {
-            return $this->json(['error' => true, 'message' => "Parameter offset not found."], 400);
+            throw new BadRequestHttpException("Parameter 'offset' not found.");
         }
         $limit = $req->query->getInt('limit');
         $offset = $req->query->getInt('offset');
-        return $this->json(array_map(fn($b) => $b->toJson($user, $cacheManager), $bookRepo->getAll($user, $limit, $offset)));
+        return $this->json($bookRepo->getAll($user, $limit, $offset), 200, [], ['groups' => ['book:list']]);
     }
 
     #[Route('/books/not-in-shelves', name: 'books_not_in_shelves', methods: ['GET'], format: 'json')]
@@ -92,14 +95,14 @@ class BooksApiController extends AbstractController
         $this->denyAccessUnlessGranted('ROLE_USER');
         $authorization->setCookie($req, [self::CHANNEL_LIBRARY_NOT_IN_SHELVES]);
         if (!$req->query->has('limit')) {
-            return $this->json(['error' => true, 'message' => "Parameter limit not found."], 400);
+            throw new BadRequestHttpException("Parameter 'limit' not found.");
         }
         if (!$req->query->has('offset')) {
-            return $this->json(['error' => true, 'message' => "Parameter offset not found."], 400);
+            throw new BadRequestHttpException("Parameter 'offset' not found.");
         }
         $limit = $req->query->getInt('limit');
         $offset = $req->query->getInt('offset');
-        return $this->json(array_map(fn($b) => $b->toJson($user, $cacheManager), $bookRepo->getNotInShelves($user, $limit, $offset)));
+        return $this->json($bookRepo->getNotInShelves($user, $limit, $offset), 200, [], ['groups' => ['book:list']]);
     }
 
     private function searchFiles(array &$all, string $baseFolder, string $path = ""): void
@@ -145,16 +148,16 @@ class BooksApiController extends AbstractController
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         if (!$req->getPayload()->has('url')) {
-            return $this->json(['error' => true, 'message' => "Parameter url not found."], 400);
+            throw new BadRequestHttpException("Parameter 'url' not found.");
         }
         if (!$req->getPayload()->has('locations')) {
-            return $this->json(['error' => true, 'message' => "Parameter locations not found."], 400);
+            throw new BadRequestHttpException("Parameter 'locations' not found.");
         }
         if (!$req->getPayload()->has('navigation')) {
-            return $this->json(['error' => true, 'message' => "Parameter navigation not found."], 400);
+            throw new BadRequestHttpException("Parameter 'navigation' not found.");
         }
         if (!$req->getPayload()->has('metadata')) {
-            return $this->json(['error' => true, 'message' => "Parameter metadata not found."], 400);
+            throw new BadRequestHttpException("Parameter 'metadata' not found.");
         }
         $book = (new Book())
             ->setUrl($req->getPayload()->getString('url'));
@@ -205,7 +208,7 @@ class BooksApiController extends AbstractController
     public function apiBooksIdGet(Request $req, #[CurrentUser] ?User $user, #[MapEntity(message: "Book not found.")] Book $book, CacheManager $cacheManager): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        return $this->json($book->toJson($user, $cacheManager, 'cover', true, true));
+        return $this->json($book, 200, [], [BookNormalizer::COVER_FILTER => 'books_cover']);
     }
 
     #[Route('/books/{id}', name: 'books_id_edit', requirements: ['id' => '\d+'], methods: ['PUT'], format: 'json')]
@@ -213,13 +216,13 @@ class BooksApiController extends AbstractController
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         if (!$req->getPayload()->has('locations')) {
-            return $this->json(['error' => true, 'message' => "Parameter locations not found."], 400);
+            throw new BadRequestHttpException("Parameter 'locations' not found.");
         }
         if (!$req->getPayload()->has('navigation')) {
-            return $this->json(['error' => true, 'message' => "Parameter navigation not found."], 400);
+            throw new BadRequestHttpException("Parameter 'navigation' not found.");
         }
         if (!$req->getPayload()->has('metadata')) {
-            return $this->json(['error' => true, 'message' => "Parameter metadata not found."], 400);
+            throw new BadRequestHttpException("Parameter 'metadata' not found.");
         }
         $book->getCache()
             ->setLocations($req->getPayload()->all('locations'))
@@ -308,16 +311,16 @@ class BooksApiController extends AbstractController
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $progress = $book->getProgress($user);
-        if(!$progress) {
+        if (!$progress) {
             $progress = (new BookProgress())
                 ->setUser($user);
             $book->addProgress($progress);
         }
         $progress->setPosition(null);
-        if($type === 'read') {
+        if ($type === 'read') {
             $progress->setPage(-1);
         }
-        if($type === 'unread') {
+        if ($type === 'unread') {
             $progress->setPage(0);
         }
         $this->entityManager->flush();
@@ -328,7 +331,7 @@ class BooksApiController extends AbstractController
     public function apiBooksIdMetadata(Request $req, #[MapEntity(message: "Book not found.")] Book $book, CacheManager $cacheManager): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        return $this->json($book->toJsonMetadata($cacheManager));
+        return $this->json($book, 200, [], [BookNormalizer::ONLY_METADATA => true]);
     }
 
     #[Route('/books/{id}/position', name: 'books_id_position', requirements: ['id' => '\d+'], methods: ['PUT'], format: 'json')]
@@ -336,16 +339,16 @@ class BooksApiController extends AbstractController
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $progress = $book->getProgress($user);
-        if(!$progress) {
+        if (!$progress) {
             $progress = (new BookProgress())
                 ->setUser($user);
             $book->addProgress($progress);
         }
         if (!$req->getPayload()->has('position')) {
-            return $this->json(['error' => true, 'message' => "Parameter offset not found."], 400);
+            throw new BadRequestHttpException("Parameter 'offset' not found.");
         }
         if (!$req->getPayload()->has('page')) {
-            return $this->json(['error' => true, 'message' => "Parameter page not found."], 400);
+            throw new BadRequestHttpException("Parameter 'page' not found.");
         }
         $progress->setPosition($req->getPayload()->getString('position'))
             ->setPage($req->getPayload()->getInt('page'));
@@ -368,10 +371,10 @@ class BooksApiController extends AbstractController
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         if (!$req->getPayload()->has('path')) {
-            return $this->json(['error' => true, 'message' => "Parameter path not found."], 400);
+            throw new BadRequestHttpException("Parameter 'path' not found.");
         }
         if (!$req->getPayload()->has('name')) {
-            return $this->json(['error' => true, 'message' => "Parameter name not found."], 400);
+            throw new BadRequestHttpException("Parameter 'name' not found.");
         }
         $shelf = (new Shelf())
             ->setPath($req->getPayload()->getString('path'))
@@ -391,7 +394,7 @@ class BooksApiController extends AbstractController
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         if (!$req->getPayload()->has('name')) {
-            return $this->json(['error' => true, 'message' => "Parameter name not found."], 400);
+            throw new BadRequestHttpException("Parameter 'name' not found.");
         }
         $shelf->setName($req->getPayload()->getString('name'));
         $this->entityManager->flush();
@@ -399,13 +402,9 @@ class BooksApiController extends AbstractController
     }
 
     #[Route('/shelves/{id}', name: 'shelves_id_delete', requirements: ['id' => '\d+'], methods: ['DELETE'], format: 'json')]
-    public function apiShelvesDelete(Request $req, #[MapEntity(message: "Shelf not found.")] Shelf $shelf, #[MapEntity(class: Book::class, expr: 'repository.findBy({"shelf_id": id})')] iterable $books): Response
+    public function apiShelvesDelete(Request $req, #[MapEntity(message: "Shelf not found.")] Shelf $shelf): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        foreach ($books as $book) {
-            $book->setShelfId(null);
-        }
-        $this->entityManager->flush();
         $this->entityManager->remove($shelf);
         $this->entityManager->flush();
         return $this->json([]);
@@ -416,7 +415,7 @@ class BooksApiController extends AbstractController
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $authorization->setCookie($req, [sprintf(self::CHANNEL_LIBRARY_SHELVES_ID, $shelf->getId())]);
-        return $this->json(array_map(fn($b) => $b->toJson($user, $cacheManager), $shelf->getBooks()->toArray()));
+        return $this->json($shelf->getBooks(), 200, [], ['groups' => ['book:list']]);
     }
 
 }

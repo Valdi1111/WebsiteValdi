@@ -4,21 +4,26 @@ namespace App\BooksBundle\Entity;
 
 use App\BooksBundle\Repository\BookMetadataRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Attribute\Groups;
+use Symfony\Component\Serializer\Attribute\Ignore;
 
 #[ORM\Table(name: 'book_metadata')]
 #[ORM\Entity(repositoryClass: BookMetadataRepository::class)]
 class BookMetadata
 {
+    #[Ignore]
     #[ORM\Id]
     #[ORM\Column]
-    private ?int $book_id = null;
+    private ?int $bookId = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $identifier = null;
 
+    #[Groups(['book:list'])]
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $title = null;
 
+    #[Groups(['book:list'])]
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $creator = null;
 
@@ -35,16 +40,16 @@ class BookMetadata
     private ?string $rights = null;
 
     #[ORM\Column(length: 255, nullable: true)]
-    private ?string $modified_date = null;
+    private ?string $modifiedDate = null;
 
     public function getBookId(): ?int
     {
-        return $this->book_id;
+        return $this->bookId;
     }
 
-    public function setBookId(int $book_id): static
+    public function setBookId(int $bookId): static
     {
-        $this->book_id = $book_id;
+        $this->bookId = $bookId;
 
         return $this;
     }
@@ -135,12 +140,12 @@ class BookMetadata
 
     public function getModifiedDate(): ?string
     {
-        return $this->modified_date;
+        return $this->modifiedDate;
     }
 
     public function setModifiedDate(string $modified_date): static
     {
-        $this->modified_date = $modified_date;
+        $this->modifiedDate = $modified_date;
 
         return $this;
     }
@@ -148,14 +153,14 @@ class BookMetadata
     public function toJson(): array
     {
         return [
+            'identifier' => $this->getIdentifier(),
             'title' => $this->getTitle(),
             'creator' => $this->getCreator(),
-            'publisher' => $this->getPublisher(),
             'pubdate' => $this->getPubdate(),
-            'modified_date' => $this->getModifiedDate(),
+            'publisher' => $this->getPublisher(),
             'language' => $this->getLanguage(),
-            'identifier' => $this->getIdentifier(),
             'rights' => $this->getRights(),
+            'modified_date' => $this->getModifiedDate(),
         ];
     }
 

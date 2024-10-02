@@ -2,6 +2,7 @@
 
 namespace App\BooksBundle\Entity;
 
+use App\BooksBundle\Normalizer\CollectionBookProgressNormalizer;
 use App\CoreBundle\Entity\User;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -10,33 +11,47 @@ use Doctrine\ORM\Mapping as ORM;
 use Doctrine\ORM\Mapping\JoinColumn;
 use Doctrine\ORM\Mapping\OneToMany;
 use Liip\ImagineBundle\Imagine\Cache\CacheManager;
+use Symfony\Component\Serializer\Attribute\Context;
+use Symfony\Component\Serializer\Attribute\Groups;
+use Symfony\Component\Serializer\Attribute\SerializedName;
 
 #[ORM\MappedSuperclass]
 class AbstractBook
 {
+    #[Groups(['book:list'])]
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
     private ?int $id = null;
 
+    #[Groups(['book:list'])]
     #[ORM\Column(length: 255)]
     private ?string $url = null;
 
+    #[Groups(['book:list'])]
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private \DateTimeInterface $created;
 
+    #[Groups(['book:list'])]
     #[ORM\Column(nullable: true)]
-    private ?int $shelf_id = null;
+    private ?int $shelfId = null;
 
+    #[Groups(['book:list'])]
+    #[SerializedName('book_metadata')]
     #[ORM\OneToOne(targetEntity: BookMetadata::class, cascade: ['persist', 'remove'])]
     #[JoinColumn(name: 'id', referencedColumnName: 'book_id')]
     private ?BookMetadata $metadata = null;
 
+    #[Groups(['book:list'])]
+    #[SerializedName('book_cache')]
     #[ORM\OneToOne(targetEntity: BookCache::class, cascade: ['persist', 'remove'])]
     #[JoinColumn(name: 'id', referencedColumnName: 'book_id')]
     private ?BookCache $cache = null;
 
     /** @var Collection<int, BookProgress> */
+    #[Groups(['book:list'])]
+    #[SerializedName('book_progress')]
+    #[Context(normalizationContext: [CollectionBookProgressNormalizer::SERIALIZE => true])]
     #[OneToMany(mappedBy: 'book', targetEntity: BookProgress::class, cascade: ['persist', 'remove'], fetch: 'EAGER', indexBy: 'user_id')]
     private Collection $progresses;
 
@@ -77,12 +92,12 @@ class AbstractBook
 
     public function getShelfId(): ?int
     {
-        return $this->shelf_id;
+        return $this->shelfId;
     }
 
-    public function setShelfId(?int $shelf_id): static
+    public function setShelfId(?int $shelfId): static
     {
-        $this->shelf_id = $shelf_id;
+        $this->shelfId = $shelfId;
 
         return $this;
     }

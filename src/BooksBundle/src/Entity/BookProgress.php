@@ -6,16 +6,19 @@ use App\BooksBundle\Repository\BookProgressRepository;
 use App\CoreBundle\Entity\User;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Attribute\Ignore;
 
 #[ORM\Table(name: 'book_progress')]
 #[ORM\Entity(repositoryClass: BookProgressRepository::class)]
 class BookProgress
 {
+    #[Ignore]
     #[ORM\Id]
     #[ORM\ManyToOne(targetEntity: AbstractBook::class, inversedBy: 'progresses')]
     #[ORM\JoinColumn(name: 'book_id', referencedColumnName: 'id', nullable: false)]
     private ?AbstractBook $book = null;
 
+    #[Ignore]
     #[ORM\Id]
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', nullable: false)]
@@ -28,11 +31,11 @@ class BookProgress
     private int $page = 0;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
-    private \DateTimeInterface $last_read;
+    private \DateTimeInterface $lastRead;
 
     public function __construct()
     {
-        $this->last_read = new \DateTime();
+        $this->lastRead = new \DateTime();
     }
 
     public function getBook(): ?AbstractBook
@@ -85,19 +88,19 @@ class BookProgress
 
     public function getLastRead(): \DateTimeInterface
     {
-        return $this->last_read;
+        return $this->lastRead;
     }
 
-    public function setLastRead(\DateTimeInterface $last_read): static
+    public function setLastRead(\DateTimeInterface $lastRead): static
     {
-        $this->last_read = $last_read;
+        $this->lastRead = $lastRead;
 
         return $this;
     }
 
     public function updateLastRead(): static
     {
-        $this->last_read = new \DateTime();
+        $this->lastRead = new \DateTime();
 
         return $this;
     }

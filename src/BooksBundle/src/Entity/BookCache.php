@@ -4,14 +4,16 @@ namespace App\BooksBundle\Entity;
 
 use App\BooksBundle\Repository\BookCacheRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Attribute\Ignore;
 
 #[ORM\Table(name: 'book_cache')]
 #[ORM\Entity(repositoryClass: BookCacheRepository::class)]
 class BookCache
 {
+    #[Ignore]
     #[ORM\Id]
     #[ORM\Column]
-    private ?int $book_id = null;
+    private ?int $bookId = null;
 
     #[ORM\Column(length: 36, nullable: true)]
     private ?string $cover = null;
@@ -22,14 +24,17 @@ class BookCache
     #[ORM\Column]
     private array $locations = [];
 
+    #[ORM\Column(nullable: true, insertable: false, updatable: false)]
+    private ?int $pages = null;
+
     public function getBookId(): ?int
     {
-        return $this->book_id;
+        return $this->bookId;
     }
 
-    public function setBookId(int $book_id): static
+    public function setBookId(int $bookId): static
     {
-        $this->book_id = $book_id;
+        $this->bookId = $bookId;
 
         return $this;
     }
@@ -69,4 +74,10 @@ class BookCache
 
         return $this;
     }
+
+    public function getPages(): ?int
+    {
+        return $this->pages;
+    }
+
 }

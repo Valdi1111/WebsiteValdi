@@ -38,9 +38,9 @@ class BookRepository extends ServiceEntityRepository
             ->andWhere('bp.user = :userId OR bp.user IS NULL')
             ->setParameter('userId', $user->getId());
         if ($shelfId === -1) {
-            $qb->andWhere("b.shelf_id IS NULL");
+            $qb->andWhere("b.shelfId IS NULL");
         } else if ($shelfId) {
-            $qb->andWhere("b.shelf_id = :shelfId")
+            $qb->andWhere("b.shelfId = :shelfId")
                 ->setParameter("shelfId", $shelfId);
         }
         if ($limit) {
@@ -61,7 +61,7 @@ class BookRepository extends ServiceEntityRepository
     public function getAll(User $user, int $limit, int $offset): array
     {
         $results = $this->books($user, $limit, $offset)
-            ->addSelect('COALESCE(bp.last_read, b.created) AS orderColumn')
+            ->addSelect('COALESCE(bp.lastRead, b.created) AS orderColumn')
             ->addOrderBy('orderColumn', 'DESC')
             ->addOrderBy('b.id', 'DESC')
             ->getQuery()

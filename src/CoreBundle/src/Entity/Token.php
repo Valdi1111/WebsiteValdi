@@ -13,7 +13,7 @@ class Token
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 255, unique: true)]
     private ?string $access_token = null;
 
     #[ORM\Column]

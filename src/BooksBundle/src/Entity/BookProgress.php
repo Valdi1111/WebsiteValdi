@@ -14,9 +14,9 @@ use Symfony\Component\Serializer\Attribute\Ignore;
 class BookProgress
 {
     #[ORM\Id]
-    #[ORM\ManyToOne(targetEntity: AbstractBook::class, inversedBy: 'progresses')]
+    #[ORM\ManyToOne(targetEntity: Book::class, inversedBy: 'bookProgresses')]
     #[ORM\JoinColumn(name: 'book_id', referencedColumnName: 'id', nullable: false)]
-    private ?AbstractBook $book = null;
+    private ?Book $book = null;
 
     #[ORM\Id]
     #[ORM\ManyToOne(targetEntity: User::class)]
@@ -38,16 +38,21 @@ class BookProgress
     }
 
     #[Ignore]
-    public function getBook(): ?AbstractBook
+    public function getBook(): ?Book
     {
         return $this->book;
     }
 
-    public function setBook(?AbstractBook $book): self
+    public function setBook(?Book $book): self
     {
         $this->book = $book;
 
         return $this;
+    }
+
+    public function getBookId(): ?int
+    {
+        return $this->getBook()?->getId();
     }
 
     #[Ignore]
@@ -61,6 +66,11 @@ class BookProgress
         $this->user = $user;
 
         return $this;
+    }
+
+    public function getUserId(): ?int
+    {
+        return $this->getUser()?->getId();
     }
 
     #[Groups(['book:list'])]
@@ -108,4 +118,5 @@ class BookProgress
 
         return $this;
     }
+
 }

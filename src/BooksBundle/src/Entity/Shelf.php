@@ -29,9 +29,9 @@ class Shelf
     private ?\DateTimeInterface $created;
 
     /**
-     * @var Collection<int, ShelfBook>
+     * @var Collection<int, Book>
      */
-    #[ORM\OneToMany(mappedBy: 'shelf', targetEntity: ShelfBook::class)]
+    #[ORM\OneToMany(mappedBy: 'shelf', targetEntity: Book::class)]
     #[ORM\OrderBy(['url' => 'ASC'])]
     private Collection $books;
 
@@ -83,7 +83,7 @@ class Shelf
     }
 
     /**
-     * @return Collection<int, ShelfBook>
+     * @return Collection<int, Book>
      */
     #[Ignore]
     public function getBooks(): Collection
@@ -91,7 +91,27 @@ class Shelf
         return $this->books;
     }
 
-    #[SerializedName('_count')]
+    public function addBook(Book $book): self
+    {
+        if (!$this->getBooks()->contains($book)) {
+            $this->books[] = $book;
+            $book->setShelf($this);
+        }
+
+        return $this;
+    }
+
+    public function removeBook(Book $book): self
+    {
+        if ($this->getBooks()->removeElement($book)) {
+            if ($book->getShelf() === $this) {
+                $book->setShelf(null);
+            }
+        }
+
+        return $this;
+    }
+
     public function getBooksCount(): int
     {
         return $this->getBooks()->count();

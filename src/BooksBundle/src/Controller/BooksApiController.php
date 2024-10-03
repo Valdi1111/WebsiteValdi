@@ -7,7 +7,7 @@ use App\BooksBundle\Entity\BookCache;
 use App\BooksBundle\Entity\BookMetadata;
 use App\BooksBundle\Entity\BookProgress;
 use App\BooksBundle\Entity\Shelf;
-use App\BooksBundle\Normalizer\BookNormalizer;
+use App\BooksBundle\Normalizer\BookCacheNormalizer;
 use App\BooksBundle\Repository\BookRepository;
 use App\BooksBundle\Repository\ShelfRepository;
 use App\CoreBundle\Controller\FileManagerTrait;
@@ -27,7 +27,9 @@ use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
+use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
+use Symfony\Component\Serializer\Serializer;
 use Symfony\Component\Uid\Uuid;
 
 #[Route('/api', name: 'api_')]
@@ -86,7 +88,7 @@ class BooksApiController extends AbstractController
         }
         $limit = $req->query->getInt('limit');
         $offset = $req->query->getInt('offset');
-        return $this->json($bookRepo->getAll($user, $limit, $offset), 200, [], ['groups' => ['book:list']]);
+        return $this->json($bookRepo->getAll($user, $limit, $offset), 200, [], [BookCacheNormalizer::COVER_FILTER => 'books_thumb', 'groups' => ['book:list']]);
     }
 
     #[Route('/books/not-in-shelves', name: 'books_not_in_shelves', methods: ['GET'], format: 'json')]
@@ -102,7 +104,7 @@ class BooksApiController extends AbstractController
         }
         $limit = $req->query->getInt('limit');
         $offset = $req->query->getInt('offset');
-        return $this->json($bookRepo->getNotInShelves($user, $limit, $offset), 200, [], ['groups' => ['book:list']]);
+        return $this->json($bookRepo->getNotInShelves($user, $limit, $offset), 200, [], [BookCacheNormalizer::COVER_FILTER => 'books_thumb', 'groups' => ['book:list']]);
     }
 
     private function searchFiles(array &$all, string $baseFolder, string $path = ""): void
@@ -150,44 +152,32 @@ class BooksApiController extends AbstractController
         if (!$req->getPayload()->has('url')) {
             throw new BadRequestHttpException("Parameter 'url' not found.");
         }
-        if (!$req->getPayload()->has('locations')) {
-            throw new BadRequestHttpException("Parameter 'locations' not found.");
+        if (!$req->getPayload()->has('book_cache')) {
+            throw new BadRequestHttpException("Parameter 'book_cache' not found.");
         }
-        if (!$req->getPayload()->has('navigation')) {
-            throw new BadRequestHttpException("Parameter 'navigation' not found.");
-        }
-        if (!$req->getPayload()->has('metadata')) {
-            throw new BadRequestHttpException("Parameter 'metadata' not found.");
+        if (!$req->getPayload()->has('book_metadata')) {
+            throw new BadRequestHttpException("Parameter 'book_metadata' not found.");
         }
         $book = (new Book())
             ->setUrl($req->getPayload()->getString('url'));
         $splits = explode('/', $book->getUrl());
         if (count($splits) > 2) {
             $shelf = $shelfRepo->findOneBy(['path' => $splits[1]]);
-            if ($shelf) {
-                $book->setShelfId($shelf->getId());
-            }
+            $book->setShelf($shelf);
         }
+
+        $serializer = new Serializer([$normalizer]);
+        // Book cache
+        $cache = $serializer->denormalize($req->getPayload()->all('book_cache'), BookCache::class);
+        $book->setBookCache($cache);
+        // Book metadata
+        $metadata = $serializer->denormalize($req->getPayload()->all('book_metadata'), BookMetadata::class);
+        $book->setBookMetadata($metadata);
+        // Book progress
+        $progress = (new BookProgress())->setUser($user);
+        $book->addBookProgress($progress);
+
         $this->entityManager->persist($book);
-        $this->entityManager->flush();
-
-        $cache = (new BookCache())
-            ->setBookId($book->getId())
-            ->setLocations($req->getPayload()->all('locations'))
-            ->setNavigation($req->getPayload()->all('navigation'));
-        $this->entityManager->persist($cache);
-        $book->setCache($cache);
-
-        $metadata = (new BookMetadata())
-            ->setBookId($book->getId())
-            ->fromJson($req->getPayload()->all('metadata'));
-        $this->entityManager->persist($metadata);
-        $book->setMetadata($metadata);
-
-        $progress = (new BookProgress())
-            ->setUser($user);
-        $book->addProgress($progress);
-
         $this->entityManager->flush();
 
         $hub->publish(new Update(
@@ -197,7 +187,7 @@ class BooksApiController extends AbstractController
             ],
             json_encode([
                 'action' => 'book:add',
-                'book' => $normalizer->normalize($book, null, ['groups' => ['book:list']]),
+                'book' => $normalizer->normalize($book, null, [BookCacheNormalizer::COVER_FILTER => 'books_thumb', 'groups' => ['book:list']]),
             ]),
             true
         ));
@@ -205,30 +195,29 @@ class BooksApiController extends AbstractController
     }
 
     #[Route('/books/{id}', name: 'books_id_get', requirements: ['id' => '\d+'], methods: ['GET'], format: 'json')]
-    public function apiBooksIdGet(Request $req, #[CurrentUser] ?User $user, #[MapEntity(message: "Book not found.")] Book $book): Response
+    public function apiBooksIdGet(Request $req, #[MapEntity(message: "Book not found.")] Book $book): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        return $this->json($book, 200, [], [BookNormalizer::COVER_FILTER => 'books_cover']);
+        return $this->json($book, 200, [], [BookCacheNormalizer::COVER_FILTER => 'books_cover']);
     }
 
     #[Route('/books/{id}', name: 'books_id_edit', requirements: ['id' => '\d+'], methods: ['PUT'], format: 'json')]
-    public function apiBooksIdEdit(Request $req, #[MapEntity(message: "Book not found.")] Book $book): Response
+    public function apiBooksIdEdit(Request $req, #[MapEntity(message: "Book not found.")] Book $book, NormalizerInterface $normalizer): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        if (!$req->getPayload()->has('locations')) {
-            throw new BadRequestHttpException("Parameter 'locations' not found.");
+        if (!$req->getPayload()->has('book_cache')) {
+            throw new BadRequestHttpException("Parameter 'book_cache' not found.");
         }
-        if (!$req->getPayload()->has('navigation')) {
-            throw new BadRequestHttpException("Parameter 'navigation' not found.");
+        if (!$req->getPayload()->has('book_metadata')) {
+            throw new BadRequestHttpException("Parameter 'book_metadata' not found.");
         }
-        if (!$req->getPayload()->has('metadata')) {
-            throw new BadRequestHttpException("Parameter 'metadata' not found.");
-        }
-        $book->getCache()
-            ->setLocations($req->getPayload()->all('locations'))
-            ->setNavigation($req->getPayload()->all('navigation'));
-        $book->getMetadata()
-            ->fromJson($req->getPayload()->all('metadata'));
+
+        $serializer = new Serializer([$normalizer]);
+        // Book cache
+        $serializer->denormalize($req->getPayload()->all('book_cache'), BookCache::class, null, [AbstractNormalizer::OBJECT_TO_POPULATE => $book->getBookCache()]);
+        // Book metadata
+        $serializer->denormalize($req->getPayload()->all('book_metadata'), BookMetadata::class, null, [AbstractNormalizer::OBJECT_TO_POPULATE => $book->getBookMetadata()]);
+
         $this->entityManager->flush();
         return $this->json(['id' => $book->getId(), 'shelf_id' => $book->getShelfId()]);
     }
@@ -237,7 +226,7 @@ class BooksApiController extends AbstractController
     public function apiBooksIdDelete(Request $req, #[MapEntity(message: "Book not found.")] Book $book, int $id, HubInterface $hub, CacheManager $cacheManager): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $this->removeCoverFile($cacheManager, $book->getCache());
+        $this->removeCoverFile($cacheManager, $book->getBookCache());
 
         $this->entityManager->remove($book);
         $this->entityManager->flush();
@@ -310,11 +299,10 @@ class BooksApiController extends AbstractController
     public function apiBooksIdMarkRead(Request $req, #[CurrentUser] ?User $user, #[MapEntity(message: "Book not found.")] Book $book, string $type): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $progress = $book->getProgress($user);
+        $progress = $book->getBookProgress($user);
         if (!$progress) {
-            $progress = (new BookProgress())
-                ->setUser($user);
-            $book->addProgress($progress);
+            $progress = (new BookProgress())->setUser($user);
+            $book->addBookProgress($progress);
         }
         $progress->setPosition(null);
         if ($type === 'read') {
@@ -331,18 +319,17 @@ class BooksApiController extends AbstractController
     public function apiBooksIdMetadata(Request $req, #[MapEntity(message: "Book not found.")] Book $book): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        return $this->json($book, 200, [], [BookNormalizer::ONLY_METADATA => true]);
+        return $this->json($book, 200, [], [BookCacheNormalizer::COVER_FILTER => 'books_cover', 'groups' => ['book:metadata']]);
     }
 
     #[Route('/books/{id}/position', name: 'books_id_position', requirements: ['id' => '\d+'], methods: ['PUT'], format: 'json')]
     public function apiBooksIdPosition(Request $req, #[CurrentUser] ?User $user, #[MapEntity(message: "Book not found.")] Book $book): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $progress = $book->getProgress($user);
+        $progress = $book->getBookProgress($user);
         if (!$progress) {
-            $progress = (new BookProgress())
-                ->setUser($user);
-            $book->addProgress($progress);
+            $progress = (new BookProgress())->setUser($user);
+            $book->addBookProgress($progress);
         }
         if (!$req->getPayload()->has('position')) {
             throw new BadRequestHttpException("Parameter 'offset' not found.");
@@ -352,7 +339,7 @@ class BooksApiController extends AbstractController
         }
         $progress->setPosition($req->getPayload()->getString('position'))
             ->setPage($req->getPayload()->getInt('page'));
-        if ($req->getPayload()->has('update') && $req->getPayload()->getBoolean('update')) {
+        if ($req->getPayload()->getBoolean('update', true)) {
             $progress->updateLastRead();
         }
         $this->entityManager->flush();
@@ -379,12 +366,10 @@ class BooksApiController extends AbstractController
         $shelf = (new Shelf())
             ->setPath($req->getPayload()->getString('path'))
             ->setName($req->getPayload()->getString('name'));
-        $this->entityManager->persist($shelf);
-        $this->entityManager->flush();
-        $books = $bookRepo->getWithPath($shelf->getPath());
-        foreach ($books as $book) {
-            $book->setShelfId($shelf->getId());
+        foreach ($bookRepo->getWithPath($shelf->getPath()) as $book) {
+            $shelf->addBook($book);
         }
+        $this->entityManager->persist($shelf);
         $this->entityManager->flush();
         return $this->json($shelf);
     }
@@ -415,7 +400,7 @@ class BooksApiController extends AbstractController
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $authorization->setCookie($req, [sprintf(self::CHANNEL_LIBRARY_SHELVES_ID, $shelf->getId())]);
-        return $this->json($shelf->getBooks(), 200, [], ['groups' => ['book:list']]);
+        return $this->json($shelf->getBooks(), 200, [], [BookCacheNormalizer::COVER_FILTER => 'books_thumb', 'groups' => ['book:list']]);
     }
 
 }

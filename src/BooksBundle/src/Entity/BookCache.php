@@ -4,6 +4,7 @@ namespace App\BooksBundle\Entity;
 
 use App\BooksBundle\Repository\BookCacheRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Liip\ImagineBundle\Imagine\Cache\CacheManager;
 use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Serializer\Attribute\Ignore;
 
@@ -12,8 +13,9 @@ use Symfony\Component\Serializer\Attribute\Ignore;
 class BookCache
 {
     #[ORM\Id]
-    #[ORM\Column]
-    private ?int $bookId = null;
+    #[ORM\OneToOne(inversedBy: 'bookCache', targetEntity: Book::class)]
+    #[ORM\JoinColumn(name: 'book_id', referencedColumnName: 'id', nullable: false)]
+    private ?Book $book = null;
 
     #[ORM\Column(length: 36, nullable: true)]
     private ?string $cover = null;
@@ -28,16 +30,21 @@ class BookCache
     private ?int $pages = null;
 
     #[Ignore]
-    public function getBookId(): ?int
+    public function getBook(): ?Book
     {
-        return $this->bookId;
+        return $this->book;
     }
 
-    public function setBookId(int $bookId): static
+    public function setBook(?Book $book): self
     {
-        $this->bookId = $bookId;
+        $this->book = $book;
 
         return $this;
+    }
+
+    public function getBookId(): ?int
+    {
+        return $this->getBook()?->getId();
     }
 
     public function getCover(): ?string
@@ -80,6 +87,19 @@ class BookCache
     public function getPages(): ?int
     {
         return $this->pages;
+    }
+
+    /**
+     * @param CacheManager $cacheManager
+     * @param string $filter
+     * @return string|null
+     */
+    public function generateCoverThumbnail(CacheManager $cacheManager, string $filter): ?string
+    {
+        if ($this->getCover()) {
+            return $cacheManager->getBrowserPath("/" . $this->getCover(), $filter);
+        }
+        return null;
     }
 
 }

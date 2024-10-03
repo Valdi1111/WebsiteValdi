@@ -10,7 +10,7 @@ import { faEllipsis } from "@fortawesome/free-solid-svg-icons";
 import React from "react";
 
 /**
- * @typedef {{id: int, url: string, shelf_id: int, book_cache: {cover: string}, book_metadata: {title: string, creator: string}, book_progress: {page: int, total: int}}} BookProps
+ * @typedef {{id: int, url: string, shelf_id: int, book_cache: {pages: int, cover: string}, book_metadata: {title: string, creator: string}, book_progress: {position: ?string, page: int}}} BookProps
  */
 
 /**

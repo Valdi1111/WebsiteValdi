@@ -1,4 +1,4 @@
-import {API_URL} from "@BooksBundle/constants";
+import { API_URL } from "@BooksBundle/constants";
 import { Book } from "epubjs";
 import axios from "axios";
 
@@ -71,7 +71,7 @@ export async function createBook(url) {
         // Save
         const res = await axios.post(
             `${API_URL}/books`,
-            { url, locations, navigation, metadata: book.packaging.metadata },
+            { url, book_cache: { locations, navigation }, book_metadata: book.packaging.metadata },
             {}
         );
         if (cover) {
@@ -100,7 +100,7 @@ export async function recreateBookCache(url, id) {
         // Save
         const res = await axios.put(
             `${API_URL}/books/${id}`,
-            { locations, navigation, metadata: book.packaging.metadata },
+            { book_cache: { locations, navigation }, book_metadata: book.packaging.metadata },
             {}
         );
         if (cover) {

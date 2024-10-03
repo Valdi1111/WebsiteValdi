@@ -34,13 +34,14 @@ class BookRepository extends ServiceEntityRepository
     {
         $qb = $this->createQueryBuilder('b')
             ->select('b AS book')
-            ->leftJoin('b.progresses', 'bp')
+            ->leftJoin('b.bookProgresses', 'bp')
+            ->leftJoin('b.shelf', 's')
             ->andWhere('bp.user = :userId OR bp.user IS NULL')
             ->setParameter('userId', $user->getId());
         if ($shelfId === -1) {
-            $qb->andWhere("b.shelfId IS NULL");
+            $qb->andWhere("s.id IS NULL");
         } else if ($shelfId) {
-            $qb->andWhere("b.shelfId = :shelfId")
+            $qb->andWhere("s.id = :shelfId")
                 ->setParameter("shelfId", $shelfId);
         }
         if ($limit) {

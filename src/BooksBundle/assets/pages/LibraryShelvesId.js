@@ -41,7 +41,7 @@ export default function LibraryShelvesId() {
                 // Update shelf book count
                 let allShelves = shelves;
                 let i = allShelves.findIndex(s => s.id === shelf.id);
-                allShelves[i]._count = res.data.length;
+                allShelves[i].books_count = res.data.length;
                 setShelves([...allShelves]);
                 setLoading(false);
             },

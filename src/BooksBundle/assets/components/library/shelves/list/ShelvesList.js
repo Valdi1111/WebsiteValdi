@@ -14,7 +14,7 @@ export default function ShelvesList({loading, shelves, shelf}) {
                 {loading ? <LoadingComponent/> :
                     <ul className="position-absolute h-100 w-100 overflow-y-scroll list-group list-group-flush">
                         {shelves.map(s =>
-                            <ShelvesListItem key={s.id} id={s.id} path={s.path} name={s.name} books={s._count} active={isShelfActive(s)}/>
+                            <ShelvesListItem key={s.id} id={s.id} path={s.path} name={s.name} books={s.books_count} active={isShelfActive(s)}/>
                         )}
                     </ul>
                 }

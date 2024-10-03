@@ -21,15 +21,17 @@ export default function BookInfoModal() {
             setPath(e.relatedTarget.getAttribute("data-bs-url"));
             getMetadata(id).then(
                 res => {
-                    setCover(res.data.cover ? res.data.cover : missingCover);
-                    setTitle(res.data.title);
-                    setCreator(res.data.creator);
-                    setPublisher(res.data.publisher);
-                    setPublication(res.data.pubdate);
-                    setModified(res.data.modified_date);
-                    setLanguage(res.data.language);
-                    setIdentifier(res.data.identifier);
-                    setCopyright(res.data.rights);
+                    const cache = res.data.book_cache;
+                    const metadata = res.data.book_metadata;
+                    setCover(cache.cover ? cache.cover : missingCover);
+                    setTitle(metadata.title);
+                    setCreator(metadata.creator);
+                    setPublisher(metadata.publisher);
+                    setPublication(metadata.pubdate);
+                    setModified(metadata.modified_date);
+                    setLanguage(metadata.language);
+                    setIdentifier(metadata.identifier);
+                    setCopyright(metadata.rights);
                 },
                 err => console.error(err)
             );

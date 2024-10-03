@@ -12,8 +12,9 @@ use Symfony\Component\Serializer\Attribute\Ignore;
 class BookMetadata
 {
     #[ORM\Id]
-    #[ORM\Column]
-    private ?int $bookId = null;
+    #[ORM\OneToOne(inversedBy: 'bookMetadata', targetEntity: Book::class)]
+    #[ORM\JoinColumn(name: 'book_id', referencedColumnName: 'id', nullable: false)]
+    private ?Book $book = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $identifier = null;
@@ -40,18 +41,24 @@ class BookMetadata
     private ?string $modifiedDate = null;
 
     #[Ignore]
-    public function getBookId(): ?int
+    public function getBook(): ?Book
     {
-        return $this->bookId;
+        return $this->book;
     }
 
-    public function setBookId(int $bookId): static
+    public function setBook(?Book $book): self
     {
-        $this->bookId = $bookId;
+        $this->book = $book;
 
         return $this;
     }
 
+    public function getBookId(): ?int
+    {
+        return $this->getBook()?->getId();
+    }
+
+    #[Groups(['book:metadata'])]
     public function getIdentifier(): ?string
     {
         return $this->identifier;
@@ -64,7 +71,7 @@ class BookMetadata
         return $this;
     }
 
-    #[Groups(['book:list'])]
+    #[Groups(['book:list', 'book:metadata'])]
     public function getTitle(): ?string
     {
         return $this->title;
@@ -77,7 +84,7 @@ class BookMetadata
         return $this;
     }
 
-    #[Groups(['book:list'])]
+    #[Groups(['book:list', 'book:metadata'])]
     public function getCreator(): ?string
     {
         return $this->creator;
@@ -90,6 +97,7 @@ class BookMetadata
         return $this;
     }
 
+    #[Groups(['book:metadata'])]
     public function getPubdate(): ?string
     {
         return $this->pubdate;
@@ -102,6 +110,7 @@ class BookMetadata
         return $this;
     }
 
+    #[Groups(['book:metadata'])]
     public function getPublisher(): ?string
     {
         return $this->publisher;
@@ -114,6 +123,7 @@ class BookMetadata
         return $this;
     }
 
+    #[Groups(['book:metadata'])]
     public function getLanguage(): ?string
     {
         return $this->language;
@@ -126,6 +136,7 @@ class BookMetadata
         return $this;
     }
 
+    #[Groups(['book:metadata'])]
     public function getRights(): ?string
     {
         return $this->rights;
@@ -138,6 +149,7 @@ class BookMetadata
         return $this;
     }
 
+    #[Groups(['book:metadata'])]
     public function getModifiedDate(): ?string
     {
         return $this->modifiedDate;
@@ -150,46 +162,4 @@ class BookMetadata
         return $this;
     }
 
-    public function toJson(): array
-    {
-        return [
-            'identifier' => $this->getIdentifier(),
-            'title' => $this->getTitle(),
-            'creator' => $this->getCreator(),
-            'pubdate' => $this->getPubdate(),
-            'publisher' => $this->getPublisher(),
-            'language' => $this->getLanguage(),
-            'rights' => $this->getRights(),
-            'modified_date' => $this->getModifiedDate(),
-        ];
-    }
-
-    public function fromJson(array $json): static
-    {
-        if(array_key_exists('title', $json)) {
-            $this->setTitle($json['title']);
-        }
-        if(array_key_exists('creator', $json)) {
-            $this->setCreator($json['creator']);
-        }
-        if(array_key_exists('publisher', $json)) {
-            $this->setPublisher($json['publisher']);
-        }
-        if(array_key_exists('pubdate', $json)) {
-            $this->setPubdate($json['pubdate']);
-        }
-        if(array_key_exists('modified_date', $json)) {
-            $this->setModifiedDate($json['modified_date']);
-        }
-        if(array_key_exists('language', $json)) {
-            $this->setLanguage($json['language']);
-        }
-        if(array_key_exists('identifier', $json)) {
-            $this->setIdentifier($json['identifier']);
-        }
-        if(array_key_exists('rights', $json)) {
-            $this->setRights($json['rights']);
-        }
-        return $this;
-    }
 }

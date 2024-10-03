@@ -8,12 +8,13 @@ import {
     LAYOUT, LAYOUTS,
     UPDATE_LAST_READ, isWheelAllowed
 } from "@BooksBundle/components/books/BookConstants";
-import {useBookSettings, useThemes} from "@BooksBundle/components/Contexts";
-import {THEMES} from "@BooksBundle/components/ThemeConstants";
-import {EPUB_URL, getBook, updatePosition} from "@BooksBundle/api/book";
-import {useParams} from "react-router-dom";
-import {Helmet} from "react-helmet";
-import {Book, EpubCFI} from "epubjs";
+import { useBookSettings, useThemes } from "@BooksBundle/components/Contexts";
+import { THEMES } from "@BooksBundle/components/ThemeConstants";
+import { getBook, updatePosition } from "@BooksBundle/api/book";
+import { EPUB_URL } from "@BooksBundle/constants";
+import { useParams } from "react-router-dom";
+import { Helmet } from "react-helmet";
+import { Book, EpubCFI } from "epubjs";
 import React from "react";
 import $ from "jquery";
 import "@BooksBundle/scss/iframe.css";
@@ -29,12 +30,12 @@ export default function BookId() {
     const [loaded, setLoaded] = React.useState(false);
     const [title, setTitle] = React.useState('');
     // Book data
-    const [mark, setMark] = React.useState({position: null, page: 0}); // current position and page
+    const [mark, setMark] = React.useState({ position: null, page: 0 }); // current position and page
     const [chapter, setChapter] = React.useState(null); // current chapter
     const [section, setSection] = React.useState(null); // current section (from spine)
     const [location, setLocation] = React.useState(null);
     const [percentage, setPercentage] = React.useState(null);
-    const {bookId} = useParams();
+    const { bookId } = useParams();
 
     /**
      * Handle layout updates
@@ -95,7 +96,7 @@ export default function BookId() {
         getBook(bookId).then(
             res => {
                 console.log("Loading book", bookId);
-                book.current = new Book(`${EPUB_URL}/${res.data.id}`, {openAs: 'epub'});
+                book.current = new Book(`${EPUB_URL}/${res.data.id}`, { openAs: 'epub' });
                 setTitle(res.data.book_metadata.title);
                 navigation.current = res.data.book_cache.navigation;
                 setMark(res.data.book_progress);
@@ -154,7 +155,7 @@ export default function BookId() {
         // Open image view modal when clicking on img or image tag
         rendition.on('click', async e => {
             if (e.target.tagName.toLowerCase() === 'img' || e.target.tagName.toLowerCase() === 'image') {
-                const {default: Modal} = await import("bootstrap/js/dist/modal");
+                const { default: Modal } = await import("bootstrap/js/dist/modal");
                 new Modal($('#image-view-modal')).show(e.target);
             }
         });
@@ -227,7 +228,7 @@ export default function BookId() {
         theme['font-size'] = settings[FONT_SIZE] + (settings[FORCE_FONT_SIZE] === 'true' ? 'px !important' : 'px');
         theme['line-height'] = settings[SPACING];
         theme['text-align'] = settings[JUSTIFY] === 'true' ? 'justify' : 'left';
-        book.current.rendition.themes.default({body: theme});
+        book.current.rendition.themes.default({ body: theme });
     }
 
     /**
@@ -238,18 +239,18 @@ export default function BookId() {
     }
 
     function updatePage(loc) {
-        const {cfi, href, displayed} = loc.start;
+        const { cfi, href, displayed } = loc.start;
         // update current chapter
         setChapter(getChapFromCfi(loc.end.cfi));
         // update section
-        setSection({current: book.current.spine.get(cfi).index, total: book.current.spine.last().index});
+        setSection({ current: book.current.spine.get(cfi).index, total: book.current.spine.last().index });
         // update location
         const page = book.current.locations.locationFromCfi(cfi);
-        setLocation({current: page, total: book.current.locations.length()});
+        setLocation({ current: page, total: book.current.locations.length() });
         // update percentage
         setPercentage(book.current.locations.percentageFromCfi(cfi));
         // update cache position
-        setMark({position: cfi, page: page});
+        setMark({ position: cfi, page: page });
     }
 
     function flattenNav(items) {

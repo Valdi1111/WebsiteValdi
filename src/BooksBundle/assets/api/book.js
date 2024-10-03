@@ -1,8 +1,6 @@
-import { API_URL } from "@BooksBundle/constants";
+import { API_URL, EPUB_URL } from "@BooksBundle/constants";
 import { Book } from "epubjs";
 import axios from "axios";
-
-export const EPUB_URL = `${API_URL}/epub`;
 
 const locale = 'en-US';
 const opts = {
@@ -16,49 +14,35 @@ export function formatReadPercent(page, total) {
     return formatter.format((!page || !total) ? 0 : (page / total));
 }
 
+export function getCoverUrl(id) {
+    return `${API_URL}/books/${id}/cover`;
+}
+
 export async function markUnread(id) {
-    return axios.put(
-        `${API_URL}/books/${id}/mark-unread`,
-        {},
-        {}
-    );
+    return axios.put(`${API_URL}/books/${id}/mark-unread`);
 }
 
 export async function markRead(id) {
-    return axios.put(
-        `${API_URL}/books/${id}/mark-read`,
-        {},
-        {}
-    );
+    return axios.put(`${API_URL}/books/${id}/mark-read`);
 }
 
 export async function updatePosition(id, position, page, update = true) {
     return axios.put(
         `${API_URL}/books/${id}/position`,
         { position, page, update },
-        {}
     );
 }
 
 export async function getMetadata(id) {
-    return axios.get(
-        `${API_URL}/books/${id}/metadata`,
-        {}
-    );
+    return axios.get(`${API_URL}/books/${id}/metadata`);
 }
 
 export async function getBook(id) {
-    return axios.get(
-        `${API_URL}/books/${id}`,
-        {}
-    );
+    return axios.get(`${API_URL}/books/${id}`);
 }
 
 export async function deleteBook(id) {
-    return axios.delete(
-        `${API_URL}/books/${id}`,
-        {}
-    );
+    return axios.delete(`${API_URL}/books/${id}`);
 }
 
 export async function createBook(url) {
@@ -78,7 +62,7 @@ export async function createBook(url) {
             const data = new FormData();
             data.append('cover', cover, 'cover.png');
             await axios.post(
-                `${API_URL}/books/${res.data.id}/cover`,
+                getCoverUrl(res.data.id),
                 data,
                 { headers: { 'Content-Type': 'multipart/form-data' } }
             );
@@ -107,12 +91,12 @@ export async function recreateBookCache(url, id) {
             const data = new FormData();
             data.append('cover', cover, 'cover.png');
             await axios.post(
-                `${API_URL}/books/${id}/cover`,
+                getCoverUrl(id),
                 data,
                 { headers: { 'Content-Type': 'multipart/form-data' } }
             );
         } else {
-            await axios.delete(`${API_URL}/books/${id}/cover`);
+            await axios.delete(getCoverUrl(id));
         }
         return Promise.resolve(res.data);
     } catch (e) {

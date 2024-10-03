@@ -26,9 +26,6 @@ class BookMetadata
     private ?string $creator = null;
 
     #[ORM\Column(length: 255, nullable: true)]
-    private ?string $pubdate = null;
-
-    #[ORM\Column(length: 255, nullable: true)]
     private ?string $publisher = null;
 
     #[ORM\Column(length: 255, nullable: true)]
@@ -38,7 +35,10 @@ class BookMetadata
     private ?string $rights = null;
 
     #[ORM\Column(length: 255, nullable: true)]
-    private ?string $modifiedDate = null;
+    private ?string $publication = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $modified = null;
 
     #[Ignore]
     public function getBook(): ?Book
@@ -98,19 +98,6 @@ class BookMetadata
     }
 
     #[Groups(['book:metadata'])]
-    public function getPubdate(): ?string
-    {
-        return $this->pubdate;
-    }
-
-    public function setPubdate(string $pubdate): static
-    {
-        $this->pubdate = $pubdate;
-
-        return $this;
-    }
-
-    #[Groups(['book:metadata'])]
     public function getPublisher(): ?string
     {
         return $this->publisher;
@@ -150,14 +137,27 @@ class BookMetadata
     }
 
     #[Groups(['book:metadata'])]
-    public function getModifiedDate(): ?string
+    public function getPublication(): ?string
     {
-        return $this->modifiedDate;
+        return $this->publication;
     }
 
-    public function setModifiedDate(string $modified_date): static
+    public function setPublication(string $publication): static
     {
-        $this->modifiedDate = $modified_date;
+        $this->publication = $publication;
+
+        return $this;
+    }
+
+    #[Groups(['book:metadata'])]
+    public function getModified(): ?string
+    {
+        return $this->modified;
+    }
+
+    public function setModified(string $modified): static
+    {
+        $this->modified = $modified;
 
         return $this;
     }

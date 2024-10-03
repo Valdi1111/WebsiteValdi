@@ -27,8 +27,8 @@ export default function BookInfoModal() {
                     setTitle(metadata.title);
                     setCreator(metadata.creator);
                     setPublisher(metadata.publisher);
-                    setPublication(metadata.pubdate);
-                    setModified(metadata.modified_date);
+                    setPublication(metadata.publication);
+                    setModified(metadata.modified);
                     setLanguage(metadata.language);
                     setIdentifier(metadata.identifier);
                     setCopyright(metadata.rights);

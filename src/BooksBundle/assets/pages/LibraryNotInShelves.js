@@ -1,8 +1,9 @@
-import {BOOKS_PER_PAGE, getBooksNotInShelf} from "@BooksBundle/api/library";
+import { getBooksNotInShelf } from "@BooksBundle/api/library";
 import LibraryItemAdder from "@BooksBundle/components/library/item/LibraryItemAdder";
 import LibraryItem from "@BooksBundle/components/library/item/LibraryItem";
 import LoadingComponent from "@BooksBundle/components/LoadingComponent";
-import {Helmet} from "react-helmet";
+import { BOOKS_PER_PAGE } from "@BooksBundle/constants";
+import { Helmet } from "react-helmet";
 import React from "react";
 
 export default function LibraryNotInShelves() {
@@ -36,7 +37,7 @@ export default function LibraryNotInShelves() {
         const hub = new URL(MERCURE_HUB_URL, window.origin);
         hub.searchParams.append('topic', `https://books.valdi.ovh/library/not-in-shelves`);
         // Subscribe to updates
-        ws.current = new EventSource(hub, {withCredentials: true});
+        ws.current = new EventSource(hub, { withCredentials: true });
         ws.current.addEventListener('message', handleWebsocket);
     }
 

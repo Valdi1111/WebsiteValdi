@@ -42,7 +42,7 @@ export default function LibraryItem(props) {
                         </button>
                         <ul className="dropdown-menu dropdown-menu-end min-width-0" aria-labelledby="book-other">
                             <ItemGoToShelf shelf_id={shelf_id} hide_shelf={hide_shelf}/>
-                            <ItemAbout id={id} url={url} cover={cover}/>
+                            <ItemAbout id={id}/>
                             <ItemReadToggle id={id} page={page} setRead={setRead}/>
                             <ItemInvalidate id={id} url={url} title={title}/>
                             <ItemRemove id={id} title={title}/>

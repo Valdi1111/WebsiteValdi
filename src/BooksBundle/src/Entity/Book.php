@@ -55,7 +55,7 @@ class Book
         return $this->id;
     }
 
-    #[Groups(['book:list'])]
+    #[Groups(['book:list', 'book:metadata'])]
     public function getUrl(): ?string
     {
         return $this->url;

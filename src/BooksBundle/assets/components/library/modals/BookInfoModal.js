@@ -5,33 +5,19 @@ import React from "react";
 export default function BookInfoModal() {
     const [path, setPath] = React.useState('');
     const [cover, setCover] = React.useState(missingCover);
-    const [title, setTitle] = React.useState('');
-    const [creator, setCreator] = React.useState('');
-    const [publisher, setPublisher] = React.useState('');
-    const [publication, setPublication] = React.useState('');
-    const [modified, setModified] = React.useState('');
-    const [language, setLanguage] = React.useState('');
-    const [identifier, setIdentifier] = React.useState('');
-    const [copyright, setCopyright] = React.useState('');
+    const [metadata, setMetadata] = React.useState({});
     const modal = React.useRef();
 
     React.useEffect(() => {
         modal.current.addEventListener("show.bs.modal", (e) => {
             const id = e.relatedTarget.getAttribute("data-bs-id");
-            setPath(e.relatedTarget.getAttribute("data-bs-url"));
             getMetadata(id).then(
                 res => {
                     const cache = res.data.book_cache;
                     const metadata = res.data.book_metadata;
+                    setPath(res.data.url);
                     setCover(cache.cover ? cache.cover : missingCover);
-                    setTitle(metadata.title);
-                    setCreator(metadata.creator);
-                    setPublisher(metadata.publisher);
-                    setPublication(metadata.publication);
-                    setModified(metadata.modified);
-                    setLanguage(metadata.language);
-                    setIdentifier(metadata.identifier);
-                    setCopyright(metadata.rights);
+                    setMetadata(metadata);
                 },
                 err => console.error(err)
             );
@@ -39,14 +25,7 @@ export default function BookInfoModal() {
         modal.current.addEventListener("hidden.bs.modal", (e) => {
             setPath('');
             setCover(missingCover);
-            setTitle('');
-            setCreator('');
-            setPublisher('');
-            setPublication('');
-            setModified('');
-            setLanguage('');
-            setIdentifier('');
-            setCopyright('');
+            setMetadata({});
         });
     }, []);
 
@@ -70,8 +49,8 @@ export default function BookInfoModal() {
                                 */}
                             </div>
                             <div className="col-8">
-                                <h6 className="mb-1">{title}</h6>
-                                <p className="small">{creator}</p>
+                                <h6 className="mb-1">{metadata.title}</h6>
+                                <p className="small">{metadata.creator}</p>
                             </div>
                             <div className="col-12">
                                 <h6 className="small mb-0">Path</h6>
@@ -79,27 +58,27 @@ export default function BookInfoModal() {
                             </div>
                             <div className="col-12 col-sm-6">
                                 <h6 className="small mb-0">Publisher</h6>
-                                <p>{publisher}</p>
+                                <p>{metadata.publisher}</p>
                             </div>
                             <div className="col-12 col-sm-6">
                                 <h6 className="small mb-0">Publication Date</h6>
-                                <p>{publication}</p>
+                                <p>{metadata.publication}</p>
                             </div>
                             <div className="col-12 col-sm-6">
                                 <h6 className="small mb-0">Modified Date</h6>
-                                <p>{modified}</p>
+                                <p>{metadata.modified}</p>
                             </div>
                             <div className="col-12 col-sm-6">
                                 <h6 className="small mb-0">Language</h6>
-                                <p>{language}</p>
+                                <p>{metadata.language}</p>
                             </div>
                             <div className="col-12">
                                 <h6 className="small mb-0">Identifier</h6>
-                                <p>{identifier}</p>
+                                <p>{metadata.identifier}</p>
                             </div>
                             <div className="col-12">
                                 <h6 className="small mb-0">Copyright</h6>
-                                <p>{copyright}</p>
+                                <p>{metadata.rights}</p>
                             </div>
                         </div>
                     </div>

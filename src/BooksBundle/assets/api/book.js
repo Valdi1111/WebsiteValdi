@@ -55,7 +55,7 @@ export async function createBook(url) {
         // Save
         const res = await axios.post(
             `${API_URL}/books`,
-            { url, book_cache: { locations, navigation }, book_metadata: book.packaging.metadata },
+            { url, book_cache: { locations, navigation }, book_metadata: generateMetadata(book.packaging.metadata) },
             {}
         );
         if (cover) {
@@ -84,7 +84,7 @@ export async function recreateBookCache(url, id) {
         // Save
         const res = await axios.put(
             `${API_URL}/books/${id}`,
-            { book_cache: { locations, navigation }, book_metadata: book.packaging.metadata },
+            { book_cache: { locations, navigation }, book_metadata: generateMetadata(book.packaging.metadata) },
             {}
         );
         if (cover) {
@@ -102,6 +102,19 @@ export async function recreateBookCache(url, id) {
     } catch (e) {
         return Promise.reject(e);
     }
+}
+
+function generateMetadata(metadata) {
+    return {
+        identifier: metadata.identifier,
+        title: metadata.title,
+        creator: metadata.creator,
+        publisher: metadata.publisher,
+        language: metadata.language,
+        rights: metadata.rights,
+        publication: metadata.pubdate,
+        modified: metadata.modified_date,
+    };
 }
 
 async function generateCache(book, id = '') {

@@ -33,7 +33,7 @@ class EpisodeDownload implements \JsonSerializable
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $file = null;
 
-    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, insertable: false, updatable: false)]
     private ?\DateTimeInterface $created = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
@@ -50,7 +50,6 @@ class EpisodeDownload implements \JsonSerializable
 
     public function __construct()
     {
-        $this->created = new \DateTime();
     }
 
     public function getId(): ?int
@@ -133,13 +132,6 @@ class EpisodeDownload implements \JsonSerializable
     public function getCreated(): ?\DateTimeInterface
     {
         return $this->created;
-    }
-
-    public function setCreated(\DateTimeInterface $created): static
-    {
-        $this->created = $created;
-
-        return $this;
     }
 
     public function getStarted(): ?\DateTimeInterface

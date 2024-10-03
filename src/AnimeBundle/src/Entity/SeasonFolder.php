@@ -17,12 +17,11 @@ class SeasonFolder
     #[ORM\Column(length: 255)]
     private ?string $folder = null;
 
-    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
-    private ?\DateTimeInterface $created;
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, insertable: false, updatable: false)]
+    private ?\DateTimeInterface $created = null;
 
     public function __construct()
     {
-        $this->created = new \DateTime();
     }
 
     public function getId(): ?int
@@ -54,10 +53,4 @@ class SeasonFolder
         return $this->created;
     }
 
-    public function setCreated(\DateTimeInterface $created): static
-    {
-        $this->created = $created;
-
-        return $this;
-    }
 }

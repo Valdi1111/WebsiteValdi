@@ -25,8 +25,8 @@ class Shelf
     #[ORM\Column(length: 255)]
     private ?string $name = null;
 
-    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
-    private ?\DateTimeInterface $created;
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, insertable: false, updatable: false)]
+    private ?\DateTimeInterface $created = null;
 
     /**
      * @var Collection<int, Book>
@@ -37,7 +37,6 @@ class Shelf
 
     public function __construct()
     {
-        $this->created = new \DateTime();
         $this->books = new ArrayCollection();
     }
 
@@ -73,13 +72,6 @@ class Shelf
     public function getCreated(): \DateTimeInterface
     {
         return $this->created;
-    }
-
-    public function setCreated(\DateTimeInterface $created): static
-    {
-        $this->created = $created;
-
-        return $this;
     }
 
     /**

@@ -27,8 +27,8 @@ class Book
     #[ORM\Column(length: 255)]
     private ?string $url = null;
 
-    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
-    private \DateTimeInterface $created;
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, insertable: false, updatable: false)]
+    private ?\DateTimeInterface $created = null;
 
     #[ORM\ManyToOne(targetEntity: Shelf::class, inversedBy: 'books')]
     #[ORM\JoinColumn(name: 'shelf_id', referencedColumnName: 'id')]
@@ -46,7 +46,6 @@ class Book
 
     public function __construct()
     {
-        $this->created = new \DateTime();
         $this->bookProgresses = new ArrayCollection();
     }
 
@@ -73,13 +72,6 @@ class Book
     public function getCreated(): \DateTimeInterface
     {
         return $this->created;
-    }
-
-    public function setCreated(\DateTimeInterface $created): static
-    {
-        $this->created = $created;
-
-        return $this;
     }
 
     #[Ignore]

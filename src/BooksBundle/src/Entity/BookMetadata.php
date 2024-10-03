@@ -11,7 +11,6 @@ use Symfony\Component\Serializer\Attribute\Ignore;
 #[ORM\Entity(repositoryClass: BookMetadataRepository::class)]
 class BookMetadata
 {
-    #[Ignore]
     #[ORM\Id]
     #[ORM\Column]
     private ?int $bookId = null;
@@ -19,11 +18,9 @@ class BookMetadata
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $identifier = null;
 
-    #[Groups(['book:list'])]
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $title = null;
 
-    #[Groups(['book:list'])]
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $creator = null;
 
@@ -42,6 +39,7 @@ class BookMetadata
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $modifiedDate = null;
 
+    #[Ignore]
     public function getBookId(): ?int
     {
         return $this->bookId;
@@ -66,6 +64,7 @@ class BookMetadata
         return $this;
     }
 
+    #[Groups(['book:list'])]
     public function getTitle(): ?string
     {
         return $this->title;
@@ -78,6 +77,7 @@ class BookMetadata
         return $this;
     }
 
+    #[Groups(['book:list'])]
     public function getCreator(): ?string
     {
         return $this->creator;

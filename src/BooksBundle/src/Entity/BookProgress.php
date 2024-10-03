@@ -6,19 +6,18 @@ use App\BooksBundle\Repository\BookProgressRepository;
 use App\CoreBundle\Entity\User;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Serializer\Attribute\Ignore;
 
 #[ORM\Table(name: 'book_progress')]
 #[ORM\Entity(repositoryClass: BookProgressRepository::class)]
 class BookProgress
 {
-    #[Ignore]
     #[ORM\Id]
     #[ORM\ManyToOne(targetEntity: AbstractBook::class, inversedBy: 'progresses')]
     #[ORM\JoinColumn(name: 'book_id', referencedColumnName: 'id', nullable: false)]
     private ?AbstractBook $book = null;
 
-    #[Ignore]
     #[ORM\Id]
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', nullable: false)]
@@ -38,6 +37,7 @@ class BookProgress
         $this->lastRead = new \DateTime();
     }
 
+    #[Ignore]
     public function getBook(): ?AbstractBook
     {
         return $this->book;
@@ -50,6 +50,7 @@ class BookProgress
         return $this;
     }
 
+    #[Ignore]
     public function getUser(): ?User
     {
         return $this->user;
@@ -62,6 +63,7 @@ class BookProgress
         return $this;
     }
 
+    #[Groups(['book:list'])]
     public function getPosition(): ?string
     {
         return $this->position;
@@ -74,6 +76,7 @@ class BookProgress
         return $this;
     }
 
+    #[Groups(['book:list'])]
     public function getPage(): int
     {
         return $this->page;
@@ -86,6 +89,7 @@ class BookProgress
         return $this;
     }
 
+    #[Groups(['book:list'])]
     public function getLastRead(): \DateTimeInterface
     {
         return $this->lastRead;

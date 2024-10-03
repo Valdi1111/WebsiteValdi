@@ -18,17 +18,14 @@ use Symfony\Component\Serializer\Attribute\SerializedName;
 #[ORM\MappedSuperclass]
 class AbstractBook
 {
-    #[Groups(['book:list'])]
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
     private ?int $id = null;
 
-    #[Groups(['book:list'])]
     #[ORM\Column(length: 255)]
     private ?string $url = null;
 
-    #[Groups(['book:list'])]
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private \DateTimeInterface $created;
 
@@ -36,22 +33,15 @@ class AbstractBook
     #[ORM\Column(nullable: true)]
     private ?int $shelfId = null;
 
-    #[Groups(['book:list'])]
-    #[SerializedName('book_metadata')]
     #[ORM\OneToOne(targetEntity: BookMetadata::class, cascade: ['persist', 'remove'])]
     #[JoinColumn(name: 'id', referencedColumnName: 'book_id')]
     private ?BookMetadata $metadata = null;
 
-    #[Groups(['book:list'])]
-    #[SerializedName('book_cache')]
     #[ORM\OneToOne(targetEntity: BookCache::class, cascade: ['persist', 'remove'])]
     #[JoinColumn(name: 'id', referencedColumnName: 'book_id')]
     private ?BookCache $cache = null;
 
     /** @var Collection<int, BookProgress> */
-    #[Groups(['book:list'])]
-    #[SerializedName('book_progress')]
-    #[Context(normalizationContext: [CollectionBookProgressNormalizer::SERIALIZE => true])]
     #[OneToMany(mappedBy: 'book', targetEntity: BookProgress::class, cascade: ['persist', 'remove'], fetch: 'EAGER', indexBy: 'user_id')]
     private Collection $progresses;
 
@@ -61,11 +51,13 @@ class AbstractBook
         $this->progresses = new ArrayCollection();
     }
 
+    #[Groups(['book:list'])]
     public function getId(): ?int
     {
         return $this->id;
     }
 
+    #[Groups(['book:list'])]
     public function getUrl(): ?string
     {
         return $this->url;
@@ -78,6 +70,7 @@ class AbstractBook
         return $this;
     }
 
+    #[Groups(['book:list'])]
     public function getCreated(): \DateTimeInterface
     {
         return $this->created;
@@ -90,6 +83,7 @@ class AbstractBook
         return $this;
     }
 
+    #[Groups(['book:list'])]
     public function getShelfId(): ?int
     {
         return $this->shelfId;
@@ -102,6 +96,8 @@ class AbstractBook
         return $this;
     }
 
+    #[Groups(['book:list'])]
+    #[SerializedName('book_metadata')]
     public function getMetadata(): ?BookMetadata
     {
         return $this->metadata;
@@ -114,6 +110,8 @@ class AbstractBook
         return $this;
     }
 
+    #[Groups(['book:list'])]
+    #[SerializedName('book_cache')]
     public function getCache(): ?BookCache
     {
         return $this->cache;
@@ -127,6 +125,9 @@ class AbstractBook
     }
 
     /** @return Collection<int, BookProgress> */
+    #[Groups(['book:list'])]
+    #[SerializedName('book_progress')]
+    #[Context(normalizationContext: [CollectionBookProgressNormalizer::SERIALIZE => true])]
     public function getProgresses(): Collection
     {
         return $this->progresses;
@@ -134,12 +135,12 @@ class AbstractBook
 
     public function getProgress(User $user): ?BookProgress
     {
-        return $this->progresses->get($user->getId());
+        return $this->getProgresses()->get($user->getId());
     }
 
     public function addProgress(BookProgress $progress): self
     {
-        if (!$this->progresses->contains($progress)) {
+        if (!$this->getProgresses()->contains($progress)) {
             $this->progresses[] = $progress;
             $progress->setBook($this);
         }
@@ -149,7 +150,7 @@ class AbstractBook
 
     public function removeProgress(BookProgress $progress): self
     {
-        if ($this->progresses->removeElement($progress)) {
+        if ($this->getProgresses()->removeElement($progress)) {
             if ($progress->getBook() === $this) {
                 $progress->setBook(null);
             }

@@ -3,12 +3,11 @@
 namespace App\BooksBundle\Entity;
 
 use App\BooksBundle\Repository\ShelfRepository;
-use App\CoreBundle\Normalizer\CollectionCountNormalizer;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Component\Serializer\Attribute\Context;
+use Symfony\Component\Serializer\Annotation\Ignore;
 use Symfony\Component\Serializer\Attribute\SerializedName;
 
 #[ORM\Table(name: 'shelf')]
@@ -32,8 +31,6 @@ class Shelf
     /**
      * @var Collection<int, ShelfBook>
      */
-    #[SerializedName('_count')]
-    #[Context(normalizationContext: [CollectionCountNormalizer::SERIALIZE => true])]
     #[ORM\OneToMany(mappedBy: 'shelf', targetEntity: ShelfBook::class)]
     #[ORM\OrderBy(['url' => 'ASC'])]
     private Collection $books;
@@ -88,9 +85,16 @@ class Shelf
     /**
      * @return Collection<int, ShelfBook>
      */
+    #[Ignore]
     public function getBooks(): Collection
     {
         return $this->books;
+    }
+
+    #[SerializedName('_count')]
+    public function getBooksCount(): int
+    {
+        return $this->getBooks()->count();
     }
 
 }

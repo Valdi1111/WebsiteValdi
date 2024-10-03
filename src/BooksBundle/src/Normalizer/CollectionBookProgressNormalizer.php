@@ -38,7 +38,7 @@ class CollectionBookProgressNormalizer implements NormalizerInterface
         if (!$progress) {
             $progress = new BookProgress();
         }
-        return $this->normalizer->normalize($progress);
+        return $this->normalizer->normalize($progress, $format, $context);
     }
 
     /**

@@ -11,7 +11,6 @@ use Symfony\Component\Serializer\Attribute\Ignore;
 #[ORM\Entity(repositoryClass: BookCacheRepository::class)]
 class BookCache
 {
-    #[Ignore]
     #[ORM\Id]
     #[ORM\Column]
     private ?int $bookId = null;
@@ -25,10 +24,10 @@ class BookCache
     #[ORM\Column]
     private array $locations = [];
 
-    #[Groups(['book:list'])]
     #[ORM\Column(nullable: true, insertable: false, updatable: false)]
     private ?int $pages = null;
 
+    #[Ignore]
     public function getBookId(): ?int
     {
         return $this->bookId;
@@ -77,6 +76,7 @@ class BookCache
         return $this;
     }
 
+    #[Groups(['book:list'])]
     public function getPages(): ?int
     {
         return $this->pages;

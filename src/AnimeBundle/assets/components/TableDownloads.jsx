@@ -1,89 +1,146 @@
+import { getDownloads } from "@AnimeBundle/api";
+import {Checkbox, Divider, Table} from 'antd';
 import React from 'react';
 
-/*
-id: 635
-episode_url: "/play/seiken-gakuin-no-makentsukai.IBegC/h23Fcc"
-download_url: "https://server18.cherrycloud.net/DDL/ANIME/SeikenGakuinNoMakentsukai/SeikenGakuinNoMakentsukai_Ep_05_SUB_ITA.mp4"
-file: "SeikenGakuinNoMakentsukai_Ep_05_SUB_ITA.mp4"
-folder: "/SeikenGakuinNoMakentsukai/Stagione 1"
-episode: "5"
-created: "2023-10-30T21:50:33+00:00"
-started: "2023-10-30T21:51:01+00:00"
-completed: "2023-10-30T21:53:40+00:00"
-state: "completed"
-mal_id: 50184
-al_id: 140501
- */
+const baseColumns = [
+    {
+        title: 'ID',
+        dataIndex: 'id',
+        sorter: true,
+        sortDirections: ['ascend', 'descend', 'ascend'],
+        defaultSortOrder: 'descend',
+    },
+    {
+        title: 'AnimeWorld URL',
+        dataIndex: 'episode_url',
+    },
+    {
+        title: 'Download URL',
+        dataIndex: 'download_url',
+        hidden: true,
+    },
+    {
+        title: 'File',
+        dataIndex: 'file',
+        hidden: true,
+    },
+    {
+        title: 'Folder',
+        dataIndex: 'folder',
+    },
+    {
+        title: 'Episode',
+        dataIndex: 'episode',
+    },
+    {
+        title: 'Created',
+        dataIndex: 'created',
+        hidden: true,
+    },
+    {
+        title: 'Started',
+        dataIndex: 'started',
+    },
+    {
+        title: 'Completed',
+        dataIndex: 'completed',
+    },
+    {
+        title: 'State',
+        dataIndex: 'state',
+    },
+    {
+        title: 'MAL',
+        dataIndex: 'mal_id',
+    },
+    {
+        title: 'AL',
+        dataIndex: 'al_id',
+        hidden: true,
+    },
+];
+
 export default function TableDownloads() {
-    const divRef = React.useRef();
+    const [columns, setColumns] = React.useState(baseColumns);
+    const [data, setData] = React.useState([]);
+    const [loading, setLoading] = React.useState(false);
+    const [tableParams, setTableParams] = React.useState({
+        pagination: {
+            current: 1,
+            pageSize: 10,
+        },
+        sortOrder: 'descend',
+        sortField: 'id',
+    });
+
     React.useEffect(() => {
-        webix.ready(function () {
-            // use custom scrolls, optional
-            webix.CustomScroll.init();
+        fetchData();
+    }, [
+        tableParams.pagination?.current,
+        tableParams.pagination?.pageSize,
+        tableParams?.sortOrder,
+        tableParams?.sortField,
+        JSON.stringify(tableParams.filters),
+    ]);
 
-            const dateParser = webix.Date.strToDate("%c");
-            const dateFormatted = webix.Date.dateToStr("%Y-%m-%d %H:%i");
-            const app = webix.ui({
-                container: "table-downloads",
-                view: "datatable",
-                url: "/api/downloads",
-                dragColumn: true,
-                visibleBatch: "normal",
-                columns: [
-                    {
-                        id: 'id', header: "ID", adjust: true, sort: "int",
+    function fetchData() {
+        setLoading(true);
+        getDownloads(tableParams).then(
+            res => {
+                const cols = columns;
+                for (const filter of Object.keys(res.data.filters)) {
+                    cols.find(c => c.dataIndex === filter).filters = res.data.filters[filter];
+                }
+                setColumns(cols);
+                setData(res.data.results);
+                setLoading(false);
+                setTableParams({
+                    ...tableParams,
+                    pagination: {
+                        ...tableParams.pagination,
+                        total: res.data.total,
                     },
-                    {
-                        id: 'episode_url', header: "URL", fillspace: true,
-                    },
-                    {
-                        id: 'download_url', header: "Download", batch: "all",
-                    },
-                    {
-                        id: 'folder', header: "Folder", fillspace: true,
-                    },
-                    {
-                        id: 'file', header: "File", batch: "all",
-                    },
-                    {
-                        id: 'episode', header: "Episode", adjust: true,
-                    },
-                    {
-                        id: 'created', header: "Created", batch: "all", adjust: true, sort: "date", format: dateFormatted,
-                    },
-                    {
-                        id: 'started', header: "Started", adjust: true, sort: "date", format: dateFormatted,
-                    },
-                    {
-                        id: 'completed', header: "Completed", adjust: true, sort: "date", format: dateFormatted,
-                    },
-                    {
-                        id: 'state', header: "State", adjust: true,
-                    },
-                    {
-                        id: 'mal_id', header: "MAL", adjust: true,
-                    },
-                    {
-                        id: 'al_id', header: "AL", batch: "all", adjust: true,
-                    },
-                ],
-                scheme: {
-                    $init: function (item) {
-                        if (item.created) {
-                            item.created = dateParser(item.created);
-                        }
-                        if (item.started) {
-                            item.started = dateParser(item.started);
-                        }
-                        if (item.completed) {
-                            item.completed = dateParser(item.completed);
-                        }
-                    },
-                },
-            });
+                });
+            }
+        );
+    }
+
+    function handleTableChange(pagination, filters, sorter) {
+        setTableParams({
+            pagination,
+            filters,
+            sortOrder: Array.isArray(sorter) ? undefined : sorter.order,
+            sortField: Array.isArray(sorter) ? undefined : sorter.field,
         });
-    }, []);
 
-    return <main ref={divRef} id="table-downloads" className="flex-grow-1"></main>;
+        // `dataSource` is useless since `pageSize` changed
+        if (pagination.pageSize !== tableParams.pagination?.pageSize) {
+            setData([]);
+        }
+    }
+
+    return <>
+        <Divider>Columns displayed</Divider>
+        <Checkbox.Group
+            value={columns.filter(c => !c.hidden).map(c => c.dataIndex)}
+            options={columns.map(c => ({label: c.title, value: c.dataIndex}))}
+            onChange={values => {
+                console.log(values)
+                const cols = [];
+                for (const colsKey in columns) {
+                    cols[colsKey] = {...columns[colsKey], hidden: !values.includes(columns[colsKey].dataIndex)};
+                }
+                setColumns(cols);
+            }}
+        />
+        <Table
+            columns={columns}
+            rowKey={(record) => record.id}
+            dataSource={data}
+            pagination={tableParams.pagination}
+            loading={loading}
+            onChange={handleTableChange}
+        />
+    </>;
 
 }

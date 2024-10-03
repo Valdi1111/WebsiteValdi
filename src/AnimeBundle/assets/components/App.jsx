@@ -1,10 +1,10 @@
 import {BrowserRouter, Navigate, Route, Routes} from "react-router-dom";
+import TableDownloads from "@AnimeBundle/components/TableDownloads";
 import MainLayout from "@AnimeBundle/components/MainLayout";
 import FileManager from "@CoreBundle/components/FileManager";
 import VideoPlayer from "@CoreBundle/components/VideoPlayer";
 import * as constants from "@AnimeBundle/constants";
 import React from 'react';
-import TableDownloads from "@AnimeBundle/components/TableDownloads";
 
 export default function App() {
 

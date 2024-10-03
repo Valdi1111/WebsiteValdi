@@ -7,7 +7,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Table(name: 'list_anime')]
 #[ORM\Entity(repositoryClass: ListAnimeRepository::class)]
-class ListAnime implements \JsonSerializable
+class ListAnime
 {
     #[ORM\Id]
     #[ORM\Column]
@@ -17,16 +17,16 @@ class ListAnime implements \JsonSerializable
     private ?string $title = '';
 
     #[ORM\Column(length: 255, nullable: false)]
-    private ?string $title_en = '';
+    private ?string $titleEn = '';
 
     #[ORM\Column(length: 32, nullable: false, enumType: Nsfw::class)]
     private ?Nsfw $nsfw = Nsfw::white;
 
     #[ORM\Column(length: 32, nullable: false, enumType: ListAnimeType::class)]
-    private ?ListAnimeType $media_type = ListAnimeType::unknown;
+    private ?ListAnimeType $mediaType = ListAnimeType::unknown;
 
     #[ORM\Column(nullable: false)]
-    private ?int $num_episodes = 0;
+    private ?int $numEpisodes = 0;
 
     #[ORM\Column(length: 32, nullable: false, enumType: ListAnimeStatus::class)]
     private ?ListAnimeStatus $status = ListAnimeStatus::watching;
@@ -57,12 +57,12 @@ class ListAnime implements \JsonSerializable
 
     public function getTitleEn(): string
     {
-        return $this->title_en;
+        return $this->titleEn;
     }
 
     public function setTitleEn(string $titleEn): static
     {
-        $this->title_en = $titleEn;
+        $this->titleEn = $titleEn;
 
         return $this;
     }
@@ -81,24 +81,24 @@ class ListAnime implements \JsonSerializable
 
     public function getMediaType(): ListAnimeType
     {
-        return $this->media_type;
+        return $this->mediaType;
     }
 
     public function setMediaType(ListAnimeType $mediaType): static
     {
-        $this->media_type = $mediaType;
+        $this->mediaType = $mediaType;
 
         return $this;
     }
 
     public function getNumEpisodes(): int
     {
-        return $this->num_episodes;
+        return $this->numEpisodes;
     }
 
     public function setNumEpisodes(int $numEpisodes): static
     {
-        $this->num_episodes = $numEpisodes;
+        $this->numEpisodes = $numEpisodes;
 
         return $this;
     }
@@ -121,18 +121,10 @@ class ListAnime implements \JsonSerializable
             ->setTitle($data['node']['title'])
             ->setTitleEn($data['node']['alternative_titles']['en'])
             ->setNsfw(Nsfw::tryFrom($data['node']['nsfw']))
-            ->setMediaType(ListAnimeType::tryFrom($data['node']['media_type']))
+            ->setMediaType(ListAnimeType::tryFrom($data['node']['media_type']) ?: ListAnimeType::unknown)
             ->setNumEpisodes($data['node']['num_episodes'])
             ->setStatus(ListAnimeStatus::tryFrom($data['list_status']['status']));
         return $this;
     }
 
-    public function jsonSerialize(): array
-    {
-        return [
-            'id' => $this->getId(),
-            'title' => $this->getTitle(),
-            'status' => $this->getStatus(),
-        ];
-    }
 }

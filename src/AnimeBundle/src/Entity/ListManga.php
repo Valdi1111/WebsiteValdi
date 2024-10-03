@@ -7,7 +7,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Table(name: 'list_manga')]
 #[ORM\Entity(repositoryClass: ListMangaRepository::class)]
-class ListManga implements \JsonSerializable
+class ListManga
 {
     #[ORM\Id]
     #[ORM\Column]
@@ -17,19 +17,19 @@ class ListManga implements \JsonSerializable
     private ?string $title = '';
 
     #[ORM\Column(length: 255, nullable: false)]
-    private ?string $title_en = '';
+    private ?string $titleEn = '';
 
     #[ORM\Column(length: 32, nullable: false, enumType: Nsfw::class)]
     private ?Nsfw $nsfw = Nsfw::white;
 
     #[ORM\Column(length: 32, nullable: false, enumType: ListMangaType::class)]
-    private ?ListMangaType $media_type = ListMangaType::unknown;
+    private ?ListMangaType $mediaType = ListMangaType::unknown;
 
     #[ORM\Column(nullable: false)]
-    private ?int $num_volumes = 0;
+    private ?int $numVolumes = 0;
 
     #[ORM\Column(nullable: false)]
-    private ?int $num_chapters = 0;
+    private ?int $numChapters = 0;
 
     #[ORM\Column(length: 32, nullable: false, enumType: ListMangaStatus::class)]
     private ?ListMangaStatus $status = ListMangaStatus::reading;
@@ -60,12 +60,12 @@ class ListManga implements \JsonSerializable
 
     public function getTitleEn(): string
     {
-        return $this->title_en;
+        return $this->titleEn;
     }
 
     public function setTitleEn(string $titleEn): static
     {
-        $this->title_en = $titleEn;
+        $this->titleEn = $titleEn;
 
         return $this;
     }
@@ -84,36 +84,36 @@ class ListManga implements \JsonSerializable
 
     public function getMediaType(): ListMangaType
     {
-        return $this->media_type;
+        return $this->mediaType;
     }
 
     public function setMediaType(ListMangaType $mediaType): static
     {
-        $this->media_type = $mediaType;
+        $this->mediaType = $mediaType;
 
         return $this;
     }
 
     public function getNumVolumes(): int
     {
-        return $this->num_volumes;
+        return $this->numVolumes;
     }
 
     public function setNumVolumes(int $numVolumes): static
     {
-        $this->num_volumes = $numVolumes;
+        $this->numVolumes = $numVolumes;
 
         return $this;
     }
 
     public function getNumChapters(): int
     {
-        return $this->num_chapters;
+        return $this->numChapters;
     }
 
     public function setNumChapters(int $numChapters): static
     {
-        $this->num_chapters = $numChapters;
+        $this->numChapters = $numChapters;
 
         return $this;
     }
@@ -136,19 +136,11 @@ class ListManga implements \JsonSerializable
             ->setTitle($data['node']['title'])
             ->setTitleEn($data['node']['alternative_titles']['en'])
             ->setNsfw(Nsfw::tryFrom($data['node']['nsfw']))
-            ->setMediaType(ListMangaType::tryFrom($data['node']['media_type']))
+            ->setMediaType(ListMangaType::tryFrom($data['node']['media_type']) ?: ListMangaType::unknown)
             ->setNumVolumes($data['node']['num_volumes'])
             ->setNumChapters($data['node']['num_chapters'])
             ->setStatus(ListMangaStatus::tryFrom($data['list_status']['status']));
         return $this;
     }
 
-    public function jsonSerialize(): array
-    {
-        return [
-            'id' => $this->getId(),
-            'title' => $this->getTitle(),
-            'status' => $this->getStatus(),
-        ];
-    }
 }

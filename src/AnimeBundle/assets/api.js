@@ -1,5 +1,7 @@
-import {API_URL} from "./constants";
+import { API_URL } from "./constants";
+import axios from "axios";
+import qs from "qs";
 
-export function getEpisodeDownloads() {
-    return fetch(`${API_URL}/downloads`).then(res => res.json());
+export function getDownloads(params) {
+    return axios.get(`${API_URL}/downloads?${qs.stringify(params)}`);
 }

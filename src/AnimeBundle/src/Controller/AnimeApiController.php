@@ -2,14 +2,13 @@
 
 namespace App\AnimeBundle\Controller;
 
-use App\AnimeBundle\Entity\EpisodeDownload;
 use App\AnimeBundle\Entity\EpisodeDownloadState;
-use App\AnimeBundle\Entity\ListAnime;
-use App\AnimeBundle\Entity\ListManga;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
 use App\AnimeBundle\Exception\UnhandledWebsiteException;
 use App\AnimeBundle\Message\EpisodeDownloadNotification;
 use App\AnimeBundle\Repository\EpisodeDownloadRepository;
+use App\AnimeBundle\Repository\ListAnimeRepository;
+use App\AnimeBundle\Repository\ListMangaRepository;
 use App\AnimeBundle\Service\AnimeDownloaderInterface;
 use App\AnimeBundle\Service\MyAnimeListService;
 use App\CoreBundle\Controller\FileManagerTrait;
@@ -18,9 +17,9 @@ use Psr\Container\ContainerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
-use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use UnitEnum;
@@ -41,14 +40,21 @@ class AnimeApiController extends AbstractController
     {
     }
 
-    #[Route('/list/anime', name: 'list_anime', methods: ['GET'])]
-    public function apiListAnime(): Response
+    #[Route('/list/anime', name: 'list_anime', methods: ['GET'], format: 'json')]
+    public function apiListAnime(ListAnimeRepository $listRepo): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        return $this->json($this->entityManager->getRepository(ListAnime::class)->findAll());
+        return $this->json($listRepo->findAll());
     }
 
-    #[Route('/list/anime/refresh', name: 'list_anime_refresh', methods: ['POST'])]
+    #[Route('/list/manga', name: 'list_manga', methods: ['GET'], format: 'json')]
+    public function apiListManga(ListMangaRepository $listRepo): Response
+    {
+        $this->denyAccessUnlessGranted('ROLE_USER');
+        return $this->json($listRepo->findAll());
+    }
+
+    #[Route('/list/anime/refresh', name: 'list_anime_refresh', methods: ['POST'], format: 'json')]
     public function apiListAnimeRefresh(): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
@@ -56,26 +62,12 @@ class AnimeApiController extends AbstractController
         return $this->json(['ok' => true]);
     }
 
-    #[Route('/list/manga', name: 'list_manga', methods: ['GET'])]
-    public function apiListManga(): Response
-    {
-        $this->denyAccessUnlessGranted('ROLE_USER');
-        return $this->json($this->entityManager->getRepository(ListManga::class)->findAll());
-    }
-
-    #[Route('/list/manga/refresh', name: 'list_manga_refresh', methods: ['POST'])]
+    #[Route('/list/manga/refresh', name: 'list_manga_refresh', methods: ['POST'], format: 'json')]
     public function apiListMangaRefresh(): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $this->malService->scheduleRefreshMangaCache();
         return $this->json(['ok' => true]);
-    }
-
-    #[Route('/downloads', name: 'downloads_all', methods: ['GET'])]
-    public function apiDownloadsAll(): Response
-    {
-        $this->denyAccessUnlessGranted('ROLE_USER');
-        return $this->json($this->entityManager->getRepository(EpisodeDownload::class)->findAll());
     }
 
     /**
@@ -90,8 +82,8 @@ class AnimeApiController extends AbstractController
         );
     }
 
-    #[Route('/downloads2', name: 'downloads_all2', methods: ['GET'])]
-    public function apiDownloadsAll2(Request $req, EpisodeDownloadRepository $episodeRepo): Response
+    #[Route('/downloads', name: 'downloads', methods: ['GET'], format: 'json')]
+    public function apiDownloads(Request $req, EpisodeDownloadRepository $episodeRepo): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
         $pagination = $req->query->all("pagination");
@@ -102,33 +94,39 @@ class AnimeApiController extends AbstractController
         $page = $pagination['current'];
         $offset = $limit * ($page - 1);
         $qb = $episodeRepo->createQueryBuilder('e')->addOrderBy("e.$sortField", $sortOrder === 'descend' ? 'DESC' : 'ASC');
-        $i = 1;
         foreach ($filters as $field => $values) {
             if (empty($values)) {
                 continue;
             }
-            $qb->andWhere("e.$field IN (:sortValues$i)")
-                ->setParameter("sortValues$i", $values);
-            $i++;
+            $qb->andWhere("e.$field IN (:{$field}Values)")
+                ->setParameter("{$field}Values", $values);
         }
 
         return $this->json([
-            'filtersState' => $this->filterToMap(EpisodeDownloadState::class),
-            'total' => $qb->select('COUNT(e)')->getQuery()->getSingleScalarResult(),
-            'results' => $qb->select('e')->setMaxResults($limit)->setFirstResult($offset)->getQuery()->getResult(),
+            'filters' => [
+                'state' => $this->filterToMap(EpisodeDownloadState::class),
+            ],
+            'total' => $qb->select('COUNT(e)')
+                ->getQuery()
+                ->getSingleScalarResult(),
+            'results' => $qb->select('e')
+                ->setMaxResults($limit)
+                ->setFirstResult($offset)
+                ->getQuery()
+                ->getResult(),
         ]);
     }
 
-    #[Route('/downloads', name: 'downloads_add', methods: ['POST'])]
+    #[Route('/downloads', name: 'downloads_add', methods: ['POST'], format: 'json')]
     public function apiDownloadsAdd(Request $req, MessageBusInterface $bus): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        if (!$req->request->has("url")) {
-            throw new BadRequestException("Parameter url not found.");
+        if (!$req->getPayload()->has("url")) {
+            throw new BadRequestHttpException("Parameter 'url' not found.");
         }
-        $url = $req->request->getString("url");
-        $all = $req->request->getBoolean("all", false);
-        $filter = $req->request->getBoolean("filter", true);
+        $url = $req->getPayload()->getString("url");
+        $all = $req->getPayload()->getBoolean("all", false);
+        $filter = $req->getPayload()->getBoolean("filter", true);
         try {
             $urlSplits = parse_url($url);
             $baseUrl = "{$urlSplits['scheme']}://{$urlSplits['host']}";
@@ -139,10 +137,7 @@ class AnimeApiController extends AbstractController
             $downloader = $this->locator->get($baseUrl);
             $episodes = $downloader->createEpisodeDownloads($urlSplits['path'], $all, $filter);
         } catch (CacheAnimeNotFoundException $e) {
-            return $this->json([]);
-        }
-        if (!count($episodes)) {
-            return $this->json([]);
+            throw new BadRequestHttpException($e->getMessage(), $e);
         }
         foreach ($episodes as $episode) {
             $bus->dispatch(new EpisodeDownloadNotification($episode->getId()));

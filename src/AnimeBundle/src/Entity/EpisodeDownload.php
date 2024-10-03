@@ -8,7 +8,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Table(name: 'episode_download')]
 #[ORM\Entity(repositoryClass: EpisodeDownloadRepository::class)]
-class EpisodeDownload implements \JsonSerializable
+class EpisodeDownload
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -16,13 +16,13 @@ class EpisodeDownload implements \JsonSerializable
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
-    private ?string $episode_url = null;
+    private ?string $episodeUrl = null;
 
     #[ORM\Column(length: 16, nullable: true)]
     private ?string $episode = null;
 
     #[ORM\Column(length: 255, nullable: true)]
-    private ?string $download_url = null;
+    private ?string $downloadUrl = null;
 
     #[ORM\Column(length: 32, enumType: EpisodeDownloadState::class)]
     private ?EpisodeDownloadState $state = EpisodeDownloadState::created;
@@ -43,10 +43,10 @@ class EpisodeDownload implements \JsonSerializable
     private ?\DateTimeInterface $completed = null;
 
     #[ORM\Column(nullable: true)]
-    private ?int $mal_id = null;
+    private ?int $malId = null;
 
     #[ORM\Column(nullable: true)]
-    private ?int $al_id = null;
+    private ?int $alId = null;
 
     public function __construct()
     {
@@ -59,12 +59,12 @@ class EpisodeDownload implements \JsonSerializable
 
     public function getEpisodeUrl(): ?string
     {
-        return $this->episode_url;
+        return $this->episodeUrl;
     }
 
-    public function setEpisodeUrl(string $episode_url): static
+    public function setEpisodeUrl(string $episodeUrl): static
     {
-        $this->episode_url = $episode_url;
+        $this->episodeUrl = $episodeUrl;
 
         return $this;
     }
@@ -83,12 +83,12 @@ class EpisodeDownload implements \JsonSerializable
 
     public function getDownloadUrl(): ?string
     {
-        return $this->download_url;
+        return $this->downloadUrl;
     }
 
-    public function setDownloadUrl(?string $download_url): static
+    public function setDownloadUrl(?string $downloadUrl): static
     {
-        $this->download_url = $download_url;
+        $this->downloadUrl = $downloadUrl;
 
         return $this;
     }
@@ -160,43 +160,26 @@ class EpisodeDownload implements \JsonSerializable
 
     public function getMalId(): ?int
     {
-        return $this->mal_id;
+        return $this->malId;
     }
 
-    public function setMalId(?int $mal_id): static
+    public function setMalId(?int $malId): static
     {
-        $this->mal_id = $mal_id;
+        $this->malId = $malId;
 
         return $this;
     }
 
     public function getAlId(): ?int
     {
-        return $this->al_id;
+        return $this->alId;
     }
 
-    public function setAlId(?int $al_id): static
+    public function setAlId(?int $alId): static
     {
-        $this->al_id = $al_id;
+        $this->alId = $alId;
 
         return $this;
     }
 
-    public function jsonSerialize(): array
-    {
-        return [
-            'id' => $this->getId(),
-            'episode_url' => $this->getEpisodeUrl(),
-            'episode' => $this->getEpisode(),
-            'download_url' => $this->getDownloadUrl(),
-            'state' => $this->getState(),
-            'folder' => $this->getFolder(),
-            'file' => $this->getFile(),
-            'created' => $this->getCreated(),
-            'started' => $this->getStarted(),
-            'completed' => $this->getCompleted(),
-            'mal_id' => $this->getMalId(),
-            'al_id' => $this->getAlId(),
-        ];
-    }
 }

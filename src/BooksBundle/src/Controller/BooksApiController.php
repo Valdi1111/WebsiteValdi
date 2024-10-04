@@ -33,7 +33,7 @@ use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 use Symfony\Component\Serializer\Serializer;
 use Symfony\Component\Uid\Uuid;
 
-#[IsGranted('ROLE_USER_BOOKS')]
+#[IsGranted('ROLE_USER_BOOKS', null, 'Access Denied.')]
 #[Route('/api', name: 'api_', format: 'json')]
 class BooksApiController extends AbstractController
 {
@@ -62,7 +62,7 @@ class BooksApiController extends AbstractController
     }
 
     // TODO Remove epub paths
-    #[IsGranted('ROLE_ADMIN_BOOKS')]
+    #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
     #[Route('/epub/{path}', name: 'epub', requirements: ['path' => '.*'], methods: ['GET'])]
     public function apiEpubPath(Request $req, string $path): Response
     {
@@ -125,7 +125,7 @@ class BooksApiController extends AbstractController
         }
     }
 
-    #[IsGranted('ROLE_ADMIN_BOOKS')]
+    #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
     #[Route('/books/find-new', name: 'books_find_new', methods: ['GET'])]
     public function apiBooksFindNew(Request $req, BookRepository $bookRepo): Response
     {
@@ -146,7 +146,7 @@ class BooksApiController extends AbstractController
         return $this->json($res);
     }
 
-    #[IsGranted('ROLE_ADMIN_BOOKS')]
+    #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
     #[Route('/books', name: 'books_add', methods: ['POST'])]
     public function apiBooksAdd(Request $req, #[CurrentUser] ?User $user, ShelfRepository $shelfRepo, NormalizerInterface $normalizer, HubInterface $hub): Response
     {
@@ -201,7 +201,7 @@ class BooksApiController extends AbstractController
         return $this->json($book, 200, [], [BookCacheNormalizer::COVER_FILTER => 'books_cover']);
     }
 
-    #[IsGranted('ROLE_ADMIN_BOOKS')]
+    #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
     #[Route('/books/{id}', name: 'books_id_edit', requirements: ['id' => '\d+'], methods: ['PUT'])]
     public function apiBooksIdEdit(Request $req, #[MapEntity(message: "Book not found.")] Book $book, NormalizerInterface $normalizer): Response
     {
@@ -222,7 +222,7 @@ class BooksApiController extends AbstractController
         return $this->json(['id' => $book->getId(), 'shelf_id' => $book->getShelfId()]);
     }
 
-    #[IsGranted('ROLE_ADMIN_BOOKS')]
+    #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
     #[Route('/books/{id}', name: 'books_id_delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
     public function apiBooksIdDelete(Request $req, #[MapEntity(message: "Book not found.")] Book $book, int $id, HubInterface $hub, CacheManager $cacheManager): Response
     {
@@ -270,7 +270,7 @@ class BooksApiController extends AbstractController
         );
     }
 
-    #[IsGranted('ROLE_ADMIN_BOOKS')]
+    #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
     #[Route('/books/{id}/cover', name: 'books_id_cover_add', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function apiBooksIdCoverAdd(Request $req, #[MapEntity(message: "Book not found.")] BookCache $book, CacheManager $cacheManager): Response
     {
@@ -285,7 +285,7 @@ class BooksApiController extends AbstractController
         return $this->json([]);
     }
 
-    #[IsGranted('ROLE_ADMIN_BOOKS')]
+    #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
     #[Route('/books/{id}/cover', name: 'books_id_cover_delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
     public function apiBooksIdCoverDelete(Request $req, #[MapEntity(message: "Book not found.")] BookCache $book, CacheManager $cacheManager): Response
     {
@@ -348,7 +348,7 @@ class BooksApiController extends AbstractController
         return $this->json($shelves);
     }
 
-    #[IsGranted('ROLE_ADMIN_BOOKS')]
+    #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
     #[Route('/shelves', name: 'shelves_add', methods: ['POST'])]
     public function apiShelvesAdd(Request $req, BookRepository $bookRepo): Response
     {
@@ -369,7 +369,7 @@ class BooksApiController extends AbstractController
         return $this->json($shelf);
     }
 
-    #[IsGranted('ROLE_ADMIN_BOOKS')]
+    #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
     #[Route('/shelves/{id}', name: 'shelves_id_edit', requirements: ['id' => '\d+'], methods: ['PUT'])]
     public function apiShelvesEdit(Request $req, #[MapEntity(message: "Shelf not found.")] Shelf $shelf): Response
     {
@@ -381,7 +381,7 @@ class BooksApiController extends AbstractController
         return $this->json($shelf);
     }
 
-    #[IsGranted('ROLE_ADMIN_BOOKS')]
+    #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
     #[Route('/shelves/{id}', name: 'shelves_id_delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
     public function apiShelvesDelete(Request $req, #[MapEntity(message: "Shelf not found.")] Shelf $shelf): Response
     {

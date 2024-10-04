@@ -8,7 +8,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[IsGranted('ROLE_USER_VIDEOS')]
+#[IsGranted('ROLE_USER_VIDEOS', null, 'Access Denied.')]
 #[Route('/api', name: 'api_', format: 'json')]
 class VideosApiController extends AbstractController
 {

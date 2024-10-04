@@ -25,7 +25,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[IsGranted('ROLE_USER_ANIME')]
+#[IsGranted('ROLE_USER_ANIME', null, 'Access Denied.')]
 #[Route('/api', name: 'api_', format: 'json')]
 class AnimeApiController extends AbstractController
 {
@@ -55,7 +55,7 @@ class AnimeApiController extends AbstractController
         return $this->json($listRepo->findAll());
     }
 
-    #[IsGranted('ROLE_ADMIN_ANIME')]
+    #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
     #[Route('/list/anime/refresh', name: 'list_anime_refresh', methods: ['POST'])]
     public function apiListAnimeRefresh(): Response
     {
@@ -63,7 +63,7 @@ class AnimeApiController extends AbstractController
         return $this->json(['ok' => true]);
     }
 
-    #[IsGranted('ROLE_ADMIN_ANIME')]
+    #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
     #[Route('/list/manga/refresh', name: 'list_manga_refresh', methods: ['POST'])]
     public function apiListMangaRefresh(): Response
     {
@@ -121,7 +121,7 @@ class AnimeApiController extends AbstractController
         ]);
     }
 
-    #[IsGranted('ROLE_ADMIN_ANIME')]
+    #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
     #[Route('/downloads', name: 'downloads_add', methods: ['POST'])]
     public function apiDownloadsAdd(Request $req, MessageBusInterface $bus): Response
     {

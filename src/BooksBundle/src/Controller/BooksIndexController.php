@@ -10,7 +10,7 @@ use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[IsGranted('ROLE_USER_BOOKS')]
+#[IsGranted('ROLE_USER_BOOKS', null, 'Access Denied.')]
 class BooksIndexController extends AbstractController
 {
 

@@ -10,7 +10,7 @@ use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[IsGranted('ROLE_USER_ANIME')]
+#[IsGranted('ROLE_USER_ANIME', null, 'Access Denied.')]
 class AnimeIndexController extends AbstractController
 {
 

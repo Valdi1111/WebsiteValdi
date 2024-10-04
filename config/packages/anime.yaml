@@ -34,6 +34,10 @@ doctrine:
                 prefix: 'App\AnimeBundle\Entity'
                 alias: AnimeBundle
 
+security:
+    role_hierarchy:
+        ROLE_ADMIN_ANIME: [ROLE_USER_ANIME]
+
 framework:
     messenger:
         transports:

@@ -4,7 +4,6 @@ import React from "react";
 export default function BookRecreateModal() {
     const [id, setId] = React.useState(null);
     const [title, setTitle] = React.useState('');
-    const [url, setUrl] = React.useState('');
     const btn = React.useRef();
     const modal = React.useRef();
 
@@ -12,7 +11,6 @@ export default function BookRecreateModal() {
         modal.current.addEventListener("show.bs.modal", (e) => {
             setId(e.relatedTarget.getAttribute("data-bs-id"));
             setTitle(e.relatedTarget.getAttribute("data-bs-title"));
-            setUrl(e.relatedTarget.getAttribute("data-bs-url"));
         });
         modal.current.addEventListener("shown.bs.modal", (e) => {
             btn.current.focus();
@@ -20,7 +18,6 @@ export default function BookRecreateModal() {
         modal.current.addEventListener("hidden.bs.modal", (e) => {
             setId(null);
             setTitle("");
-            setUrl("");
         });
     }, []);
 
@@ -28,7 +25,7 @@ export default function BookRecreateModal() {
         if (!id) {
             return;
         }
-        recreateBookCache(url, id).then(
+        recreateBookCache(id).then(
             data => {
                 console.log("Book", data.id, "Cache recreated successfully!");
                 //update(data);

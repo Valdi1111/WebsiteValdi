@@ -20,7 +20,7 @@ import React from "react";
  */
 export default function LibraryItem(props) {
     const hide_shelf = props.hide_shelf | false;
-    const { id, shelf_id, url } = props.book;
+    const { id, shelf_id } = props.book;
     const { cover, pages } = props.book.book_cache;
     const { title, creator } = props.book.book_metadata;
     const [page, setPage] = React.useState(props.book.book_progress.page);
@@ -44,7 +44,7 @@ export default function LibraryItem(props) {
                             <ItemGoToShelf shelf_id={shelf_id} hide_shelf={hide_shelf}/>
                             <ItemAbout id={id}/>
                             <ItemReadToggle id={id} page={page} setRead={setRead}/>
-                            <ItemInvalidate id={id} url={url} title={title}/>
+                            <ItemInvalidate id={id} title={title}/>
                             <ItemRemove id={id} title={title}/>
                         </ul>
                     </div>

@@ -8,11 +8,11 @@ import React from "react";
  * @returns {JSX.Element}
  * @constructor
  */
-export default function ItemInvalidate({ id, url, title }) {
+export default function ItemInvalidate({ id, title }) {
     return (
         <li className="cursor-pointer">
             <span className="dropdown-item" data-bs-toggle="modal" data-bs-target="#book-invalidate-modal"
-                  data-bs-id={id} data-bs-title={title} data-bs-url={url}>
+                  data-bs-id={id} data-bs-title={title}>
                 Recreate cache
             </span>
         </li>

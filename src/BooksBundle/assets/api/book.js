@@ -1,6 +1,6 @@
-import { API_URL, EPUB_URL } from "@BooksBundle/constants";
+import { EPUB_URL } from "@BooksBundle/constants";
+import axios from "@BooksBundle/api/axios";
 import { Book } from "epubjs";
-import axios from "axios";
 
 const locale = 'en-US';
 const opts = {
@@ -15,34 +15,34 @@ export function formatReadPercent(page, total) {
 }
 
 export function getCoverUrl(id) {
-    return `${API_URL}/books/${id}/cover`;
+    return `/books/${id}/cover`;
 }
 
 export async function markUnread(id) {
-    return axios.put(`${API_URL}/books/${id}/mark-unread`);
+    return axios.put(`/books/${id}/mark-unread`);
 }
 
 export async function markRead(id) {
-    return axios.put(`${API_URL}/books/${id}/mark-read`);
+    return axios.put(`/books/${id}/mark-read`);
 }
 
 export async function updatePosition(id, position, page, update = true) {
     return axios.put(
-        `${API_URL}/books/${id}/position`,
+        `/books/${id}/position`,
         { position, page, update },
     );
 }
 
 export async function getMetadata(id) {
-    return axios.get(`${API_URL}/books/${id}/metadata`);
+    return axios.get(`/books/${id}/metadata`);
 }
 
 export async function getBook(id) {
-    return axios.get(`${API_URL}/books/${id}`);
+    return axios.get(`/books/${id}`);
 }
 
 export async function deleteBook(id) {
-    return axios.delete(`${API_URL}/books/${id}`);
+    return axios.delete(`/books/${id}`);
 }
 
 export async function createBook(url) {
@@ -54,7 +54,7 @@ export async function createBook(url) {
         const { locations, navigation, cover } = await generateCache(book);
         // Save
         const res = await axios.post(
-            `${API_URL}/books`,
+            `/books`,
             { url, book_cache: { locations, navigation }, book_metadata: generateMetadata(book.packaging.metadata) },
             {}
         );
@@ -74,16 +74,16 @@ export async function createBook(url) {
     }
 }
 
-export async function recreateBookCache(url, id) {
+export async function recreateBookCache(id) {
     console.log("Book", id, "Recreating cache...");
-    const epub = new Book(EPUB_URL + url);
+    const epub = new Book(`${EPUB_URL}/${id}`, { openAs: 'epub' });
     const book = await epub.opened;
     try {
         // Generate Cache
         const { locations, navigation, cover } = await generateCache(book, id);
         // Save
         const res = await axios.put(
-            `${API_URL}/books/${id}`,
+            `/books/${id}`,
             { book_cache: { locations, navigation }, book_metadata: generateMetadata(book.packaging.metadata) },
             {}
         );

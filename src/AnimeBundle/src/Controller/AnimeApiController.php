@@ -23,10 +23,10 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
-use UnitEnum;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-#[Route('/api', name: 'api_')]
+#[IsGranted('ROLE_USER_ANIME')]
+#[Route('/api', name: 'api_', format: 'json')]
 class AnimeApiController extends AbstractController
 {
     use FileManagerTrait;
@@ -34,60 +34,46 @@ class AnimeApiController extends AbstractController
     const string FILE_MANAGER_PATH = '/fileManager';
 
     public function __construct(
-        #[Autowire('%anime.base_folder%')] private readonly string $baseFolder,
-        private readonly EntityManagerInterface                    $entityManager,
-        private readonly MyAnimeListService                        $malService,
+        #[Autowire('%anime.base_folder%')]
+        private readonly string                 $baseFolder,
+        private readonly EntityManagerInterface $entityManager,
+        private readonly MyAnimeListService     $malService,
         #[AutowireLocator(services: 'anime.downloader', indexAttribute: 'website')]
-        private readonly ContainerInterface                        $locator)
+        private readonly ContainerInterface     $locator)
     {
     }
 
-    #[Route('/list/anime', name: 'list_anime', methods: ['GET'], format: 'json')]
+    #[Route('/list/anime', name: 'list_anime', methods: ['GET'])]
     public function apiListAnime(ListAnimeRepository $listRepo): Response
     {
-        $this->denyAccessUnlessGranted('ROLE_USER');
         return $this->json($listRepo->findAll());
     }
 
-    #[Route('/list/manga', name: 'list_manga', methods: ['GET'], format: 'json')]
+    #[Route('/list/manga', name: 'list_manga', methods: ['GET'])]
     public function apiListManga(ListMangaRepository $listRepo): Response
     {
-        $this->denyAccessUnlessGranted('ROLE_USER');
         return $this->json($listRepo->findAll());
     }
 
-    #[Route('/list/anime/refresh', name: 'list_anime_refresh', methods: ['POST'], format: 'json')]
+    #[IsGranted('ROLE_ADMIN_ANIME')]
+    #[Route('/list/anime/refresh', name: 'list_anime_refresh', methods: ['POST'])]
     public function apiListAnimeRefresh(): Response
     {
-        $this->denyAccessUnlessGranted('ROLE_USER');
         $this->malService->scheduleRefreshAnimeCache();
         return $this->json(['ok' => true]);
     }
 
-    #[Route('/list/manga/refresh', name: 'list_manga_refresh', methods: ['POST'], format: 'json')]
+    #[IsGranted('ROLE_ADMIN_ANIME')]
+    #[Route('/list/manga/refresh', name: 'list_manga_refresh', methods: ['POST'])]
     public function apiListMangaRefresh(): Response
     {
-        $this->denyAccessUnlessGranted('ROLE_USER');
         $this->malService->scheduleRefreshMangaCache();
         return $this->json(['ok' => true]);
     }
 
-    /**
-     * @param class-string<UnitEnum> $enumClass
-     * @return array
-     */
-    private function filterToMap(string $enumClass): array
-    {
-        return array_map(
-            fn($e) => ['text' => str_replace('_', ' ', ucfirst($e->value)), 'value' => $e->value],
-            $enumClass::cases()
-        );
-    }
-
-    #[Route('/downloads', name: 'downloads', methods: ['GET'], format: 'json')]
+    #[Route('/downloads', name: 'downloads', methods: ['GET'])]
     public function apiDownloads(Request $req, EpisodeDownloadRepository $episodeRepo): Response
     {
-        $this->denyAccessUnlessGranted('ROLE_USER');
         $pagination = $req->query->all("pagination");
         $filters = $req->query->all("filters");
         $sortOrder = $req->query->getString("sortOrder");
@@ -116,13 +102,13 @@ class AnimeApiController extends AbstractController
                 TableColumn::builder('Download URL', 'download_url')->setHidden(true),
                 TableColumn::builder('File', 'file')->setHidden(true),
                 TableColumn::builder('Folder', 'folder'),
-                TableColumn::builder('Episode','episode'),
-                TableColumn::builder('Created','created')->setHidden(true),
+                TableColumn::builder('Episode', 'episode'),
+                TableColumn::builder('Created', 'created')->setHidden(true),
                 TableColumn::builder('Started', 'started'),
-                TableColumn::builder('Completed','completed'),
-                TableColumn::builder('State','state')->setFiltersFromEnum(EpisodeDownloadState::class),
-                TableColumn::builder('MAL','mal_id'),
-                TableColumn::builder('AL','al_id')->setHidden(true),
+                TableColumn::builder('Completed', 'completed'),
+                TableColumn::builder('State', 'state')->setFiltersFromEnum(EpisodeDownloadState::class),
+                TableColumn::builder('MAL', 'mal_id'),
+                TableColumn::builder('AL', 'al_id')->setHidden(true),
             ],
             'count' => $qb->select('COUNT(e)')
                 ->getQuery()
@@ -135,10 +121,10 @@ class AnimeApiController extends AbstractController
         ]);
     }
 
-    #[Route('/downloads', name: 'downloads_add', methods: ['POST'], format: 'json')]
+    #[IsGranted('ROLE_ADMIN_ANIME')]
+    #[Route('/downloads', name: 'downloads_add', methods: ['POST'])]
     public function apiDownloadsAdd(Request $req, MessageBusInterface $bus): Response
     {
-        $this->denyAccessUnlessGranted('ROLE_USER');
         if (!$req->getPayload()->has("url")) {
             throw new BadRequestHttpException("Parameter 'url' not found.");
         }

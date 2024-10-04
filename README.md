@@ -96,6 +96,7 @@ src/CoreBundle/
         MessageHandler/ [optional]
         Normalizer/ [optional]
         Repository/
+        Security/ [optional]
         Service/ [optional]
     templates/
     tests/

@@ -17,6 +17,10 @@ doctrine:
                 prefix: 'App\BooksBundle\Entity'
                 alias: BooksBundle
 
+security:
+    role_hierarchy:
+        ROLE_ADMIN_BOOKS: [ROLE_USER_BOOKS]
+
 liip_imagine:
     filter_sets:
         books_thumb:

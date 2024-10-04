@@ -8,13 +8,11 @@ use Symfony\Component\Security\Core\Exception\BadCredentialsException;
 use Symfony\Component\Security\Http\AccessToken\AccessTokenHandlerInterface;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 
-class AccessTokenHandler implements AccessTokenHandlerInterface
+readonly class AccessTokenHandler implements AccessTokenHandlerInterface
 {
-
-    public function __construct(private readonly TokenRepository $tokenRepo, private readonly UserRepository $userRepo)
+    public function __construct(private TokenRepository $tokenRepo, private UserRepository $userRepo)
     {
     }
-
 
     public function getUserBadgeFrom(#[\SensitiveParameter] string $accessToken): UserBadge
     {
@@ -25,5 +23,4 @@ class AccessTokenHandler implements AccessTokenHandlerInterface
         $user = $this->userRepo->findOneBy(['id' => $token->getId()]);
         return new UserBadge($user->getUserIdentifier());
     }
-
 }

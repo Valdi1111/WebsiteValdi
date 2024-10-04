@@ -12,3 +12,5 @@ liip_imagine:
     filter_sets:
         # use the default cache configuration
         cache: ~
+    twig:
+        mode: lazy

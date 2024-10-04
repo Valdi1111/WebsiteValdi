@@ -94,8 +94,8 @@ src/CoreBundle/
         Exception/ [optional]
         Message/ [optional]
         MessageHandler/ [optional]
+        Normalizer/ [optional]
         Repository/
-        Scheduler/ [optional]
         Service/ [optional]
     templates/
     tests/

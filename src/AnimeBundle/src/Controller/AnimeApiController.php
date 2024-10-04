@@ -12,6 +12,7 @@ use App\AnimeBundle\Repository\ListMangaRepository;
 use App\AnimeBundle\Service\AnimeDownloaderInterface;
 use App\AnimeBundle\Service\MyAnimeListService;
 use App\CoreBundle\Controller\FileManagerTrait;
+use App\CoreBundle\Entity\TableColumn;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Container\ContainerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -22,6 +23,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 use UnitEnum;
 
 #[Route('/api', name: 'api_')]
@@ -93,8 +95,13 @@ class AnimeApiController extends AbstractController
         $limit = $pagination['pageSize'];
         $page = $pagination['current'];
         $offset = $limit * ($page - 1);
-        $qb = $episodeRepo->createQueryBuilder('e')->addOrderBy("e.$sortField", $sortOrder === 'descend' ? 'DESC' : 'ASC');
-        foreach ($filters as $field => $values) {
+        $qb = $episodeRepo->createQueryBuilder('e');
+        if ($sortField) {
+            $field = lcfirst(str_replace('_', '', ucwords($sortField, '_')));
+            $qb->addOrderBy("e.$field", $sortOrder === 'descend' ? 'DESC' : 'ASC');
+        }
+        foreach ($filters as $filterField => $values) {
+            $field = lcfirst(str_replace('_', '', ucwords($filterField, '_')));
             if (empty($values)) {
                 continue;
             }
@@ -103,13 +110,24 @@ class AnimeApiController extends AbstractController
         }
 
         return $this->json([
-            'filters' => [
-                'state' => $this->filterToMap(EpisodeDownloadState::class),
+            'columns' => [
+                TableColumn::builder('ID', 'id')->setSorter(true)->setSortDirections(['ascend', 'descend', 'ascend'])->setDefaultSortOrder('descend'),
+                TableColumn::builder('AnimeWorld URL', 'episode_url')->setSorter(true)->setSortDirections(['ascend', 'descend', 'ascend']),
+                TableColumn::builder('Download URL', 'download_url')->setHidden(true),
+                TableColumn::builder('File', 'file')->setHidden(true),
+                TableColumn::builder('Folder', 'folder'),
+                TableColumn::builder('Episode','episode'),
+                TableColumn::builder('Created','created')->setHidden(true),
+                TableColumn::builder('Started', 'started'),
+                TableColumn::builder('Completed','completed'),
+                TableColumn::builder('State','state')->setFiltersFromEnum(EpisodeDownloadState::class),
+                TableColumn::builder('MAL','mal_id'),
+                TableColumn::builder('AL','al_id')->setHidden(true),
             ],
-            'total' => $qb->select('COUNT(e)')
+            'count' => $qb->select('COUNT(e)')
                 ->getQuery()
                 ->getSingleScalarResult(),
-            'results' => $qb->select('e')
+            'rows' => $qb->select('e')
                 ->setMaxResults($limit)
                 ->setFirstResult($offset)
                 ->getQuery()
@@ -130,7 +148,7 @@ class AnimeApiController extends AbstractController
         try {
             $urlSplits = parse_url($url);
             $baseUrl = "{$urlSplits['scheme']}://{$urlSplits['host']}";
-            if(!$this->locator->has($baseUrl)) {
+            if (!$this->locator->has($baseUrl)) {
                 throw new UnhandledWebsiteException();
             }
             /** @var AnimeDownloaderInterface $downloader */

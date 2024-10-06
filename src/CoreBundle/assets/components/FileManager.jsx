@@ -1,13 +1,15 @@
 import React from "react";
+import { Helmet } from "react-helmet";
 
 /**
  * Webix file manager wrapper
  * @param {string} apiUrl base api url
  * @param {string} initialPath path selected on open
+ * @param {?string} title page title
  * @returns {JSX.Element}
  * @constructor
  */
-export default function FileManager({apiUrl, initialPath = '/'}) {
+export default function FileManager({ apiUrl, initialPath = '/', title = 'Files' }) {
     const divRef = React.useRef();
     React.useEffect(() => {
         webix.ready(function () {
@@ -29,7 +31,10 @@ export default function FileManager({apiUrl, initialPath = '/'}) {
         });
     }, []);
 
-    return <main ref={divRef} className="flex-grow-1"></main>;
+    return <>
+        {title ? <Helmet><title>{title}</title></Helmet> : ''}
+        <main ref={divRef} className="flex-grow-1"></main>
+    </>;
 
 }
 

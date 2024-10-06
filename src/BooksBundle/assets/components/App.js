@@ -1,4 +1,4 @@
-import {BrowserRouter, Navigate, Route, Routes} from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import ThemeChangeModal from "@BooksBundle/components/library/modals/theme/ThemeChangeModal";
 import LibraryShelvesLayout from "@BooksBundle/components/library/shelves/LibraryShelvesLayout";
 import LibraryLayout from "@BooksBundle/components/library/LibraryLayout";
@@ -8,9 +8,9 @@ import LibraryShelvesId from "@BooksBundle/pages/LibraryShelvesId";
 import LibraryNotInShelves from "@BooksBundle/pages/LibraryNotInShelves";
 import BookId from "@BooksBundle/pages/BookId";
 import FileManager from "@CoreBundle/components/FileManager";
-import {THEMES, THEME} from "@BooksBundle/components/ThemeConstants";
-import {ThemeContext} from "@BooksBundle/components/Contexts";
-import * as constants from "@BooksBundle/constants";
+import { THEMES, THEME } from "@BooksBundle/components/ThemeConstants";
+import { ThemeContext } from "@BooksBundle/components/Contexts";
+import { ROOT_URL, FILES_URL } from "@BooksBundle/constants";
 import React from 'react';
 
 export default function App() {
@@ -30,7 +30,7 @@ export default function App() {
         // webix theme
         const links = document.getElementsByTagName('link');
         for (const link of links) {
-            if(link.rel === 'stylesheet' && /\/bundles\/core\/(docmanager|filemanager|gantt|scheduler|webix)\/skins\/\w+.css/.test(link.getAttribute('href'))) {
+            if (link.rel === 'stylesheet' && /\/bundles\/core\/(docmanager|filemanager|gantt|scheduler|webix)\/skins\/\w+.css/.test(link.getAttribute('href'))) {
                 link.setAttribute('href', link.getAttribute('href').replace(/\w+.css/, THEMES[theme].webix));
             }
         }
@@ -40,7 +40,7 @@ export default function App() {
         <ThemeContext.Provider value={[theme, setTheme]}>
             <ThemeChangeModal/>
             <div className="d-flex flex-column vh-100">
-                <BrowserRouter basename={constants.ROOT_URL}>
+                <BrowserRouter basename={ROOT_URL}>
                     <Routes>
                         <Route path="/" element={<Navigate to="/library/all"/>}/>
                         <Route path="/library/all" element={
@@ -69,7 +69,7 @@ export default function App() {
                         }/>
                         <Route path="/files" element={
                             <LibraryLayout>
-                                <FileManager apiUrl="/api/fileManager/"/>
+                                <FileManager apiUrl={FILES_URL}/>
                             </LibraryLayout>
                         }/>
                     </Routes>

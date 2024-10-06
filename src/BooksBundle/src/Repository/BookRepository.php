@@ -3,6 +3,7 @@
 namespace App\BooksBundle\Repository;
 
 use App\BooksBundle\Entity\Book;
+use App\BooksBundle\Entity\Library;
 use App\CoreBundle\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
@@ -24,19 +25,22 @@ class BookRepository extends ServiceEntityRepository
     }
 
     /**
+     * @param Library $library
      * @param User $user
      * @param ?int $limit
      * @param ?int $offset
      * @param ?int $shelfId
      * @return QueryBuilder
      */
-    private function books(User $user, ?int $limit, ?int $offset, ?int $shelfId = null): QueryBuilder
+    private function books(Library $library, User $user, ?int $limit, ?int $offset, ?int $shelfId = null): QueryBuilder
     {
         $qb = $this->createQueryBuilder('b')
             ->select('b AS book')
             ->leftJoin('b.bookProgresses', 'bp')
             ->leftJoin('b.shelf', 's')
+            ->andWhere('b.library = :libraryId')
             ->andWhere('bp.user = :userId OR bp.user IS NULL')
+            ->setParameter('libraryId', $library->getId())
             ->setParameter('userId', $user->getId());
         if ($shelfId === -1) {
             $qb->andWhere("s.id IS NULL");
@@ -54,14 +58,15 @@ class BookRepository extends ServiceEntityRepository
     }
 
     /**
+     * @param Library $library
      * @param User $user
      * @param int $limit
      * @param int $offset
      * @return Book[]
      */
-    public function getAll(User $user, int $limit, int $offset): array
+    public function getAll(Library $library, User $user, int $limit, int $offset): array
     {
-        $results = $this->books($user, $limit, $offset)
+        $results = $this->books($library, $user, $limit, $offset)
             ->addSelect('COALESCE(bp.lastRead, b.created) AS orderColumn')
             ->addOrderBy('orderColumn', 'DESC')
             ->addOrderBy('b.id', 'DESC')
@@ -75,14 +80,15 @@ class BookRepository extends ServiceEntityRepository
     }
 
     /**
+     * @param Library $library
      * @param User $user
      * @param int $limit
      * @param int $offset
      * @return Book[]
      */
-    public function getNotInShelves(User $user, int $limit, int $offset): array
+    public function getNotInShelves(Library $library, User $user, int $limit, int $offset): array
     {
-        $results = $this->books($user, $limit, $offset, -1)
+        $results = $this->books($library, $user, $limit, $offset, -1)
             ->addOrderBy('b.url', 'ASC')
             ->getQuery()
             ->getResult();
@@ -94,25 +100,31 @@ class BookRepository extends ServiceEntityRepository
     }
 
     /**
+     * @param Library $library
      * @return string[]
      */
-    public function getRegisteredPaths(): array
+    public function getRegisteredPaths(Library $library): array
     {
         $res = $this->createQueryBuilder('b')
             ->select('b.url')
+            ->andWhere('b.library = :libraryId')
+            ->setParameter('libraryId', $library->getId())
             ->getQuery()
             ->getArrayResult();
         return array_column($res, 'url');
     }
 
     /**
+     * @param Library $library
      * @param string $path
      * @return Book[]
      */
-    public function getWithPath(string $path): array
+    public function getWithPath(Library $library, string $path): array
     {
         return $this->createQueryBuilder('b')
-            ->where("b.url LIKE :path")
+            ->andWhere('b.library = :libraryId')
+            ->andWhere("b.url LIKE :path")
+            ->setParameter('libraryId', $library->getId())
             ->setParameter("path", "/$path/%")
             ->getQuery()
             ->getResult();

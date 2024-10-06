@@ -8,7 +8,6 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Ignore;
-use Symfony\Component\Serializer\Attribute\SerializedName;
 
 #[ORM\Table(name: 'shelf')]
 #[ORM\Entity(repositoryClass: ShelfRepository::class)]
@@ -19,19 +18,23 @@ class Shelf
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 255, unique: true)]
     private ?string $path = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 255, unique: true)]
     private ?string $name = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, insertable: false, updatable: false)]
     private ?\DateTimeInterface $created = null;
 
+    #[ORM\ManyToOne(targetEntity: Library::class, inversedBy: 'shelves')]
+    #[ORM\JoinColumn(name: 'library_id', referencedColumnName: 'id')]
+    private ?Library $library = null;
+
     /**
      * @var Collection<int, Book>
      */
-    #[ORM\OneToMany(mappedBy: 'shelf', targetEntity: Book::class)]
+    #[ORM\OneToMany(mappedBy: 'shelf', targetEntity: Book::class, indexBy: 'book_id')]
     #[ORM\OrderBy(['url' => 'ASC'])]
     private Collection $books;
 
@@ -72,6 +75,24 @@ class Shelf
     public function getCreated(): \DateTimeInterface
     {
         return $this->created;
+    }
+
+    #[Ignore]
+    public function getLibrary(): ?Library
+    {
+        return $this->library;
+    }
+
+    public function setLibrary(?Library $library): self
+    {
+        $this->library = $library;
+
+        return $this;
+    }
+
+    public function getLibraryId(): ?int
+    {
+        return $this->getLibrary()?->getId();
     }
 
     /**

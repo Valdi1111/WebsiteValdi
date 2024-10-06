@@ -9,7 +9,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted('ROLE_USER_ANIME', null, 'Access Denied.')]
-#[Route('/api/fileManager', name: 'api_fileManager_', format: 'json')]
+#[Route('/api/files', name: 'api_files_', format: 'json')]
 class ApiFilesController extends AbstractController
 {
     use FileManagerTrait;

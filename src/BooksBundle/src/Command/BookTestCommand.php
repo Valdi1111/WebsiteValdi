@@ -3,6 +3,7 @@
 namespace App\BooksBundle\Command;
 
 use App\BooksBundle\Repository\BookRepository;
+use App\BooksBundle\Repository\LibraryRepository;
 use Kiwilan\Ebook\Ebook;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -13,11 +14,15 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 #[AsCommand(name: 'books:test', description: 'Book test')]
 class BookTestCommand extends Command
 {
+    private string $baseFolder;
+
     public function __construct(
+        private readonly LibraryRepository $libraryRepo,
         private readonly BookRepository $bookRepo,
-        #[Autowire('%books.base_folder%')] private readonly string $baseFolder,
         string $name = null)
     {
+        $library = $this->libraryRepo->findOneBy(['id' => 1]);
+        $this->baseFolder = $library->getBasePath();
         parent::__construct($name);
     }
 

@@ -9,7 +9,7 @@ import React from 'react';
 export default function App() {
 
     function videosApiUrl(path) {
-        return `/api/fileManager/direct?id=${encodeURIComponent(path)}`;
+        return `/api/files/direct?id=${encodeURIComponent(path)}`;
     }
 
     return (
@@ -17,7 +17,7 @@ export default function App() {
             <Routes>
                 <Route path="/" element={<Navigate to="/downloads"/>}/>
                 <Route path="/downloads" element={<MainLayout><TableDownloads/></MainLayout>}/>
-                <Route path="/files" element={<MainLayout><FileManager apiUrl="/api/fileManager/"/></MainLayout>}/>
+                <Route path="/files" element={<MainLayout><FileManager apiUrl="/api/files/"/></MainLayout>}/>
                 <Route path="/videos" element={<VideoPlayer apiUrl={videosApiUrl}/>}/>
             </Routes>
         </BrowserRouter>

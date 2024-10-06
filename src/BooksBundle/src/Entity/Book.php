@@ -34,6 +34,10 @@ class Book
     #[ORM\JoinColumn(name: 'shelf_id', referencedColumnName: 'id')]
     private ?Shelf $shelf = null;
 
+    #[ORM\ManyToOne(targetEntity: Library::class)]
+    #[ORM\JoinColumn(name: 'library_id', referencedColumnName: 'id')]
+    private ?Library $library = null;
+
     #[ORM\OneToOne(mappedBy: 'book', targetEntity: BookMetadata::class, cascade: ['persist', 'remove'])]
     private ?BookMetadata $bookMetadata = null;
 
@@ -91,6 +95,25 @@ class Book
     public function getShelfId(): ?int
     {
         return $this->getShelf()?->getId();
+    }
+
+    #[Ignore]
+    public function getLibrary(): ?Library
+    {
+        return $this->library;
+    }
+
+    public function setLibrary(?Library $library): self
+    {
+        $this->library = $library;
+
+        return $this;
+    }
+
+    #[Groups(['book:list'])]
+    public function getLibraryId(): ?int
+    {
+        return $this->getLibrary()?->getId();
     }
 
     #[Groups(['book:list', 'book:metadata'])]

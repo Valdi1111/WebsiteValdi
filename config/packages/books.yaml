@@ -1,6 +1,5 @@
 books:
     domain_name: 'books.%domain_name%'
-    base_folder: '%env(BOOKS_BASE_FOLDER)%'
     covers_folder: '%env(BOOKS_COVERS_FOLDER)%'
 
 twig:
@@ -44,4 +43,4 @@ liip_imagine:
     loaders:
         books_covers_folder:
             filesystem:
-                data_root: '%env(BOOKS_COVERS_FOLDER)%'
+                data_root: '%books.covers_folder%'

@@ -6,7 +6,6 @@ use SplFileInfo;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Filesystem\Path;
 use Symfony\Component\Finder\Finder;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\File;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -16,7 +15,8 @@ use Symfony\Component\Routing\Attribute\Route;
 trait FileManagerTrait
 {
 
-    const EXTENSION_MAP = [
+    /** @var string[] */
+    const array EXTENSION_MAP = [
         'zip' => 'archive',
         'rar' => 'archive',
         '7z' => 'archive',

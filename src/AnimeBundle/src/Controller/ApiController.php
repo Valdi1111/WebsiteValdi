@@ -11,12 +11,10 @@ use App\AnimeBundle\Repository\ListAnimeRepository;
 use App\AnimeBundle\Repository\ListMangaRepository;
 use App\AnimeBundle\Service\AnimeDownloaderInterface;
 use App\AnimeBundle\Service\MyAnimeListService;
-use App\CoreBundle\Controller\FileManagerTrait;
 use App\CoreBundle\Entity\TableColumn;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Container\ContainerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -27,15 +25,10 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted('ROLE_USER_ANIME', null, 'Access Denied.')]
 #[Route('/api', name: 'api_', format: 'json')]
-class AnimeApiController extends AbstractController
+class ApiController extends AbstractController
 {
-    use FileManagerTrait;
-
-    const string FILE_MANAGER_PATH = '/fileManager';
 
     public function __construct(
-        #[Autowire('%anime.base_folder%')]
-        private readonly string                 $baseFolder,
         private readonly EntityManagerInterface $entityManager,
         private readonly MyAnimeListService     $malService,
         #[AutowireLocator(services: 'anime.downloader', indexAttribute: 'website')]

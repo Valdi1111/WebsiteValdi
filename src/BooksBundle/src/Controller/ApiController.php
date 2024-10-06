@@ -10,7 +10,6 @@ use App\BooksBundle\Entity\Shelf;
 use App\BooksBundle\Normalizer\BookCacheNormalizer;
 use App\BooksBundle\Repository\BookRepository;
 use App\BooksBundle\Repository\ShelfRepository;
-use App\CoreBundle\Controller\FileManagerTrait;
 use App\CoreBundle\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Liip\ImagineBundle\Imagine\Cache\CacheManager;
@@ -35,11 +34,8 @@ use Symfony\Component\Uid\Uuid;
 
 #[IsGranted('ROLE_USER_BOOKS', null, 'Access Denied.')]
 #[Route('/api', name: 'api_', format: 'json')]
-class BooksApiController extends AbstractController
+class ApiController extends AbstractController
 {
-    use FileManagerTrait;
-
-    const string FILE_MANAGER_PATH = '/fileManager';
 
     const string CHANNEL_LIBRARY_ALL = 'https://books.valdi.ovh/library/all';
     const string CHANNEL_LIBRARY_SHELVES = 'https://books.valdi.ovh/library/shelves';

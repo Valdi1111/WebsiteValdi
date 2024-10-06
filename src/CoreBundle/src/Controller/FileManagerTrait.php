@@ -105,7 +105,7 @@ trait FileManagerTrait
         return $folders;
     }
 
-    #[Route(self::FILE_MANAGER_PATH . '/folders', name: 'fileManager_folders', methods: ['GET'])]
+    #[Route('/folders', name: 'folders', methods: ['GET'])]
     public function fileManagerFolders(Request $req): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
@@ -113,7 +113,7 @@ trait FileManagerTrait
         return $this->json($this->getFoldersRecursive($path));
     }
 
-    #[Route(self::FILE_MANAGER_PATH . '/files', name: 'fileManager_files', methods: ['GET'])]
+    #[Route('/files', name: 'files', methods: ['GET'])]
     public function fileManagerFiles(Request $req): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
@@ -131,7 +131,7 @@ trait FileManagerTrait
         return $this->json($files);
     }
 
-    #[Route(self::FILE_MANAGER_PATH . '/info', name: 'fileManager_info', methods: ['GET'])]
+    #[Route('/info', name: 'info', methods: ['GET'])]
     public function fileManagerInfo(Request $req): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
@@ -157,7 +157,7 @@ trait FileManagerTrait
         ]);
     }
 
-    #[Route(self::FILE_MANAGER_PATH . '/meta', name: 'fileManager_meta', methods: ['GET'])]
+    #[Route('/meta', name: 'meta', methods: ['GET'])]
     public function fileManagerMeta(Request $req): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
@@ -181,7 +181,7 @@ trait FileManagerTrait
         return $this->json([]);
     }
 
-    #[Route(self::FILE_MANAGER_PATH . '/makedir', name: 'fileManager_makedir', methods: ['POST'])]
+    #[Route('/makedir', name: 'makedir', methods: ['POST'])]
     public function fileManagerMkdir(Request $req): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
@@ -203,7 +203,7 @@ trait FileManagerTrait
         return $this->json($this->getFolderSerialize($path, new File($newPath, false)));
     }
 
-    #[Route(self::FILE_MANAGER_PATH . '/direct', name: 'fileManager_direct', methods: ['GET'])]
+    #[Route('/direct', name: 'direct', methods: ['GET'])]
     public function fileManagerDirect(Request $req): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
@@ -217,7 +217,7 @@ trait FileManagerTrait
         );
     }
 
-    #[Route(self::FILE_MANAGER_PATH . '/preview', name: 'fileManager_preview', methods: ['GET'])]
+    #[Route('/preview', name: 'preview', methods: ['GET'])]
     public function fileManagerPreview(Request $req): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
@@ -228,7 +228,7 @@ trait FileManagerTrait
         return $this->file($file, $file->getFilename());
     }
 
-    #[Route(self::FILE_MANAGER_PATH . '/text', name: 'fileManager_text_get', methods: ['GET'])]
+    #[Route('/text', name: 'text_get', methods: ['GET'])]
     public function fileManagerTextGet(Request $req): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
@@ -237,7 +237,7 @@ trait FileManagerTrait
         return new Response($file->getContent());
     }
 
-    #[Route(self::FILE_MANAGER_PATH . '/text', name: 'fileManager_text_post', methods: ['POST'])]
+    #[Route('/text', name: 'text_post', methods: ['POST'])]
     public function fileManagerTextPost(Request $req): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
@@ -250,8 +250,8 @@ trait FileManagerTrait
         return $this->json($this->getFileSerialize($relative, $file));
     }
 
-    #[Route(self::FILE_MANAGER_PATH . '/icons/{skin}/{size}/{type}/{name}', name: 'fileManager_icons_skin', methods: ['GET'])]
-    #[Route(self::FILE_MANAGER_PATH . '/icons/{size}/{type}/{name}', name: 'fileManager_icons', methods: ['GET'])]
+    #[Route('/icons/{skin}/{size}/{type}/{name}', name: 'icons_skin', methods: ['GET'])]
+    #[Route('/icons/{size}/{type}/{name}', name: 'icons', methods: ['GET'])]
     public function fileManagerIcons(Request $req, string $size, string $type, string $name): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
@@ -266,7 +266,7 @@ trait FileManagerTrait
         return $this->file($file, $file->getFilename());
     }
 
-    #[Route(self::FILE_MANAGER_PATH . '/rename', name: 'fileManager_rename', methods: ['POST'])]
+    #[Route('/rename', name: 'rename', methods: ['POST'])]
     public function fileManagerRename(Request $req): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
@@ -290,7 +290,7 @@ trait FileManagerTrait
         return $this->json(['invalid' => false, 'error' => '', 'id' => '/' . $relative . $name]);
     }
 
-    #[Route(self::FILE_MANAGER_PATH . '/copy', name: 'fileManager_copy', methods: ['POST'])]
+    #[Route('/copy', name: 'copy', methods: ['POST'])]
     public function fileManagerCopy(Request $req): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
@@ -317,7 +317,7 @@ trait FileManagerTrait
         return $this->json($this->getFileSerialize($to, $newFile));
     }
 
-    #[Route(self::FILE_MANAGER_PATH . '/move', name: 'fileManager_move', methods: ['POST'])]
+    #[Route('/move', name: 'move', methods: ['POST'])]
     public function fileManagerMove(Request $req): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
@@ -341,7 +341,7 @@ trait FileManagerTrait
         return $this->json($this->getFileSerialize($to, $newFile));
     }
 
-    #[Route(self::FILE_MANAGER_PATH . '/delete', name: 'fileManager_delete', methods: ['POST'])]
+    #[Route('/delete', name: 'delete', methods: ['POST'])]
     public function fileManagerDelete(Request $req): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');

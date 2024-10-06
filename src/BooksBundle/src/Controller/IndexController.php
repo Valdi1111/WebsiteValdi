@@ -11,7 +11,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted('ROLE_USER_BOOKS', null, 'Access Denied.')]
-class BooksIndexController extends AbstractController
+class IndexController extends AbstractController
 {
 
     #[Route('/manifest', name: 'manifest', methods: ['GET'])]

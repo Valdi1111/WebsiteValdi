@@ -113,9 +113,7 @@ class IndexController extends AbstractController
     public function index(Request $request, HubInterface $hub, Discovery $discovery): Response
     {
         $discovery->addLink($request);
-        return $this->render('@Books/index.html.twig', [
-            'mercure_hub_url' => $hub->getPublicUrl(),
-        ]);
+        return $this->render('@Books/index.html.twig');
     }
 
 }

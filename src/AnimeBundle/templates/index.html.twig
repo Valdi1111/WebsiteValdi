@@ -11,14 +11,6 @@
     <link rel="stylesheet" href="{{ asset('bundles/core/filemanager/filemanager.css') }}" type="text/css">
     <link rel="stylesheet" href="{{ asset('bundles/core/filemanager/skins/material.css') }}" type="text/css">
     {{ encore_entry_link_tags('anime') }}
-    <style>
-        div.webix_view.webix_fmanager_preview img {
-            object-fit: contain;
-        }
-        div.webix_dataview_item.tiles div.webix_fmanager_card_preview.file img {
-            object-fit: contain;
-        }
-    </style>
 {% endblock %}
 
 {% block javascripts %}
@@ -28,9 +20,6 @@
     <!-- File Manager -->
     <script src="{{ asset('bundles/core/filemanager/filemanager.js') }}" type="text/javascript"></script>
     {{ encore_entry_script_tags('anime') }}
-    <script>
-        const MERCURE_HUB_URL = '{{ mercure_hub_url }}';
-    </script>
 {% endblock %}
 
 {% block body %}

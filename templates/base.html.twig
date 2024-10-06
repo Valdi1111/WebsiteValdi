@@ -6,9 +6,20 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <link rel="icon" href={% block favicon %}{% include 'favicon.html.twig' %}{% endblock %}>
         {% block stylesheets %}
+            <style>
+                div.webix_view.webix_fmanager_preview img {
+                    object-fit: contain;
+                }
+                div.webix_dataview_item.tiles div.webix_fmanager_card_preview.file img {
+                    object-fit: contain;
+                }
+            </style>
             {{ encore_entry_link_tags('core') }}
         {% endblock %}
         {% block javascripts %}
+            <script>
+                const MERCURE_HUB_URL = '{{ mercure_hub_url }}';
+            </script>
             {{ encore_entry_script_tags('core') }}
         {% endblock %}
         {% block head %}{% endblock %}

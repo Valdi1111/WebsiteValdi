@@ -102,7 +102,10 @@ class ApiBooksController extends AbstractController
         $limit = $req->query->getInt('limit');
         $offset = $req->query->getInt('offset');
         $authorization->setCookie($req, [Channel::LIBRARY_ALL]);
-        return $this->json($bookRepo->getAll($this->getLibrary(), $user, $limit, $offset), 200, [], [BookCacheNormalizer::COVER_FILTER => 'books_thumb', 'groups' => ['book:list']]);
+        return $this->json($bookRepo->getAll($this->getLibrary(), $user, $limit, $offset), 200, [], [
+            BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_THUMB,
+            'groups' => ['book:list']
+        ]);
     }
 
     #[Route('/books/not-in-shelves', name: 'books_not_in_shelves', methods: ['GET'])]
@@ -117,7 +120,10 @@ class ApiBooksController extends AbstractController
         $limit = $req->query->getInt('limit');
         $offset = $req->query->getInt('offset');
         $authorization->setCookie($req, [Channel::LIBRARY_NOT_IN_SHELVES]);
-        return $this->json($bookRepo->getNotInShelves($this->getLibrary(), $user, $limit, $offset), 200, [], [BookCacheNormalizer::COVER_FILTER => 'books_thumb', 'groups' => ['book:list']]);
+        return $this->json($bookRepo->getNotInShelves($this->getLibrary(), $user, $limit, $offset), 200, [], [
+            BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_THUMB,
+            'groups' => ['book:list']
+        ]);
     }
 
     protected function searchFiles(array &$all, string $path = ""): void
@@ -201,7 +207,10 @@ class ApiBooksController extends AbstractController
             ],
             json_encode([
                 'action' => 'book:add',
-                'book' => $normalizer->normalize($book, null, [BookCacheNormalizer::COVER_FILTER => 'books_thumb', 'groups' => ['book:list']]),
+                'book' => $normalizer->normalize($book, null, [
+                    BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_THUMB,
+                    'groups' => ['book:list']
+                ]),
             ]),
             true
         ));
@@ -211,7 +220,9 @@ class ApiBooksController extends AbstractController
     #[Route('/books/{id}', name: 'books_id_get', requirements: ['id' => '\d+'], methods: ['GET'])]
     public function apiBooksIdGet(#[MapEntity(message: "Book not found.")] Book $book): Response
     {
-        return $this->json($book, 200, [], [BookCacheNormalizer::COVER_FILTER => 'books_cover']);
+        return $this->json($book, 200, [], [
+            BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_COVER
+        ]);
     }
 
     #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
@@ -328,7 +339,10 @@ class ApiBooksController extends AbstractController
     #[Route('/books/{id}/metadata', name: 'books_id_metadata', requirements: ['id' => '\d+'], methods: ['GET'])]
     public function apiBooksIdMetadata(#[MapEntity(message: "Book not found.")] Book $book): Response
     {
-        return $this->json($book, 200, [], [BookCacheNormalizer::COVER_FILTER => 'books_cover', 'groups' => ['book:metadata']]);
+        return $this->json($book, 200, [], [
+            BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_COVER,
+            'groups' => ['book:metadata']
+        ]);
     }
 
     #[Route('/books/{id}/position', name: 'books_id_position', requirements: ['id' => '\d+'], methods: ['PUT'])]

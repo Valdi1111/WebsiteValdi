@@ -12,7 +12,9 @@ use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 #[AsTaggedItem('serializer.normalizer')]
 class BookCacheNormalizer implements NormalizerInterface
 {
-    const string COVER_FILTER = 'cover_filter';
+    const string FILTER_TYPE = 'filter_type';
+    const string FILTER_THUMB = 'books_thumb';
+    const string FILTER_COVER = 'books_cover';
 
     public function __construct(
         #[Autowire(service: 'serializer.normalizer.object')]
@@ -30,8 +32,8 @@ class BookCacheNormalizer implements NormalizerInterface
             throw new InvalidArgumentException("The object must implement the 'AbstractBook' class.");
         }
         $json = $this->normalizer->normalize($object, $format, $context);
-        if(isset($context[self::COVER_FILTER])) {
-            $json['cover'] = $object->generateCoverThumbnail($this->cacheManager, $context[self::COVER_FILTER]);
+        if(isset($context[self::FILTER_TYPE])) {
+            $json['cover'] = $object->generateCoverThumbnail($this->cacheManager, $context[self::FILTER_TYPE]);
         }
         return $json;
     }

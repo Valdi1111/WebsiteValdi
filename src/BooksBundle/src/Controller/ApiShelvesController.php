@@ -98,7 +98,10 @@ class ApiShelvesController extends AbstractController
     public function apiShelvesIdBooks(Request $req, #[MapEntity(message: "Shelf not found.")] Shelf $shelf, Authorization $authorization): Response
     {
         $authorization->setCookie($req, [sprintf(Channel::LIBRARY_SHELVES_ID, $shelf->getId())]);
-        return $this->json($shelf->getBooks(), 200, [], [BookCacheNormalizer::COVER_FILTER => 'books_thumb', 'groups' => ['book:list']]);
+        return $this->json($shelf->getBooks(), 200, [], [
+            BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_THUMB,
+            'groups' => ['book:list']
+        ]);
     }
 
 }

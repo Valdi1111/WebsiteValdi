@@ -15,7 +15,6 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Mercure\Authorization;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -35,7 +34,7 @@ class ApiShelvesController extends AbstractController
         $req = $this->requestStack->getCurrentRequest();
         $library = $this->libraryRepo->findOneBy(['id' => $req->attributes->getInt('libraryId')]);
         if (!$library) {
-            throw new NotFoundHttpException("Library not found.");
+            throw $this->createNotFoundException("Library not found.");
         }
         $this->library = $library;
     }

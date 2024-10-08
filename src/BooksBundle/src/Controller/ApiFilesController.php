@@ -6,7 +6,6 @@ use App\BooksBundle\Repository\LibraryRepository;
 use App\CoreBundle\Controller\FileManagerTrait;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RequestStack;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
@@ -25,7 +24,7 @@ class ApiFilesController extends AbstractController
         $req = $this->requestStack->getCurrentRequest();
         $library = $this->libraryRepo->findOneBy(['id' => $req->attributes->getInt('libraryId')]);
         if (!$library) {
-            throw new NotFoundHttpException("Library not found.");
+            throw $this->createNotFoundException("Library not found.");
         }
         $this->baseFolder = $library->getBasePath();
     }

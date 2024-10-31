@@ -5,7 +5,6 @@ namespace App\AnimeBundle\Command;
 use App\AnimeBundle\Exception\UnhandledWebsiteException;
 use App\AnimeBundle\Message\EpisodeDownloadNotification;
 use App\AnimeBundle\Service\AnimeDownloaderInterface;
-use Psr\Container\ContainerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -13,14 +12,20 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
+use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 #[AsCommand(name: 'anime:add-download', description: 'Anime add download')]
 class AnimeAddDownloadCommand extends Command
 {
+    /**
+     * @param ServiceLocator<AnimeDownloaderInterface> $locator
+     * @param MessageBusInterface $bus
+     * @param ?string $name
+     */
     public function __construct(
         #[AutowireLocator(services: 'anime.downloader', indexAttribute: 'website')]
-        private readonly ContainerInterface  $locator,
+        private readonly ServiceLocator      $locator,
         private readonly MessageBusInterface $bus,
         string                               $name = null)
     {
@@ -47,7 +52,6 @@ class AnimeAddDownloadCommand extends Command
         if (!$this->locator->has($baseUrl)) {
             throw new UnhandledWebsiteException();
         }
-        /** @var AnimeDownloaderInterface $downloader */
         $downloader = $this->locator->get($baseUrl);
         $episodes = $downloader->createEpisodeDownloads($urlSplits['path'], $all, !$noFilter, !$simulate);
         if (!count($episodes)) {

@@ -13,9 +13,9 @@ use App\AnimeBundle\Service\AnimeDownloaderInterface;
 use App\AnimeBundle\Service\MyAnimeListService;
 use App\CoreBundle\Entity\TableColumn;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Container\ContainerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
+use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
@@ -28,11 +28,16 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class ApiController extends AbstractController
 {
 
+    /**
+     * @param EntityManagerInterface $entityManager
+     * @param MyAnimeListService $malService
+     * @param ServiceLocator<AnimeDownloaderInterface> $locator
+     */
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly MyAnimeListService     $malService,
         #[AutowireLocator(services: 'anime.downloader', indexAttribute: 'website')]
-        private readonly ContainerInterface     $locator)
+        private readonly ServiceLocator         $locator)
     {
     }
 
@@ -130,7 +135,6 @@ class ApiController extends AbstractController
             if (!$this->locator->has($baseUrl)) {
                 throw new UnhandledWebsiteException();
             }
-            /** @var AnimeDownloaderInterface $downloader */
             $downloader = $this->locator->get($baseUrl);
             $episodes = $downloader->createEpisodeDownloads($urlSplits['path'], $all, $filter);
         } catch (CacheAnimeNotFoundException $e) {

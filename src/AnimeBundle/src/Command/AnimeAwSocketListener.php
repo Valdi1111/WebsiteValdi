@@ -21,6 +21,7 @@ use Symfony\Component\ErrorHandler\Error\UndefinedMethodError;
 #[AsCommand(name: 'anime:aw-socket-listener', description: 'Start anime world socket listener')]
 class AnimeAwSocketListener extends Command
 {
+    private ?Client $client;
 
     public function __construct(
         private readonly LoggerInterface                                    $elephantIoLogger,
@@ -36,22 +37,10 @@ class AnimeAwSocketListener extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $client = Client::create($this->awApiUrl, [
-            'client' => Client::CLIENT_4X,
-            'logger' => $this->elephantIoLogger,
-            //'transport' => 'polling',
-            //'transports' => ['polling'],
-        ]);
-        $client->connect();
-        $client->emit('authorization', [
-            'auth' => [
-                'clientId' => $this->awClientId,
-                'apiKey' => $this->awApiKey,
-            ]
-        ]);
+        $this->createClient();
         while (true) {
             try {
-                $packet = $client->drain();
+                $packet = $this->client->drain();
                 if (!$packet || !$packet->event) {
                     continue;
                 }
@@ -62,20 +51,35 @@ class AnimeAwSocketListener extends Command
                 }
             } catch (Exception $e) {
                 $this->animeAwHandlerLogger->error("Error while parsing data from socket.io", ['exception' => $e]);
-                //if($e->getMessage() === 'Stream disconnected') {
-                //    $client->disconnect();
-                //    $client->connect();
-                //    $client->emit('authorization', [
-                //        'auth' => [
-                //            'clientId' => $this->awClientId,
-                //            'apiKey' => $this->awApiKey,
-                //        ]
-                //    ]);
-                //    continue;
-                //}
+                sleep(3);
+                $this->destroyClient();
+                $this->createClient();
+                continue;
             }
         }
         return Command::SUCCESS;
+    }
+
+    public function createClient(): void
+    {
+        $this->client = Client::create($this->awApiUrl, [
+            'client' => Client::CLIENT_4X,
+            'logger' => $this->elephantIoLogger,
+            'transport' => 'websocket',
+        ]);
+        $this->client->connect();
+        $this->client->emit('authorization', [
+            'auth' => [
+                'clientId' => $this->awClientId,
+                'apiKey' => $this->awApiKey,
+            ]
+        ]);
+    }
+
+    public function destroyClient(): void
+    {
+        $this->client->disconnect();
+        $this->client = null;
     }
 
     protected function handleAuthorized(array $data): void

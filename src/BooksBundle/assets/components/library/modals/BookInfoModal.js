@@ -1,11 +1,15 @@
-import missingCover from "@BooksBundle/images/books-missing-cover.png";
-import {getMetadata} from "@BooksBundle/api/book";
+import missingCoverUrl from "@BooksBundle/images/books-missing-cover.png";
+import { getCoverUrl, getMetadata } from "@BooksBundle/api/book";
 import React from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faExternalLink } from "@fortawesome/free-solid-svg-icons";
+import { Link } from "react-router-dom";
 
 export default function BookInfoModal() {
     const [path, setPath] = React.useState('');
-    const [cover, setCover] = React.useState(missingCover);
     const [metadata, setMetadata] = React.useState({});
+    const [coverUrl, setCoverUrl] = React.useState(missingCoverUrl);
+    const [fullCoverUrl, setFullCoverUrl] = React.useState(null);
     const modal = React.useRef();
 
     React.useEffect(() => {
@@ -13,19 +17,21 @@ export default function BookInfoModal() {
             const id = e.relatedTarget.getAttribute("data-bs-id");
             getMetadata(id).then(
                 res => {
-                    const cache = res.data.book_cache;
-                    const metadata = res.data.book_metadata;
                     setPath(res.data.url);
-                    setCover(cache.cover ? cache.cover : missingCover);
-                    setMetadata(metadata);
+                    setMetadata(res.data.book_metadata);
+                    if (res.data.book_cache.cover) {
+                        setCoverUrl(res.data.book_cache.cover_url);
+                        setFullCoverUrl(getCoverUrl(id));
+                    }
                 },
                 err => console.error(err)
             );
         });
         modal.current.addEventListener("hidden.bs.modal", (e) => {
             setPath('');
-            setCover(missingCover);
             setMetadata({});
+            setCoverUrl(missingCoverUrl);
+            setFullCoverUrl(null);
         });
     }, []);
 
@@ -35,18 +41,18 @@ export default function BookInfoModal() {
             <div className="modal-dialog modal-dialog-centered">
                 <div className="modal-content">
                     <div className="modal-header">
+                        {fullCoverUrl &&
+                            <Link to={fullCoverUrl} target="_blank" className="me-2">
+                                <FontAwesomeIcon icon={faExternalLink}/>
+                            </Link>
+                        }
                         <h5 className="modal-title" id="book-info-modal-label">About this book</h5>
                         <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"/>
                     </div>
                     <div className="modal-body">
                         <div className="row">
                             <div className="col-4 mb-2">
-                                <img className="img-fluid w-100 h-auto" src={cover} alt="Book cover" loading="lazy"/>
-                                {/*
-                                <Image className="img-fluid w-100 h-auto" src={cover} alt="Book cover" loading="lazy"
-                                       sizes="(max-width: 576px) 50vw, (max-width: 768px) 50vw, 25vw" width={0}
-                                       height={0}/>
-                                */}
+                                <img className="img-fluid w-100 h-auto" src={coverUrl} alt="Book cover" loading="lazy"/>
                             </div>
                             <div className="col-8">
                                 <h6 className="mb-1">{metadata.title}</h6>

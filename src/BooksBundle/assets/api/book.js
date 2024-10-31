@@ -15,7 +15,7 @@ export function formatReadPercent(page, total) {
 }
 
 export function getCoverUrl(id) {
-    return `/books/${id}/cover`;
+    return axios.getUri({ url: `/books/${id}/cover` });
 }
 
 export async function markUnread(id) {
@@ -51,22 +51,13 @@ export async function createBook(url) {
     const book = await epub.opened;
     try {
         // Generate Cache
-        const { locations, navigation, cover } = await generateCache(book);
+        const { locations, navigation } = await generateCache(book);
         // Save
         const res = await axios.post(
             `/books`,
             { url, book_cache: { locations, navigation }, book_metadata: generateMetadata(book.packaging.metadata) },
             {}
         );
-        if (cover) {
-            const data = new FormData();
-            data.append('cover', cover, 'cover.png');
-            await axios.post(
-                getCoverUrl(res.data.id),
-                data,
-                { headers: { 'Content-Type': 'multipart/form-data' } }
-            );
-        }
         console.log("Book", res.data.id, "Created successfully!");
         return Promise.resolve(res.data);
     } catch (e) {
@@ -80,24 +71,13 @@ export async function recreateBookCache(id) {
     const book = await epub.opened;
     try {
         // Generate Cache
-        const { locations, navigation, cover } = await generateCache(book, id);
+        const { locations, navigation } = await generateCache(book, id);
         // Save
         const res = await axios.put(
             `/books/${id}`,
             { book_cache: { locations, navigation }, book_metadata: generateMetadata(book.packaging.metadata) },
             {}
         );
-        if (cover) {
-            const data = new FormData();
-            data.append('cover', cover, 'cover.png');
-            await axios.post(
-                getCoverUrl(id),
-                data,
-                { headers: { 'Content-Type': 'multipart/form-data' } }
-            );
-        } else {
-            await axios.delete(getCoverUrl(id));
-        }
         return Promise.resolve(res.data);
     } catch (e) {
         return Promise.reject(e);
@@ -125,17 +105,7 @@ async function generateCache(book, id = '') {
     console.debug("Book", id, "Generating navigation...");
     await loadAllSpines(book);
     const navigation = generateNavigation(book, book.navigation);
-    // Cover
-    console.debug("Book", id, "Generating cover...");
-    const cover = await book.coverUrl();
-    if (!cover) {
-        console.error("Book", id, "Cover not found! Skipping cover caching...");
-        return { locations, navigation };
-    } else {
-        const res = await fetch(cover);
-        const blob = await res.blob();
-        return { locations, navigation, cover: blob };
-    }
+    return { locations, navigation };
 }
 
 async function loadAllSpines(book) {

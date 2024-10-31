@@ -19,7 +19,6 @@ class BooksBundle extends AbstractBundle
     {
         $container->import('./config/services.yaml');
         $container->parameters()->set('books.domain_name', $config['domain_name']);
-        $container->parameters()->set('books.covers_folder', $config['covers_folder']);
     }
 
     public function configure(DefinitionConfigurator $definition): void
@@ -27,7 +26,6 @@ class BooksBundle extends AbstractBundle
         $definition->rootNode()
             ->children()
             ->scalarNode('domain_name')->defaultNull()->end()
-            ->scalarNode('covers_folder')->defaultNull()->end()
             ->end();
     }
 

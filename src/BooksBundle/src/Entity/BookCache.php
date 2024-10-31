@@ -4,7 +4,6 @@ namespace App\BooksBundle\Entity;
 
 use App\BooksBundle\Repository\BookCacheRepository;
 use Doctrine\ORM\Mapping as ORM;
-use Liip\ImagineBundle\Imagine\Cache\CacheManager;
 use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Serializer\Attribute\Ignore;
 
@@ -17,8 +16,8 @@ class BookCache
     #[ORM\JoinColumn(name: 'book_id', referencedColumnName: 'id', nullable: false)]
     private ?Book $book = null;
 
-    #[ORM\Column(length: 36, nullable: true)]
-    private ?string $cover = null;
+    #[ORM\Column]
+    private bool $cover = false;
 
     #[ORM\Column]
     private array $navigation = [];
@@ -47,12 +46,13 @@ class BookCache
         return $this->getBook()?->getId();
     }
 
-    public function getCover(): ?string
+    #[Groups(['book:list', 'book:metadata'])]
+    public function hasCover(): bool
     {
         return $this->cover;
     }
 
-    public function setCover(?string $cover): static
+    public function setCover(bool $cover): static
     {
         $this->cover = $cover;
 
@@ -87,19 +87,6 @@ class BookCache
     public function getPages(): ?int
     {
         return $this->pages;
-    }
-
-    /**
-     * @param CacheManager $cacheManager
-     * @param string $filter
-     * @return string|null
-     */
-    public function generateCoverThumbnail(CacheManager $cacheManager, string $filter): ?string
-    {
-        if ($this->getCover()) {
-            return $cacheManager->getBrowserPath("/" . $this->getCover(), $filter);
-        }
-        return null;
     }
 
 }

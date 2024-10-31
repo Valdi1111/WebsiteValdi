@@ -12,17 +12,19 @@ use App\BooksBundle\Normalizer\BookCacheNormalizer;
 use App\BooksBundle\Repository\BookRepository;
 use App\BooksBundle\Repository\LibraryRepository;
 use App\BooksBundle\Repository\ShelfRepository;
+use App\BooksBundle\Service\BookCoverLoader;
+use App\BooksBundle\Service\EbookLoader;
 use App\CoreBundle\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
+use League\Flysystem\DirectoryAttributes;
+use League\Flysystem\Filesystem;
+use League\Flysystem\Local\LocalFilesystemAdapter;
 use Liip\ImagineBundle\Imagine\Cache\CacheManager;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\HttpFoundation\File\File;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Mercure\Authorization;
 use Symfony\Component\Mercure\HubInterface;
@@ -33,7 +35,6 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 use Symfony\Component\Serializer\Serializer;
-use Symfony\Component\Uid\Uuid;
 
 #[IsGranted('ROLE_USER_BOOKS', null, 'Access Denied.')]
 #[Route('/api/libraries/{libraryId}', name: 'api_libraries_id_', requirements: ['libraryId' => '\d+'], format: 'json')]
@@ -41,10 +42,9 @@ class ApiBooksController extends AbstractController
 {
 
     private Library $library;
+    private Filesystem $libraryFilesystem;
 
     public function __construct(
-        #[Autowire('%books.covers_folder%')]
-        private readonly string                 $coversFolder,
         private readonly EntityManagerInterface $entityManager,
         private readonly LibraryRepository      $libraryRepo,
         private readonly RequestStack           $requestStack)
@@ -55,6 +55,8 @@ class ApiBooksController extends AbstractController
             throw $this->createNotFoundException("Library not found.");
         }
         $this->library = $library;
+        $adapter = new LocalFilesystemAdapter($library->getBasePath());
+        $this->libraryFilesystem = new Filesystem($adapter);
     }
 
     protected function getLibrary(): Library
@@ -62,15 +64,10 @@ class ApiBooksController extends AbstractController
         return $this->library;
     }
 
-    protected function getCoversFolder(): string
-    {
-        return $this->coversFolder;
-    }
-
     #[Route('/epub/{id}', name: 'epub_id', requirements: ['id' => '\d+'], methods: ['GET'], priority: 10)]
     public function apiEpubId(#[MapEntity(message: "Book not found.")] Book $book): Response
     {
-        return $this->getEpubFile($book->getUrl());
+        return $this->apiEpubPath($book->getUrl());
     }
 
     // TODO Remove epub paths
@@ -78,16 +75,14 @@ class ApiBooksController extends AbstractController
     #[Route('/epub/{path}', name: 'epub_path', requirements: ['path' => '.*'], methods: ['GET'])]
     public function apiEpubPath(string $path): Response
     {
-        return $this->getEpubFile($path);
-    }
-
-    protected function getEpubFile(string $path): Response
-    {
-        $filepath = $this->getLibrary()->getBasePath() . '/' . $path;
-        if (!file_exists($filepath)) {
+        if (!$this->libraryFilesystem->fileExists($path)) {
             throw new BadRequestHttpException("Epub file not found.");
         }
-        return $this->file(new File($filepath), 'book.epub');
+        $filename = basename($path);
+        return new Response($this->libraryFilesystem->read($path), 200, [
+            'Content-Type' => "application/epub+zip",
+            'Content-Disposition' => "attachment; filename=\"$filename\"",
+        ]);
     }
 
     #[Route('/books/all', name: 'books_all', methods: ['GET'])]
@@ -128,17 +123,15 @@ class ApiBooksController extends AbstractController
 
     protected function searchFiles(array &$all, string $path = ""): void
     {
-        $file = $this->getLibrary()->getBasePath() . '/' . $path;
-        if (is_dir($file)) {
-            foreach (scandir($file) as $item) {
-                if ($item === '.' || $item === '..') {
-                    continue;
-                }
-                $this->searchFiles($all, $path . '/' . $item);
+        /** @var DirectoryAttributes $item */
+        foreach ($this->libraryFilesystem->listContents($path)->toArray() as $item) {
+            if($item->isDir()) {
+                $this->searchFiles($all, "$path/{$item->path()}");
             }
-        } else {
-            if (pathinfo($file, PATHINFO_EXTENSION) === 'epub') {
-                $all[] = $path;
+            if($item->isFile()) {
+                if (pathinfo($item->path(), PATHINFO_EXTENSION) === 'epub') {
+                    $all[] = "/{$item->path()}";
+                }
             }
         }
     }
@@ -150,6 +143,7 @@ class ApiBooksController extends AbstractController
         $files = [];
         $this->searchFiles($files);
         $items = array_diff($files, $bookRepo->getRegisteredPaths($this->getLibrary()));
+        sort($items);
         $res = [];
         foreach ($items as $item) {
             $list = explode('/', $item, 3);
@@ -166,7 +160,7 @@ class ApiBooksController extends AbstractController
 
     #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
     #[Route('/books', name: 'books_add', methods: ['POST'])]
-    public function apiBooksAdd(Request $req, #[CurrentUser] ?User $user, ShelfRepository $shelfRepo, NormalizerInterface $normalizer, HubInterface $hub): Response
+    public function apiBooksAdd(Request $req, #[CurrentUser] ?User $user, ShelfRepository $shelfRepo, EbookLoader $ebookLoader, NormalizerInterface $normalizer, HubInterface $hub): Response
     {
         if (!$req->getPayload()->has('url')) {
             throw new BadRequestHttpException("Parameter 'url' not found.");
@@ -186,9 +180,11 @@ class ApiBooksController extends AbstractController
             $book->setShelf($shelf);
         }
 
+        $ebookLoader->load($book);
         $serializer = new Serializer([$normalizer]);
         // Book cache
         $cache = $serializer->denormalize($req->getPayload()->all('book_cache'), BookCache::class);
+        $cache->setCover($ebookLoader->hasCover());
         $book->setBookCache($cache);
         // Book metadata
         $metadata = $serializer->denormalize($req->getPayload()->all('book_metadata'), BookMetadata::class);
@@ -227,7 +223,7 @@ class ApiBooksController extends AbstractController
 
     #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
     #[Route('/books/{id}', name: 'books_id_edit', requirements: ['id' => '\d+'], methods: ['PUT'])]
-    public function apiBooksIdEdit(Request $req, #[MapEntity(message: "Book not found.")] Book $book, NormalizerInterface $normalizer): Response
+    public function apiBooksIdEdit(Request $req, #[MapEntity(message: "Book not found.")] Book $book, EbookLoader $ebookLoader, CacheManager $cacheManager, NormalizerInterface $normalizer): Response
     {
         if (!$req->getPayload()->has('book_cache')) {
             throw new BadRequestHttpException("Parameter 'book_cache' not found.");
@@ -235,6 +231,13 @@ class ApiBooksController extends AbstractController
         if (!$req->getPayload()->has('book_metadata')) {
             throw new BadRequestHttpException("Parameter 'book_metadata' not found.");
         }
+
+        if ($book->getBookCache()->hasCover()) {
+            $cacheManager->remove($book->getId());
+        }
+
+        $ebookLoader->load($book);
+        $book->getBookCache()->setCover($ebookLoader->hasCover());
 
         $serializer = new Serializer([$normalizer]);
         // Book cache
@@ -250,7 +253,9 @@ class ApiBooksController extends AbstractController
     #[Route('/books/{id}', name: 'books_id_delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
     public function apiBooksIdDelete(#[MapEntity(message: "Book not found.")] Book $book, int $id, HubInterface $hub, CacheManager $cacheManager): Response
     {
-        $this->removeCoverFile($cacheManager, $book->getBookCache());
+        if ($book->getBookCache()->hasCover()) {
+            $cacheManager->remove($book->getId());
+        }
 
         $this->entityManager->remove($book);
         $this->entityManager->flush();
@@ -269,52 +274,14 @@ class ApiBooksController extends AbstractController
         return $this->json([]);
     }
 
-    public function removeCoverFile(CacheManager $cacheManager, BookCache $book): void
-    {
-        if (!$book->getCover()) {
-            return;
-        }
-        $cacheManager->remove('/' . $book->getCover());
-        $coverPath = $this->getCoversFolder() . '/' . $book->getCover();
-        if (file_exists($coverPath)) {
-            unlink($coverPath);
-        }
-        $book->setCover(null);
-        $this->entityManager->flush();
-    }
-
     #[Route('/books/{id}/cover', name: 'books_id_cover_get', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function apiBooksIdCoverGet(#[MapEntity(message: "Book not found.")] BookCache $book): Response
+    public function apiBooksIdCoverGet(#[MapEntity(message: "Book not found.")] Book $book, BookCoverLoader $bookCoverLoader): Response
     {
-        return $this->file(
-            new File($this->getCoversFolder() . '/' . $book->getCover()),
-            $book->getCover(),
-            ResponseHeaderBag::DISPOSITION_INLINE
-        );
-    }
-
-    #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
-    #[Route('/books/{id}/cover', name: 'books_id_cover_add', requirements: ['id' => '\d+'], methods: ['POST'])]
-    public function apiBooksIdCoverAdd(Request $req, #[MapEntity(message: "Book not found.")] BookCache $book, CacheManager $cacheManager): Response
-    {
-        $this->removeCoverFile($cacheManager, $book);
-        if ($req->files->has('cover')) {
-            $uuid = Uuid::v7()->toRfc4122();
-            $cover = $req->files->get('cover');
-            $cover->move($this->getCoversFolder(), $uuid);
-            $book->setCover($uuid);
-            $this->entityManager->flush();
-        }
-        return $this->json([]);
-    }
-
-    #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
-    #[Route('/books/{id}/cover', name: 'books_id_cover_delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
-    public function apiBooksIdCoverDelete(#[MapEntity(message: "Book not found.")] BookCache $book, CacheManager $cacheManager): Response
-    {
-        $this->removeCoverFile($cacheManager, $book);
-        $this->entityManager->flush();
-        return $this->json([]);
+        $binary = $bookCoverLoader->find($book->getId());
+        return new Response($binary->getContent(), 200, [
+            'Content-Type' => $binary->getMimeType(),
+            'Content-Disposition' => "inline; filename=\"cover_{$book->getId()}.{$binary->getFormat()}\"",
+        ]);
     }
 
     #[Route('/books/{id}/mark-{type}', name: 'books_id_mark', requirements: ['id' => '\d+', 'type' => 'read|unread'], methods: ['PUT'])]

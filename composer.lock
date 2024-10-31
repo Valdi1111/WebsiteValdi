@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "13e935129caac86c93ef9a7cb3e6d3be",
+    "content-hash": "0032db3b4a806b23a79c523a2116529f",
     "packages": [
         {
             "name": "doctrine/cache",
@@ -1462,16 +1462,16 @@
         },
         {
             "name": "elephantio/elephant.io",
-            "version": "v4.7.0",
+            "version": "v4.7.5",
             "source": {
                 "type": "git",
                 "url": "https://github.com/ElephantIO/elephant.io.git",
-                "reference": "4b2f8f044c815c6c5b7c989cc2e18a370718e55f"
+                "reference": "f3f9d9989cb264bac5c4655be7d8acc0466c1d8e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/ElephantIO/elephant.io/zipball/4b2f8f044c815c6c5b7c989cc2e18a370718e55f",
-                "reference": "4b2f8f044c815c6c5b7c989cc2e18a370718e55f",
+                "url": "https://api.github.com/repos/ElephantIO/elephant.io/zipball/f3f9d9989cb264bac5c4655be7d8acc0466c1d8e",
+                "reference": "f3f9d9989cb264bac5c4655be7d8acc0466c1d8e",
                 "shasum": ""
             },
             "require": {
@@ -1531,9 +1531,10 @@
                 "websocket"
             ],
             "support": {
-                "source": "https://github.com/ElephantIO/elephant.io/tree/v4.7.0"
+                "issues": "https://github.com/ElephantIO/elephant.io/issues",
+                "source": "https://github.com/ElephantIO/elephant.io/tree/v4.7.5"
             },
-            "time": "2024-02-16T19:40:38+00:00"
+            "time": "2024-10-28T14:15:01+00:00"
         },
         {
             "name": "imagine/imagine",
@@ -11141,7 +11142,7 @@
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
-        "php": ">=8.2",
+        "php": ">=8.3",
         "ext-ctype": "*",
         "ext-iconv": "*"
     },

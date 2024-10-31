@@ -23,9 +23,6 @@ class Library
     private ?string $basePath = null;
 
     #[ORM\Column(length: 255)]
-    private ?string $coversFolder = null;
-
-    #[ORM\Column(length: 255)]
     private ?string $name = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, insertable: false, updatable: false)]
@@ -54,18 +51,6 @@ class Library
     public function setBasePath(string $basePath): static
     {
         $this->basePath = $basePath;
-
-        return $this;
-    }
-
-    public function getCoversFolder(): ?string
-    {
-        return $this->coversFolder;
-    }
-
-    public function setCoversFolder(string $coversFolder): static
-    {
-        $this->coversFolder = $coversFolder;
 
         return $this;
     }

@@ -29,11 +29,11 @@ class BookCacheNormalizer implements NormalizerInterface
     public function normalize(mixed $object, ?string $format = null, array $context = []): array
     {
         if (!$object instanceof BookCache) {
-            throw new InvalidArgumentException("The object must implement the 'AbstractBook' class.");
+            throw new InvalidArgumentException("The object must implement the 'BookCache' class.");
         }
         $json = $this->normalizer->normalize($object, $format, $context);
         if(isset($context[self::FILTER_TYPE])) {
-            $json['cover'] = $object->generateCoverThumbnail($this->cacheManager, $context[self::FILTER_TYPE]);
+            $json['cover_url'] = $object->hasCover() ? $this->cacheManager->getBrowserPath($object->getBookId(), $context[self::FILTER_TYPE]) : null;
         }
         return $json;
     }

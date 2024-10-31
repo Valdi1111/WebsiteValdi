@@ -1,12 +1,12 @@
 import {Link} from "react-router-dom";
 import React from "react";
 
-export default function ItemCover({ id, cover, title, creator }) {
-    if (cover) {
+export default function ItemCover({ id, hasCover, coverUrl, title, creator }) {
+    if (hasCover) {
         return (
             <Link className="d-flex justify-content-center align-items-center position-relative" title={title}
                   to={`/books/${id}`} style={{ height: "225px" }}>
-                <img className="img-fluid mt-auto" src={cover} alt="Book cover" loading="lazy" />
+                <img className="img-fluid mt-auto" src={coverUrl} alt="Book cover" loading="lazy" />
                 {/*
                 <Image className="img-fluid mt-auto" src={getCoverUrl(id)} alt="Book cover" loading="lazy"
                        fill={true} sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"

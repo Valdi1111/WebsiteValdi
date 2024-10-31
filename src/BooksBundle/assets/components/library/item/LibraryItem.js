@@ -21,7 +21,7 @@ import React from "react";
 export default function LibraryItem(props) {
     const hide_shelf = props.hide_shelf | false;
     const { id, shelf_id } = props.book;
-    const { cover, pages } = props.book.book_cache;
+    const { cover, cover_url, pages } = props.book.book_cache;
     const { title, creator } = props.book.book_metadata;
     const [page, setPage] = React.useState(props.book.book_progress.page);
 
@@ -32,7 +32,7 @@ export default function LibraryItem(props) {
     return (
         <div className="col-auto p-2">
             <div className="d-flex flex-column" style={{ width: "150px" }}>
-                <ItemCover id={id} cover={cover} title={title} creator={creator}/>
+                <ItemCover id={id} hasCover={cover} coverUrl={cover_url} title={title} creator={creator}/>
                 <div className="d-flex flex-row justify-content-between align-items-center mt-1">
                     <ItemProgress page={page} total={pages}/>
                     <div className="dropdown">

@@ -223,7 +223,7 @@ class ApiBooksController extends AbstractController
 
     #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
     #[Route('/books/{id}', name: 'books_id_edit', requirements: ['id' => '\d+'], methods: ['PUT'])]
-    public function apiBooksIdEdit(Request $req, #[MapEntity(message: "Book not found.")] Book $book, EbookLoader $ebookLoader, CacheManager $cacheManager, NormalizerInterface $normalizer): Response
+    public function apiBooksIdEdit(Request $req, #[MapEntity(message: "Book not found.")] Book $book, EbookLoader $ebookLoader, NormalizerInterface $normalizer, HubInterface $hub, CacheManager $cacheManager): Response
     {
         if (!$req->getPayload()->has('book_cache')) {
             throw new BadRequestHttpException("Parameter 'book_cache' not found.");
@@ -237,15 +237,29 @@ class ApiBooksController extends AbstractController
         }
 
         $ebookLoader->load($book);
-        $book->getBookCache()->setCover($ebookLoader->hasCover());
-
         $serializer = new Serializer([$normalizer]);
         // Book cache
         $serializer->denormalize($req->getPayload()->all('book_cache'), BookCache::class, null, [AbstractNormalizer::OBJECT_TO_POPULATE => $book->getBookCache()]);
+        $book->getBookCache()->setCover($ebookLoader->hasCover());
         // Book metadata
         $serializer->denormalize($req->getPayload()->all('book_metadata'), BookMetadata::class, null, [AbstractNormalizer::OBJECT_TO_POPULATE => $book->getBookMetadata()]);
 
         $this->entityManager->flush();
+
+        $hub->publish(new Update(
+            [
+                $book->getShelfId() ? sprintf(Channel::LIBRARY_SHELVES_ID, $book->getShelfId()) : Channel::LIBRARY_NOT_IN_SHELVES,
+                Channel::LIBRARY_ALL,
+            ],
+            json_encode([
+                'action' => 'book:recreate',
+                'book' => $normalizer->normalize($book, null, [
+                    BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_THUMB,
+                    'groups' => ['book:list']
+                ]),
+            ]),
+            true
+        ));
         return $this->json(['id' => $book->getId(), 'shelf_id' => $book->getShelfId()]);
     }
 

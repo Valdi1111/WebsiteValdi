@@ -18,7 +18,9 @@ use App\CoreBundle\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\DirectoryAttributes;
 use League\Flysystem\Filesystem;
+use League\Flysystem\FilesystemReader;
 use League\Flysystem\Local\LocalFilesystemAdapter;
+use League\Flysystem\StorageAttributes;
 use Liip\ImagineBundle\Imagine\Cache\CacheManager;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -70,7 +72,6 @@ class ApiBooksController extends AbstractController
         return $this->apiEpubPath($book->getUrl());
     }
 
-    // TODO Remove epub paths
     #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
     #[Route('/epub/{path}', name: 'epub_path', requirements: ['path' => '.*'], methods: ['GET'])]
     public function apiEpubPath(string $path): Response
@@ -121,28 +122,27 @@ class ApiBooksController extends AbstractController
         ]);
     }
 
-    protected function searchFiles(array &$all, string $path = ""): void
+    protected function searchFiles(): array
     {
-        /** @var DirectoryAttributes $item */
-        foreach ($this->libraryFilesystem->listContents($path)->toArray() as $item) {
-            if($item->isDir()) {
-                $this->searchFiles($all, "$path/{$item->path()}");
-            }
-            if($item->isFile()) {
-                if (pathinfo($item->path(), PATHINFO_EXTENSION) === 'epub') {
-                    $all[] = "/{$item->path()}";
-                }
-            }
+        /** @var DirectoryAttributes[] $items */
+        $items = $this->libraryFilesystem
+            ->listContents("/", FilesystemReader::LIST_DEEP)
+            ->filter(function (StorageAttributes $item) {
+                return $item->isFile() && pathinfo($item->path(), PATHINFO_EXTENSION) === 'epub';
+            })
+            ->toArray();
+        $files = [];
+        foreach ($items as $item) {
+            $files[] = "/{$item->path()}";
         }
+        return $files;
     }
 
     #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
     #[Route('/books/find-new', name: 'books_find_new', methods: ['GET'])]
     public function apiBooksFindNew(BookRepository $bookRepo): Response
     {
-        $files = [];
-        $this->searchFiles($files);
-        $items = array_diff($files, $bookRepo->getRegisteredPaths($this->getLibrary()));
+        $items = array_diff($this->searchFiles(), $bookRepo->getRegisteredPaths($this->getLibrary()));
         sort($items);
         $res = [];
         foreach ($items as $item) {
@@ -277,11 +277,15 @@ class ApiBooksController extends AbstractController
     #[Route('/books/{id}/cover', name: 'books_id_cover_get', requirements: ['id' => '\d+'], methods: ['GET'])]
     public function apiBooksIdCoverGet(#[MapEntity(message: "Book not found.")] Book $book, BookCoverLoader $bookCoverLoader): Response
     {
-        $binary = $bookCoverLoader->find($book->getId());
-        return new Response($binary->getContent(), 200, [
-            'Content-Type' => $binary->getMimeType(),
-            'Content-Disposition' => "inline; filename=\"cover_{$book->getId()}.{$binary->getFormat()}\"",
-        ]);
+        try {
+            $binary = $bookCoverLoader->find($book->getId());
+            return new Response($binary->getContent(), 200, [
+                'Content-Type' => $binary->getMimeType(),
+                'Content-Disposition' => "inline; filename=\"cover_{$book->getId()}.{$binary->getFormat()}\"",
+            ]);
+        } catch (\Exception) {
+            throw new BadRequestHttpException("Cover file not found.");
+        }
     }
 
     #[Route('/books/{id}/mark-{type}', name: 'books_id_mark', requirements: ['id' => '\d+', 'type' => 'read|unread'], methods: ['PUT'])]

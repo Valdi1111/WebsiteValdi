@@ -16,10 +16,9 @@ use App\BooksBundle\Service\BookCoverLoader;
 use App\BooksBundle\Service\EbookLoader;
 use App\CoreBundle\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
-use League\Flysystem\DirectoryAttributes;
+use League\Flysystem\FileAttributes;
 use League\Flysystem\Filesystem;
 use League\Flysystem\FilesystemReader;
-use League\Flysystem\Local\LocalFilesystemAdapter;
 use League\Flysystem\StorageAttributes;
 use Liip\ImagineBundle\Imagine\Cache\CacheManager;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -44,7 +43,6 @@ class ApiBooksController extends AbstractController
 {
 
     private Library $library;
-    private Filesystem $libraryFilesystem;
 
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
@@ -57,13 +55,16 @@ class ApiBooksController extends AbstractController
             throw $this->createNotFoundException("Library not found.");
         }
         $this->library = $library;
-        $adapter = new LocalFilesystemAdapter($library->getBasePath());
-        $this->libraryFilesystem = new Filesystem($adapter);
     }
 
     protected function getLibrary(): Library
     {
         return $this->library;
+    }
+
+    protected function getFilesystem(): Filesystem
+    {
+        return $this->getLibrary()->getFilesystem();
     }
 
     #[Route('/epub/{id}', name: 'epub_id', requirements: ['id' => '\d+'], methods: ['GET'], priority: 10)]
@@ -76,11 +77,11 @@ class ApiBooksController extends AbstractController
     #[Route('/epub/{path}', name: 'epub_path', requirements: ['path' => '.*'], methods: ['GET'])]
     public function apiEpubPath(string $path): Response
     {
-        if (!$this->libraryFilesystem->fileExists($path)) {
+        if (!$this->getFilesystem()->fileExists($path)) {
             throw new BadRequestHttpException("Epub file not found.");
         }
         $filename = basename($path);
-        return new Response($this->libraryFilesystem->read($path), 200, [
+        return new Response($this->getFilesystem()->read($path), 200, [
             'Content-Type' => "application/epub+zip",
             'Content-Disposition' => "attachment; filename=\"$filename\"",
         ]);
@@ -124,8 +125,8 @@ class ApiBooksController extends AbstractController
 
     protected function searchFiles(): array
     {
-        /** @var DirectoryAttributes[] $items */
-        $items = $this->libraryFilesystem
+        /** @var FileAttributes[] $items */
+        $items = $this->getFilesystem()
             ->listContents("/", FilesystemReader::LIST_DEEP)
             ->filter(function (StorageAttributes $item) {
                 return $item->isFile() && pathinfo($item->path(), PATHINFO_EXTENSION) === 'epub';
@@ -196,6 +197,7 @@ class ApiBooksController extends AbstractController
         $this->entityManager->persist($book);
         $this->entityManager->flush();
 
+        // TODO funzione per publish, publish anche su Channel::LIBRARY_NOT_IN_SHELVES se necessario
         $hub->publish(new Update(
             [
                 $book->getShelfId() ? sprintf(Channel::LIBRARY_SHELVES_ID, $book->getShelfId()) : Channel::LIBRARY_NOT_IN_SHELVES,
@@ -246,6 +248,7 @@ class ApiBooksController extends AbstractController
 
         $this->entityManager->flush();
 
+        // TODO funzione per publish, publish anche su Channel::LIBRARY_NOT_IN_SHELVES se necessario
         $hub->publish(new Update(
             [
                 $book->getShelfId() ? sprintf(Channel::LIBRARY_SHELVES_ID, $book->getShelfId()) : Channel::LIBRARY_NOT_IN_SHELVES,
@@ -274,6 +277,7 @@ class ApiBooksController extends AbstractController
         $this->entityManager->remove($book);
         $this->entityManager->flush();
 
+        // TODO funzione per publish, publish anche su Channel::LIBRARY_NOT_IN_SHELVES se necessario
         $hub->publish(new Update(
             [
                 $book->getShelfId() ? sprintf(Channel::LIBRARY_SHELVES_ID, $book->getShelfId()) : Channel::LIBRARY_NOT_IN_SHELVES,

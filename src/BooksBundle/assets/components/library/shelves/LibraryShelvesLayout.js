@@ -1,6 +1,5 @@
 import { ShelvesContext } from "@BooksBundle/components/Contexts";
 import {getShelves} from "@BooksBundle/api/shelves";
-import LibraryLayout from "../LibraryLayout";
 import ShelfAddModal from "./modals/ShelfAddModal";
 import ShelvesList from "./list/ShelvesList";
 import {useNavigate, useParams} from "react-router-dom";
@@ -52,13 +51,11 @@ export default function LibraryShelvesLayout({ children }) {
             <Helmet>
                 <title>Shelves</title>
             </Helmet>
-            <LibraryLayout>
-                <div className="flex-grow-1 d-flex flex-row border-top">
-                    <ShelfAddModal update={onShelfAdd}/>
-                    <ShelvesList loading={loading} shelves={shelves} shelf={shelf}/>
-                    {children}
-                </div>
-            </LibraryLayout>
+            <div className="flex-grow-1 d-flex flex-row border-top">
+                <ShelfAddModal update={onShelfAdd}/>
+                <ShelvesList loading={loading} shelves={shelves} shelf={shelf}/>
+                {children}
+            </div>
         </ShelvesContext.Provider>
     )
 }

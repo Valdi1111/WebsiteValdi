@@ -19,7 +19,7 @@ class ApiLibrariesController extends AbstractController
     }
 
     #[Route('/libraries', name: 'libraries', methods: ['GET'])]
-    public function apiBooksAll(#[MapEntity(class: Library::class, expr: 'repository.findBy({}, {"name": "ASC"})')] iterable $libraries): Response
+    public function apiLibrariesAll(#[MapEntity(class: Library::class, expr: 'repository.findBy({}, {"name": "ASC"})')] iterable $libraries): Response
     {
         return $this->json($libraries);
     }

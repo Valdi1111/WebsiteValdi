@@ -8,6 +8,8 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\ORM\Mapping\OneToMany;
+use League\Flysystem\Filesystem;
+use League\Flysystem\Local\LocalFilesystemAdapter;
 use Symfony\Component\Serializer\Attribute\Ignore;
 
 #[ORM\Table(name: 'library')]
@@ -32,6 +34,8 @@ class Library
     #[OneToMany(mappedBy: 'library', targetEntity: Shelf::class, indexBy: 'shelf_id')]
     #[ORM\OrderBy(['name' => 'ASC'])]
     private Collection $shelves;
+
+    private ?Filesystem $filesystem = null;
 
     public function __construct()
     {
@@ -105,6 +109,15 @@ class Library
     public function getShelvesCount(): int
     {
         return $this->getShelves()->count();
+    }
+
+    public function getFilesystem(): Filesystem
+    {
+        if (!$this->filesystem) {
+            $adapter = new LocalFilesystemAdapter($this->getBasePath());
+            $this->filesystem = new Filesystem($adapter);
+        }
+        return $this->filesystem;
     }
 
 }

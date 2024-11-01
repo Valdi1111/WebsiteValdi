@@ -1,4 +1,3 @@
-import { EPUB_URL } from "@BooksBundle/constants";
 import axios from "@BooksBundle/api/axios";
 import { Book } from "epubjs";
 
@@ -12,6 +11,14 @@ const formatter = new Intl.NumberFormat(locale, opts);
 
 export function formatReadPercent(page, total) {
     return formatter.format((!page || !total) ? 0 : (page / total));
+}
+
+export function getEpubUrlByPath(url) {
+    return axios.getUri({ url: `/epub${url}` });
+}
+
+export function getEpubUrlById(id) {
+    return axios.getUri({ url: `/epub/${id}` });
 }
 
 export function getCoverUrl(id) {
@@ -47,7 +54,7 @@ export async function deleteBook(id) {
 
 export async function createBook(url) {
     console.log("Creating book from link...");
-    const epub = new Book(EPUB_URL + url);
+    const epub = new Book(getEpubUrlByPath(url));
     const book = await epub.opened;
     try {
         // Generate Cache
@@ -67,7 +74,7 @@ export async function createBook(url) {
 
 export async function recreateBookCache(id) {
     console.log("Book", id, "Recreating cache...");
-    const epub = new Book(`${EPUB_URL}/${id}`, { openAs: 'epub' });
+    const epub = new Book(getEpubUrlById(id), { openAs: 'epub' });
     const book = await epub.opened;
     try {
         // Generate Cache

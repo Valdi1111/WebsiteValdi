@@ -10,8 +10,7 @@ import {
 } from "@BooksBundle/components/books/BookConstants";
 import { useBookSettings, useThemes } from "@BooksBundle/components/Contexts";
 import { THEMES } from "@BooksBundle/components/ThemeConstants";
-import { getBook, updatePosition } from "@BooksBundle/api/book";
-import { EPUB_URL } from "@BooksBundle/constants";
+import { getBook, getEpubUrlById, updatePosition } from "@BooksBundle/api/book";
 import { useParams } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { Book, EpubCFI } from "epubjs";
@@ -96,7 +95,7 @@ export default function BookId() {
         getBook(bookId).then(
             res => {
                 console.log("Loading book", bookId);
-                book.current = new Book(`${EPUB_URL}/${res.data.id}`, { openAs: 'epub' });
+                book.current = new Book(getEpubUrlById(res.data.id), { openAs: 'epub' });
                 setTitle(res.data.book_metadata.title);
                 navigation.current = res.data.book_cache.navigation;
                 setMark(res.data.book_progress);

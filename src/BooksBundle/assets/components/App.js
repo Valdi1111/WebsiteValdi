@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Link, Navigate, Route, Routes } from "react-router-dom";
 import ThemeChangeModal from "@BooksBundle/components/library/modals/theme/ThemeChangeModal";
 import LibraryShelvesLayout from "@BooksBundle/components/library/shelves/LibraryShelvesLayout";
 import LibraryLayout from "@BooksBundle/components/library/LibraryLayout";
@@ -12,6 +12,7 @@ import { THEMES, THEME } from "@BooksBundle/components/ThemeConstants";
 import { ThemeContext } from "@BooksBundle/components/Contexts";
 import { ROOT_URL, FILES_URL } from "@BooksBundle/constants";
 import React from 'react';
+import { Button, Result } from "antd";
 
 export default function App() {
     const [theme, setTheme] = React.useState(localStorage.getItem(THEME) || Object.keys(THEMES)[0]);
@@ -54,13 +55,17 @@ export default function App() {
                             </LibraryLayout>
                         }/>
                         <Route path="/library/shelves/:shelfId" element={
-                            <LibraryShelvesLayout>
-                                <LibraryShelvesId/>
-                            </LibraryShelvesLayout>
+                            <LibraryLayout>
+                                <LibraryShelvesLayout>
+                                    <LibraryShelvesId/>
+                                </LibraryShelvesLayout>
+                            </LibraryLayout>
                         }/>
                         <Route path="/library/shelves" element={
-                            <LibraryShelvesLayout>
-                            </LibraryShelvesLayout>
+                            <LibraryLayout>
+                                <LibraryShelvesLayout>
+                                </LibraryShelvesLayout>
+                            </LibraryLayout>
                         }/>
                         <Route path="/books/:bookId" element={
                             <BookLayout>
@@ -70,6 +75,16 @@ export default function App() {
                         <Route path="/files" element={
                             <LibraryLayout>
                                 <FileManager apiUrl={FILES_URL}/>
+                            </LibraryLayout>
+                        }/>
+                        <Route path="*" element={
+                            <LibraryLayout>
+                                <Result
+                                    status="404"
+                                    title="404"
+                                    subTitle="Sorry, the page you visited does not exist."
+                                    extra={<Link to="/library/all"><Button type="primary">Back Home</Button></Link>}
+                                />
                             </LibraryLayout>
                         }/>
                     </Routes>

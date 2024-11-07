@@ -18,7 +18,7 @@ export function getEpubUrlByPath(url) {
 }
 
 export function getEpubUrlById(id) {
-    return axios.getUri({ url: `/epub/${id}` });
+    return axios.getUri({ url: `/books/${id}/epub` });
 }
 
 export function getCoverUrl(id) {

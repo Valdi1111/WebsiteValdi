@@ -67,7 +67,7 @@ class ApiBooksController extends AbstractController
         return $this->getLibrary()->getFilesystem();
     }
 
-    #[Route('/epub/{id}', name: 'epub_id', requirements: ['id' => '\d+'], methods: ['GET'], priority: 10)]
+    #[Route('/books/{id}/epub', name: 'books_id_epub', requirements: ['id' => '\d+'], methods: ['GET'], priority: 10)]
     public function apiEpubId(#[MapEntity(message: "Book not found.")] Book $book): Response
     {
         return $this->apiEpubPath($book->getUrl());

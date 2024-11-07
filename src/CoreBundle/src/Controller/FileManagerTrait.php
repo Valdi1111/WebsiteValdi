@@ -15,7 +15,7 @@ use Symfony\Component\Routing\Attribute\Route;
 trait FileManagerTrait
 {
 
-    /** @var string[] */
+    /** @var array<string, string> */
     const array EXTENSION_MAP = [
         'zip' => 'archive',
         'rar' => 'archive',
@@ -90,7 +90,7 @@ trait FileManagerTrait
             'id' => $path . $file->getFilename(),
             'size' => $file->getSize(),
             'date' => $file->getMTime(),
-            'type' => isset(self::EXTENSION_MAP[$file->getExtension()]) ? self::EXTENSION_MAP[$file->getExtension()] : 'file',
+            'type' => self::EXTENSION_MAP[$file->getExtension()] ?? 'file',
         ];
     }
 
@@ -164,7 +164,7 @@ trait FileManagerTrait
         $path = $req->query->getString('id');
         // TODO send extra info
         $file = new File($this->baseFolder . $path);
-        $type = self::EXTENSION_MAP[$file->getExtension()];
+        $type = self::EXTENSION_MAP[$file->getExtension()] ?? 'file';
         if ($type === 'audio') {
 
         }
@@ -185,8 +185,8 @@ trait FileManagerTrait
     public function fileManagerMkdir(Request $req): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $path = $req->request->getString('id');
-        $name = $req->request->getString('name');
+        $path = $req->getPayload()->getString('id');
+        $name = $req->getPayload()->getString('name');
         $filesystem = new Filesystem();
         if (!$filesystem->exists($this->baseFolder . $path)) {
             return $this->json(['invalid' => true, 'error' => 'Directory not found!']);
@@ -241,8 +241,8 @@ trait FileManagerTrait
     public function fileManagerTextPost(Request $req): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $path = $req->request->getString('id');
-        $content = $req->request->get('content');
+        $path = $req->getPayload()->getString('id');
+        $content = $req->getPayload()->get('content');
         $file = new File($this->baseFolder . $path);
         $filesystem = new Filesystem();
         $filesystem->dumpFile($file->getPathname(), $content);
@@ -270,8 +270,8 @@ trait FileManagerTrait
     public function fileManagerRename(Request $req): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $path = $req->request->getString('id');
-        $name = $req->request->getString('name');
+        $path = $req->getPayload()->getString('id');
+        $name = $req->getPayload()->getString('name');
         $filesystem = new Filesystem();
         if (!$filesystem->exists($this->baseFolder . $path)) {
             return $this->json(['invalid' => true, 'error' => 'File not found!']);
@@ -294,8 +294,8 @@ trait FileManagerTrait
     public function fileManagerCopy(Request $req): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $path = $req->request->getString('id');
-        $to = $req->request->getString('to');
+        $path = $req->getPayload()->getString('id');
+        $to = $req->getPayload()->getString('to');
         $filesystem = new Filesystem();
         if (!$filesystem->exists($this->baseFolder . $path)) {
             return $this->json(['invalid' => true, 'error' => 'File not found!']);
@@ -321,8 +321,8 @@ trait FileManagerTrait
     public function fileManagerMove(Request $req): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $path = $req->request->getString('id');
-        $to = $req->request->getString('to');
+        $path = $req->getPayload()->getString('id');
+        $to = $req->getPayload()->getString('to');
         $filesystem = new Filesystem();
         if (!$filesystem->exists($this->baseFolder . $path)) {
             return $this->json(['invalid' => true, 'error' => 'File not found!']);
@@ -345,7 +345,7 @@ trait FileManagerTrait
     public function fileManagerDelete(Request $req): Response
     {
         $this->denyAccessUnlessGranted('ROLE_USER');
-        $path = $req->request->getString('id');
+        $path = $req->getPayload()->getString('id');
         $filesystem = new Filesystem();
         if (!$filesystem->exists($this->baseFolder . $path)) {
             return $this->json(['invalid' => true, 'error' => 'File not found!']);

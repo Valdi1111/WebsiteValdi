@@ -147,4 +147,9 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
     {
         return $this->websiteUrl;
     }
+
+    public static function getServiceName(): string
+    {
+        return 'animeworld';
+    }
 }

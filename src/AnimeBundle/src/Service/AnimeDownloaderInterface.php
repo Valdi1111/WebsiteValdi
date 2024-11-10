@@ -28,4 +28,10 @@ interface AnimeDownloaderInterface
      */
     public function getWebsiteUrl(): string;
 
+    /**
+     * Service name
+     * @return string
+     */
+    public static function getServiceName(): string;
+
 }

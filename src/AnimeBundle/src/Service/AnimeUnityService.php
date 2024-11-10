@@ -12,10 +12,6 @@ use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DomCrawler\Crawler;
-use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 #[AsAlias('anime.downloader.animeunity')]
@@ -183,5 +179,10 @@ readonly class AnimeUnityService implements AnimeDownloaderInterface
     public function getWebsiteUrl(): string
     {
         return $this->websiteUrl;
+    }
+
+    public static function getServiceName(): string
+    {
+        return 'animeunity';
     }
 }

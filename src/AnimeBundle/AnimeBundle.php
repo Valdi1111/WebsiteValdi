@@ -2,7 +2,6 @@
 
 namespace App\AnimeBundle;
 
-use App\AnimeBundle\DependencyInjection\Compiler\AnimeDownloaderPass;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -75,12 +74,6 @@ class AnimeBundle extends AbstractBundle
                     ->scalarNode('path')->defaultNull()->end()
                 ->end()
             ->end();
-    }
-
-    public function build(ContainerBuilder $container): void
-    {
-        parent::build($container);
-        $container->addCompilerPass(new AnimeDownloaderPass());
     }
 
 }

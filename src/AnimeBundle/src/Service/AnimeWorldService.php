@@ -9,14 +9,12 @@ use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
 use Doctrine\ORM\EntityManagerInterface;
 use Exception;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
-use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-#[AsAlias('anime.downloader.animeworld')]
+#[AsAlias('animeworld.anime.downloader')]
 #[AsAlias('App\AnimeBundle\Service\AnimeDownloaderInterface $animeWorldDownloader')]
-#[AutoconfigureTag('anime.downloader', attributes: ['config' => 'anime.animeworld'])]
 readonly class AnimeWorldService implements AnimeDownloaderInterface
 {
 

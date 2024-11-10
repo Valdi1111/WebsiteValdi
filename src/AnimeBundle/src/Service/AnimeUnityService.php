@@ -9,14 +9,12 @@ use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
 use Doctrine\ORM\EntityManagerInterface;
 use Exception;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
-use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-#[AsAlias('anime.downloader.animeunity')]
+#[AsAlias('animeunity.anime.downloader')]
 #[AsAlias('App\AnimeBundle\Service\AnimeDownloaderInterface $animeUnityDownloader')]
-#[AutoconfigureTag('anime.downloader', attributes: ['config' => 'anime.animeunity'])]
 readonly class AnimeUnityService implements AnimeDownloaderInterface
 {
 
@@ -55,7 +53,7 @@ readonly class AnimeUnityService implements AnimeDownloaderInterface
         $data = [];
         foreach ($scripts as $script) {
             $text = $script->textContent;
-            if(!str_contains($text, "window.")) {
+            if (!str_contains($text, "window.")) {
                 continue;
             }
             $text = preg_replace("/(\r\n|\n|\r)/m", "", $text);
@@ -66,10 +64,10 @@ readonly class AnimeUnityService implements AnimeDownloaderInterface
             foreach ($matches as $match) {
                 $key = trim($match['key']);
                 $value = trim($match['value']);
-                if((str_starts_with($value, '"') && str_ends_with($value, '"')) || (str_starts_with($value, "'") && str_ends_with($value, "'"))) {
+                if ((str_starts_with($value, '"') && str_ends_with($value, '"')) || (str_starts_with($value, "'") && str_ends_with($value, "'"))) {
                     $value = substr($value, 1, -1);
                 }
-                if(json_validate($value)) {
+                if (json_validate($value)) {
                     $value = json_decode($value, true);
                 } else {
                     // Rimuove tutte le virgole prima delle parentesi graffe (anche se ci sono spazi vuoti)
@@ -78,7 +76,7 @@ readonly class AnimeUnityService implements AnimeDownloaderInterface
                     $input = preg_replace("/\s*(['\"])?([a-z0-9A-Z_]+)(?<!https|http)(['\"])?\s*:\s*/", '"$2": ', $input);
                     // Inserisce le virgolette nei valori del json
                     $input = preg_replace("/: (['\"])?([a-z0-9A-Z_:\/.]+)(['\"])?/", ': "$2"', $input);
-                    if(json_validate($input)) {
+                    if (json_validate($input)) {
                         $value = json_decode($input, true);
                     }
                 }

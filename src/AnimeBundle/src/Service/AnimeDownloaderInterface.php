@@ -4,7 +4,6 @@ namespace App\AnimeBundle\Service;
 
 use App\AnimeBundle\Entity\EpisodeDownload;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
-use App\AnimeBundle\Exception\UnhandledWebsiteException;
 use Exception;
 
 interface AnimeDownloaderInterface
@@ -16,7 +15,6 @@ interface AnimeDownloaderInterface
      * @param bool $filter filter if not present in MyAnimeList cache
      * @param bool $save save to database
      * @return EpisodeDownload[]
-     * @throws UnhandledWebsiteException
      * @throws CacheAnimeNotFoundException
      * @throws Exception
      */

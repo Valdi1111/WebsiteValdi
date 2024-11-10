@@ -9,35 +9,28 @@ use App\AnimeBundle\Message\EpisodeDownloadNotification;
 use App\AnimeBundle\Repository\EpisodeDownloadRepository;
 use App\AnimeBundle\Repository\ListAnimeRepository;
 use App\AnimeBundle\Repository\ListMangaRepository;
-use App\AnimeBundle\Service\AnimeDownloaderInterface;
+use App\AnimeBundle\Service\AnimeDownloaderLocator;
 use App\AnimeBundle\Service\MyAnimeListService;
 use App\CoreBundle\Entity\TableColumn;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
-use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 
 #[IsGranted('ROLE_USER_ANIME', null, 'Access Denied.')]
 #[Route('/api', name: 'api_', format: 'json')]
 class ApiController extends AbstractController
 {
 
-    /**
-     * @param EntityManagerInterface $entityManager
-     * @param MyAnimeListService $malService
-     * @param ServiceLocator<AnimeDownloaderInterface> $locator
-     */
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly MyAnimeListService     $malService,
-        #[AutowireLocator(services: 'anime.downloader', indexAttribute: 'website')]
-        private readonly ServiceLocator         $locator)
+        private readonly AnimeDownloaderLocator $locator)
     {
     }
 
@@ -95,8 +88,8 @@ class ApiController extends AbstractController
 
         return $this->json([
             'columns' => [
-                TableColumn::builder('ID', 'id')->setSorter(true)->setSortDirections(['ascend', 'descend', 'ascend'])->setDefaultSortOrder('descend'),
-                TableColumn::builder('AnimeWorld URL', 'episode_url')->setSorter(true)->setSortDirections(['ascend', 'descend', 'ascend']),
+                TableColumn::builder('ID', 'id')->setSorter(true)->setSortDirections(['descend', 'ascend', 'descend'])->setDefaultSortOrder('descend'),
+                TableColumn::builder('AnimeWorld URL', 'episode_url')->setSorter(true)->setSortDirections(['ascend', 'descend']),
                 TableColumn::builder('Download URL', 'download_url')->setHidden(true),
                 TableColumn::builder('File', 'file')->setHidden(true),
                 TableColumn::builder('Folder', 'folder'),
@@ -116,7 +109,7 @@ class ApiController extends AbstractController
                 ->setFirstResult($offset)
                 ->getQuery()
                 ->getResult(),
-        ]);
+        ], 200, [], [AbstractObjectNormalizer::SKIP_NULL_VALUES => true]);
     }
 
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
@@ -130,13 +123,9 @@ class ApiController extends AbstractController
         $all = $req->getPayload()->getBoolean("all", false);
         $filter = $req->getPayload()->getBoolean("filter", true);
         try {
-            $urlSplits = parse_url($url);
-            $baseUrl = "{$urlSplits['scheme']}://{$urlSplits['host']}";
-            if (!$this->locator->has($baseUrl)) {
-                throw new UnhandledWebsiteException();
-            }
-            $downloader = $this->locator->get($baseUrl);
-            $episodes = $downloader->createEpisodeDownloads($urlSplits['path'], $all, $filter);
+            $this->locator->parseUrl($url);
+            $downloader = $this->locator->getService();
+            $episodes = $downloader->createEpisodeDownloads($this->locator->getUrlPath(), $all, $filter);
         } catch (CacheAnimeNotFoundException $e) {
             throw new BadRequestHttpException($e->getMessage(), $e);
         }

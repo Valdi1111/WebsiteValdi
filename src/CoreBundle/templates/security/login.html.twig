@@ -1,0 +1,29 @@
+{% extends '@Core/auth_base.html.twig' %}
+
+{% block title %}Login{% endblock %}
+
+{% block form_body %}
+    {{ form_errors(loginForm) }}
+    {% if error %}
+        <div class="alert alert-danger d-block" role="alert">
+            {{ error.messageKey|trans(error.messageData, 'security') }}
+        </div>
+    {% endif %}
+    {{ form(loginForm) }}
+    <div class="d-flex align-items-center my-4">
+        <hr class="border flex-grow-1"/>
+        <p class="fw-bold mx-3 mb-0">OR</p>
+        <hr class="border flex-grow-1"/>
+    </div>
+    <div class="d-flex justify-content-around align-items-center">
+        <button type="button" class="btn btn-social" style="color: #dd4b39;">
+            <i class="fa-2x fa-brands fa-google"></i>
+        </button>
+        <button type="button" class="btn btn-social" style="color: #3B5998;">
+            <i class="fa-2x fa-brands fa-facebook"></i>
+        </button>
+        <button type="button" class="btn btn-social" style="color: #55ACEE;">
+            <i class="fa-2x fa-brands fa-twitter"></i>
+        </button>
+    </div>
+{% endblock %}

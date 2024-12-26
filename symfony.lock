@@ -101,6 +101,18 @@
             "./.env"
         ]
     },
+    "symfony/form": {
+        "version": "7.2",
+        "recipe": {
+            "repo": "github.com/symfony/recipes",
+            "branch": "main",
+            "version": "7.2",
+            "ref": "7d86a6723f4a623f59e2bf966b6aad2fc461d36b"
+        },
+        "files": [
+            "config/packages/csrf.yaml"
+        ]
+    },
     "symfony/framework-bundle": {
         "version": "7.0",
         "recipe": {
@@ -230,6 +242,21 @@
             "./config/routes/security.yaml"
         ]
     },
+    "symfony/stimulus-bundle": {
+        "version": "2.22",
+        "recipe": {
+            "repo": "github.com/symfony/recipes",
+            "branch": "main",
+            "version": "2.20",
+            "ref": "41c4285a926752ec2852a5cafa39e7b527c33a38"
+        },
+        "files": [
+            "assets/bootstrap.js",
+            "assets/controllers.json",
+            "assets/controllers/csrf_protection_controller.js",
+            "assets/controllers/hello_controller.js"
+        ]
+    },
     "symfony/translation": {
         "version": "7.0",
         "recipe": {
@@ -265,6 +292,42 @@
             "ref": "0df5844274d871b37fc3816c57a768ffc60a43a5"
         }
     },
+    "symfony/ux-chartjs": {
+        "version": "v2.22.1"
+    },
+    "symfony/ux-cropperjs": {
+        "version": "v2.22.1"
+    },
+    "symfony/ux-dropzone": {
+        "version": "v2.22.1"
+    },
+    "symfony/ux-lazy-image": {
+        "version": "2.22",
+        "recipe": {
+            "repo": "github.com/symfony/recipes",
+            "branch": "main",
+            "version": "2.18",
+            "ref": "f6554b7efe60280645ac979c80700f66b8432131"
+        },
+        "files": [
+            "config/packages/lazy_image.yaml"
+        ]
+    },
+    "symfony/ux-react": {
+        "version": "2.22",
+        "recipe": {
+            "repo": "github.com/symfony/recipes",
+            "branch": "main",
+            "version": "2.9",
+            "ref": "e970076b31d602ae6e2106cf91a82c7e1f7ddff2"
+        },
+        "files": [
+            "assets/react/controllers/Hello.jsx"
+        ]
+    },
+    "symfony/ux-toggle-password": {
+        "version": "v2.22.1"
+    },
     "symfony/validator": {
         "version": "7.0",
         "recipe": {
@@ -288,6 +351,18 @@
         "files": [
             "./config/packages/web_profiler.yaml",
             "./config/routes/web_profiler.yaml"
+        ]
+    },
+    "symfony/webhook": {
+        "version": "7.2",
+        "recipe": {
+            "repo": "github.com/symfony/recipes",
+            "branch": "main",
+            "version": "6.3",
+            "ref": "0bc853a74c98e448116ba53e118a7b6b3cdf9a03"
+        },
+        "files": [
+            "config/routes/webhook.yaml"
         ]
     },
     "symfony/webpack-encore-bundle": {

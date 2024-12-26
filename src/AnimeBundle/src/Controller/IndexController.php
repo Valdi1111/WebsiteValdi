@@ -15,7 +15,7 @@ class IndexController extends AbstractController
 {
 
     #[Route('/{path}', name: 'index', requirements: ['path' => '^(?!api/).*'], methods: ['GET'], priority: -10)]
-    public function index(Request $request, HubInterface $hub, Discovery $discovery): Response
+    public function index(Request $request, Discovery $discovery): Response
     {
         $discovery->addLink($request);
         return $this->render('@Anime/index.html.twig');

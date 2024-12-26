@@ -18,7 +18,7 @@ class AnimeAddDownloadCommand extends Command
     public function __construct(
         private readonly AnimeDownloaderLocator $locator,
         private readonly MessageBusInterface    $bus,
-        string                                  $name = null)
+        ?string                                  $name = null)
     {
         parent::__construct($name);
     }

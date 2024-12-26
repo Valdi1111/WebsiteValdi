@@ -13,7 +13,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(name: 'anime:cache-refresh', description: 'MyAnimeList cache refresh')]
 class AnimeCacheRefreshCommand extends Command
 {
-    public function __construct(private readonly MyAnimeListService $malService, string $name = null)
+    public function __construct(private readonly MyAnimeListService $malService, ?string $name = null)
     {
         parent::__construct($name);
     }

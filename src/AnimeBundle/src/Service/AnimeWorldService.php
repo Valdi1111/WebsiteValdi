@@ -3,6 +3,7 @@
 namespace App\AnimeBundle\Service;
 
 use App\AnimeBundle\Entity\EpisodeDownload;
+use App\AnimeBundle\Entity\EpisodeDownloadRequest;
 use App\AnimeBundle\Entity\ListAnime;
 use App\AnimeBundle\Entity\SeasonFolder;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
@@ -109,11 +110,11 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
     /**
      * @inheritDoc
      */
-    public function createEpisodeDownloads(string $urlPath, bool $allEpisodes = false, bool $filter = true, bool $save = true): array
+    public function createEpisodeDownloads(EpisodeDownloadRequest $downloadReq): array
     {
-        $globalCrawler = $this->fetchPage($urlPath);
+        $globalCrawler = $this->fetchPage($downloadReq->getUrlPath());
         $malId = $this->scrapeIdFromButton($globalCrawler, 'mal-button');
-        if ($filter) {
+        if ($downloadReq->isFilter()) {
             $anime = $this->entityManager->getRepository(ListAnime::class)->findOneBy(['id' => $malId]);
             if (!$anime) {
                 throw new CacheAnimeNotFoundException($malId);
@@ -124,15 +125,15 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
         $folder = $this->processFolder($malId);
 
         $episodes = [];
-        $items = $globalCrawler->filter("div.server.active ul.episodes.range li.episode a" . ($allEpisodes ? "" : ".active"));
+        $items = $globalCrawler->filter("div.server.active ul.episodes.range li.episode a" . ($downloadReq->isAll() ? "" : ".active"));
         foreach ($items as $item) {
             $episode = $this->getEpisodeObject($globalCrawler, new Crawler($item), $folder, $malId, $alId);
-            if ($save) {
+            if ($downloadReq->isSave()) {
                 $this->entityManager->persist($episode);
             }
             $episodes[] = $episode;
         }
-        if ($save) {
+        if ($downloadReq->isSave()) {
             $this->entityManager->flush();
         }
         return $episodes;

@@ -2,6 +2,7 @@
 
 namespace App\AnimeBundle\Command;
 
+use App\AnimeBundle\Entity\EpisodeDownloadRequest;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
 use App\AnimeBundle\Service\AnimeDownloaderInterface;
 use ElephantIO\Client;
@@ -30,7 +31,7 @@ class AnimeAwSocketListener extends Command
         #[Autowire('%anime.animeworld.api_url%')] private readonly string   $awApiUrl,
         #[Autowire('%anime.animeworld.client_id%')] private readonly string $awClientId,
         #[Autowire('%anime.animeworld.api_key%')] private readonly string   $awApiKey,
-        ?string                                                              $name = null)
+        ?string                                                             $name = null)
     {
         parent::__construct($name);
     }
@@ -148,8 +149,10 @@ class AnimeAwSocketListener extends Command
         if ($data['anime']['dub']) {
             return;
         }
+        $downloadReq = (new EpisodeDownloadRequest())
+            ->setUrl($data['episode']['link']);
         try {
-            $episodes = $this->animeWorldDownloader->createEpisodeDownloads(parse_url($data['episode']['link'], PHP_URL_PATH));
+            $episodes = $this->animeWorldDownloader->createEpisodeDownloads($downloadReq);
             if (!count($episodes)) {
                 $this->animeAwHandlerLogger->error("No episode found!", ['episode' => $data['episode']]);
                 return;

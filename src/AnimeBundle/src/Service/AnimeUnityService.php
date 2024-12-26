@@ -3,6 +3,7 @@
 namespace App\AnimeBundle\Service;
 
 use App\AnimeBundle\Entity\EpisodeDownload;
+use App\AnimeBundle\Entity\EpisodeDownloadRequest;
 use App\AnimeBundle\Entity\ListAnime;
 use App\AnimeBundle\Entity\SeasonFolder;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
@@ -141,13 +142,13 @@ readonly class AnimeUnityService implements AnimeDownloaderInterface
     /**
      * @inheritDoc
      */
-    public function createEpisodeDownloads(string $urlPath, bool $allEpisodes = false, bool $filter = true, bool $save = true): array
+    public function createEpisodeDownloads(EpisodeDownloadRequest $downloadReq): array
     {
-        $globalCrawler = $this->fetchPage($urlPath);
+        $globalCrawler = $this->fetchPage($downloadReq->getUrlPath());
         $pageData = $this->scrapeEpisodeDataFromPage($globalCrawler);
 
         $malId = $pageData['anime']['mal_id'];
-        if ($filter) {
+        if ($downloadReq->isFilter()) {
             $anime = $this->entityManager->getRepository(ListAnime::class)->findOneBy(['id' => $malId]);
             if (!$anime) {
                 throw new CacheAnimeNotFoundException($malId);
@@ -157,15 +158,16 @@ readonly class AnimeUnityService implements AnimeDownloaderInterface
         $alId = $pageData['anime']['anilist_id'];
         $folder = $this->processFolder($malId);
 
+        // TODO scaricare tutti gli episodi solo se $downloadReq->isAll()
         $episodes = [];
         foreach ($pageData['episodes'] as $episodeKey => $episodeData) {
             $episode = $this->getEpisodeObject($pageData, $episodeKey, $folder, $malId, $alId);
-            if ($save) {
+            if ($downloadReq->isSave()) {
                 $this->entityManager->persist($episode);
             }
             $episodes[] = $episode;
         }
-        if ($save) {
+        if ($downloadReq->isSave()) {
             $this->entityManager->flush();
         }
         return $episodes;

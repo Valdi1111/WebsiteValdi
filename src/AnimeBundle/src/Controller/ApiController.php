@@ -2,6 +2,7 @@
 
 namespace App\AnimeBundle\Controller;
 
+use App\AnimeBundle\Entity\EpisodeDownloadRequest;
 use App\AnimeBundle\Entity\EpisodeDownloadState;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
 use App\AnimeBundle\Exception\UnhandledWebsiteException;
@@ -12,10 +13,13 @@ use App\AnimeBundle\Repository\ListMangaRepository;
 use App\AnimeBundle\Service\AnimeDownloaderLocator;
 use App\AnimeBundle\Service\MyAnimeListService;
 use App\CoreBundle\Entity\TableColumn;
+use App\CoreBundle\Entity\TableQueryParameters;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\MapQueryString;
+use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
@@ -63,32 +67,11 @@ class ApiController extends AbstractController
     }
 
     #[Route('/downloads', name: 'downloads', methods: ['GET'])]
-    public function apiDownloads(Request $req, EpisodeDownloadRepository $episodeRepo): Response
+    public function apiDownloads(Request $req, EpisodeDownloadRepository $episodeRepo, #[MapQueryString] TableQueryParameters $params): Response
     {
-        $pagination = $req->query->all("pagination");
-        $filters = $req->query->all("filters");
-        $sortOrder = $req->query->getString("sortOrder");
-        $sortField = $req->query->getString("sortField");
-        $limit = $pagination['pageSize'];
-        $page = $pagination['current'];
-        $offset = $limit * ($page - 1);
-        $qb = $episodeRepo->createQueryBuilder('e');
-        if ($sortField) {
-            $field = lcfirst(str_replace('_', '', ucwords($sortField, '_')));
-            $qb->addOrderBy("e.$field", $sortOrder === 'descend' ? 'DESC' : 'ASC');
-        }
-        foreach ($filters as $filterField => $values) {
-            $field = lcfirst(str_replace('_', '', ucwords($filterField, '_')));
-            if (empty($values)) {
-                continue;
-            }
-            $qb->andWhere("e.$field IN (:{$field}Values)")
-                ->setParameter("{$field}Values", $values);
-        }
-
         return $this->json([
             'columns' => [
-                TableColumn::builder('ID', 'id')->setSorter(true)->setSortDirections(['descend', 'ascend', 'descend'])->setDefaultSortOrder('descend'),
+                TableColumn::builder('ID', 'id')->setSorter(true)->setSortDirections(['descend', 'ascend']),
                 TableColumn::builder('AnimeWorld URL', 'episode_url')->setSorter(true)->setSortDirections(['ascend', 'descend']),
                 TableColumn::builder('Download URL', 'download_url')->setHidden(true),
                 TableColumn::builder('File', 'file')->setHidden(true),
@@ -101,31 +84,18 @@ class ApiController extends AbstractController
                 TableColumn::builder('MAL', 'mal_id'),
                 TableColumn::builder('AL', 'al_id')->setHidden(true),
             ],
-            'count' => $qb->select('COUNT(e)')
-                ->getQuery()
-                ->getSingleScalarResult(),
-            'rows' => $qb->select('e')
-                ->setMaxResults($limit)
-                ->setFirstResult($offset)
-                ->getQuery()
-                ->getResult(),
+            'count' => $params->getQueryResultCount($episodeRepo->createQueryBuilder('e')),
+            'rows' => $params->getQueryResult($episodeRepo->createQueryBuilder('e')),
         ], 200, [], [AbstractObjectNormalizer::SKIP_NULL_VALUES => true]);
     }
 
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
     #[Route('/downloads', name: 'downloads_add', methods: ['POST'])]
-    public function apiDownloadsAdd(Request $req, MessageBusInterface $bus): Response
+    public function apiDownloadsAdd(Request $req, #[MapRequestPayload] EpisodeDownloadRequest $downloadReq, MessageBusInterface $bus): Response
     {
-        if (!$req->getPayload()->has("url")) {
-            throw new BadRequestHttpException("Parameter 'url' not found.");
-        }
-        $url = $req->getPayload()->getString("url");
-        $all = $req->getPayload()->getBoolean("all", false);
-        $filter = $req->getPayload()->getBoolean("filter", true);
         try {
-            $this->locator->parseUrl($url);
-            $downloader = $this->locator->getService();
-            $episodes = $downloader->createEpisodeDownloads($this->locator->getUrlPath(), $all, $filter);
+            $downloader = $this->locator->getService($downloadReq);
+            $episodes = $downloader->createEpisodeDownloads($downloadReq);
         } catch (CacheAnimeNotFoundException $e) {
             throw new BadRequestHttpException($e->getMessage(), $e);
         }

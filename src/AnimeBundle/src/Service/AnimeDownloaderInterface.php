@@ -3,6 +3,7 @@
 namespace App\AnimeBundle\Service;
 
 use App\AnimeBundle\Entity\EpisodeDownload;
+use App\AnimeBundle\Entity\EpisodeDownloadRequest;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
 use Exception;
 
@@ -10,15 +11,12 @@ interface AnimeDownloaderInterface
 {
 
     /**
-     * @param string $urlPath anime url (without hostname)
-     * @param bool $allEpisodes query all episodes
-     * @param bool $filter filter if not present in MyAnimeList cache
-     * @param bool $save save to database
+     * @param EpisodeDownloadRequest $downloadReq download request data
      * @return EpisodeDownload[]
      * @throws CacheAnimeNotFoundException
      * @throws Exception
      */
-    public function createEpisodeDownloads(string $urlPath, bool $allEpisodes = false, bool $filter = true, bool $save = true): array;
+    public function createEpisodeDownloads(EpisodeDownloadRequest $downloadReq): array;
 
     /**
      * Website base url

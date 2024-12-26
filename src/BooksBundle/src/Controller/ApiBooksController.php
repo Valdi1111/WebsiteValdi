@@ -26,6 +26,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\MapQueryParameter;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Mercure\Authorization;
 use Symfony\Component\Mercure\HubInterface;
@@ -88,16 +89,15 @@ class ApiBooksController extends AbstractController
     }
 
     #[Route('/books/all', name: 'books_all', methods: ['GET'])]
-    public function apiBooksAll(Request $req, #[CurrentUser] ?User $user, BookRepository $bookRepo, Authorization $authorization): Response
+    public function apiBooksAll(
+        Request $req,
+        #[CurrentUser] ?User $user,
+        #[MapQueryParameter(filter: \FILTER_VALIDATE_INT, options: ['min_range' => 0])] int $limit,
+        #[MapQueryParameter(filter: \FILTER_VALIDATE_INT, options: ['min_range' => 0])] int $offset,
+        BookRepository $bookRepo,
+        Authorization $authorization
+    ): Response
     {
-        if (!$req->query->has('limit')) {
-            throw new BadRequestHttpException("Parameter 'limit' not found.");
-        }
-        if (!$req->query->has('offset')) {
-            throw new BadRequestHttpException("Parameter 'offset' not found.");
-        }
-        $limit = $req->query->getInt('limit');
-        $offset = $req->query->getInt('offset');
         $authorization->setCookie($req, [Channel::LIBRARY_ALL]);
         return $this->json($bookRepo->getAll($this->getLibrary(), $user, $limit, $offset), 200, [], [
             BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_THUMB,
@@ -106,16 +106,15 @@ class ApiBooksController extends AbstractController
     }
 
     #[Route('/books/not-in-shelves', name: 'books_not_in_shelves', methods: ['GET'])]
-    public function apiBooksNotInShelves(Request $req, #[CurrentUser] ?User $user, BookRepository $bookRepo, Authorization $authorization): Response
+    public function apiBooksNotInShelves(
+        Request $req,
+        #[CurrentUser] ?User $user,
+        #[MapQueryParameter(filter: \FILTER_VALIDATE_INT, options: ['min_range' => 0])] int $limit,
+        #[MapQueryParameter(filter: \FILTER_VALIDATE_INT, options: ['min_range' => 0])] int $offset,
+        BookRepository $bookRepo,
+        Authorization $authorization
+    ): Response
     {
-        if (!$req->query->has('limit')) {
-            throw new BadRequestHttpException("Parameter 'limit' not found.");
-        }
-        if (!$req->query->has('offset')) {
-            throw new BadRequestHttpException("Parameter 'offset' not found.");
-        }
-        $limit = $req->query->getInt('limit');
-        $offset = $req->query->getInt('offset');
         $authorization->setCookie($req, [Channel::LIBRARY_NOT_IN_SHELVES]);
         return $this->json($bookRepo->getNotInShelves($this->getLibrary(), $user, $limit, $offset), 200, [], [
             BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_THUMB,

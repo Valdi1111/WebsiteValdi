@@ -12,9 +12,9 @@ class TableColumn
     #[SerializedName('dataIndex')]
     private string $dataIndex;
     #[SerializedName('sorter')]
-    private ?bool $sorter = null;
+    private ?bool $sorter = false;
     #[SerializedName('sortDirections')]
-    private ?array $sortDirections = null;
+    private ?array $sortDirections = [];
     #[SerializedName('defaultSortOrder')]
     private ?string $defaultSortOrder = null;
     #[SerializedName('filters')]
@@ -22,7 +22,7 @@ class TableColumn
     #[SerializedName('hidden')]
     private bool $hidden = false;
 
-    public static function builder(string $title, string $dataIndex): TableColumn
+    public static function builder(string $title, string $dataIndex): static
     {
         return (new TableColumn())->setTitle($title)->setDataIndex($dataIndex);
     }
@@ -32,7 +32,7 @@ class TableColumn
         return $this->title;
     }
 
-    public function setTitle(string $title): TableColumn
+    public function setTitle(string $title): static
     {
         $this->title = $title;
         return $this;
@@ -43,7 +43,7 @@ class TableColumn
         return $this->dataIndex;
     }
 
-    public function setDataIndex(string $dataIndex): TableColumn
+    public function setDataIndex(string $dataIndex): static
     {
         $this->dataIndex = $dataIndex;
         return $this;
@@ -54,7 +54,7 @@ class TableColumn
         return $this->sorter;
     }
 
-    public function setSorter(?bool $sorter): TableColumn
+    public function setSorter(?bool $sorter): static
     {
         $this->sorter = $sorter;
         return $this;
@@ -65,7 +65,7 @@ class TableColumn
         return $this->sortDirections;
     }
 
-    public function setSortDirections(?array $sortDirections): TableColumn
+    public function setSortDirections(?array $sortDirections): static
     {
         $this->sortDirections = $sortDirections;
         return $this;
@@ -76,7 +76,7 @@ class TableColumn
         return $this->defaultSortOrder;
     }
 
-    public function setDefaultSortOrder(?string $defaultSortOrder): TableColumn
+    public function setDefaultSortOrder(?string $defaultSortOrder): static
     {
         $this->defaultSortOrder = $defaultSortOrder;
         return $this;
@@ -87,7 +87,7 @@ class TableColumn
         return $this->filters;
     }
 
-    public function setFilters(?array $filters): TableColumn
+    public function setFilters(?array $filters): static
     {
         $this->filters = $filters;
         return $this;
@@ -97,7 +97,7 @@ class TableColumn
      * @param class-string<UnitEnum> $enumClass
      * @return self
      */
-    public function setFiltersFromEnum(string $enumClass): TableColumn
+    public function setFiltersFromEnum(string $enumClass): static
     {
         $this->setFilters(array_map(
             fn($e) => ['text' => str_replace('_', ' ', ucfirst($e->value)), 'value' => $e->value],
@@ -111,7 +111,7 @@ class TableColumn
         return $this->hidden;
     }
 
-    public function setHidden(bool $hidden): TableColumn
+    public function setHidden(bool $hidden): static
     {
         $this->hidden = $hidden;
         return $this;

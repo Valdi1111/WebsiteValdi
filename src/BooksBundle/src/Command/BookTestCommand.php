@@ -21,7 +21,7 @@ class BookTestCommand extends Command
     public function __construct(
         private readonly LibraryRepository $libraryRepo,
         private readonly BookRepository    $bookRepo,
-        ?string                             $name = null)
+        ?string                            $name = null)
     {
         $library = $this->libraryRepo->findOneBy(['id' => 1]);
         $this->baseFolder = $library->getBasePath();

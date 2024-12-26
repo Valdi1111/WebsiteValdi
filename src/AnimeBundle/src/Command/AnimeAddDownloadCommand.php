@@ -2,6 +2,7 @@
 
 namespace App\AnimeBundle\Command;
 
+use App\AnimeBundle\Entity\EpisodeDownloadRequest;
 use App\AnimeBundle\Message\EpisodeDownloadNotification;
 use App\AnimeBundle\Service\AnimeDownloaderLocator;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -18,7 +19,7 @@ class AnimeAddDownloadCommand extends Command
     public function __construct(
         private readonly AnimeDownloaderLocator $locator,
         private readonly MessageBusInterface    $bus,
-        ?string                                  $name = null)
+        ?string                                 $name = null)
     {
         parent::__construct($name);
     }
@@ -33,14 +34,14 @@ class AnimeAddDownloadCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $url = $input->getArgument('url');
-        $all = $input->getOption('all');
-        $noFilter = $input->getOption('no-filter');
-        $simulate = $input->getOption('simulate');
+        $downloadReq = (new EpisodeDownloadRequest())
+            ->setUrl($input->getArgument('url'))
+            ->setAll($input->getOption('all'))
+            ->setFilter(!$input->getOption('no-filter'))
+            ->setSave(!$input->getOption('simulate'));
 
-        $this->locator->parseUrl($url);
-        $downloader = $this->locator->getService();
-        $episodes = $downloader->createEpisodeDownloads($this->locator->getUrlPath(), $all, !$noFilter, !$simulate);
+        $downloader = $this->locator->getService($downloadReq);
+        $episodes = $downloader->createEpisodeDownloads($downloadReq);
         if (!count($episodes)) {
             $output->writeln("");
             $output->writeln("No episodes found!");
@@ -52,7 +53,7 @@ class AnimeAddDownloadCommand extends Command
         $output->writeln("");
         foreach ($episodes as $episode) {
             $output->writeln($episode->getEpisode() . " - " . $episode->getFile());
-            if (!$simulate) {
+            if ($downloadReq->isSave()) {
                 $this->bus->dispatch(new EpisodeDownloadNotification($episode->getId()));
             }
         }

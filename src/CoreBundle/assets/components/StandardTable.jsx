@@ -10,7 +10,7 @@ export default function StandardTable({ backendFunction }) {
             current: 1,
             pageSize: 10,
         },
-        sortOrder: 'descend',
+        sortOrder: 'ascend',
         sortField: 'id',
     });
 
@@ -42,7 +42,7 @@ export default function StandardTable({ backendFunction }) {
         );
     }
 
-    function handleTableChange(pagination, filters, sorter) {
+    function handleTableChange(pagination, filters, sorter, extra) {
         setTableParams({
             pagination,
             filters,
@@ -62,7 +62,6 @@ export default function StandardTable({ backendFunction }) {
             value={columns.filter(c => !c.hidden).map(c => c.dataIndex)}
             options={columns.map(c => ({label: c.title, value: c.dataIndex}))}
             onChange={values => {
-                console.log(values)
                 const cols = [];
                 for (const colsKey in columns) {
                     cols[colsKey] = {...columns[colsKey], hidden: !values.includes(columns[colsKey].dataIndex)};

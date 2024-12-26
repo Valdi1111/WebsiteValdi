@@ -31,6 +31,7 @@ class LoginType extends AbstractType
             ->add('_remember_me', CheckboxType::class, [
                 'data' => true,
                 'mapped' => false,
+                'required' => false,
             ])
             ->add('submit', SubmitType::class, [
                 'attr' => ['class' => 'btn-primary btn-lg w-100'],

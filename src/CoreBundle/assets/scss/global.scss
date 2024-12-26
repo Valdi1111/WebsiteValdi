@@ -77,3 +77,13 @@ $fa-font-path: "~@fortawesome/fontawesome-free/webfonts";
   width: 32px;
   height: 32px;
 }
+
+label.required:before {
+  content: "* ";
+  color: red;
+  font-weight: bold;
+}
+
+.form-floating > input[data-controller="symfony--ux-toggle-password--toggle-password"] ~ button.toggle-password-button {
+  top: 0.65rem;
+}

@@ -9,6 +9,7 @@ if (!Encore.isRuntimeEnvironmentConfigured()) {
 
 Encore
     .addAliases({
+        '@App': path.resolve(__dirname, 'assets/'),
         '@CoreBundle': path.resolve(__dirname, 'src/CoreBundle/assets/'),
         '@AnimeBundle': path.resolve(__dirname, 'src/AnimeBundle/assets/'),
         '@BooksBundle': path.resolve(__dirname, 'src/BooksBundle/assets/'),
@@ -71,7 +72,7 @@ Encore
     // enables and configure @babel/preset-env polyfills
     .configureBabelPresetEnv((config) => {
         config.useBuiltIns = 'usage';
-        config.corejs = '3.23';
+        config.corejs = '3.38';
     })
 
     // enables Sass/SCSS support
@@ -83,12 +84,12 @@ Encore
     // uncomment if you use React
     .enableReactPreset()
 
-// uncomment to get integrity="..." attributes on your script & link tags
-// requires WebpackEncoreBundle 1.4 or higher
-//.enableIntegrityHashes(Encore.isProduction())
+    // uncomment to get integrity="..." attributes on your script & link tags
+    // requires WebpackEncoreBundle 1.4 or higher
+    //.enableIntegrityHashes(Encore.isProduction())
 
-// uncomment if you're having problems with a jQuery plugin
-//.autoProvidejQuery()
+    // uncomment if you're having problems with a jQuery plugin
+    //.autoProvidejQuery()
 ;
 
 module.exports = Encore.getWebpackConfig();

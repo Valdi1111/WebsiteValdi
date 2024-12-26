@@ -10,7 +10,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[IsGranted('ROLE_USER_BOOKS', null, 'Access Denied.')]
-#[Route('/api/libraries/{libraryId}/files', name: 'api_libraries_id_files_', requirements: ['libraryId' => '\d+'], format: 'json')]
+#[Route('/api/libraries/{library}/files', name: 'api_libraries_id_files_', requirements: ['library' => '\d+'], format: 'json')]
 class ApiFilesController extends AbstractController
 {
     use FileManagerTrait;
@@ -22,7 +22,7 @@ class ApiFilesController extends AbstractController
         private readonly RequestStack      $requestStack)
     {
         $req = $this->requestStack->getCurrentRequest();
-        $library = $this->libraryRepo->findOneBy(['id' => $req->attributes->getInt('libraryId')]);
+        $library = $this->libraryRepo->findOneBy(['id' => $req->attributes->getInt('library')]);
         if (!$library) {
             throw $this->createNotFoundException("Library not found.");
         }

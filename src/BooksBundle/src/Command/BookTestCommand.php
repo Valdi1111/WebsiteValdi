@@ -2,8 +2,10 @@
 
 namespace App\BooksBundle\Command;
 
+use App\BooksBundle\Entity\Book;
 use App\BooksBundle\Repository\BookRepository;
 use App\BooksBundle\Repository\LibraryRepository;
+use Kiwilan\Archive\Models\ArchiveItem;
 use Kiwilan\Ebook\Ebook;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -18,8 +20,8 @@ class BookTestCommand extends Command
 
     public function __construct(
         private readonly LibraryRepository $libraryRepo,
-        private readonly BookRepository $bookRepo,
-        string $name = null)
+        private readonly BookRepository    $bookRepo,
+        ?string                             $name = null)
     {
         $library = $this->libraryRepo->findOneBy(['id' => 1]);
         $this->baseFolder = $library->getBasePath();
@@ -28,10 +30,14 @@ class BookTestCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        /** @var Book[] $books */
         $books = $this->bookRepo
             ->createQueryBuilder('b')
-            ->setFirstResult(500)
+            //->setFirstResult(500)
             //->setMaxResults(100)
+            //->andWhere('b.id BETWEEN 586 AND 606')
+            //->andWhere('b.id = 586')
+            //->andWhere('b.id = 103')
             ->getQuery()
             ->getResult();
         foreach ($books as $book) {
@@ -49,9 +55,9 @@ class BookTestCommand extends Command
             //    return isset($item['properties']) && $item['properties'] === 'nav';
             //});
 
-            if(empty($ebook->getParser()->getEpub()->getNcx())) {
-                $output->writeln($filepath);
-            }
+//            if(empty($ebook->getParser()->getEpub()->getNcx())) {
+//                $output->writeln($filepath);
+//            }
             //$output->writeln("  - " . (empty($list) ? "NON C'E'" : "ok"));
             //$output->writeln("  - " . (empty($ebook->getParser()->getEpub()->getNcx()->getNavPoints()) ? "##### NON C'E'" : "ok"));
 
@@ -64,8 +70,49 @@ class BookTestCommand extends Command
             //dump($ebook->getParser()->getEpub()->getNcx());
             //dump($ebook->getParser()->getEpub()->getChapters());
 
+            $coverItem = $this->getCoverFile($ebook);
+            if (empty($coverItem)) {
+                dump($book->getId(), $book->getUrl());
+            }
         }
         return Command::SUCCESS;
+    }
+
+    private function getCoverFile(Ebook $ebook): ?ArchiveItem
+    {
+        $coverHref = $this->getCoverHref($ebook);
+        if(empty($coverHref)) {
+            return null;
+        }
+        $rootPath = $this->getRootPath($ebook);
+        if (!empty($rootPath)) {
+            $coverHref = "$rootPath/$coverHref";
+        }
+        foreach ($ebook->getArchive()->getFileItems() as $fileItem) {
+            if ($fileItem->isImage() && str_ends_with($fileItem->getPath(), $coverHref)) {
+                return $fileItem;
+            }
+        }
+        return null;
+    }
+
+    private function getRootPath(Ebook $ebook): string
+    {
+        $opfPath = $ebook->getParser()->getEpub()->getContainer()->getOpfPath();
+        return substr($opfPath, 0, strrpos($opfPath, "/"));
+    }
+
+    private function getCoverHref(Ebook $ebook): ?string
+    {
+        $opf = $ebook->getParser()->getEpub()->getOpf();
+        $cover = $opf->getMetaItem('cover')?->getContents();
+        foreach ($opf->getManifest()['item'] as $item) {
+            if ((isset($item['@attributes']['properties']) && str_starts_with($item['@attributes']['properties'], 'cover-image')) ||
+                $item['@attributes']['id'] === $cover) {
+                return $item['@attributes']['href'];
+            }
+        }
+        return null;
     }
 
 }

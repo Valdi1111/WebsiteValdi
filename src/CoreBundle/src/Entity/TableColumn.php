@@ -12,13 +12,13 @@ class TableColumn
     #[SerializedName('dataIndex')]
     private string $dataIndex;
     #[SerializedName('sorter')]
-    private bool $sorter = false;
+    private ?bool $sorter = null;
     #[SerializedName('sortDirections')]
-    private array $sortDirections = [];
+    private ?array $sortDirections = null;
     #[SerializedName('defaultSortOrder')]
-    private string $defaultSortOrder = '';
+    private ?string $defaultSortOrder = null;
     #[SerializedName('filters')]
-    private array $filters = [];
+    private ?array $filters = null;
     #[SerializedName('hidden')]
     private bool $hidden = false;
 
@@ -49,45 +49,45 @@ class TableColumn
         return $this;
     }
 
-    public function isSorter(): bool
+    public function hasSorter(): ?bool
     {
         return $this->sorter;
     }
 
-    public function setSorter(bool $sorter): TableColumn
+    public function setSorter(?bool $sorter): TableColumn
     {
         $this->sorter = $sorter;
         return $this;
     }
 
-    public function getSortDirections(): array
+    public function getSortDirections(): ?array
     {
         return $this->sortDirections;
     }
 
-    public function setSortDirections(array $sortDirections): TableColumn
+    public function setSortDirections(?array $sortDirections): TableColumn
     {
         $this->sortDirections = $sortDirections;
         return $this;
     }
 
-    public function getDefaultSortOrder(): string
+    public function getDefaultSortOrder(): ?string
     {
         return $this->defaultSortOrder;
     }
 
-    public function setDefaultSortOrder(string $defaultSortOrder): TableColumn
+    public function setDefaultSortOrder(?string $defaultSortOrder): TableColumn
     {
         $this->defaultSortOrder = $defaultSortOrder;
         return $this;
     }
 
-    public function getFilters(): array
+    public function getFilters(): ?array
     {
         return $this->filters;
     }
 
-    public function setFilters(array $filters): TableColumn
+    public function setFilters(?array $filters): TableColumn
     {
         $this->filters = $filters;
         return $this;

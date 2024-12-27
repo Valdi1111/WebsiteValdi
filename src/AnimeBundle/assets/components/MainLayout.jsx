@@ -9,6 +9,9 @@ export default function MainLayout({children}) {
             <HeaderNav
                 navbar={<>
                     <HeaderNavItem path="/downloads" name="Downloads"/>
+                    <HeaderNavItem path="/season/folders" name="Season Folders"/>
+                    <HeaderNavItem path="/list/anime" name="List Anime"/>
+                    <HeaderNavItem path="/list/manga" name="List Manga"/>
                     <HeaderNavItem path="/files" name="Files"/>
                 </>}
                 dropdown={

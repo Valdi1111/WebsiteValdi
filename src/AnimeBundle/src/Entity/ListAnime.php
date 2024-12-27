@@ -4,6 +4,7 @@ namespace App\AnimeBundle\Entity;
 
 use App\AnimeBundle\Repository\ListAnimeRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Attribute\SerializedPath;
 
 #[ORM\Table(name: 'list_anime')]
 #[ORM\Entity(repositoryClass: ListAnimeRepository::class)]

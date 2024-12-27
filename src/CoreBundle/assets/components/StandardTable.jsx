@@ -1,8 +1,9 @@
-import {Checkbox, Divider, Table} from 'antd';
+import { Checkbox, Divider, Table } from 'antd';
 import React from 'react';
 
 export default function StandardTable({ backendFunction }) {
     const [columns, setColumns] = React.useState([]);
+    const [ready, setReady] = React.useState(false);
     const [data, setData] = React.useState([]);
     const [loading, setLoading] = React.useState(false);
     const [tableParams, setTableParams] = React.useState({
@@ -13,6 +14,15 @@ export default function StandardTable({ backendFunction }) {
         sortOrder: 'ascend',
         sortField: 'id',
     });
+
+    React.useEffect(() => {
+        backendFunction().then(
+            res => {
+                setColumns(res.data.columns);
+                setReady(true);
+            }
+        );
+    }, []);
 
     React.useEffect(() => {
         fetchData();
@@ -28,7 +38,6 @@ export default function StandardTable({ backendFunction }) {
         setLoading(true);
         backendFunction(tableParams).then(
             res => {
-                setColumns(res.data.columns);
                 setData(res.data.rows);
                 setLoading(false);
                 setTableParams({
@@ -60,23 +69,23 @@ export default function StandardTable({ backendFunction }) {
         <Divider>Columns displayed</Divider>
         <Checkbox.Group
             value={columns.filter(c => !c.hidden).map(c => c.dataIndex)}
-            options={columns.map(c => ({label: c.title, value: c.dataIndex}))}
+            options={columns.map(c => ({ label: c.title, value: c.dataIndex }))}
             onChange={values => {
                 const cols = [];
                 for (const colsKey in columns) {
-                    cols[colsKey] = {...columns[colsKey], hidden: !values.includes(columns[colsKey].dataIndex)};
+                    cols[colsKey] = { ...columns[colsKey], hidden: !values.includes(columns[colsKey].dataIndex) };
                 }
                 setColumns(cols);
             }}
         />
-        <Table
+        {ready && <Table
             columns={columns}
             rowKey={(record) => record.id}
             dataSource={data}
             pagination={tableParams.pagination}
             loading={loading}
             onChange={handleTableChange}
-        />
+        />}
     </>;
 
 }

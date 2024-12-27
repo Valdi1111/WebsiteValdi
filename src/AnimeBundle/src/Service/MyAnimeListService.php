@@ -24,10 +24,10 @@ readonly class MyAnimeListService
     const array FIELDS_MANGA = ['id', 'title', 'alternative_titles', 'nsfw', 'media_type', 'num_volumes', 'num_chapters', 'list_status'];
 
     public function __construct(
-        private readonly LoggerInterface        $animeLogger,
-        private readonly EntityManagerInterface $entityManager,
-        private readonly HttpClientInterface    $animeMyanimelistClient,
-        private readonly MessageBusInterface    $bus)
+        private LoggerInterface        $animeLogger,
+        private EntityManagerInterface $entityManager,
+        private HttpClientInterface    $animeMyanimelistClient,
+        private MessageBusInterface    $bus)
     {
     }
 
@@ -65,8 +65,8 @@ readonly class MyAnimeListService
             ->delete()
             ->getQuery()
             ->execute();
-        foreach ($newList as $anime) {
-            $this->entityManager->persist($anime);
+        foreach ($newList as $item) {
+            $this->entityManager->persist($item);
         }
         $this->entityManager->flush();
         $this->animeLogger->info("Successfully refreshed $type cache! (found (" . count($newList) . ") entries)");

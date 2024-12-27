@@ -4,12 +4,17 @@ namespace App\AnimeBundle\Controller;
 
 use App\AnimeBundle\Entity\EpisodeDownloadRequest;
 use App\AnimeBundle\Entity\EpisodeDownloadState;
+use App\AnimeBundle\Entity\ListAnimeStatus;
+use App\AnimeBundle\Entity\ListAnimeType;
+use App\AnimeBundle\Entity\ListMangaStatus;
+use App\AnimeBundle\Entity\ListMangaType;
+use App\AnimeBundle\Entity\Nsfw;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
-use App\AnimeBundle\Exception\UnhandledWebsiteException;
 use App\AnimeBundle\Message\EpisodeDownloadNotification;
 use App\AnimeBundle\Repository\EpisodeDownloadRepository;
 use App\AnimeBundle\Repository\ListAnimeRepository;
 use App\AnimeBundle\Repository\ListMangaRepository;
+use App\AnimeBundle\Repository\SeasonFolderRepository;
 use App\AnimeBundle\Service\AnimeDownloaderLocator;
 use App\AnimeBundle\Service\MyAnimeListService;
 use App\CoreBundle\Entity\TableColumn;
@@ -39,15 +44,53 @@ class ApiController extends AbstractController
     }
 
     #[Route('/list/anime', name: 'list_anime', methods: ['GET'])]
-    public function apiListAnime(ListAnimeRepository $listRepo): Response
+    public function apiListAnime(ListAnimeRepository $listRepo, #[MapQueryString] TableQueryParameters $params): Response
     {
-        return $this->json($listRepo->findAll());
+        return $this->json([
+            'columns' => [
+                TableColumn::builder('ID', 'id')->setSorter(true)->setSortDirections(['descend', 'ascend']),
+                TableColumn::builder('Title', 'title')->setSorter(true)->setSortDirections(['ascend', 'descend']),
+                TableColumn::builder('Title En', 'title_en')->setHidden(true),
+                TableColumn::builder('Nsfw', 'nsfw')->setHidden(true)->setFiltersFromEnum(Nsfw::class),
+                TableColumn::builder('Type', 'media_type')->setFiltersFromEnum(ListAnimeType::class),
+                TableColumn::builder('Episodes', 'num_episodes'),
+                TableColumn::builder('Status', 'status')->setFiltersFromEnum(ListAnimeStatus::class),
+            ],
+            'count' => $params->getQueryResultCount($listRepo->createQueryBuilder('e')),
+            'rows' => $params->getQueryResult($listRepo->createQueryBuilder('e')),
+        ], 200, [], [AbstractObjectNormalizer::SKIP_NULL_VALUES => true]);
+    }
+
+    #[Route('/list/anime/folders', name: 'list_anime_folders', methods: ['GET'])]
+    public function apiListAnimeFolders(SeasonFolderRepository $listRepo, #[MapQueryString] TableQueryParameters $params): Response
+    {
+        return $this->json([
+            'columns' => [
+                TableColumn::builder('ID', 'id')->setSorter(true)->setSortDirections(['descend', 'ascend']),
+                TableColumn::builder('Folder', 'folder')->setSorter(true)->setSortDirections(['ascend', 'descend']),
+            ],
+            'count' => $params->getQueryResultCount($listRepo->createQueryBuilder('e')),
+            'rows' => $params->getQueryResult($listRepo->createQueryBuilder('e')),
+        ], 200, [], [AbstractObjectNormalizer::SKIP_NULL_VALUES => true]);
     }
 
     #[Route('/list/manga', name: 'list_manga', methods: ['GET'])]
-    public function apiListManga(ListMangaRepository $listRepo): Response
+    public function apiListManga(ListMangaRepository $listRepo, #[MapQueryString] TableQueryParameters $params): Response
     {
-        return $this->json($listRepo->findAll());
+        return $this->json([
+            'columns' => [
+                TableColumn::builder('ID', 'id')->setSorter(true)->setSortDirections(['descend', 'ascend']),
+                TableColumn::builder('Title', 'title')->setSorter(true)->setSortDirections(['ascend', 'descend']),
+                TableColumn::builder('Title En', 'title_en')->setHidden(true),
+                TableColumn::builder('Nsfw', 'nsfw')->setHidden(true)->setFiltersFromEnum(Nsfw::class),
+                TableColumn::builder('Type', 'media_type')->setFiltersFromEnum(ListMangaType::class),
+                TableColumn::builder('Volumes', 'num_volumes'),
+                TableColumn::builder('Chapters', 'num_chapters'),
+                TableColumn::builder('Status', 'status')->setFiltersFromEnum(ListMangaStatus::class),
+            ],
+            'count' => $params->getQueryResultCount($listRepo->createQueryBuilder('e')),
+            'rows' => $params->getQueryResult($listRepo->createQueryBuilder('e')),
+        ], 200, [], [AbstractObjectNormalizer::SKIP_NULL_VALUES => true]);
     }
 
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
@@ -67,7 +110,7 @@ class ApiController extends AbstractController
     }
 
     #[Route('/downloads', name: 'downloads', methods: ['GET'])]
-    public function apiDownloads(Request $req, EpisodeDownloadRepository $episodeRepo, #[MapQueryString] TableQueryParameters $params): Response
+    public function apiDownloads(EpisodeDownloadRepository $episodeRepo, #[MapQueryString] TableQueryParameters $params): Response
     {
         return $this->json([
             'columns' => [

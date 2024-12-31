@@ -7,7 +7,7 @@ export function getListAnime(params) {
 }
 
 export function getSeasonFolders(params) {
-    return axios.get(`${API_URL}/list/anime/folders?${qs.stringify(params)}`);
+    return axios.get(`${API_URL}/season/folders?${qs.stringify(params)}`);
 }
 
 export function getListManga(params) {

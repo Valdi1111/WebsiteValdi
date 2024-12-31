@@ -61,7 +61,7 @@ class ApiController extends AbstractController
         ], 200, [], [AbstractObjectNormalizer::SKIP_NULL_VALUES => true]);
     }
 
-    #[Route('/list/anime/folders', name: 'list_anime_folders', methods: ['GET'])]
+    #[Route('/season/folders', name: 'list_anime_folders', methods: ['GET'])]
     public function apiListAnimeFolders(SeasonFolderRepository $listRepo, #[MapQueryString] TableQueryParameters $params): Response
     {
         return $this->json([

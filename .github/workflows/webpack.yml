@@ -45,7 +45,7 @@ jobs:
 
     # Installazione delle dipendenze PHP con Composer
     - name: Install PHP dependencies with Composer
-      run: composer install --prefer-dist --no-progress
+      run: composer install --no-progress
 
     # Build del progetto con Webpack
     - name: Build Webpack

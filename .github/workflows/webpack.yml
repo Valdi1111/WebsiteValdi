@@ -16,15 +16,12 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    # Setup Node.js 20.x
-    - name: Use Node.js 20.x
-      uses: actions/setup-node@v4
+    # Setup Composer 2.8.3
+    - name: Use Composer 2.8.3
+      uses: php-actions/composer@v6
       with:
-        node-version: 20.x
-
-    # Installazione delle dipendenze Node.js
-    - name: Install Node.js dependencies
-      run: npm install
+        php_version: 8.3
+        version: 2.8.3
 
     # Cache delle dipendenze di Composer
     - name: Cache Composer packages
@@ -35,6 +32,16 @@ jobs:
         key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
         restore-keys: |
           ${{ runner.os }}-php-
+
+    # Setup Node.js 20.x
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20.x
+
+    # Installazione delle dipendenze Node.js
+    - name: Install Node.js dependencies
+      run: npm install
 
     # Installazione delle dipendenze PHP con Composer
     - name: Install PHP dependencies with Composer

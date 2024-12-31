@@ -43,10 +43,6 @@ jobs:
     - name: Install Node.js dependencies
       run: npm install
 
-    # Installazione delle dipendenze PHP con Composer
-    - name: Install PHP dependencies with Composer
-      run: composer install --no-progress
-
     # Build del progetto con Webpack
     - name: Build Webpack
       run: npm run build

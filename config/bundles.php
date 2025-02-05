@@ -4,6 +4,7 @@ return [
     App\CoreBundle\CoreBundle::class => ['all' => true],
     App\AnimeBundle\AnimeBundle::class => ['all' => true],
     App\BooksBundle\BooksBundle::class => ['all' => true],
+    App\PasswordsBundle\PasswordsBundle::class => ['all' => true],
     App\VideosBundle\VideosBundle::class => ['all' => true],
     Doctrine\Bundle\DoctrineBundle\DoctrineBundle::class => ['all' => true],
     Doctrine\Bundle\MigrationsBundle\DoctrineMigrationsBundle::class => ['all' => true],

@@ -1,0 +1,22 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Passwords{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {{ encore_entry_link_tags('passwords') }}
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('passwords') }}
+{% endblock %}
+
+{% block head %}
+    <link rel="manifest" href="{{ path('passwords_manifest') }}" crossorigin="use-credentials">
+{% endblock %}
+
+{% block body %}
+    <div id="root">
+    </div>
+{% endblock %}

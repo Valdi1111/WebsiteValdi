@@ -179,7 +179,7 @@ services:
 }
 ```
 
-### Add to `config/Kernel.php` to enable the bundle
+### Add to `config/bundles.php` to enable the bundle
 ```php
 <?php
 
@@ -213,6 +213,7 @@ Encore
     .copyFiles([
         {from: path.resolve(__dirname, 'src/CoreBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
     ])
+    .addEntry('core', '@CoreBundle/app.js')
 ```
 
 ### Add to `phpstorm.config.js`

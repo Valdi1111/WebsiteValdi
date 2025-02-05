@@ -2,6 +2,8 @@
     "{{ asset('build/images/anime-favicon.ico') }}"
 {% elseif app.request().headers.get('host') is same as(books_domain_name) %}
     "{{ asset('build/images/books-favicon.ico') }}"
+{% elseif app.request().headers.get('host') is same as(passwords_domain_name) %}
+    "{{ asset('build/images/passwords-favicon.ico') }}"
 {% elseif app.request().headers.get('host') is same as(videos_domain_name) %}
     "{{ asset('build/images/videos-favicon.ico') }}"
 {% else %}

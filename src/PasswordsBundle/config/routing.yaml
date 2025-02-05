@@ -1,0 +1,7 @@
+controllers:
+    resource:
+        path: ../src/Controller/
+        namespace: App\PasswordsBundle\Controller
+    type: attribute
+    name_prefix: passwords_
+    host: '%passwords.domain_name%'

@@ -4,6 +4,7 @@ System.config({
         "@CoreBundle/*": "./src/CoreBundle/assets/*",
         "@AnimeBundle/*": "./src/AnimeBundle/assets/*",
         "@BooksBundle/*": "./src/BooksBundle/assets/*",
+        "@PasswordsBundle/*": "./src/PasswordsBundle/assets/*",
         "@VideosBundle/*": "./src/VideosBundle/assets/*",
     }
 });

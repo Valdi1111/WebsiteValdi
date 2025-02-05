@@ -81,6 +81,7 @@
             "App\\CoreBundle\\": "src/CoreBundle/src/",
             "App\\AnimeBundle\\": "src/AnimeBundle/src/",
             "App\\BooksBundle\\": "src/BooksBundle/src/",
+            "App\\PasswordsBundle\\": "src/PasswordsBundle/src/",
             "App\\VideosBundle\\": "src/VideosBundle/src/"
         }
     },
@@ -90,6 +91,7 @@
             "App\\CoreBundle\\Tests\\": "src/CoreBundle/tests/",
             "App\\AnimeBundle\\Tests\\": "src/AnimeBundle/tests/",
             "App\\BooksBundle\\Tests\\": "src/BooksBundle/tests/",
+            "App\\PasswordsBundle\\Tests\\": "src/PasswordsBundle/tests/",
             "App\\VideosBundle\\Tests\\": "src/VideosBundle/tests/"
         }
     },

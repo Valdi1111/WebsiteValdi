@@ -224,3 +224,6 @@ System.config({
     }
 });
 ```
+
+### Refresh composer
+`composer dump-autoload`

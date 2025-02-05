@@ -267,8 +267,9 @@ class ApiBooksController extends AbstractController
 
     #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
     #[Route('/books/{book}', name: 'books_id_delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
-    public function apiBooksIdDelete(#[MapEntity(message: "Book not found.")] Book $book, int $id, HubInterface $hub, CacheManager $cacheManager): Response
+    public function apiBooksIdDelete(#[MapEntity(message: "Book not found.")] Book $book, HubInterface $hub, CacheManager $cacheManager): Response
     {
+        $id = $book->getId();
         if ($book->getBookCache()->hasCover()) {
             $cacheManager->remove($book->getId());
         }
@@ -288,7 +289,7 @@ class ApiBooksController extends AbstractController
             ]),
             true
         ));
-        return $this->json([]);
+        return $this->json(['id' => $id]);
     }
 
     #[Route('/books/{book}/cover', name: 'books_id_cover_get', requirements: ['id' => '\d+'], methods: ['GET'])]
@@ -321,7 +322,7 @@ class ApiBooksController extends AbstractController
             $progress->setPage(0);
         }
         $this->entityManager->flush();
-        return $this->json([]);
+        return $this->json(['id' => $book->getId()]);
     }
 
     #[Route('/books/{book}/metadata', name: 'books_id_metadata', requirements: ['id' => '\d+'], methods: ['GET'])]
@@ -353,7 +354,7 @@ class ApiBooksController extends AbstractController
             $progress->updateLastRead();
         }
         $this->entityManager->flush();
-        return $this->json([]);
+        return $this->json(['id' => $book->getId()]);
     }
 
 }

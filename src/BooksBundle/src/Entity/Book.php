@@ -7,7 +7,6 @@ use App\BooksBundle\Repository\BookRepository;
 use App\CoreBundle\Entity\User;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
-use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\ORM\Mapping\OneToMany;
 use Symfony\Component\Serializer\Attribute\Context;
@@ -15,6 +14,8 @@ use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Serializer\Attribute\Ignore;
 use Symfony\Component\Serializer\Attribute\SerializedName;
 
+#[ORM\Index(name: 'FK_book_shelf', columns: ['shelf_id'])]
+#[ORM\Index(name: 'FK_book_library', columns: ['library_id'])]
 #[ORM\Table(name: 'book')]
 #[ORM\Entity(repositoryClass: BookRepository::class)]
 class Book
@@ -27,25 +28,25 @@ class Book
     #[ORM\Column(length: 255)]
     private ?string $url = null;
 
-    #[ORM\Column(type: Types::DATETIME_MUTABLE, insertable: false, updatable: false)]
-    private ?\DateTimeInterface $created = null;
+    #[ORM\Column(insertable: false, updatable: false, options: ["default" => "CURRENT_TIMESTAMP"])]
+    private ?\DateTimeImmutable $created = null;
 
     #[ORM\ManyToOne(targetEntity: Shelf::class, inversedBy: 'books')]
-    #[ORM\JoinColumn(name: 'shelf_id', referencedColumnName: 'id')]
+    #[ORM\JoinColumn(name: 'shelf_id', referencedColumnName: 'id', onDelete: 'SET NULL')]
     private ?Shelf $shelf = null;
 
     #[ORM\ManyToOne(targetEntity: Library::class)]
-    #[ORM\JoinColumn(name: 'library_id', referencedColumnName: 'id')]
+    #[ORM\JoinColumn(name: 'library_id', referencedColumnName: 'id', onDelete: 'SET NULL')]
     private ?Library $library = null;
 
-    #[ORM\OneToOne(mappedBy: 'book', targetEntity: BookMetadata::class, cascade: ['persist', 'remove'])]
+    #[ORM\OneToOne(targetEntity: BookMetadata::class, mappedBy: 'book', cascade: ['persist', 'remove'])]
     private ?BookMetadata $bookMetadata = null;
 
-    #[ORM\OneToOne(mappedBy: 'book', targetEntity: BookCache::class, cascade: ['persist', 'remove'])]
+    #[ORM\OneToOne(targetEntity: BookCache::class, mappedBy: 'book', cascade: ['persist', 'remove'])]
     private ?BookCache $bookCache = null;
 
     /** @var Collection<int, BookProgress> */
-    #[OneToMany(mappedBy: 'book', targetEntity: BookProgress::class, cascade: ['persist', 'remove'], indexBy: 'user_id')]
+    #[OneToMany(targetEntity: BookProgress::class, mappedBy: 'book', cascade: ['persist', 'remove'], indexBy: 'user_id')]
     private Collection $bookProgresses;
 
     public function __construct()

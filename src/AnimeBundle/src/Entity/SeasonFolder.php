@@ -3,7 +3,6 @@
 namespace App\AnimeBundle\Entity;
 
 use App\AnimeBundle\Repository\SeasonFolderRepository;
-use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Table(name: 'season_folder')]
@@ -17,8 +16,8 @@ class SeasonFolder
     #[ORM\Column(length: 255)]
     private ?string $folder = null;
 
-    #[ORM\Column(type: Types::DATETIME_MUTABLE, insertable: false, updatable: false)]
-    private ?\DateTimeInterface $created = null;
+    #[ORM\Column(insertable: false, updatable: false, options: ["default" => "CURRENT_TIMESTAMP"])]
+    private ?\DateTimeImmutable $created = null;
 
     public function __construct()
     {

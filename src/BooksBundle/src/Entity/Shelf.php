@@ -5,10 +5,12 @@ namespace App\BooksBundle\Entity;
 use App\BooksBundle\Repository\ShelfRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
-use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Ignore;
 
+#[ORM\UniqueConstraint(name: 'IDX_name', columns: ['name'])]
+#[ORM\UniqueConstraint(name: 'IDX_path', columns: ['path'])]
+#[ORM\Index(name: 'FK_shelf_library', columns: ['library_id'])]
 #[ORM\Table(name: 'shelf')]
 #[ORM\Entity(repositoryClass: ShelfRepository::class)]
 class Shelf
@@ -24,17 +26,17 @@ class Shelf
     #[ORM\Column(length: 255, unique: true)]
     private ?string $name = null;
 
-    #[ORM\Column(type: Types::DATETIME_MUTABLE, insertable: false, updatable: false)]
-    private ?\DateTimeInterface $created = null;
+    #[ORM\Column(insertable: false, updatable: false, options: ["default" => "CURRENT_TIMESTAMP"])]
+    private ?\DateTimeImmutable $created = null;
 
     #[ORM\ManyToOne(targetEntity: Library::class, inversedBy: 'shelves')]
-    #[ORM\JoinColumn(name: 'library_id', referencedColumnName: 'id')]
+    #[ORM\JoinColumn(name: 'library_id', referencedColumnName: 'id', onDelete: 'SET NULL')]
     private ?Library $library = null;
 
     /**
      * @var Collection<int, Book>
      */
-    #[ORM\OneToMany(mappedBy: 'shelf', targetEntity: Book::class, indexBy: 'book_id')]
+    #[ORM\OneToMany(targetEntity: Book::class, mappedBy: 'shelf', indexBy: 'book_id')]
     #[ORM\OrderBy(['url' => 'ASC'])]
     private Collection $books;
 

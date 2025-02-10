@@ -9,27 +9,29 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Serializer\Attribute\Ignore;
 
+#[ORM\Index(name: 'FK_book_progress_book', columns: ['book_id'])]
+#[ORM\Index(name: 'FK_book_progress_user', columns: ['user_id'])]
 #[ORM\Table(name: 'book_progress')]
 #[ORM\Entity(repositoryClass: BookProgressRepository::class)]
 class BookProgress
 {
     #[ORM\Id]
     #[ORM\ManyToOne(targetEntity: Book::class, inversedBy: 'bookProgresses')]
-    #[ORM\JoinColumn(name: 'book_id', referencedColumnName: 'id', nullable: false)]
+    #[ORM\JoinColumn(name: 'book_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
     private ?Book $book = null;
 
     #[ORM\Id]
     #[ORM\ManyToOne(targetEntity: User::class)]
-    #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', nullable: false)]
+    #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
     private ?User $user = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $position = null;
 
-    #[ORM\Column]
+    #[ORM\Column(options: ["default" => "0"])]
     private int $page = 0;
 
-    #[ORM\Column(type: Types::DATETIME_MUTABLE)]
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, options: ["default" => "CURRENT_TIMESTAMP"])]
     private \DateTimeInterface $lastRead;
 
     public function __construct()

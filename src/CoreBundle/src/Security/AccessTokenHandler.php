@@ -3,14 +3,13 @@
 namespace App\CoreBundle\Security;
 
 use App\CoreBundle\Repository\TokenRepository;
-use App\CoreBundle\Repository\UserRepository;
 use Symfony\Component\Security\Core\Exception\BadCredentialsException;
 use Symfony\Component\Security\Http\AccessToken\AccessTokenHandlerInterface;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\UserBadge;
 
 readonly class AccessTokenHandler implements AccessTokenHandlerInterface
 {
-    public function __construct(private TokenRepository $tokenRepo, private UserRepository $userRepo)
+    public function __construct(private TokenRepository $tokenRepo)
     {
     }
 
@@ -20,7 +19,6 @@ readonly class AccessTokenHandler implements AccessTokenHandlerInterface
         if (!$token || !$token->isValid()) {
             throw new BadCredentialsException('Invalid credentials.');
         }
-        $user = $this->userRepo->findOneBy(['id' => $token->getId()]);
-        return new UserBadge($user->getUserIdentifier());
+        return new UserBadge($token->getUser()->getUserIdentifier());
     }
 }

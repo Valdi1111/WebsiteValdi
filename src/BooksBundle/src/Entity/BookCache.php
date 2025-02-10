@@ -12,11 +12,11 @@ use Symfony\Component\Serializer\Attribute\Ignore;
 class BookCache
 {
     #[ORM\Id]
-    #[ORM\OneToOne(inversedBy: 'bookCache', targetEntity: Book::class)]
-    #[ORM\JoinColumn(name: 'book_id', referencedColumnName: 'id', nullable: false)]
+    #[ORM\OneToOne(targetEntity: Book::class, inversedBy: 'bookCache')]
+    #[ORM\JoinColumn(name: 'book_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
     private ?Book $book = null;
 
-    #[ORM\Column]
+    #[ORM\Column(options: ["default" => "0"])]
     private bool $cover = false;
 
     #[ORM\Column]

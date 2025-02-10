@@ -4,7 +4,6 @@ namespace App\AnimeBundle\Entity;
 
 use App\AnimeBundle\Repository\ListAnimeRepository;
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Component\Serializer\Attribute\SerializedPath;
 
 #[ORM\Table(name: 'list_anime')]
 #[ORM\Entity(repositoryClass: ListAnimeRepository::class)]
@@ -14,22 +13,22 @@ class ListAnime
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\Column(length: 255, nullable: false)]
+    #[ORM\Column(length: 255, nullable: false, options: ['default' => ""])]
     private ?string $title = '';
 
-    #[ORM\Column(length: 255, nullable: false)]
+    #[ORM\Column(length: 255, nullable: false, options: ['default' => ""])]
     private ?string $titleEn = '';
 
-    #[ORM\Column(length: 32, nullable: false, enumType: Nsfw::class)]
+    #[ORM\Column(length: 50, nullable: false, enumType: Nsfw::class, options: ['default' => Nsfw::white])]
     private ?Nsfw $nsfw = Nsfw::white;
 
-    #[ORM\Column(length: 32, nullable: false, enumType: ListAnimeType::class)]
+    #[ORM\Column(length: 50, nullable: false, enumType: ListAnimeType::class, options: ['default' => ListAnimeType::unknown])]
     private ?ListAnimeType $mediaType = ListAnimeType::unknown;
 
-    #[ORM\Column(nullable: false)]
+    #[ORM\Column(nullable: false, options: ['default' => "0"])]
     private ?int $numEpisodes = 0;
 
-    #[ORM\Column(length: 32, nullable: false, enumType: ListAnimeStatus::class)]
+    #[ORM\Column(length: 50, nullable: false, enumType: ListAnimeStatus::class, options: ['default' => ListAnimeStatus::watching])]
     private ?ListAnimeStatus $status = ListAnimeStatus::watching;
 
     public function getId(): int

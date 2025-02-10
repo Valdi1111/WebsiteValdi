@@ -12,8 +12,8 @@ use Symfony\Component\Serializer\Attribute\Ignore;
 class BookMetadata
 {
     #[ORM\Id]
-    #[ORM\OneToOne(inversedBy: 'bookMetadata', targetEntity: Book::class)]
-    #[ORM\JoinColumn(name: 'book_id', referencedColumnName: 'id', nullable: false)]
+    #[ORM\OneToOne(targetEntity: Book::class, inversedBy: 'bookMetadata')]
+    #[ORM\JoinColumn(name: 'book_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
     private ?Book $book = null;
 
     #[ORM\Column(length: 255, nullable: true)]

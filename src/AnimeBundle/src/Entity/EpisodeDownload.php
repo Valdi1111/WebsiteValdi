@@ -24,7 +24,7 @@ class EpisodeDownload
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $downloadUrl = null;
 
-    #[ORM\Column(length: 32, enumType: EpisodeDownloadState::class)]
+    #[ORM\Column(length: 50, enumType: EpisodeDownloadState::class, options: ["default" => EpisodeDownloadState::created])]
     private ?EpisodeDownloadState $state = EpisodeDownloadState::created;
 
     #[ORM\Column(length: 255, nullable: true)]
@@ -33,8 +33,8 @@ class EpisodeDownload
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $file = null;
 
-    #[ORM\Column(type: Types::DATETIME_MUTABLE, insertable: false, updatable: false)]
-    private ?\DateTimeInterface $created = null;
+    #[ORM\Column(insertable: false, updatable: false, options: ["default" => "CURRENT_TIMESTAMP"])]
+    private ?\DateTimeImmutable $created = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?\DateTimeInterface $started = null;
@@ -42,10 +42,10 @@ class EpisodeDownload
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?\DateTimeInterface $completed = null;
 
-    #[ORM\Column(nullable: true)]
+    #[ORM\Column(nullable: true, options: ["unsigned" => true])]
     private ?int $malId = null;
 
-    #[ORM\Column(nullable: true)]
+    #[ORM\Column(nullable: true, options: ["unsigned" => true])]
     private ?int $alId = null;
 
     public function __construct()

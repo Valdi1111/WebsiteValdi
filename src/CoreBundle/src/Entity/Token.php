@@ -5,40 +5,42 @@ namespace App\CoreBundle\Entity;
 use App\CoreBundle\Repository\TokenRepository;
 use Doctrine\ORM\Mapping as ORM;
 
+#[ORM\UniqueConstraint(name: 'IDX_access_token', columns: ['access_token'])]
 #[ORM\Table(name: 'token')]
 #[ORM\Entity(repositoryClass: TokenRepository::class)]
 class Token
 {
     #[ORM\Id]
-    #[ORM\Column]
-    private ?int $id = null;
+    #[ORM\OneToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(name: 'id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+    private ?User $user = null;
 
     #[ORM\Column(length: 255, unique: true)]
-    private ?string $access_token = null;
+    private ?string $accessToken = null;
 
-    #[ORM\Column]
-    private ?bool $valid = null;
+    #[ORM\Column(options: ["default" => "1"])]
+    private ?bool $valid = true;
 
-    public function getId(): ?int
+    public function getUser(): ?User
     {
-        return $this->id;
+        return $this->user;
     }
 
-    public function setId(int $id): static
+    public function setUser(User $user): static
     {
-        $this->id = $id;
+        $this->user = $user;
 
         return $this;
     }
 
     public function getAccessToken(): ?string
     {
-        return $this->access_token;
+        return $this->accessToken;
     }
 
-    public function setAccessToken(string $access_token): static
+    public function setAccessToken(string $accessToken): static
     {
-        $this->access_token = $access_token;
+        $this->accessToken = $accessToken;
 
         return $this;
     }

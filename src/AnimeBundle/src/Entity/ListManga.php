@@ -13,25 +13,25 @@ class ListManga
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\Column(length: 255, nullable: false)]
+    #[ORM\Column(length: 255, nullable: false, options: ['default' => ""])]
     private ?string $title = '';
 
-    #[ORM\Column(length: 255, nullable: false)]
+    #[ORM\Column(length: 255, nullable: false, options: ['default' => ""])]
     private ?string $titleEn = '';
 
-    #[ORM\Column(length: 32, nullable: false, enumType: Nsfw::class)]
+    #[ORM\Column(length: 50, nullable: false, enumType: Nsfw::class, options: ['default' => Nsfw::white])]
     private ?Nsfw $nsfw = Nsfw::white;
 
-    #[ORM\Column(length: 32, nullable: false, enumType: ListMangaType::class)]
+    #[ORM\Column(length: 50, nullable: false, enumType: ListMangaType::class, options: ['default' => ListMangaType::unknown])]
     private ?ListMangaType $mediaType = ListMangaType::unknown;
 
-    #[ORM\Column(nullable: false)]
+    #[ORM\Column(nullable: false, options: ['default' => "0"])]
     private ?int $numVolumes = 0;
 
-    #[ORM\Column(nullable: false)]
+    #[ORM\Column(nullable: false, options: ['default' => "0"])]
     private ?int $numChapters = 0;
 
-    #[ORM\Column(length: 32, nullable: false, enumType: ListMangaStatus::class)]
+    #[ORM\Column(length: 50, nullable: false, enumType: ListMangaStatus::class, options: ['default' => ListMangaStatus::reading])]
     private ?ListMangaStatus $status = ListMangaStatus::reading;
 
     public function getId(): int

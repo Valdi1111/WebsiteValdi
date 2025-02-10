@@ -20,10 +20,6 @@ services:
     #        - '../src/DependencyInjection/'
     #        - '../src/Entity/'
     #        - '../src/Kernel.php'
-    #        - '../src/CoreBundle/'
-    #        - '../src/AnimeBundle/'
-    #        - '../src/BooksBundle/'
-    #        - '../src/VideosBundle/'
 
     Symfony\Component\HttpFoundation\Session\Storage\Handler\PdoSessionHandler:
         arguments:

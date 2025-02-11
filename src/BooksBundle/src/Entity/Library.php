@@ -5,6 +5,7 @@ namespace App\BooksBundle\Entity;
 use App\BooksBundle\Repository\LibraryRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\ORM\Mapping\OneToMany;
 use League\Flysystem\Filesystem;
@@ -28,8 +29,8 @@ class Library
     #[ORM\Column(length: 255, unique: true)]
     private ?string $name = null;
 
-    #[ORM\Column(insertable: false, updatable: false, options: ["default" => "CURRENT_TIMESTAMP"])]
-    private ?\DateTimeImmutable $created = null;
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, insertable: false, updatable: false, options: ["default" => "CURRENT_TIMESTAMP"])]
+    private ?\DateTimeInterface $created = null;
 
     /** @var Collection<int, Shelf> */
     #[OneToMany(targetEntity: Shelf::class, mappedBy: 'library', indexBy: 'shelf_id')]

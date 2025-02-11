@@ -30,7 +30,7 @@ abstract class Credential
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $notes = null;
 
-    #[ORM\Column]
+    #[ORM\Column(nullable: true)]
     private ?array $tags = [];
 
     abstract public function getType(): string;

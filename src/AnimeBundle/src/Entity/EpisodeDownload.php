@@ -33,8 +33,8 @@ class EpisodeDownload
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $file = null;
 
-    #[ORM\Column(insertable: false, updatable: false, options: ["default" => "CURRENT_TIMESTAMP"])]
-    private ?\DateTimeImmutable $created = null;
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, insertable: false, updatable: false, options: ["default" => "CURRENT_TIMESTAMP"])]
+    private ?\DateTimeInterface $created = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?\DateTimeInterface $started = null;

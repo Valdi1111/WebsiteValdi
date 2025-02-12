@@ -15,7 +15,7 @@ readonly class AccessTokenHandler implements AccessTokenHandlerInterface
 
     public function getUserBadgeFrom(#[\SensitiveParameter] string $accessToken): UserBadge
     {
-        $token = $this->tokenRepo->findOneBy(['access_token' => $accessToken]);
+        $token = $this->tokenRepo->findOneBy(['accessToken' => $accessToken]);
         if (!$token || !$token->isValid()) {
             throw new BadCredentialsException('Invalid credentials.');
         }

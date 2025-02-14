@@ -9,9 +9,9 @@ Create tables for user, token, etc with `php bin/console doctrine:schema:update 
 
 ## Apache
 * `sudo apt install apache2`
-* `sudo apt install php8.3-fpm `
-* `sudo a2enmod ssl headers proxy proxy_http rewrite proxy_fcgi setenvif`
-* `sudo a2enconf php8.3-fpm`
+* `sudo apt install php8.4-{common,zip,mysql,mbstring,readline,ldap,xml,opcache,curl,imap,intl,cli,imagick,gd,fpm}`
+* `sudo a2enmod ssl headers proxy proxy_http proxy_wstunnel rewrite proxy_fcgi setenvif`
+* `sudo a2enconf php8.4-fpm`
 * `sudo a2dismod mpm_prefork`
 * `sudo a2enmod mpm_event`
 
@@ -57,9 +57,10 @@ ProxyFCGISetEnvIf "true" HTTP_X_SENDFILE_TYPE "X-Sendfile"
 ## Deploy
 * Copy new files
 * Install php packages `composer install`
-* Clear symfony cache `php bin/console cache:clear`
+* Clear symfony cache `php bin/console c:c`
 * Install assets from bundles `php bin/console assets:install`
-* Install node packages `npm run build`
+* Install node packages `npm install`
+* Build webpack `npm run build`
 * Restart all running workers `php bin/console messenger:stop-workers`
 
 ## Services

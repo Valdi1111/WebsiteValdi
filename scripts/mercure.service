@@ -6,7 +6,7 @@ StartLimitIntervalSec=33
 
 [Service]
 Type=simple
-WorkingDirectory=/tmp
+WorkingDirectory=/var/www/mercure
 Environment=JWT_KEY=!ChangeThisMercureHubJWTSecretKey!
 Environment=ADDR=:3000
 ExecStart=/var/www/mercure/mercure

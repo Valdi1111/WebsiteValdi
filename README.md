@@ -44,7 +44,7 @@ ProxyFCGISetEnvIf "true" HTTP_X_SENDFILE_TYPE "X-Sendfile"
 
 ```aiignore
 <Location "/mercure-hub">
-    SetEnvIf Origin "^https?://[^/]*(valdi)\.ovh" ORIGIN=$0
+    SetEnvIf Origin "^https?://[^/]*(valdi)\.wip" ORIGIN=$0
     Header set Access-Control-Allow-Origin %{ORIGIN}e env=ORIGIN
     Header set Access-Control-Allow-Credentials "true" env=ORIGIN
     Header merge Vary Origin

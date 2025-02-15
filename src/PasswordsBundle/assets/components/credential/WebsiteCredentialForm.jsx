@@ -1,5 +1,5 @@
 import CopyButton from "@PasswordsBundle/components/credential/CopyButton";
-import { Button, Form, Input, Space, Tooltip } from "antd";
+import { Button, Form, Input, Space, Tag, Tooltip } from "antd";
 import {
     CloseOutlined,
     ExportOutlined,
@@ -98,7 +98,7 @@ export default function WebsiteCredentialForm() {
         <Form.Item label="Notes" name="notes">
             <Input.TextArea placeholder="Notes"/>
         </Form.Item>
-        <Form.Item label="Recovery codes" name="recovery-codes">
+        <Form.Item label="Recovery codes" name="recovery_codes">
             <Input.TextArea placeholder="Recovery codes"/>
         </Form.Item>
     </>;

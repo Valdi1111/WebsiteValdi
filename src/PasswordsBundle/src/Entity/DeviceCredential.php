@@ -3,6 +3,7 @@
 namespace App\PasswordsBundle\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Attribute\Groups;
 
 #[ORM\Entity]
 class DeviceCredential extends Credential
@@ -14,6 +15,7 @@ class DeviceCredential extends Credential
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $port = null;
 
+    #[Groups(['credential:list'])]
     public function getType(): string
     {
         return 'device';

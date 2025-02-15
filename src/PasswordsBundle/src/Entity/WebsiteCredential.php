@@ -4,6 +4,7 @@ namespace App\PasswordsBundle\Entity;
 
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Attribute\Groups;
 
 #[ORM\Entity]
 class WebsiteCredential extends Credential
@@ -18,6 +19,7 @@ class WebsiteCredential extends Credential
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $recoveryCodes = null;
 
+    #[Groups(['credential:list'])]
     public function getType(): string
     {
         return 'website';

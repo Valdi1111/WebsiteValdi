@@ -27,14 +27,14 @@ class CollectionBookProgressNormalizer implements NormalizerInterface
     /**
      * @inheritDoc
      */
-    public function normalize(mixed $object, ?string $format = null, array $context = []): array
+    public function normalize(mixed $data, ?string $format = null, array $context = []): array
     {
-        if (!$object instanceof Collection) {
+        if (!$data instanceof Collection) {
             throw new InvalidArgumentException("The object must implement the 'Collection' class.");
         }
         /** @var User $user */
         $user = $this->security->getUser();
-        $progress = $object->get($user->getId());
+        $progress = $data->get($user->getId());
         if (!$progress) {
             $progress = new BookProgress();
         }

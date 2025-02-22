@@ -48,6 +48,9 @@ class EpisodeDownload
     #[ORM\Column(nullable: true, options: ["unsigned" => true])]
     private ?int $alId = null;
 
+    #[ORM\Column(length: 255)]
+    private ?string $serviceName = null;
+
     public function __construct()
     {
     }
@@ -178,6 +181,18 @@ class EpisodeDownload
     public function setAlId(?int $alId): static
     {
         $this->alId = $alId;
+
+        return $this;
+    }
+
+    public function getServiceName(): ?string
+    {
+        return $this->serviceName;
+    }
+
+    public function setServiceName(string $serviceName): static
+    {
+        $this->serviceName = $serviceName;
 
         return $this;
     }

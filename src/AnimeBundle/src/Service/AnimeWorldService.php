@@ -107,6 +107,7 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
     private function getEpisodeObject(Crawler $globalCrawler, Crawler $itemCrawler, string $folder, ?int $malId, ?int $alId): EpisodeDownload
     {
         $episode = (new EpisodeDownload())
+            ->setServiceName(self::getServiceName())
             ->setEpisodeUrl($itemCrawler->attr("href"))
             ->setEpisode($itemCrawler->attr("data-episode-num"))
             ->setFolder($folder)

@@ -126,6 +126,7 @@ readonly class AnimeUnityService implements AnimeDownloaderInterface
     {
         $episodeData = &$pageData['episodes'][$episodeKey];
         $episode = (new EpisodeDownload())
+            ->setServiceName(self::getServiceName())
             ->setEpisodeUrl("/anime/{$pageData['anime']['id']}-{$pageData['anime']['slug']}/{$episodeData['id']}")
             ->setEpisode($episodeData['number'])
             ->setFolder($folder)

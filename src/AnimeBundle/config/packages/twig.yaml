@@ -1,0 +1,3 @@
+twig:
+    globals:
+        anime_domain_name: '%anime.domain_name%'

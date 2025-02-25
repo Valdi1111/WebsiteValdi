@@ -1,0 +1,3 @@
+twig:
+    globals:
+        videos_domain_name: '%videos.domain_name%'

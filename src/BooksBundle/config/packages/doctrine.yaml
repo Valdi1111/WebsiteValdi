@@ -1,0 +1,9 @@
+doctrine:
+    orm:
+        mappings:
+            App\BooksBundle:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/BooksBundle/src/Entity'
+                prefix: 'App\BooksBundle\Entity'
+                alias: BooksBundle

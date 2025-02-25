@@ -15,6 +15,11 @@ class PasswordsBundle extends AbstractBundle
         return dirname(__DIR__ . '/src');
     }
 
+    public function prependExtension(ContainerConfigurator $container, ContainerBuilder $builder): void
+    {
+        $container->import('./config/packages/');
+    }
+
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
     {
         $container->import('./config/services.yaml');

@@ -85,6 +85,8 @@ src/CoreBundle/
     assets/
         images/
     config/
+        packages/
+            twig.yaml
         routing.yaml
         services.yaml
     public/
@@ -120,6 +122,12 @@ class CoreBundle extends AbstractBundle
     public function getPath(): string
     {
         return dirname(__DIR__ . '/src');
+    }
+
+    public function prependExtension(ContainerConfigurator $container, ContainerBuilder $builder): void
+    {
+        // Load configurations
+        $container->import('./config/packages/');
     }
 
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
@@ -189,20 +197,23 @@ return [
 ];
 ```
 
-### Create the configuration file `config/packages/core.yaml` to implement bundle config and templates
+### Create the configuration file `config/packages/core.yaml` to implement bundle config
 ```yaml
 core:
     domain_name: 'core.%domain_name%'
-
-twig:
-    globals:
-        core_domain_name: '%core.domain_name%'
 ```
 
 ### Create the configuration file `config/routes/core.yaml` to implement bundle routes
 ```yaml
 core:
     resource: '@CoreBundle/config/routing.yaml'
+```
+
+### Create the configuration file `src/CoreBundle/config/packages/twig.yaml` to implement templates
+```yaml
+twig:
+    globals:
+        core_domain_name: '%core.domain_name%'
 ```
 
 ### Add to `webpack.config.js`

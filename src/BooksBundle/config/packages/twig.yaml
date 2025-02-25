@@ -1,0 +1,3 @@
+twig:
+    globals:
+        books_domain_name: '%books.domain_name%'

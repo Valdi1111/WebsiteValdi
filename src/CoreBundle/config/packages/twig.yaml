@@ -1,0 +1,3 @@
+twig:
+    globals:
+        mercure_hub_url: '%env(MERCURE_PUBLIC_URL)%'

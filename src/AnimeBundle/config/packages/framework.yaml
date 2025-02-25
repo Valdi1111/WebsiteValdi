@@ -1,0 +1,28 @@
+framework:
+    messenger:
+        transports:
+            # https://symfony.com/doc/current/messenger.html#transport-configuration
+            anime_episode_download_failed: '%env(MESSENGER_TRANSPORT_DSN)%?queue_name=anime_episode_download_failed'
+            anime_episode_download:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                failure_transport: anime_episode_download_failed
+                options:
+                    queue_name: anime_episode_download
+                retry_strategy:
+                    max_retries: 3
+                    delay: 60000
+                    multiplier: 3
+        routing:
+            App\AnimeBundle\Message\EpisodeDownloadNotification: anime_episode_download
+            App\AnimeBundle\Message\AnimeCacheRefreshNotification: core_async
+            App\AnimeBundle\Message\MangaCacheRefreshNotification: core_async
+    http_client:
+        scoped_clients:
+            anime.myanimelist.client:
+                base_uri: '%anime.myanimelist.url%'
+                headers:
+                    X-MAL-CLIENT-ID: '%anime.myanimelist.client_id%'
+            anime.animeworld.client:
+                base_uri: '%anime.animeworld.url%'
+            anime.animeunity.client:
+                base_uri: '%anime.animeunity.url%'

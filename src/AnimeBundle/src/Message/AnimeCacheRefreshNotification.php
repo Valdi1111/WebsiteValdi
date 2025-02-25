@@ -2,7 +2,10 @@
 
 namespace App\AnimeBundle\Message;
 
-class AnimeCacheRefreshNotification
+use Symfony\Component\Messenger\Attribute\AsMessage;
+
+#[AsMessage('core_async')]
+readonly class AnimeCacheRefreshNotification
 {
     public function __construct()
     {

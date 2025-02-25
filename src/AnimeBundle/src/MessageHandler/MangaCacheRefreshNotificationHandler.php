@@ -7,10 +7,10 @@ use App\AnimeBundle\Service\MyAnimeListService;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 #[AsMessageHandler]
-class MangaCacheRefreshNotificationHandler
+readonly class MangaCacheRefreshNotificationHandler
 {
 
-    public function __construct(private readonly MyAnimeListService $malService)
+    public function __construct(private MyAnimeListService $malService)
     {
     }
 

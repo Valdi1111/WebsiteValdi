@@ -2,9 +2,12 @@
 
 namespace App\AnimeBundle\Message;
 
-class EpisodeDownloadNotification
+use Symfony\Component\Messenger\Attribute\AsMessage;
+
+#[AsMessage('anime_episode_download')]
+readonly class EpisodeDownloadNotification
 {
-    public function __construct(private readonly int $id)
+    public function __construct(private int $id)
     {
     }
 

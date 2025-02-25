@@ -13,14 +13,14 @@ use YoutubeDl\Options;
 use YoutubeDl\YoutubeDl;
 
 #[AsMessageHandler]
-class EpisodeDownloadNotificationHandler
+readonly class EpisodeDownloadNotificationHandler
 {
 
     public function __construct(
-        private readonly LoggerInterface                               $animeEpisodeDownloaderLogger,
-        private readonly EntityManagerInterface                        $entityManager,
-        #[Autowire('%anime.youtube_dl.path%')] private readonly string $youtubeDlPath,
-        #[Autowire('%anime.base_folder%')] private readonly string     $baseFolder)
+        private LoggerInterface                               $animeEpisodeDownloaderLogger,
+        private EntityManagerInterface                        $entityManager,
+        #[Autowire('%anime.youtube_dl.path%')] private string $youtubeDlPath,
+        #[Autowire('%anime.base_folder%')] private string     $baseFolder)
     {
     }
 

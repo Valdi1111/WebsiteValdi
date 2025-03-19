@@ -76,7 +76,7 @@ class AnimeBundle extends AbstractBundle
             ->end()
             ->arrayNode('youtube_dl')
                 ->children()
-                    ->scalarNode('path')->defaultNull()->end()
+                    ->scalarNode('bin_path')->defaultNull()->end()
                 ->end()
             ->end();
     }

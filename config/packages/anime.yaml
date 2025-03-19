@@ -18,4 +18,4 @@ anime:
     animeunity:
         url: 'https://www.animeunity.to'
     youtube_dl:
-        path: '%env(YOUTUBE_DL_PATH)%'
+        bin_path: '%env(YOUTUBE_DL_BIN_PATH)%'

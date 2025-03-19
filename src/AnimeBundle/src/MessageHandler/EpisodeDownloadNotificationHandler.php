@@ -19,7 +19,7 @@ readonly class EpisodeDownloadNotificationHandler
     public function __construct(
         private LoggerInterface                               $animeEpisodeDownloaderLogger,
         private EntityManagerInterface                        $entityManager,
-        #[Autowire('%anime.youtube_dl.path%')] private string $youtubeDlPath,
+        #[Autowire('%anime.youtube_dl.bin_path%')] private string $youtubeDlBinPath,
         #[Autowire('%anime.base_folder%')] private string     $baseFolder)
     {
     }
@@ -33,9 +33,8 @@ readonly class EpisodeDownloadNotificationHandler
         }
         $this->animeEpisodeDownloaderLogger->info("Found episode in queue", ['id' => $episode->getId()]);
         $yt = new YoutubeDl();
-        $binPath = $this->youtubeDlPath;
-        if ($binPath) {
-            $yt->setBinPath($binPath);
+        if ($this->youtubeDlBinPath) {
+            $yt->setBinPath($this->youtubeDlBinPath);
         }
         /*
         $yt->onProgress(static function (?string $progressTarget, string $percentage, string $size, string $speed, string $eta, ?string $totalTime) use ($output): void {

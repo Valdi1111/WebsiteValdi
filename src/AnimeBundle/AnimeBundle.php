@@ -32,12 +32,14 @@ class AnimeBundle extends AbstractBundle
         $container->parameters()->set('anime.anilist.url', $config['anilist']['url']);
         $container->parameters()->set('anime.anilist.client_id', $config['anilist']['client_id']);
         $container->parameters()->set('anime.anilist.client_secret', $config['anilist']['client_secret']);
+        $container->parameters()->set('anime.animeworld.url_regex', $config['animeworld']['url_regex']);
         $container->parameters()->set('anime.animeworld.url', $config['animeworld']['url']);
         $container->parameters()->set('anime.animeworld.api_url', $config['animeworld']['api_url']);
         $container->parameters()->set('anime.animeworld.client_id', $config['animeworld']['client_id']);
         $container->parameters()->set('anime.animeworld.api_key', $config['animeworld']['api_key']);
+        $container->parameters()->set('anime.animeunity.url_regex', $config['animeunity']['url_regex']);
         $container->parameters()->set('anime.animeunity.url', $config['animeunity']['url']);
-        $container->parameters()->set('anime.youtube_dl.path', $config['youtube_dl']['path']);
+        $container->parameters()->set('anime.youtube_dl.bin_path', $config['youtube_dl']['bin_path']);
     }
 
     public function configure(DefinitionConfigurator $definition): void
@@ -63,6 +65,7 @@ class AnimeBundle extends AbstractBundle
             ->end()
             ->arrayNode('animeworld')
                 ->children()
+                    ->scalarNode('url_regex')->defaultNull()->end()
                     ->scalarNode('url')->defaultNull()->end()
                     ->scalarNode('api_url')->defaultNull()->end()
                     ->scalarNode('client_id')->defaultNull()->end()
@@ -71,6 +74,7 @@ class AnimeBundle extends AbstractBundle
             ->end()
             ->arrayNode('animeunity')
                 ->children()
+                    ->scalarNode('url_regex')->defaultNull()->end()
                     ->scalarNode('url')->defaultNull()->end()
                 ->end()
             ->end()

@@ -24,11 +24,10 @@ readonly class AnimeDownloaderLocator
 
     public function getService(EpisodeDownloadRequest $downloadReq): AnimeDownloaderInterface
     {
-        $baseUrl = $downloadReq->getBaseUrl();
         // iterate through all services of the locator
         foreach ($this->locator as $serviceId => $service) {
-            if ($this->parameterBag->has("anime.$serviceId.url") &&
-                $this->parameterBag->get("anime.$serviceId.url") === $baseUrl) {
+            if ($this->parameterBag->has("anime.$serviceId.url_regex") &&
+                preg_match($this->parameterBag->get("anime.$serviceId.url_regex"), $downloadReq->getUrl())) {
                 return $service;
             }
         }

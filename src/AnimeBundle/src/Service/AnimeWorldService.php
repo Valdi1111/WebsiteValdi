@@ -39,14 +39,14 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
     private function fetchPage(string $url): Crawler
     {
 
-        $crawler = $this->httpBrowser->request('GET', $this->websiteUrl . $url);
+        $crawler = $this->httpBrowser->request('GET', $this->getWebsiteUrl() . $url);
         $response = $this->httpBrowser->getResponse();
         if ($response->getStatusCode() === 202) {
             if (!preg_match('/(SecurityAW-[^=]+)=([^;]+)/', $response->getContent(), $matches)) {
                 throw new Exception("Error fetching page from AnimeWorld. Cookie SecurityAW-XX not found.");
             }
             $this->httpBrowser->getCookieJar()->set(new Cookie(trim($matches[1]), trim($matches[2])));
-            $crawler = $this->httpBrowser->request('GET', $this->websiteUrl . $url);
+            $crawler = $this->httpBrowser->request('GET', $this->getWebsiteUrl() . $url);
             $response = $this->httpBrowser->getResponse();
         }
         if ($response->getStatusCode() !== 200) {

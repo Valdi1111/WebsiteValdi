@@ -11,11 +11,13 @@ anime:
         client_id: '%env(AL_CLIENT_ID)%'
         client_secret: '%env(AL_CLIENT_SECRET)%'
     animeworld:
-        url: 'https://www.animeworld.so'
-        api_url: 'https://api.animeworld.so'
+        url_regex: '/^https:\/\/www\.animeworld\.(ac|so)\/.*/'
+        url: 'https://www.animeworld.ac'
+        api_url: 'https://api.animeworld.ac'
         client_id: '%env(AW_CLIENT_ID)%'
         api_key: '%env(AW_API_KEY)%'
     animeunity:
-        url: 'https://www.animeunity.to'
+        url_regex: '/^https:\/\/www\.animeunity\.(to|so)\/.*/'
+        url: 'https://www.animeunity.so'
     youtube_dl:
         bin_path: '%env(YOUTUBE_DL_BIN_PATH)%'

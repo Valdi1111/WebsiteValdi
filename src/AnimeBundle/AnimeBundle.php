@@ -27,9 +27,11 @@ class AnimeBundle extends AbstractBundle
         $container->parameters()->set('anime.base_folder', $config['base_folder']);
         $container->parameters()->set('anime.temp_folder', $config['temp_folder']);
         $container->parameters()->set('anime.myanimelist.url', $config['myanimelist']['url']);
+        $container->parameters()->set('anime.myanimelist.api_url', $config['myanimelist']['api_url']);
         $container->parameters()->set('anime.myanimelist.client_id', $config['myanimelist']['client_id']);
         $container->parameters()->set('anime.myanimelist.client_secret', $config['myanimelist']['client_secret']);
         $container->parameters()->set('anime.anilist.url', $config['anilist']['url']);
+        $container->parameters()->set('anime.anilist.api_url', $config['anilist']['api_url']);
         $container->parameters()->set('anime.anilist.client_id', $config['anilist']['client_id']);
         $container->parameters()->set('anime.anilist.client_secret', $config['anilist']['client_secret']);
         $container->parameters()->set('anime.animeworld.url_regex', $config['animeworld']['url_regex']);
@@ -52,6 +54,7 @@ class AnimeBundle extends AbstractBundle
             ->arrayNode('myanimelist')
                 ->children()
                     ->scalarNode('url')->defaultNull()->end()
+                    ->scalarNode('api_url')->defaultNull()->end()
                     ->scalarNode('client_id')->defaultNull()->end()
                     ->scalarNode('client_secret')->defaultNull()->end()
                 ->end()
@@ -59,6 +62,7 @@ class AnimeBundle extends AbstractBundle
             ->arrayNode('anilist')
                 ->children()
                     ->scalarNode('url')->defaultNull()->end()
+                    ->scalarNode('api_url')->defaultNull()->end()
                     ->scalarNode('client_id')->defaultNull()->end()
                     ->scalarNode('client_secret')->defaultNull()->end()
                 ->end()

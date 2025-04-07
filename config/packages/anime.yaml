@@ -3,11 +3,13 @@ anime:
     base_folder: '%env(ANIME_BASE_FOLDER)%'
     temp_folder: '%env(ANIME_TEMP_FOLDER)%'
     myanimelist:
-        url: 'https://api.myanimelist.net'
+        url: 'https://myanimelist.net'
+        api_url: 'https://api.myanimelist.net'
         client_id: '%env(MAL_CLIENT_ID)%'
         client_secret: '%env(MAL_CLIENT_SECRET)%'
     anilist:
-        url: 'https://graphql.anilist.co'
+        url: 'https://anilist.co'
+        api_url: 'https://graphql.anilist.co'
         client_id: '%env(AL_CLIENT_ID)%'
         client_secret: '%env(AL_CLIENT_SECRET)%'
     animeworld:

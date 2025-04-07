@@ -15,7 +15,7 @@ framework:
     http_client:
         scoped_clients:
             anime.myanimelist.client:
-                base_uri: '%anime.myanimelist.url%'
+                base_uri: '%anime.myanimelist.api_url%'
                 headers:
                     X-MAL-CLIENT-ID: '%anime.myanimelist.client_id%'
             anime.animeworld.client:

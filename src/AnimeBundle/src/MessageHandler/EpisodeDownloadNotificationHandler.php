@@ -36,23 +36,21 @@ readonly class EpisodeDownloadNotificationHandler
         if ($this->youtubeDlBinPath) {
             $yt->setBinPath($this->youtubeDlBinPath);
         }
-        $logger = $this->animeEpisodeDownloaderLogger;
-        $yt->onProgress(static function (?string $progressTarget, string $percentage, string $size, ?string $speed, ?string $eta, ?string $totalTime) use ($logger): void {
-            $text = [
-                "Download file: $progressTarget",
-                "Percentage: $percentage",
-                "Size: $size",
+        $yt->onProgress(function (?string $progressTarget, string $percentage, string $size, ?string $speed, ?string $eta, ?string $totalTime): void {
+            $context = [
+                "Percentage" => $percentage,
+                "Size" => $size,
             ];
             if ($speed) {
-                $text[] = "Speed: $speed";
+                $context["Speed"] = $speed;
             }
             if ($eta) {
-                $text[] = "ETA: $eta";
+                $context["ETA"] = $eta;
             }
             if ($totalTime !== null) {
-                $text[] = "Downloaded in: $totalTime";
+                $context["Downloaded in"] = $totalTime;
             }
-            $logger->info(implode("; ", $text));
+            $this->animeEpisodeDownloaderLogger->info("Downloading $progressTarget", $context);
         });
         $episode->setState(EpisodeDownloadState::downloading)->setStarted(new \DateTime());
         $this->entityManager->flush();
@@ -69,11 +67,11 @@ readonly class EpisodeDownloadNotificationHandler
         foreach ($collection->getVideos() as $video) {
             if ($video->getError() !== null) {
                 $episode->setState(EpisodeDownloadState::error_downloading);
-                $logger->error("Error downloading video: {$video->getError()}");
+                $this->animeEpisodeDownloaderLogger->error("Error downloading video: {$video->getError()}");
                 continue;
             } else {
                 $episode->setState(EpisodeDownloadState::completed)->setCompleted(new \DateTime());
-                $logger->info("Downloaded video: {$video->toJson()}");
+                $this->animeEpisodeDownloaderLogger->info("Downloaded video: {$video->getTitle()}", $video->toJson());
             }
             $this->entityManager->flush();
         }

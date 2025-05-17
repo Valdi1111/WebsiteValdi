@@ -17,10 +17,10 @@ readonly class EpisodeDownloadNotificationHandler
 {
 
     public function __construct(
-        private LoggerInterface                               $animeEpisodeDownloaderLogger,
-        private EntityManagerInterface                        $entityManager,
+        private LoggerInterface                                   $animeEpisodeDownloaderLogger,
+        private EntityManagerInterface                            $entityManager,
         #[Autowire('%anime.youtube_dl.bin_path%')] private string $youtubeDlBinPath,
-        #[Autowire('%anime.base_folder%')] private string     $baseFolder)
+        #[Autowire('%anime.base_folder%')] private string         $baseFolder)
     {
     }
 
@@ -36,20 +36,24 @@ readonly class EpisodeDownloadNotificationHandler
         if ($this->youtubeDlBinPath) {
             $yt->setBinPath($this->youtubeDlBinPath);
         }
-        /*
-        $yt->onProgress(static function (?string $progressTarget, string $percentage, string $size, string $speed, string $eta, ?string $totalTime) use ($output): void {
-            echo "Download file: $progressTarget; Percentage: $percentage; Size: $size";
+        $logger = $this->animeEpisodeDownloaderLogger;
+        $yt->onProgress(static function (?string $progressTarget, string $percentage, string $size, ?string $speed, ?string $eta, ?string $totalTime) use ($logger): void {
+            $text = [
+                "Download file: $progressTarget",
+                "Percentage: $percentage",
+                "Size: $size",
+            ];
             if ($speed) {
-                $output->writeln("; Speed: $speed");
+                $text[] = "Speed: $speed";
             }
             if ($eta) {
-                $output->writeln("; ETA: $eta");
+                $text[] = "ETA: $eta";
             }
             if ($totalTime !== null) {
-                $output->writeln("; Downloaded in: $totalTime");
+                $text[] = "Downloaded in: $totalTime";
             }
+            $logger->info(implode("; ", $text));
         });
-        */
         $episode->setState(EpisodeDownloadState::downloading)->setStarted(new \DateTime());
         $this->entityManager->flush();
         $collection = $yt->download(
@@ -58,12 +62,18 @@ readonly class EpisodeDownloadNotificationHandler
                 ->noCheckCertificate(true)
                 ->downloadPath($this->baseFolder . $episode->getFolder())
                 ->url($episode->getDownloadUrl())
+                ->fragmentRetries(999)
+                ->skipUnavailableFragments(true)
+                ->verbose(true)
         );
         foreach ($collection->getVideos() as $video) {
             if ($video->getError() !== null) {
                 $episode->setState(EpisodeDownloadState::error_downloading);
+                $logger->error("Error downloading video: {$video->getError()}");
+                continue;
             } else {
                 $episode->setState(EpisodeDownloadState::completed)->setCompleted(new \DateTime());
+                $logger->info("Downloaded video: {$video->toJson()}");
             }
             $this->entityManager->flush();
         }

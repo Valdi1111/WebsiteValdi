@@ -24,7 +24,7 @@ readonly class MyAnimeListService
     const array FIELDS_MANGA = ['id', 'title', 'alternative_titles', 'nsfw', 'media_type', 'num_volumes', 'num_chapters', 'list_status'];
 
     public function __construct(
-        private LoggerInterface        $animeLogger,
+        private LoggerInterface        $animeCacheLogger,
         private EntityManagerInterface $entityManager,
         private HttpClientInterface    $animeMyanimelistClient,
         private MessageBusInterface    $bus)
@@ -39,7 +39,7 @@ readonly class MyAnimeListService
      */
     private function refreshCache(string $type, array $fields, string $class): array
     {
-        $this->animeLogger->info("Refreshing $type cache...");
+        $this->animeCacheLogger->info("Refreshing $type cache...");
         $newList = [];
         try {
             $next = sprintf(self::FETCH_URL, self::USER, $type, self::LIMIT, implode(',', $fields));
@@ -69,7 +69,7 @@ readonly class MyAnimeListService
             $this->entityManager->persist($item);
         }
         $this->entityManager->flush();
-        $this->animeLogger->info("Successfully refreshed $type cache! (found (" . count($newList) . ") entries)");
+        $this->animeCacheLogger->info("Successfully refreshed $type cache! (found (" . count($newList) . ") entries)");
         return $newList;
     }
 

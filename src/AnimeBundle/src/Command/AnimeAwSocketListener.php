@@ -25,7 +25,6 @@ class AnimeAwSocketListener extends Command
     private ?Client $client;
 
     public function __construct(
-        private readonly LoggerInterface                                    $elephantIoLogger,
         private readonly LoggerInterface                                    $animeAwHandlerLogger,
         private readonly AnimeDownloaderInterface                           $animeWorldDownloader,
         #[Autowire('%anime.animeworld.api_url%')] private readonly string   $awApiUrl,
@@ -65,7 +64,7 @@ class AnimeAwSocketListener extends Command
     {
         $this->client = Client::create($this->awApiUrl, [
             'client' => Client::CLIENT_4X,
-            'logger' => $this->elephantIoLogger,
+            'logger' => $this->animeAwHandlerLogger,
             'transport' => 'websocket',
         ]);
         $this->client->connect();

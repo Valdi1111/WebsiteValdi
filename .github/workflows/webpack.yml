@@ -20,7 +20,7 @@ jobs:
     - name: Use Composer 2.8.3
       uses: php-actions/composer@v6
       with:
-        php_version: 8.3
+        php_version: 8.4
         version: 2.8.3
 
     # Cache delle dipendenze di Composer

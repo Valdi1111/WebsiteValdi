@@ -21,7 +21,6 @@ Create tables for user, token, etc with `php bin/console doctrine:schema:update 
 
 ```aiignore
 <IfModule http2_module>
-    Protocols h2 h2c http/1.1
     H2Direct on
 </IfModule>
 ```
@@ -37,11 +36,15 @@ ProxyFCGISetEnvIf "true" HTTP_X_SENDFILE_TYPE "X-Sendfile"
 ```
 
 ## Mercure
-* Download mercure server from [repository](https://github.com/dunglas/mercure/releases)
-* Create and start mercure service
-  * `systemctl enable mercure.service`
-  * `systemctl start mercure.service`
-
+### Install mercure
+* `sudo mkdir mercure_Linux_arm64`
+* `sudo wget https://github.com/dunglas/mercure/releases/latest/download/mercure_Linux_arm64.tar.gz`
+* `sudo tar -xvzf mercure_Linux_arm64.tar.gz`
+* `sudo rm mercure_Linux_arm64.tar.gz`
+### Create and start mercure service
+* `systemctl enable mercure.service`
+* `systemctl start mercure.service`
+### Edit apache configuration
 ```aiignore
 <Location "/mercure-hub">
     SetEnvIf Origin "^https?://[^/]*(valdi)\.wip" ORIGIN=$0

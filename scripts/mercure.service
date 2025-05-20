@@ -6,10 +6,11 @@ StartLimitIntervalSec=33
 
 [Service]
 Type=simple
-WorkingDirectory=/var/www/mercure
-Environment=JWT_KEY=!ChangeThisMercureHubJWTSecretKey!
-Environment=ADDR=:3000
-ExecStart=/var/www/mercure/mercure
+WorkingDirectory=/var/www/mercure_Linux_arm64
+Environment=MERCURE_PUBLISHER_JWT_KEY=!ChangeThisMercureHubJWTSecretKey!
+Environment=MERCURE_SUBSCRIBER_JWT_KEY=!ChangeThisMercureHubJWTSecretKey!
+Environment=SERVER_NAME=:3000
+ExecStart=/var/www/mercure_Linux_arm64/mercure run --config Caddyfile
 StandardOutput=file:/var/log/mercure.log
 StandardError=file:/var/log/mercure.log
 Restart=always

@@ -71,7 +71,7 @@ readonly class EpisodeDownloadNotificationHandler
                 continue;
             } else {
                 $episode->setState(EpisodeDownloadState::completed)->setCompleted(new \DateTime());
-                $this->animeEpisodeDownloaderLogger->info("Downloaded video: {$video->getTitle()}", $video->toJson());
+                $this->animeEpisodeDownloaderLogger->info("Downloaded video: {$video->getTitle()}", $video->toArray());
             }
             $this->entityManager->flush();
         }

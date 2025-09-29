@@ -3,6 +3,8 @@
 namespace App\CoreBundle\Entity;
 
 use App\CoreBundle\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -20,14 +22,22 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 180, unique: true)]
     private ?string $email = null;
 
-    #[ORM\Column]
-    private array $roles = [];
-
     /**
-     * @var string The hashed password
+     * @var string|null The hashed password
      */
     #[ORM\Column]
     private ?string $password = null;
+
+    /**
+     * @var Collection<int, UserRole>
+     */
+    #[ORM\OneToMany(targetEntity: UserRole::class, mappedBy: 'user', cascade: ['persist', 'remove'])]
+    private Collection $assignedRoles;
+
+    public function __construct()
+    {
+        $this->assignedRoles = new ArrayCollection();
+    }
 
     public function getId(): ?int
     {
@@ -61,18 +71,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     public function getRoles(): array
     {
-        $roles = $this->roles;
-        // guarantee every user at least has ROLE_USER
-        $roles[] = 'ROLE_USER';
-
+        $roles = $this->getAssignedRoles()
+            ->map(fn(UserRole $a) => $a->getRole()->getName())
+            ->toArray();
         return array_unique($roles);
-    }
-
-    public function setRoles(array $roles): static
-    {
-        $this->roles = $roles;
-
-        return $this;
     }
 
     /**
@@ -97,5 +99,35 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         // If you store any temporary, sensitive data on the user, clear it here
         // $this->plainPassword = null;
+    }
+
+    /**
+     * @return Collection<int, UserRole>
+     */
+    public function getAssignedRoles(): Collection
+    {
+        return $this->assignedRoles;
+    }
+
+    public function addAssignedRole(UserRole $assignedRole): static
+    {
+        if (!$this->assignedRoles->contains($assignedRole)) {
+            $this->assignedRoles->add($assignedRole);
+            $assignedRole->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeAssignedRole(UserRole $assignedRole): static
+    {
+        if ($this->assignedRoles->removeElement($assignedRole)) {
+            // set the owning side to null (unless already changed)
+            if ($assignedRole->getUser() === $this) {
+                $assignedRole->setUser(null);
+            }
+        }
+
+        return $this;
     }
 }

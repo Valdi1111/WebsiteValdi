@@ -1,3 +1,0 @@
-security:
-    role_hierarchy:
-        ROLE_ADMIN_ANIME: [ROLE_USER_ANIME]

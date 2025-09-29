@@ -17,8 +17,9 @@ readonly class AccessTokenHandler implements AccessTokenHandlerInterface
     {
         $token = $this->tokenRepo->findOneBy(['accessToken' => $accessToken]);
         if (!$token || !$token->isValid()) {
-            throw new BadCredentialsException('Invalid credentials.');
+            throw new BadCredentialsException('Invalid token.');
         }
-        return new UserBadge($token->getUser()->getUserIdentifier());
+        $user = $this->tokenRepo->getUserFromToken($token);
+        return new UserBadge($user->getUserIdentifier());
     }
 }

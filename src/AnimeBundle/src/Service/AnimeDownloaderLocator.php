@@ -22,6 +22,11 @@ readonly class AnimeDownloaderLocator
     {
     }
 
+    /**
+     * @param EpisodeDownloadRequest $downloadReq
+     * @return AnimeDownloaderInterface
+     * @throws UnhandledWebsiteException if no service has been found for the given download request
+     */
     public function getService(EpisodeDownloadRequest $downloadReq): AnimeDownloaderInterface
     {
         // iterate through all services of the locator

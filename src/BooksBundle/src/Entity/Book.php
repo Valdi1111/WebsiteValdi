@@ -15,6 +15,7 @@ use Symfony\Component\Serializer\Attribute\Groups;
 use Symfony\Component\Serializer\Attribute\Ignore;
 use Symfony\Component\Serializer\Attribute\SerializedName;
 
+#[ORM\Index(name: 'IDX_url', columns: ['url'])]
 #[ORM\Index(name: 'FK_book_shelf', columns: ['shelf_id'])]
 #[ORM\Index(name: 'FK_book_library', columns: ['library_id'])]
 #[ORM\Table(name: 'book')]

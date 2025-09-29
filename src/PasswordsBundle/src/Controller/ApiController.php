@@ -2,19 +2,20 @@
 
 namespace App\PasswordsBundle\Controller;
 
+use App\CoreBundle\Entity\Table;
+use App\CoreBundle\Entity\TableParameters;
 use App\PasswordsBundle\Entity\Credential;
-use App\PasswordsBundle\Service\EncryptionService;
+use App\PasswordsBundle\Repository\CredentialRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Attribute\MapQueryParameter;
+use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
-use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 
 #[IsGranted('ROLE_USER_PASSWORDS', null, 'Access Denied.')]
 #[Route('/api', name: 'api_', format: 'json')]
@@ -22,30 +23,32 @@ class ApiController extends AbstractController
 {
 
     public function __construct(
-        private readonly EncryptionService      $encryptionService,
         private readonly EntityManagerInterface $entityManager
     )
     {
     }
 
-    #[Route('/encrypt', name: 'encrypt', methods: ['GET'])]
-    public function encrypt(#[MapQueryParameter] string $str): Response
-    {
-        return $this->json(['res' => $this->encryptionService->encrypt($str)]);
-    }
-
-    #[Route('/decrypt', name: 'decrypt', methods: ['GET'])]
-    public function decrypt(#[MapQueryParameter] string $str): Response
-    {
-        return $this->json(['res' => $this->encryptionService->decrypt($str)]);
-    }
-
     #[Route('/credentials', name: 'credentials_all', methods: ['GET'])]
-    public function apiCredentialsAll(#[MapEntity(class: Credential::class, expr: 'repository.findBy({}, {"name": "ASC"})')] array $credentials): Response
+    public function apiCredentialsAll(CredentialRepository $credentialRepo, #[MapQueryString] TableParameters $params): Response
     {
-        return $this->json($credentials, 200, [], ['groups' => ['credential:list']]);
+        $table = new Table($credentialRepo, $params);
+        $table->getDefaultParameters()
+            ->setSorterField('name')
+            ->setSorterOrder('ascend');
+        $table->addColumn('ID', 'id')
+            ->setHidden(true)
+            ->setFixedLeft();
+        $table->addColumn('Name', 'name')
+            ->setSorter(true)
+            ->setSortDirections(['ascend', 'descend']);
+        $table->addColumn('Tags', 'tags')
+            ->setValueFormat("tags");
+        $table->addColumn('Type', 'type')
+            ->setHidden(true);
+        return $this->json($table);
     }
 
+    #[IsGranted('ROLE_ADMIN_PASSWORDS')]
     #[Route('/credentials', name: 'credentials_add', methods: ['POST'])]
     public function apiCredentialsAdd(Request $req, DenormalizerInterface $denormalizer): Response
     {
@@ -64,6 +67,7 @@ class ApiController extends AbstractController
         return $this->json($credential);
     }
 
+    #[IsGranted('ROLE_ADMIN_PASSWORDS')]
     #[Route('/credentials/{credential}', name: 'credentials_id_edit', requirements: ['credential' => '\d+'], methods: ['PUT'])]
     public function apiCredentialsIdEdit(Request $req, #[MapEntity(message: "Credential not found.")] Credential $credential, DenormalizerInterface $denormalizer): Response
     {
@@ -77,6 +81,7 @@ class ApiController extends AbstractController
         return $this->json($credential);
     }
 
+    #[IsGranted('ROLE_ADMIN_PASSWORDS')]
     #[Route('/credentials/{credential}', name: 'credentials_id_delete', requirements: ['credential' => '\d+'], methods: ['DELETE'])]
     public function apiCredentialsIdDelete(#[MapEntity(message: "Credential not found.")] Credential $credential): Response
     {

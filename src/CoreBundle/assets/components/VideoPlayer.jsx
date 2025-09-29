@@ -1,7 +1,7 @@
 import Plyr from "plyr";
 import "plyr/dist/plyr.css";
-import {useSearchParams} from "react-router-dom";
-import React from "react";
+import { useSearchParams } from "react-router-dom";
+import React, { useRef } from "react";
 
 /**
  * Plyr wrapper
@@ -9,11 +9,21 @@ import React from "react";
  * @returns {JSX.Element}
  * @constructor
  */
-export default function VideoPlayer({apiUrl}) {
+export default function VideoPlayer({ apiUrl }) {
     const [searchParams, setSearchParams] = useSearchParams();
+    /**
+     * Reference to video tag
+     * @type {React.MutableRefObject<HTMLVideoElement>}
+     */
+    const videoTag = useRef();
+    /**
+     * Reference to Plyr instance
+     * @type {React.MutableRefObject<Plyr>}
+     */
+    const plyrInstance = useRef();
 
     React.useEffect(() => {
-        const player = new Plyr('#player', {
+        plyrInstance.current = new Plyr(videoTag.current, {
             keyboard: {
                 focus: true,
                 global: true,
@@ -41,18 +51,19 @@ export default function VideoPlayer({apiUrl}) {
                 'fullscreen', // Toggle fullscreen
             ]
         });
-        player.on('ready', (e) => {
+        // FIXME can't enter fullscreen automatically (without user interaction)
+        /*
+        plyrInstance.current.on('ready', (e) => {
             const instance = e.detail.plyr;
             instance.fullscreen.enter();
         });
+         */
     }, []);
 
-    return (
-        <main className="d-flex flex-column vh-100 vw-100">
-            <video id="player">
-                <source src={apiUrl(searchParams.get('id'))} type="video/mp4"/>
-            </video>
-        </main>
-    );
+    return <main className="d-flex flex-column vh-100 vw-100">
+        <video ref={videoTag}>
+            <source src={apiUrl(searchParams.get('id'))} type="video/mp4"/>
+        </video>
+    </main>;
 
 }

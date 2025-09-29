@@ -32,7 +32,7 @@ class ApiShelvesController extends AbstractController
         private readonly RequestStack           $requestStack)
     {
         $req = $this->requestStack->getCurrentRequest();
-        $library = $this->libraryRepo->findOneBy(['id' => $req->attributes->getInt('library')]);
+        $library = $this->libraryRepo->find($req->attributes->getInt('library'));
         if (!$library) {
             throw $this->createNotFoundException("Library not found.");
         }
@@ -74,7 +74,7 @@ class ApiShelvesController extends AbstractController
     }
 
     #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
-    #[Route('/shelves/{shelf}', name: 'shelves_id_edit', requirements: ['id' => '\d+'], methods: ['PUT'])]
+    #[Route('/shelves/{shelf}', name: 'shelves_id_edit', requirements: ['shelf' => '\d+'], methods: ['PUT'])]
     public function apiShelvesEdit(Request $req, #[MapEntity(message: "Shelf not found.")] Shelf $shelf): Response
     {
         if (!$req->getPayload()->has('name')) {
@@ -86,7 +86,7 @@ class ApiShelvesController extends AbstractController
     }
 
     #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
-    #[Route('/shelves/{shelf}', name: 'shelves_id_delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
+    #[Route('/shelves/{shelf}', name: 'shelves_id_delete', requirements: ['shelf' => '\d+'], methods: ['DELETE'])]
     public function apiShelvesDelete(#[MapEntity(message: "Shelf not found.")] Shelf $shelf): Response
     {
         $this->entityManager->remove($shelf);
@@ -94,7 +94,7 @@ class ApiShelvesController extends AbstractController
         return $this->json([]);
     }
 
-    #[Route('/shelves/{shelf}/books', name: 'shelves_id_books', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[Route('/shelves/{shelf}/books', name: 'shelves_id_books', requirements: ['shelf' => '\d+'], methods: ['GET'])]
     public function apiShelvesIdBooks(Request $req, #[MapEntity(message: "Shelf not found.")] Shelf $shelf, Authorization $authorization): Response
     {
         $authorization->setCookie($req, [sprintf(Channel::LIBRARY_SHELVES_ID, $shelf->getId())]);

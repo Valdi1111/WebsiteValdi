@@ -1,3 +1,0 @@
-security:
-    role_hierarchy:
-        ROLE_ADMIN_VIDEOS: [ROLE_USER_VIDEOS]

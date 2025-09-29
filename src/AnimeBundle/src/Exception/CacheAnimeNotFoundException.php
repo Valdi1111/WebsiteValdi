@@ -2,12 +2,14 @@
 
 namespace App\AnimeBundle\Exception;
 
-class CacheAnimeNotFoundException extends \RuntimeException
+use App\CoreBundle\Exception\EntityNotFoundException;
+
+class CacheAnimeNotFoundException extends EntityNotFoundException
 {
 
-    public function __construct(int $id)
+    public function __construct($id)
     {
-        parent::__construct("Anime not found in MyAnimeList cache. Anime id = " . $id);
+        parent::__construct("Anime not found in MyAnimeList cache. (id = $id)");
     }
 
 }

@@ -1,25 +1,33 @@
-import HeaderNav from "@CoreBundle/components/HeaderNav";
-import HeaderNavItem from "@CoreBundle/components/HeaderNavItem";
+import PageLayout from "@CoreBundle/components/layout/PageLayout";
+import { Link } from "react-router-dom";
 import React from "react";
 
 export default function MainLayout({children}) {
 
-    return (
-        <div className="d-flex flex-column vh-100">
-            <HeaderNav
-                navbar={<>
-                    <HeaderNavItem path="/downloads" name="Downloads"/>
-                    <HeaderNavItem path="/season/folders" name="Season Folders"/>
-                    <HeaderNavItem path="/list/anime" name="List Anime"/>
-                    <HeaderNavItem path="/list/manga" name="List Manga"/>
-                    <HeaderNavItem path="/files" name="Files"/>
-                </>}
-                dropdown={
-                    <li><span className="dropdown-item cursor-pointer">Prova 1</span></li>
-                }
-            />
-            {children}
-        </div>
-    );
+    return <PageLayout
+        navbarItems={[
+            {
+                key: 1,
+                label: <Link to="/downloads">Downloads</Link>,
+            },
+            {
+                key: 2,
+                label: <Link to="/season-folders">Season Folders</Link>,
+            },
+            {
+                key: 3,
+                label: <Link to="/list-anime">List Anime</Link>,
+            },
+            {
+                key: 4,
+                label: <Link to="/list-manga">List Manga</Link>,
+            },
+            {
+                key: 5,
+                label: <Link to="/files">Files</Link>,
+            },
+        ]}
+        children={children}
+    />;
 
 }

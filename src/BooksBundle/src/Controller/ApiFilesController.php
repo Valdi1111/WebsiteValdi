@@ -22,11 +22,16 @@ class ApiFilesController extends AbstractController
         private readonly RequestStack      $requestStack)
     {
         $req = $this->requestStack->getCurrentRequest();
-        $library = $this->libraryRepo->findOneBy(['id' => $req->attributes->getInt('library')]);
+        $library = $this->libraryRepo->find($req->attributes->getInt('library'));
         if (!$library) {
             throw $this->createNotFoundException("Library not found.");
         }
         $this->baseFolder = $library->getBasePath();
+    }
+
+    public function getBaseFolder(): string
+    {
+        return $this->baseFolder;
     }
 
 }

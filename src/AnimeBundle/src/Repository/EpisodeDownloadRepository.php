@@ -3,6 +3,8 @@
 namespace App\AnimeBundle\Repository;
 
 use App\AnimeBundle\Entity\EpisodeDownload;
+use App\CoreBundle\Repository\ITableRepository;
+use App\CoreBundle\Repository\TableRepositoryTrait;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -14,8 +16,10 @@ use Doctrine\Persistence\ManagerRegistry;
  * @method EpisodeDownload[]    findAll()
  * @method EpisodeDownload[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
  */
-class EpisodeDownloadRepository extends ServiceEntityRepository
+class EpisodeDownloadRepository extends ServiceEntityRepository implements ITableRepository
 {
+    use TableRepositoryTrait;
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, EpisodeDownload::class);

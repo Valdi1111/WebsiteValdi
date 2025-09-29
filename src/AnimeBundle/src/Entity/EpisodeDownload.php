@@ -6,6 +6,10 @@ use App\AnimeBundle\Repository\EpisodeDownloadRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
+#[ORM\Index(name: 'IDX_state', columns: ['state'])]
+#[ORM\Index(name: 'IDX_mal_id', columns: ['mal_id'])]
+#[ORM\Index(name: 'IDX_al_id', columns: ['al_id'])]
+#[ORM\Index(name: 'IDX_service_name', columns: ['service_name'])]
 #[ORM\Table(name: 'episode_download')]
 #[ORM\Entity(repositoryClass: EpisodeDownloadRepository::class)]
 class EpisodeDownload

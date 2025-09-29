@@ -23,7 +23,7 @@ class BookTestCommand extends Command
         private readonly BookRepository    $bookRepo,
         ?string                            $name = null)
     {
-        $library = $this->libraryRepo->findOneBy(['id' => 1]);
+        $library = $this->libraryRepo->find(1);
         $this->baseFolder = $library->getBasePath();
         parent::__construct($name);
     }

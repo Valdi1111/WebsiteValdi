@@ -14,7 +14,7 @@ final class Version20250221161036 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return '';
+        return 'Add serviceName to EpisodeDownload entity';
     }
 
     public function up(Schema $schema): void

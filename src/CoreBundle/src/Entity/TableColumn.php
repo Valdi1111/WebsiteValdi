@@ -2,8 +2,9 @@
 
 namespace App\CoreBundle\Entity;
 
+use BackedEnum;
+use Symfony\Component\Serializer\Attribute\Ignore;
 use Symfony\Component\Serializer\Attribute\SerializedName;
-use UnitEnum;
 
 class TableColumn
 {
@@ -11,21 +12,24 @@ class TableColumn
     private string $title;
     #[SerializedName('dataIndex')]
     private string $dataIndex;
+    #[Ignore]
+    private string $propertyPath;
+    #[SerializedName('valueFormat')]
+    private string $valueFormat = "string";
+    #[SerializedName('fixed')]
+    private ?string $fixed = null;
     #[SerializedName('sorter')]
     private ?bool $sorter = false;
     #[SerializedName('sortDirections')]
     private ?array $sortDirections = [];
     #[SerializedName('defaultSortOrder')]
     private ?string $defaultSortOrder = null;
+    #[SerializedName('filterType')]
+    private string $filterType = "none";
     #[SerializedName('filters')]
     private ?array $filters = null;
     #[SerializedName('hidden')]
     private bool $hidden = false;
-
-    public static function builder(string $title, string $dataIndex): static
-    {
-        return (new TableColumn())->setTitle($title)->setDataIndex($dataIndex);
-    }
 
     public function getTitle(): string
     {
@@ -46,6 +50,51 @@ class TableColumn
     public function setDataIndex(string $dataIndex): static
     {
         $this->dataIndex = $dataIndex;
+        return $this;
+    }
+
+    public function getPropertyPath(): string
+    {
+        return $this->propertyPath;
+    }
+
+    public function setPropertyPath(string $propertyPath): static
+    {
+        $this->propertyPath = $propertyPath;
+        return $this;
+    }
+
+    public function getValueFormat(): string
+    {
+        return $this->valueFormat;
+    }
+
+    public function setValueFormat(string $valueFormat): static
+    {
+        $this->valueFormat = $valueFormat;
+        return $this;
+    }
+
+    public function getFixed(): string
+    {
+        return $this->fixed;
+    }
+
+    public function setFixed(?string $fixed): static
+    {
+        $this->fixed = $fixed;
+        return $this;
+    }
+
+    public function setFixedLeft(): static
+    {
+        $this->setFixed("left");
+        return $this;
+    }
+
+    public function setFixedRight(): static
+    {
+        $this->setFixed("right");
         return $this;
     }
 
@@ -82,6 +131,23 @@ class TableColumn
         return $this;
     }
 
+    public function getFilterType(): ?string
+    {
+        return $this->filterType;
+    }
+
+    public function setFilterType(string $filterType): static
+    {
+        $this->filterType = $filterType;
+        return $this;
+    }
+
+    public function setFilterTypeString(): static
+    {
+        $this->setFilterType("string");
+        return $this;
+    }
+
     public function getFilters(): ?array
     {
         return $this->filters;
@@ -94,13 +160,17 @@ class TableColumn
     }
 
     /**
-     * @param class-string<UnitEnum> $enumClass
+     * @param class-string<BackedEnum> $enumClass
      * @return self
      */
     public function setFiltersFromEnum(string $enumClass): static
     {
+        $this->setFilterType("enum");
         $this->setFilters(array_map(
-            fn($e) => ['text' => str_replace('_', ' ', ucfirst($e->value)), 'value' => $e->value],
+            fn(BackedEnum $e) => [
+                'text' => str_replace('_', ' ', ucfirst($e->value)),
+                'value' => $e->value,
+            ],
             $enumClass::cases()
         ));
         return $this;

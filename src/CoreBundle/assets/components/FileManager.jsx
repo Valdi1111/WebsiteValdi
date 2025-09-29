@@ -7,6 +7,7 @@ import { Helmet } from "react-helmet";
  * @param {string} initialPath path selected on open
  * @param {?string} title page title
  * @returns {JSX.Element}
+ * @deprecated
  * @constructor
  */
 export default function FileManager({ apiUrl, initialPath = '/', title = 'Files' }) {

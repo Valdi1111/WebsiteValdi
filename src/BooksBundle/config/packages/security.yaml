@@ -1,3 +1,0 @@
-security:
-    role_hierarchy:
-        ROLE_ADMIN_BOOKS: [ROLE_USER_BOOKS]

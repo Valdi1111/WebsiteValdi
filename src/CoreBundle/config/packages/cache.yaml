@@ -1,0 +1,6 @@
+framework:
+    cache:
+        # Namespaced pools use the above "app" backend by default
+        pools:
+            cache.security_hierarchy:
+                adapter: cache.adapter.filesystem

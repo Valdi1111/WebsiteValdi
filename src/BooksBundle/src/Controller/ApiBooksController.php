@@ -51,7 +51,7 @@ class ApiBooksController extends AbstractController
         private readonly RequestStack           $requestStack)
     {
         $req = $this->requestStack->getCurrentRequest();
-        $library = $this->libraryRepo->findOneBy(['id' => $req->attributes->getInt('library')]);
+        $library = $this->libraryRepo->find($req->attributes->getInt('library'));
         if (!$library) {
             throw $this->createNotFoundException("Library not found.");
         }
@@ -68,7 +68,7 @@ class ApiBooksController extends AbstractController
         return $this->getLibrary()->getFilesystem();
     }
 
-    #[Route('/books/{book}/epub', name: 'books_id_epub', requirements: ['id' => '\d+'], methods: ['GET'], priority: 10)]
+    #[Route('/books/{book}/epub', name: 'books_id_epub', requirements: ['book' => '\d+'], methods: ['GET'], priority: 10)]
     public function apiEpubId(#[MapEntity(message: "Book not found.")] Book $book): Response
     {
         return $this->apiEpubPath($book->getUrl());
@@ -214,7 +214,7 @@ class ApiBooksController extends AbstractController
         return $this->json(['id' => $book->getId(), 'shelf_id' => $book->getShelfId()]);
     }
 
-    #[Route('/books/{book}', name: 'books_id_get', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[Route('/books/{book}', name: 'books_id_get', requirements: ['book' => '\d+'], methods: ['GET'])]
     public function apiBooksIdGet(#[MapEntity(message: "Book not found.")] Book $book): Response
     {
         return $this->json($book, 200, [], [
@@ -223,7 +223,7 @@ class ApiBooksController extends AbstractController
     }
 
     #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
-    #[Route('/books/{book}', name: 'books_id_edit', requirements: ['id' => '\d+'], methods: ['PUT'])]
+    #[Route('/books/{book}', name: 'books_id_edit', requirements: ['book' => '\d+'], methods: ['PUT'])]
     public function apiBooksIdEdit(Request $req, #[MapEntity(message: "Book not found.")] Book $book, EbookLoader $ebookLoader, NormalizerInterface $normalizer, HubInterface $hub, CacheManager $cacheManager): Response
     {
         if (!$req->getPayload()->has('book_cache')) {
@@ -266,7 +266,7 @@ class ApiBooksController extends AbstractController
     }
 
     #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
-    #[Route('/books/{book}', name: 'books_id_delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
+    #[Route('/books/{book}', name: 'books_id_delete', requirements: ['book' => '\d+'], methods: ['DELETE'])]
     public function apiBooksIdDelete(#[MapEntity(message: "Book not found.")] Book $book, HubInterface $hub, CacheManager $cacheManager): Response
     {
         $id = $book->getId();
@@ -292,7 +292,7 @@ class ApiBooksController extends AbstractController
         return $this->json(['id' => $id]);
     }
 
-    #[Route('/books/{book}/cover', name: 'books_id_cover_get', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[Route('/books/{book}/cover', name: 'books_id_cover_get', requirements: ['book' => '\d+'], methods: ['GET'])]
     public function apiBooksIdCoverGet(#[MapEntity(message: "Book not found.")] Book $book, BookCoverLoader $bookCoverLoader): Response
     {
         try {
@@ -306,7 +306,7 @@ class ApiBooksController extends AbstractController
         }
     }
 
-    #[Route('/books/{book}/mark-{type}', name: 'books_id_mark', requirements: ['id' => '\d+', 'type' => 'read|unread'], methods: ['PUT'])]
+    #[Route('/books/{book}/mark-{type}', name: 'books_id_mark', requirements: ['book' => '\d+', 'type' => 'read|unread'], methods: ['PUT'])]
     public function apiBooksIdMarkRead(#[CurrentUser] ?User $user, #[MapEntity(message: "Book not found.")] Book $book, string $type): Response
     {
         $progress = $book->getBookProgress($user);
@@ -325,7 +325,7 @@ class ApiBooksController extends AbstractController
         return $this->json(['id' => $book->getId()]);
     }
 
-    #[Route('/books/{book}/metadata', name: 'books_id_metadata', requirements: ['id' => '\d+'], methods: ['GET'])]
+    #[Route('/books/{book}/metadata', name: 'books_id_metadata', requirements: ['book' => '\d+'], methods: ['GET'])]
     public function apiBooksIdMetadata(#[MapEntity(message: "Book not found.")] Book $book): Response
     {
         return $this->json($book, 200, [], [
@@ -334,7 +334,7 @@ class ApiBooksController extends AbstractController
         ]);
     }
 
-    #[Route('/books/{book}/position', name: 'books_id_position', requirements: ['id' => '\d+'], methods: ['PUT'])]
+    #[Route('/books/{book}/position', name: 'books_id_position', requirements: ['book' => '\d+'], methods: ['PUT'])]
     public function apiBooksIdPosition(Request $req, #[CurrentUser] ?User $user, #[MapEntity(message: "Book not found.")] Book $book): Response
     {
         $progress = $book->getBookProgress($user);

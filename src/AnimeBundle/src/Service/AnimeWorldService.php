@@ -87,7 +87,7 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
 
     private function processFolder(?int $malId): string
     {
-        $folder = $this->entityManager->getRepository(SeasonFolder::class)->findOneBy(['id' => $malId]);
+        $folder = $this->entityManager->getRepository(SeasonFolder::class)->find($malId);
         if ($folder) {
             return $folder->getFolder();
         }
@@ -130,7 +130,7 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
         $globalCrawler = $this->fetchPage($downloadReq->getUrlPath());
         $malId = $this->scrapeIdFromButton($globalCrawler, 'mal-button');
         if ($downloadReq->isFilter()) {
-            $anime = $this->entityManager->getRepository(ListAnime::class)->findOneBy(['id' => $malId]);
+            $anime = $this->entityManager->getRepository(ListAnime::class)->find($malId);
             if (!$anime) {
                 throw new CacheAnimeNotFoundException($malId);
             }

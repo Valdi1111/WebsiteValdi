@@ -95,10 +95,13 @@ export default function BookId() {
         if (book.current) {
             return;
         }
-        api.books.getId(bookId).then(
-            res => {
+        api
+            .withErrorHandling()
+            .books()
+            .getId(bookId)
+            .then(res => {
                 console.log("Loading book", bookId);
-                book.current = new Book(api.books.epubUrl(res.data.id), { openAs: 'epub' });
+                book.current = new Book(api.books().epubUrl(res.data.id), { openAs: 'epub' });
                 setTitle(res.data.book_metadata.title);
                 navigation.current = res.data.book_cache.navigation;
                 setMark(res.data.book_progress);
@@ -111,9 +114,7 @@ export default function BookId() {
                     updateLayout(res.data.book_progress);
                     setLoaded(true);
                 });
-            },
-            err => console.error(err)
-        );
+            });
     }, [bookId]);
 
     /**
@@ -125,10 +126,13 @@ export default function BookId() {
         }
         // TODO setting for auto update last read
         const update = settings[UPDATE_LAST_READ] === 'true';
-        api.books.updatePosition(bookId, mark.position, mark.page, update).then(
-            res => console.debug("Position updated!"),
-            err => console.error(err)
-        );
+        api
+            .withErrorHandling()
+            .books()
+            .updatePosition(bookId, mark.position, mark.page, update)
+            .then(
+                res => console.debug("Position updated!")
+            );
     }, [mark]);
 
     /**

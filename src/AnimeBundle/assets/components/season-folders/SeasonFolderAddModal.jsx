@@ -1,72 +1,69 @@
+import FileManagerTreeSelect from "@CoreBundle/components/file-manager/FileManagerTreeSelect";
 import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
-import { FolderOpenOutlined, GlobalOutlined } from "@ant-design/icons";
-import { App, Form, Input, Modal, TreeSelect } from "antd";
+import { CheckCircleOutlined, CloseCircleOutlined, FolderOpenOutlined, GlobalOutlined } from "@ant-design/icons";
+import { Form, Input, List, Modal } from "antd";
 import React from "react";
 
 const MAL_ANIME_URL_PATTERN = /^https:\/\/myanimelist\.net\/anime\/(\d+)(?:\/.*)?$/;
 
+function DownloadedListItem({ download, fileExists }) {
+    let icon = <CloseCircleOutlined style={{ marginRight: 8 }}/>;
+    if (fileExists) {
+        icon = <CheckCircleOutlined style={{ marginRight: 8 }}/>;
+    }
+    return <List.Item>{icon} {download.file}</List.Item>;
+}
+
 export default function SeasonFolderAddModal({ open, setOpen }) {
     const [confirmLoading, setConfirmLoading] = React.useState(false);
-    const [form] = Form.useForm();
-    const { message } = App.useApp();
 
-    const [treeData, setTreeData] = React.useState([]);
+    const [downloadedLoading, setDownloadedLoading] = React.useState(false);
+    const [downloaded, setDownloaded] = React.useState([]);
+    const [malId, setMalId] = React.useState(null);
+
+    const [form] = Form.useForm();
+
     const api = useBackendApi();
 
-    const afterOpenChange = React.useCallback(opened => {
-        if (!opened) {
-            setTreeData([]);
+    React.useEffect(() => {
+        if (!malId) {
+            setDownloaded([]);
             return;
         }
-        onLoadTreeData();
-    }, []);
+        setDownloadedLoading(true);
+        api
+            .withErrorHandling()
+            .seasonsFolder()
+            .getDownloads(malId)
+            .then(
+                res => {
+                    setDownloaded(res.data);
+                },
+                err => {
+                    setDownloaded([]);
+                }
+            )
+            .finally(() => setDownloadedLoading(false));
+    }, [malId]);
 
     const onSubmit = React.useCallback(data => {
         setConfirmLoading(true);
-        message.open({
-            key: 'season-folder-add-loader',
-            type: 'loading',
-            content: 'Adding season folder...',
-            duration: 0,
-        });
-        api.seasonsFolder.add(data).then(
-            res => {
-                message.open({
-                    key: 'season-folder-add-loader',
-                    type: 'success',
-                    content: 'Season folder added successfully',
-                    duration: 2.5,
-                });
+        api
+            .withLoadingMessage({
+                key: 'season-folder-add-loader',
+                loadingContent: 'Adding season folder...',
+                successContent: 'Season folder added successfully',
+            })
+            .seasonsFolder()
+            .add(data)
+            .then(res => {
                 setOpen(false);
-            },
-            err => {
-                message.destroy('season-folder-add-loader');
-                console.error(err);
-            }
-        ).finally(() => {
-            setConfirmLoading(false);
-        });
+            })
+            .finally(() => setConfirmLoading(false));
     }, []);
-
-    function onLoadTreeData(node) {
-        const data = {};
-        if (node) {
-            data.path = node.id;
-        }
-        return api.seasonsFolder.available(data).then(
-            res => {
-                setTreeData(treeData.concat(res.data));
-                return res.data;
-            },
-            err => {
-                console.error(err);
-            }
-        );
-    }
 
     return <Modal
         open={open}
-        afterOpenChange={afterOpenChange}
         title={<span>Add season folder</span>}
         onCancel={() => setOpen(false)}
         destroyOnHidden
@@ -79,7 +76,7 @@ export default function SeasonFolderAddModal({ open, setOpen }) {
             <Form
                 form={form}
                 layout="vertical"
-                name="form_in_modal"
+                name="add_season_folder_modal"
                 clearOnDestroy={true}
                 onFinish={data => {
                     // pre-elaborazione prima del submit
@@ -89,6 +86,19 @@ export default function SeasonFolderAddModal({ open, setOpen }) {
                         delete data.url;
                         onSubmit(data);
                     }
+                }}
+                onValuesChange={(changedValues, allValues) => {
+                    if (changedValues.url === undefined) {
+                        return;
+                    }
+                    if (changedValues.url) {
+                        const match = changedValues.url.match(MAL_ANIME_URL_PATTERN);
+                        if (match) {
+                            setMalId(Number.parseInt(match[1]));
+                            return;
+                        }
+                    }
+                    setMalId(null);
                 }}>
                 {dom}
             </Form>
@@ -100,21 +110,31 @@ export default function SeasonFolderAddModal({ open, setOpen }) {
         ]}>
             <Input prefix={<GlobalOutlined/>} placeholder="https://myanimelist.net/anime/xxxxx"/>
         </Form.Item>
-        <Form.Item label="Folder" name="folder" rules={[{ required: true, message: 'Please input season folder.' }]}>
-            <TreeSelect
+        <Form.Item
+            label="Folder"
+            name="folder"
+            rules={[{ required: true, message: 'Please input season folder.' }]}
+        >
+            <FileManagerTreeSelect
+                apiUrl={api.fmUrl()}
                 prefix={<FolderOpenOutlined/>}
                 placeholder="Folder"
-                treeDataSimpleMode
                 showSearch
                 treeLine
                 style={{ width: '100%' }}
                 styles={{
                     popup: { root: { maxHeight: 400, overflow: 'auto' } },
                 }}
-                loadData={onLoadTreeData}
-                treeData={treeData}
             />
         </Form.Item>
+            <List style={{ maxHeight: '50vh', overflowY: 'scroll' }}
+                size="small"
+                bordered
+                loading={downloadedLoading}
+                dataSource={downloaded}
+                renderItem={(item) => <DownloadedListItem download={item.download} fileExists={item.file_exists}/>}
+                height={'150px'}
+            />
     </Modal>;
 
 }

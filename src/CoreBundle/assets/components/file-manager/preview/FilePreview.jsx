@@ -1,72 +1,53 @@
-import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerContext";
 import FilePreviewContent from "@CoreBundle/components/file-manager/preview/FilePreviewContent";
-import { Button, Descriptions, Divider, Flex, Image, Typography } from "antd";
-import { formatBytes, formatDateTimeFromTimestamp } from "@CoreBundle/utils";
+import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerContext";
+import { Button, ConfigProvider, Divider, Flex, Image, Typography } from "antd";
 import { DownloadOutlined } from "@ant-design/icons";
 import React from "react";
+import FilePreviewInfo from "@CoreBundle/components/file-manager/preview/FilePreviewInfo";
+import FilePreviewExtraInfo from "@CoreBundle/components/file-manager/preview/FilePreviewExtraInfo";
 
 export default function FilePreview() {
-    const { api, files, selectedKey } = useFileManager();
+    const { api, selectedFile } = useFileManager();
 
-    const row = React.useMemo(() => {
-        const f = files.find(f => f.key === selectedKey);
-        if (f && f.title) {
-            f.typeExtension = f.title.split('.').pop();
-        }
-        return f;
-    }, [files, selectedKey]);
-
-    const items = React.useMemo(() => {
-        if (!row) {
-            return [];
-        }
-        return [
-            {
-                key: 'type',
-                label: 'Type',
-                children: <p>{row.type}</p>,
-            },
-            {
-                key: 'size',
-                label: 'Size',
-                children: <p>{formatBytes(row.size)}</p>,
-            },
-            {
-                key: 'date',
-                label: 'Date',
-                children: <p>{formatDateTimeFromTimestamp(row.date)}</p>,
-            },
-        ];
-    }, [row]);
-
-    if (!row) {
+    if (!selectedFile) {
         return <Flex
             style={{ paddingLeft: '8px', paddingRight: '8px', height: '100%' }}
             justify="center"
             align="center"
             vertical>
-            <Image src={api.fmIconUrl()} alt="logo" style={{maxWidth: '100%', maxHeight: '100%'}}/>
+            <Image src={api.fmIconUrl()} alt="logo" style={{ maxWidth: '100%', maxHeight: '100%' }}/>
         </Flex>
     }
 
     return <Flex style={{ paddingLeft: '16px', paddingRight: '16px' }} vertical>
         <Flex justify="space-between" gap="small" style={{ width: '100%' }}>
             <Typography.Title level={4} style={{ marginBottom: 0 }} ellipsis>
-                {row.title}
+                {selectedFile.title}
             </Typography.Title>
             <Button
                 style={{ paddingLeft: "8px", paddingRight: "8px" }}
                 icon={<DownloadOutlined/>}
                 onClick={() => {
-                    console.debug("Downloading", row.key);
-                    api.fmDownload(row.key);
+                    console.debug("Downloading", selectedFile.id);
+                    api
+                        .withErrorHandling()
+                        .fmDownload(selectedFile.id);
                 }}
             />
         </Flex>
         <Divider size="small"/>
-        <FilePreviewContent row={row}/>
-        <Divider size="small"/>
-        <Descriptions title="Information" styles={{title: {textAlign: 'center'}}} items={items} column={2}/>
-    </Flex>
+        <FilePreviewContent/>
+        <ConfigProvider theme={{
+            components: {
+                Descriptions: {
+                    titleMarginBottom: 8,
+                    itemPaddingBottom: 8,
+                },
+            },
+        }}>
+            <FilePreviewInfo/>
+            <FilePreviewExtraInfo/>
+        </ConfigProvider>
+    </Flex>;
 
 }

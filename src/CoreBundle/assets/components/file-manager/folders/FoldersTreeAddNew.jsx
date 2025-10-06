@@ -1,14 +1,10 @@
-import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerContext";
 import UploadFolderModal from "@CoreBundle/components/file-manager/add/UploadFolderModal";
 import UploadFileModal from "@CoreBundle/components/file-manager/add/UploadFileModal";
 import AddFolderModal from "@CoreBundle/components/file-manager/add/AddFolderModal";
 import AddFileModal from "@CoreBundle/components/file-manager/add/AddFileModal";
-import { Dropdown } from "antd";
-import {
-    FileAddOutlined,
-    FolderAddOutlined,
-    UploadOutlined
-} from "@ant-design/icons";
+import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerContext";
+import { FileAddOutlined, FolderAddOutlined, UploadOutlined } from "@ant-design/icons";
+import { Button, Dropdown } from "antd";
 import React from "react";
 
 export default function FoldersTreeAddNew() {
@@ -16,7 +12,8 @@ export default function FoldersTreeAddNew() {
     const [addFolderModal, setAddFolderModal] = React.useState(false);
     const [uploadFileModal, setUploadFileModal] = React.useState(false);
     const [uploadFolderModal, setUploadFolderModal] = React.useState(false);
-    const { api } = useFileManager();
+
+    const { selectedFolder } = useFileManager();
 
     const items = [
         {
@@ -48,37 +45,26 @@ export default function FoldersTreeAddNew() {
         },
     ];
 
+    let components = <></>;
+
+    if (selectedFolder) {
+        components = <>
+            <AddFileModal visible={addFileModal} setVisible={setAddFileModal}/>
+            <AddFolderModal visible={addFolderModal} setVisible={setAddFolderModal}/>
+            <UploadFileModal visible={uploadFileModal} setVisible={setUploadFileModal}/>
+            <UploadFolderModal visible={uploadFolderModal} setVisible={setUploadFolderModal}/>
+        </>;
+    }
+
     return <>
-        <AddFileModal
-            visible={addFileModal}
-            setVisible={setAddFileModal}
-            backendFunction={api.fmMakeFile}
-        />
-        <AddFolderModal
-            visible={addFolderModal}
-            setVisible={setAddFolderModal}
-            backendFunction={api.fmMakeDir}
-        />
-        <UploadFileModal
-            visible={uploadFileModal}
-            setVisible={setUploadFileModal}
-        />
-        <UploadFolderModal
-            visible={uploadFolderModal}
-            setVisible={setUploadFolderModal}
-        />
-        <Dropdown.Button
-            placement="bottomRight"
-            buttonsRender={([l, r]) => [
-                React.cloneElement(l, {
-                    style: { ...l.props.style, flex: 1 },
-                }),
-                r,
-            ]}
+        {components}
+        <Dropdown
+            disabled={selectedFolder == null}
+            placement="bottom"
             menu={{ items }}
-            arrow
+            arrow={{ pointAtCenter: true }}
         >
-            Add New
-        </Dropdown.Button>
+            <Button style={{ flex: 1 }} disabled={selectedFolder == null}>Add New</Button>
+        </Dropdown>
     </>;
 }

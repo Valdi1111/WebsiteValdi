@@ -1,10 +1,9 @@
-import { message } from "antd";
+import { createProxy, withErrorHandling, withLoadingMessage } from "@CoreBundle/api-utils";
 import axios from "axios";
-import qs from "qs";
 
 /**
  * @typedef {Object} DownloadsAPI
- * @property {(params: Object) => Promise<axios.AxiosResponse<any>>} get
+ * @property {(params: Object) => Promise<axios.AxiosResponse<any>>} table
  * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} getId
  * @property {(data: Object) => Promise<axios.AxiosResponse<any>>} add
  * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} retry
@@ -12,88 +11,88 @@ import qs from "qs";
 
 /**
  * @typedef {Object} ListAnimeAPI
- * @property {(params: Object) => Promise<axios.AxiosResponse<any>>} get
+ * @property {(params: Object) => Promise<axios.AxiosResponse<any>>} table
  * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} getId
+ * @property {() => Promise<axios.AxiosResponse<any>>} refresh
  */
 
 /**
  * @typedef {Object} ListMangaAPI
- * @property {(params: Object) => Promise<axios.AxiosResponse<any>>} get
+ * @property {(params: Object) => Promise<axios.AxiosResponse<any>>} table
  * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} getId
+ * @property {() => Promise<axios.AxiosResponse<any>>} refresh
  */
 
 /**
  * @typedef {Object} SeasonsFolderAPI
- * @property {(params: Object) => Promise<axios.AxiosResponse<any>>} get
+ * @property {(params: Object) => Promise<axios.AxiosResponse<any>>} table
  * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} getId
- * @property {(params: Object) => Promise<axios.AxiosResponse<any>>} available
+ * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} getDownloads
  * @property {(data: Object) => Promise<axios.AxiosResponse<any>>} add
  * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} delete
  */
 
 /**
  * @typedef {Object} AnimeBundleAPI
- * @property {DownloadsAPI} [downloads]
- * @property {ListAnimeAPI} [listAnime]
- * @property {ListMangaAPI} [listManga]
- * @property {SeasonsFolderAPI} [seasonsFolder]
+ * @property {() => string} [fmUrl]
+ * @property {(id: string) => string} [fmDirectUrl]
+ * @property {() => DownloadsAPI} [downloads]
+ * @property {() => ListAnimeAPI} [listAnime]
+ * @property {() => ListMangaAPI} [listManga]
+ * @property {() => SeasonsFolderAPI} [seasonsFolder]
+ *
+ * @property {() => AnimeBundleAPI} [withErrorHandling]
+ * @property {(messageData: MessageData) => AnimeBundleAPI} [withLoadingMessage]
  */
 
 /** @type {AnimeBundleAPI} */
-export default function (apiUrl) {
+export default function (apiUrl, { message }) {
 
     const axiosInstance = axios.create({
         baseURL: apiUrl
     });
 
-    // TODO da rimuovere quando è stato implementato ovunque, funzione per funzione
-    axiosInstance.interceptors.response.use(
-        res => {
-            // Here you can handle successful responses
-            return res; // Pass the response to the next then
-        },
-        err => {
-            // Handle errors
-            if (err.response) {
-                // The request was made and the server responded with a status code
-                // that falls out of the range of 2xx
-                console.error('Error response:', err.response.data); // title, detail
-                console.error('Error status:', err.response.status);
-                message.error(err.response.data.detail, 5);
-            } else if (err.request) {
-                // The request was made but no response was received
-                console.error('Error request:', err.request);
-            } else {
-                // Something happened in setting up the request that triggered an Error
-                console.error('Error message:', err.message);
-            }
-            // Rethrow the error to allow callers to handle it
-            return Promise.reject(err);
-        }
-    );
-
     const api = {};
 
-    api.downloads = {};
-    api.downloads.get = async (params) => axiosInstance.get(`/downloads?${qs.stringify(params)}`);
-    api.downloads.getId = async (id) => axiosInstance.get(`/downloads/${id}`);
-    api.downloads.add = async (data) => axiosInstance.post(`/downloads`, data);
-    api.downloads.retry = async (id) => axiosInstance.post(`/downloads/${id}/retry`);
+    api.fmUrl = () => axiosInstance.getUri({ url: `/files` });
+    api.fmDirectUrl = (id) => axiosInstance.getUri({ url: `/files/direct`, params: { id } });
 
-    api.listAnime = {};
-    api.listAnime.get = async (params) => axiosInstance.get(`/list-anime?${qs.stringify(params)}`);
-    api.listAnime.getId = async (id) => axiosInstance.get(`/list-anime/${id}`);
+    api._downloads = {};
+    api._downloads.table = async (params) => axiosInstance.get(`/downloads/table`, { params });
+    api._downloads.getId = async (id) => axiosInstance.get(`/downloads/${id}`);
+    api._downloads.add = async (data) => axiosInstance.post(`/downloads`, data);
+    api._downloads.retry = async (id) => axiosInstance.post(`/downloads/${id}/retry`);
 
-    api.listManga = {};
-    api.listManga.get = async (params) => axiosInstance.get(`/list-manga?${qs.stringify(params)}`);
-    api.listManga.getId = async (id) => axiosInstance.get(`/list-manga/${id}`);
+    api._listAnime = {};
+    api._listAnime.table = async (params) => axiosInstance.get(`/list-anime/table`, { params });
+    api._listAnime.getId = async (id) => axiosInstance.get(`/list-anime/${id}`);
+    api._listAnime.refresh = async () => axiosInstance.post(`/list-anime/refresh`);
 
-    api.seasonsFolder = {};
-    api.seasonsFolder.get = async (params) => axiosInstance.get(`/season-folders?${qs.stringify(params)}`);
-    api.seasonsFolder.getId = async (id) => axiosInstance.get(`/season-folders/${id}`);
-    api.seasonsFolder.available = async (params) => axiosInstance.get(`/season-folders/available?${qs.stringify(params)}`);
-    api.seasonsFolder.add = async (data) => axiosInstance.post(`/season-folders`, data);
-    api.seasonsFolder.delete = async (id) => axiosInstance.delete(`/season-folders/${id}`);
+    api._listManga = {};
+    api._listManga.table = async (params) => axiosInstance.get(`/list-manga/table`, { params });
+    api._listManga.getId = async (id) => axiosInstance.get(`/list-manga/${id}`);
+    api._listManga.refresh = async () => axiosInstance.post(`/list-manga/refresh`);
 
-    return api;
+    api._seasonsFolder = {};
+    api._seasonsFolder.table = async (params) => axiosInstance.get(`/season-folders/table`, { params });
+    api._seasonsFolder.getId = async (id) => axiosInstance.get(`/season-folders/${id}`);
+    api._seasonsFolder.getDownloads = async (id) => axiosInstance.get(`/season-folders/${id}/downloads`);
+    api._seasonsFolder.add = async (data) => axiosInstance.post(`/season-folders`, data);
+    api._seasonsFolder.delete = async (id) => axiosInstance.delete(`/season-folders/${id}`);
+
+    return {
+        ...api,
+        downloads: () => api._downloads,
+        listAnime: () => api._listAnime,
+        listManga: () => api._listManga,
+        seasonsFolder: () => api._seasonsFolder,
+        withErrorHandling: () => createProxy(
+            api,
+            (promiseFn) => withErrorHandling(promiseFn, message)
+        ),
+        withLoadingMessage: (messageData) => createProxy(
+            api,
+            (promiseFn) => withLoadingMessage(promiseFn, message, messageData)
+        ),
+    };
 };

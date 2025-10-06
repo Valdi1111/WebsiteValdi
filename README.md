@@ -59,7 +59,7 @@ ProxyFCGISetEnvIf "true" HTTP_X_SENDFILE_TYPE "X-Sendfile"
 
 ## Deploy
 * Copy new files
-* Install php packages `composer install`
+* Install php packages `composer install --no-dev --optimize-autoloader`
 * Clear symfony cache `php bin/console c:c`
 * Install assets from bundles `php bin/console assets:install`
 * Install node packages `npm install`

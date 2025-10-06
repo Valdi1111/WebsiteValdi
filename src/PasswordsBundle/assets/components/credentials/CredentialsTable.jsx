@@ -34,7 +34,7 @@ export default function CredentialsTable() {
     return <>
         <CredentialDetailModal id={credential.id} type={credential.type} open={modalOpen} setOpen={setModalOpen}/>
         <StandardTable
-            backendFunction={api.credentials.get}
+            backendFunction={api.withErrorHandling().credentials().table}
             tableStyle={{ overflowY: 'auto', width: '100%' }}
             tableOnRow={onRowClick}
             extraColumnsAfter={[

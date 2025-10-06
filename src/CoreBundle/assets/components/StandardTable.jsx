@@ -1,5 +1,5 @@
-import { Button, Checkbox, Flex, Form, Input, Modal, Space, Table, Tag } from "antd";
-import { formatDateFromIso, formatDateTimeFromIso } from "@CoreBundle/utils";
+import { Button, Checkbox, Flex, Form, Input, Modal, Space, Table, Tag, theme as antdTheme } from "antd";
+import { formatDateFromIso, formatDateTimeFromIso } from "@CoreBundle/format-utils";
 import { SearchOutlined } from "@ant-design/icons";
 import Highlighter from "react-highlight-words";
 import React from "react";
@@ -134,6 +134,8 @@ export default function StandardTable({
     const [table, dispatch] = React.useReducer(reducer, INITIAL_STATE);
     const [form] = Form.useForm();
 
+    const { token: { controlItemBgActiveHover } } = antdTheme.useToken();
+
     React.useEffect(() => {
         if (table.structure_state === "loading") {
             backendFunction({ initializing: true }).then(
@@ -251,7 +253,11 @@ export default function StandardTable({
         },
         // TODO da spostare in onCell
         render: text => <Highlighter
-            highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+            highlightStyle={{
+                backgroundColor: controlItemBgActiveHover,
+                borderRadius: '5px',
+                padding: '2px 0',
+            }}
             searchWords={[searchText[c.dataIndex]]}
             autoEscape
             textToHighlight={text ? text.toString() : ''}
@@ -269,7 +275,7 @@ export default function StandardTable({
                 <Form
                     form={form}
                     layout="vertical"
-                    name="form_in_modal"
+                    name="visible_columns_modal"
                     clearOnDestroy={true}
                     onFinish={(data) => dispatch({ type: "update_visible_columns", payload: data })}>
                     {dom}
@@ -297,13 +303,13 @@ export default function StandardTable({
                 if (c.valueFormat === "datetime") {
                     return {
                         ...c,
-                        render: formatDateTimeFromIso,
+                        render: (value) => <span>{formatDateTimeFromIso(value)}</span>,
                     };
                 }
                 if (c.valueFormat === "date") {
                     return {
                         ...c,
-                        render: formatDateFromIso,
+                        render: (value) => <span>{formatDateFromIso(value)}</span>,
                     };
                 }
                 if (c.valueFormat === "tags") {

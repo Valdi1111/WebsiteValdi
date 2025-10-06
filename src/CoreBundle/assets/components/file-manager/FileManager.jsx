@@ -3,20 +3,22 @@ import createFileManagerApi from "@CoreBundle/components/file-manager/FileManage
 import FilePreview from "@CoreBundle/components/file-manager/preview/FilePreview";
 import FoldersTree from "@CoreBundle/components/file-manager/folders/FoldersTree";
 import FilesTable from "@CoreBundle/components/file-manager/files/FilesTable";
-import FileToolbar from "@CoreBundle/components/file-manager/FileToolbar";
-import { Layout, Splitter } from "antd";
+import FileManagerToolbar from "@CoreBundle/components/file-manager/FileManagerToolbar";
+import { Layout, Splitter, App } from "antd";
 import React from "react";
 
+// TODO andranno modificati i vari useEffect, useMemo etc al cambio di api
 export default function FileManager({ apiUrl }) {
     const [info, setInfo] = React.useState(null);
     // File preview
     const [showPreview, setShowPreview] = React.useState(false);
     // Selected folder, file, clipboard
-    const [selectedId, setSelectedId] = React.useState("/");
-    const [selectedKey, setSelectedKey] = React.useState(null);
+    const [selectedFolder, setSelectedFolder] = React.useState(null);
+    const [selectedFile, setSelectedFile] = React.useState(null);
     const [clipboard, setClipboard] = React.useState(null);
     // Folders tree data
     const [folders, setFolders] = React.useState([{
+        id: "/",
         key: "/",
         title: "Root",
         children: [],
@@ -25,60 +27,68 @@ export default function FileManager({ apiUrl }) {
     // Files table data
     const [files, setFiles] = React.useState([]);
     const [filesLoading, setFilesLoading] = React.useState(false);
-    const api = React.useMemo(() => createFileManagerApi(apiUrl), []);
+    const app = App.useApp();
 
-    const reloadFolders = React.useCallback(data => {
-        if (data && data.key !== "/") {
-            return null;
-        }
-        return api.fmFolders().then(
-            res => {
-                setFolders([{
+    /** @type {FileManagerAPI} */
+    const api = React.useMemo(() => createFileManagerApi(apiUrl, app), [apiUrl]);
+
+    const reloadFolders = React.useCallback(() => {
+        return api
+            .withErrorHandling()
+            .fmFolders()
+            .then(res => {
+                const t = [{
+                    id: "/",
                     key: "/",
                     title: "Root",
                     children: res.data,
                     isLeaf: !!res.data.length,
-                }]);
-            },
-            err => console.error(err)
-        );
-    }, []);
+                }];
+                setFolders(t);
+                return t;
+            });
+    }, [api]);
 
     const reloadFiles = React.useCallback(() => {
         setFiles([]);
+        if (!selectedFolder) {
+            return Promise.resolve(null);
+        }
         setFilesLoading(true);
-        return api.fmFiles(selectedId).then(
-            res => {
+        return api
+            .withErrorHandling()
+            .fmFiles(selectedFolder.id)
+            .then(res => {
                 setFiles(res.data);
-                setFilesLoading(false);
-            },
-            err => console.error(err)
-        )
-    }, [selectedId]);
+            })
+            .finally(() => setFilesLoading(false));
+    }, [api, selectedFolder?.id]);
 
     React.useEffect(() => {
-        reloadFiles();
-    }, [selectedId]);
+        setClipboard(null);
+        reloadFolders().then(t => setSelectedFolder(t[0]));
+        api
+            .withErrorHandling()
+            .fmInfo()
+            .then(res => setInfo(res.data));
+    }, [api]);
 
     React.useEffect(() => {
-        api.fmInfo().then(
-            res => setInfo(res.data),
-            err => console.error(err),
-        );
-    }, []);
+        reloadFiles().then(() => setSelectedFile(null));
+    }, [selectedFolder?.id]);
 
     return <FileManagerContext value={{
         // TODO sfruttare l'info, mostrare la pienezza del disco e usare i flag per abilitare o no certe impostazioni
         info, setInfo,
-        selectedId, setSelectedId,
-        selectedKey, setSelectedKey,
+        selectedFolder, setSelectedFolder,
+        selectedFile, setSelectedFile,
         clipboard, setClipboard,
         folders, reloadFolders,
         files, reloadFiles, filesLoading,
         api,
     }}>
         <Layout>
-            <FileToolbar showPreview={showPreview} setShowPreview={setShowPreview}/>
+            <FileManagerToolbar showPreview={showPreview} setShowPreview={setShowPreview}/>
             <Layout.Content style={{ display: 'flex', maxHeight: '100%' }}>
                 <Splitter style={{ height: '100%' }}>
                     <Splitter.Panel

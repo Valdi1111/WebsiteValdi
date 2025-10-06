@@ -3,7 +3,7 @@ import ThemeContext from "@CoreBundle/components/theme/ThemeContext";
 import { App, ConfigProvider } from "antd";
 import React from "react";
 
-export default function AppLayout({ children }) {
+export default function AppRoot({ children }) {
     const [theme, setTheme] = React.useState(localStorage.getItem(THEME) || Object.keys(THEMES)[0]);
 
     // Load theme or set default

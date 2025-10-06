@@ -1,39 +1,27 @@
 import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
-import { App, Checkbox, Form, Input, Modal } from "antd";
+import { Checkbox, Form, Input, Modal } from "antd";
 import { GlobalOutlined } from "@ant-design/icons";
 import React from "react";
 
 export default function DownloadAddModal({ open, setOpen }) {
     const [confirmLoading, setConfirmLoading] = React.useState(false);
     const [form] = Form.useForm();
-    const { message } = App.useApp();
     const api = useBackendApi();
 
     const onSubmit = React.useCallback(data => {
         setConfirmLoading(true);
-        message.open({
-            key: 'download-add-loader',
-            type: 'loading',
-            content: 'Adding download...',
-            duration: 0,
-        });
-        api.downloads.add(data).then(
-            res => {
-                message.open({
-                    key: 'download-add-loader',
-                    type: 'success',
-                    content: 'Download added successfully',
-                    duration: 2.5,
-                });
+        api
+            .withLoadingMessage({
+                key: 'download-add-loader',
+                loadingContent: 'Adding download...',
+                successContent: 'Download added successfully',
+            })
+            .downloads()
+            .add(data)
+            .then(res => {
                 setOpen(false);
-            },
-            err => {
-                message.destroy('download-add-loader');
-                console.error(err);
-            }
-        ).finally(() => {
-            setConfirmLoading(false);
-        });
+            })
+            .finally(() => setConfirmLoading(false));
     }, []);
 
     return <Modal
@@ -50,7 +38,7 @@ export default function DownloadAddModal({ open, setOpen }) {
             <Form
                 form={form}
                 layout="vertical"
-                name="form_in_modal"
+                name="add_download_modal"
                 clearOnDestroy={true}
                 onFinish={data => onSubmit(data)}>
                 {dom}

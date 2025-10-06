@@ -5,79 +5,85 @@ import React from "react";
 
 export default function ListMangaDetailModal({ open, setOpen, selectedId }) {
     const [loading, setLoading] = React.useState(true);
-    const [listData, setListData] = React.useState({});
+    const [data, setData] = React.useState(null);
     const api = useBackendApi();
 
     const afterOpenChange = React.useCallback(opened => {
         if (!opened) {
             setLoading(true);
-            setListData({});
+            setData(null);
             return;
         }
         setLoading(true);
-        api.listManga.getId(selectedId).then(
-            res => {
-                setListData(res.data);
+        api
+            .withErrorHandling()
+            .listManga()
+            .getId(selectedId)
+            .then(res => {
+                setData(res.data);
                 setLoading(false);
-            },
-            err => console.error(err)
-        );
+            });
     }, [selectedId]);
 
-    const items = React.useMemo(() => [
-        {
-            key: 1,
-            label: 'MyAnimeList ID',
-            children: <Link to={`https://myanimelist.net/manga/${listData.id}`} target="_blank">
-                {listData.id}
-            </Link>,
-            span: 2,
-        },
-        {
-            key: 2,
-            label: 'Status',
-            children: listData.status,
-            span: 2,
-        },
-        {
-            key: 3,
-            label: 'Title',
-            children: listData.title,
-            span: 4,
-        },
-        {
-            key: 4,
-            label: 'Title english',
-            children: listData.title_en,
-            span: 4,
-        },
-        {
-            key: 5,
-            label: 'Nsfw',
-            children: listData.nsfw,
-            span: 2,
-        },
-        {
-            key: 6,
-            label: 'Type',
-            children: listData.media_type,
-            span: 2,
-        },
-        {
-            key: 7,
-            label: 'Volumes',
-            children: listData.num_volumes,
-            span: 2,
-            hidden: true,
-        },
-        {
-            key: 8,
-            label: 'Chapters',
-            children: listData.num_chapters,
-            span: 2,
-            hidden: true,
-        },
-    ], [listData]);
+    const items = React.useMemo(() => {
+        if (!data) {
+            return [];
+        }
+        return [
+            {
+                key: 1,
+                label: 'MyAnimeList ID',
+                children: <Link to={`https://myanimelist.net/manga/${data.id}`} target="_blank">
+                    {data.id}
+                </Link>,
+                span: 2,
+            },
+            {
+                key: 2,
+                label: 'Status',
+                children: data.status,
+                span: 2,
+            },
+            {
+                key: 3,
+                label: 'Title',
+                children: data.title,
+                span: 4,
+            },
+            {
+                key: 4,
+                label: 'Title english',
+                children: data.title_en,
+                span: 4,
+            },
+            {
+                key: 5,
+                label: 'Nsfw',
+                children: data.nsfw,
+                span: 2,
+            },
+            {
+                key: 6,
+                label: 'Type',
+                children: data.media_type,
+                span: 2,
+            },
+            {
+                key: 7,
+                label: 'Volumes',
+                children: data.num_volumes,
+                span: 2,
+                hidden: true,
+            },
+            {
+                key: 8,
+                label: 'Chapters',
+                children: data.num_chapters,
+                span: 2,
+                hidden: true,
+            },
+        ];
+    }, [data]);
 
     return <Modal
         title={<span>Manga details</span>}

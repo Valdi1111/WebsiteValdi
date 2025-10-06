@@ -35,31 +35,19 @@ export default function ShelvesListContent({ collapsed, setCollapsed, shelves, s
 
     function refreshContent() {
         setLoading(true);
-        return api.shelves.getBooks(shelfId).then(
-            res => {
-                const shelf = getCurrentShelf();
-                // Update content
-                const data = [{ folder: shelf.path, books: [] }];
-                res.data.forEach(b => {
-                    const path = b.url.replace(`/${shelf.path}/`, '').split('/', 2);
-                    const folder = path.length === 1 ? shelf.path : path[0];
-                    let folderEntry = data.find(entry => entry.folder === folder);
-                    if (!folderEntry) {
-                        folderEntry = { folder: folder, books: [] };
-                        data.push(folderEntry);
-                    }
-                    folderEntry.books.push(b);
-                });
-                setContent(data);
+        return api
+            .withErrorHandling()
+            .shelves()
+            .getBooks(shelfId)
+            .then(res => {
+                setContent(res.data.sub_shelves);
                 // Update shelf book count
                 const allShelves = shelves;
                 let i = allShelves.findIndex(s => s.id == shelfId);
-                allShelves[i].books_count = res.data.length;
+                allShelves[i].books_count = res.data.books_count;
                 setShelves(allShelves);
                 setLoading(false);
-            },
-            err => console.error(err)
-        );
+            });
     }
 
     function getCurrentShelf() {
@@ -99,30 +87,23 @@ export default function ShelvesListContent({ collapsed, setCollapsed, shelves, s
     }
 
     function onShelfEdit(data) {
-        message.open({
-            key: 'shelf-edit-loader',
-            type: 'loading',
-            content: 'Updating shelf...',
-            duration: 0,
-        });
         setEditConfirmLoading(true);
-        api.shelves.edit(shelfId, data.name).then(
-            res => {
-                message.open({
-                    key: 'shelf-edit-loader',
-                    type: 'success',
-                    content: 'Shelf updated successfully',
-                    duration: 2.5,
-                });
+        api
+            .withLoadingMessage({
+                key: 'shelf-edit-loader',
+                loadingContent: 'Updating shelf...',
+                successContent: 'Shelf updated successfully',
+            })
+            .shelves()
+            .edit(shelfId, data.name)
+            .then(res => {
                 const newShelves = shelves;
                 let i = newShelves.findIndex(s => s.id === res.data.id);
                 newShelves[i].name = res.data.name;
                 setShelves([...newShelves]);
                 setEditConfirmLoading(false);
                 setEditOpen(false);
-            },
-            err => console.error(err)
-        );
+            });
     }
 
     function onDeleteOpen() {
@@ -130,32 +111,22 @@ export default function ShelvesListContent({ collapsed, setCollapsed, shelves, s
             icon: <ExclamationCircleFilled/>,
             title: 'Are you sure you want to delete this shelf?',
             content: getCurrentShelf().name,
-            onOk() {
-                message.open({
+            onOk: () => api
+                .withLoadingMessage({
                     key: 'shelf-delete-loader',
-                    type: 'loading',
-                    content: 'Deleting shelf...',
-                    duration: 0,
-                });
-                return api.shelves.delete(shelfId).then(
-                    res => {
-                        message.open({
-                            key: 'shelf-delete-loader',
-                            type: 'success',
-                            content: 'Shelf deleted successfully',
-                            duration: 2.5,
-                        });
-                        navigate('/library/shelves');
-                        refreshShelves();
-                    },
-                    err => console.error(err)
-                );
-            },
+                    loadingContent: 'Deleting shelf...',
+                    successContent: 'Shelf deleted successfully',
+                })
+                .shelves()
+                .delete(shelfId)
+                .then(res => {
+                    navigate('/library/shelves');
+                    refreshShelves();
+                }),
         });
     }
 
-    const items = [];
-    for (const item of content) {
+    const items = React.useMemo(() => content.map(item => {
         let children = <Empty/>;
         if (item.books.length > 0) {
             children = <Row
@@ -174,12 +145,12 @@ export default function ShelvesListContent({ collapsed, setCollapsed, shelves, s
                 )}
             </Row>;
         }
-        items.push({
+        return {
             key: item.folder,
-            label: <Space><span>{item.folder}</span><Badge count={item.books.length}/></Space>,
+            label: <Space><span>{item.name}</span><Badge count={item.books.length}/></Space>,
             children: children,
-        });
-    }
+        };
+    }), [content]);
 
     return <SpinComponent loading={loading}>
         <Helmet>
@@ -199,7 +170,7 @@ export default function ShelvesListContent({ collapsed, setCollapsed, shelves, s
                 <Form
                     form={editForm}
                     layout="vertical"
-                    name="form_in_modal"
+                    name="edit_shelf_modal"
                     initialValues={getCurrentShelf()}
                     clearOnDestroy={true}
                     onFinish={(data) => onShelfEdit(data)}>

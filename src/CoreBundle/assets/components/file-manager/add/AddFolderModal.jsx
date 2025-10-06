@@ -1,41 +1,38 @@
 import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerContext";
-import { App, Form, Input, Modal } from "antd";
+import { Form, Input, Modal } from "antd";
 import React from "react";
 
-export default function AddFolderModal({ visible, setVisible, backendFunction }) {
-    const { selectedId, reloadFolders, reloadFiles } = useFileManager();
+/**
+ * Add folder modal
+ * @param {boolean} visible
+ * @param {(visible: boolean) => void} setVisible
+ * @returns {React.JSX.Element}
+ * @constructor
+ */
+export default function AddFolderModal({ visible, setVisible }) {
     const [confirmLoading, setConfirmLoading] = React.useState(false);
-    const { message } = App.useApp();
     const [form] = Form.useForm();
+
+    const { api, selectedFolder, reloadFolders, reloadFiles } = useFileManager();
 
     const onAddNew = React.useCallback(data => {
         setConfirmLoading(true);
-        message.open({
-            key: 'add-new-folder-loader',
-            type: 'loading',
-            content: 'Creating folder...',
-            duration: 0,
-        });
-        backendFunction(selectedId, data.name).then(
-            res => {
-                message.open({
-                    key: 'add-new-folder-loader',
-                    type: 'success',
-                    content: 'Folder created successfully',
-                    duration: 2.5,
-                });
+        api
+            .withLoadingMessage({
+                key: 'add-new-folder-loader',
+                loadingContent: 'Creating folder...',
+                successContent: 'Folder created successfully',
+            })
+            .fmMakeFolder(selectedFolder.id, data.name)
+            .then(res => {
                 reloadFolders();
                 reloadFiles();
                 setVisible(false);
-            },
-            err => {
-                message.destroy('add-new-folder-loader');
-                console.error(err);
-            }
-        ).finally(() => {
-            setConfirmLoading(false);
-        });
-    }, [selectedId]);
+            })
+            .finally(() => {
+                setConfirmLoading(false);
+            });
+    }, [selectedFolder?.id]);
 
     return <Modal
         open={visible}
@@ -51,7 +48,7 @@ export default function AddFolderModal({ visible, setVisible, backendFunction })
             <Form
                 form={form}
                 layout="vertical"
-                name="form_in_modal"
+                name="add_folder_modal"
                 clearOnDestroy={true}
                 onFinish={(data) => onAddNew(data)}>
                 {dom}
@@ -61,7 +58,7 @@ export default function AddFolderModal({ visible, setVisible, backendFunction })
         <Form.Item name="name" rules={[
             {
                 required: true,
-                message: `Please input the folder name!`,
+                message: 'Please input the folder name!',
             },
         ]}>
             <Input placeholder={"New folder"}/>

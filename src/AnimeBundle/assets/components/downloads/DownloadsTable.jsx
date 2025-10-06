@@ -43,7 +43,7 @@ export default function DownloadsTable() {
             }}/>
         </FloatButton.Group>
         <StandardTable
-            backendFunction={api.downloads.get}
+            backendFunction={api.withErrorHandling().downloads().table}
             tableStyle={{ overflowY: 'auto', width: '100%' }}
             tableOnRow={onRowClick}
         />

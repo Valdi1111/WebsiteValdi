@@ -2,6 +2,7 @@
 
 namespace App\CoreBundle\Controller;
 
+use League\Flysystem\Config;
 use League\Flysystem\Filesystem;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\Local\LocalFilesystemAdapter;
@@ -9,12 +10,13 @@ use SplFileInfo;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Filesystem\Path;
 use Symfony\Component\Finder\Finder;
+use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\File\File;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\Routing\Attribute\Route;
@@ -27,61 +29,18 @@ trait FileManagerTrait
 {
     private ?Filesystem $filesystem = null;
 
-    /** @var array<string, string> */
-    const array EXTENSION_MAP = [
-        'zip' => 'archive',
-        'rar' => 'archive',
-        '7z' => 'archive',
-        'tar' => 'archive',
-        'gz' => 'archive',
-
-        'mp3' => 'audio',
-        'ogg' => 'audio',
-        'flac' => 'audio',
-        'wav' => 'audio',
-
-        'html' => 'code',
-        'htm' => 'code',
-        'js' => 'code',
-        'json' => 'code',
-        'css' => 'code',
-        'scss' => 'code',
-        'sass' => 'code',
-        'less' => 'code',
-        'php' => 'code',
-        'sh' => 'code',
-        'coffee' => 'code',
-        'txt' => 'code',
-        'md' => 'code',
-        'go' => 'code',
-        'yml' => 'code',
-
-        'docx' => 'document',
-        'doc' => 'document',
-        'xlsx' => 'document',
-        'xls' => 'document',
-        'pptx' => 'document',
-        'ppt' => 'document',
-        'pdf' => 'document',
-        'djvu' => 'document',
-        'djv' => 'document',
-
-        'mpg' => 'video',
-        'mp4' => 'video',
-        'avi' => 'video',
-        'mkv' => 'video',
-        'ogv' => 'video',
-        'mov' => 'video',
-
-        'png' => 'image',
-        'jpg' => 'image',
-        'jpeg' => 'image',
-        'webp' => 'image',
-        'gif' => 'image',
-        'tiff' => 'image',
-        'tif' => 'image',
-        'svg' => 'image',
-    ];
+    public static function getFileType(string $extension): string
+    {
+        return match ($extension) {
+            'zip', 'rar', 'tar', '7z', 'gz' => 'archive',
+            'mp3', 'ogg', 'flac', 'wav' => 'audio',
+            'html', 'htm', 'js', 'json', 'css', 'scss', 'sass', 'less', 'php', 'sh', 'coffee', 'txt', 'md', 'go', 'yml' => 'code',
+            'docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt', 'pdf', 'djvu', 'djv' => 'document',
+            'mpg', 'mp4', 'avi', 'mkv', 'ogv', 'mov' => 'video',
+            'png', 'jpg', 'jpeg', 'webp', 'gif', 'tiff', 'tif', 'svg' => 'image',
+            default => 'file',
+        };
+    }
 
     public abstract function getBaseFolder(): string;
 
@@ -89,77 +48,95 @@ trait FileManagerTrait
     {
         if (!$this->filesystem) {
             $adapter = new LocalFilesystemAdapter($this->getBaseFolder());
-            $this->filesystem = new Filesystem($adapter);
+            $this->filesystem = new Filesystem($adapter, [
+                Config::OPTION_DIRECTORY_VISIBILITY => 'public',
+                Config::OPTION_VISIBILITY => 'public',
+            ]);
         }
         return $this->filesystem;
     }
-    
-    private function fileOrException(string $path, string $message = 'File not found!'): void
+
+    private function checkFolderOrException(string $path, bool $exists = true, $message = null): void
     {
-        if ($this->getFilesystem()->fileExists($path)) {
-            return;
+        if ($exists && !$this->getFilesystem()->directoryExists($path)) {
+            throw new ConflictHttpException($message ?? 'Folder not found!');
         }
-        throw new BadRequestHttpException($message);
+        if (!$exists && $this->getFilesystem()->directoryExists($path)) {
+            throw new ConflictHttpException($message ?? 'Folder already exists!');
+        }
     }
 
-    private function noFileOrException(string $path, string $message = 'File already exists!'): void
+    private function checkFileOrException(string $path, bool $exists = true, $message = null): void
     {
-        if (!$this->getFilesystem()->fileExists($path)) {
-            return;
+        if ($exists && !$this->getFilesystem()->fileExists($path)) {
+            throw new ConflictHttpException($message ?? 'File not found!');
         }
-        throw new ConflictHttpException($message);
+        if (!$exists && $this->getFilesystem()->fileExists($path)) {
+            throw new ConflictHttpException($message ?? 'File already exists!');
+        }
     }
 
-    private function folderOrException(string $path, string $message = 'Folder not found!'): void
+    public function jsonFolder(string $relativeFolder, SplFileInfo|array $folder, bool $response = true): JsonResponse|array
     {
-        if ($this->getFilesystem()->directoryExists($path)) {
-            return;
+        if (is_array($folder)) {
+            $folder = new File(Path::join($folder[0], $folder[1]), false);
         }
-        throw new BadRequestHttpException($message);
-    }
-
-    private function noFolderOrException(string $path, string $message = 'Folder already exists!'): void
-    {
-        if (!$this->getFilesystem()->directoryExists($path)) {
-            return;
-        }
-        throw new ConflictHttpException($message);
-    }
-
-    private function getFolderSerialize(string $path, SplFileInfo $folder): array
-    {
-        $children = $this->getFoldersRecursive($path . $folder->getFilename() . "/");
-        return [
-            'key' => $path . $folder->getFilename() . "/",
+        $json = [
+            'id' => Path::join($relativeFolder, $folder->getFilename()) . "/",
+            'key' => Path::join($relativeFolder, $folder->getFilename()),
             'title' => $folder->getFilename(),
-            'children' => $children,
-            'isLeaf' => empty($children),
             'date' => $folder->getCTime(),
             'type' => 'folder',
         ];
+        if (!$response) {
+            return $json;
+        }
+        return $this->json($json);
     }
 
-    private function getFileSerialize(string $path, SplFileInfo $file): array
+    public function jsonFile(string $relativeFolder, SplFileInfo|array $file, bool $response = true): JsonResponse|array
     {
-        return [
-            'key' => $path . $file->getFilename(),
+        if (is_array($file)) {
+            $file = new File(Path::join($file[0], $file[1]), false);
+        }
+        $json = [
+            'id' => Path::join($relativeFolder, $file->getFilename()),
+            'key' => Path::join($relativeFolder, $file->getFilename()),
             'title' => $file->getFilename(),
             'size' => $file->getSize(),
             'date' => $file->getMTime(),
-            'type' => self::EXTENSION_MAP[$file->getExtension()] ?? 'file',
+            'type' => self::getFileType($file->getExtension()),
+            'extension' => $file->getExtension(),
         ];
+        if (!$response) {
+            return $json;
+        }
+        return $this->json($json);
     }
 
-    private function getFoldersRecursive(string $path): array
+    private function finder(string $relativePath): Finder
     {
-        $finder = new Finder();
-        $finder->depth('== 0')
-            ->directories()
-            ->in($this->getBaseFolder() . $path)
+        return new Finder()
+            ->depth('== 0')
+            ->in(Path::join($this->getBaseFolder(), $relativePath))
             ->sortByCaseInsensitiveName();
+    }
+
+    private function listDirectories(string $path, int $depth = -1, bool $ignoreLastLevelLeaves = false): array
+    {
+        $finder = $this->finder($path)->directories();
         $folders = [];
         foreach ($finder as $folder) {
-            $folders[] = $this->getFolderSerialize($path, $folder);
+            $serialized = $this->jsonFolder($path, $folder, false);
+            $childPath = Path::join($path, $folder->getFilename());
+            if ($depth === -1 || $depth > 0) {
+                $serialized['children'] = $this->listDirectories($childPath, $depth === -1 ? -1 : $depth - 1, $ignoreLastLevelLeaves);
+                $serialized['isLeaf'] = empty($serialized['children']);
+            } else {
+                $serialized['children'] = [];
+                $serialized['isLeaf'] = $ignoreLastLevelLeaves || !$this->finder($childPath)->directories()->hasResults();
+            }
+            $folders[] = $serialized;
         }
         return $folders;
     }
@@ -168,8 +145,12 @@ trait FileManagerTrait
     #[Route('/folders', name: 'folders', methods: ['GET'])]
     public function fmFolders(Request $req): Response
     {
-        $path = $req->query->getString('id');
-        return $this->json($this->getFoldersRecursive($path));
+        $folders = $this->listDirectories(
+            $req->query->getString('id', '/'),
+            $req->query->getInt('depth', -1),
+            $req->query->getBoolean('ignoreLastLevelLeaves')
+        );
+        return $this->json($folders);
     }
 
     #[IsGranted('ROLE_USER', null, 'Access Denied.')]
@@ -178,29 +159,20 @@ trait FileManagerTrait
     {
         $path = $req->query->getString('id');
         $search = $req->query->getString('search');
-        $finder = new Finder();
-        $finder->depth('== 0')
-            ->files()
-            ->in($this->getBaseFolder() . $path)
-            ->sortByCaseInsensitiveName();
-        $files = [];
-        if (!empty($search)) {
-            $finder->name("/(?i)($search)/");
+        $json = [];
+        $filesFinder = $this->finder($path)->files();
+        if (empty($search)) {
+            $foldersFinder = $this->finder($path)->directories();
+            foreach ($foldersFinder as $f) {
+                $json[] = $this->jsonFolder($path, $f, false);
+            }
+        } else {
+            $filesFinder->name("/(?i)($search)/");
         }
-//        else {
-//            $finderFolders = new Finder();
-//            $finderFolders->depth('== 0')
-//                ->directories()
-//                ->in($this->getBaseFolder() . $path)
-//                ->sortByCaseInsensitiveName();
-//            foreach ($finderFolders as $folder) {
-//                $files[] = $this->getFolderSerialize($path, $folder);
-//            }
-//        }
-        foreach ($finder as $file) {
-            $files[] = $this->getFileSerialize($path, $file);
+        foreach ($filesFinder as $f) {
+            $json[] = $this->jsonFile($path, $f, false);
         }
-        return $this->json($files);
+        return $this->json($json);
     }
 
     #[IsGranted('ROLE_USER', null, 'Access Denied.')]
@@ -234,18 +206,18 @@ trait FileManagerTrait
     public function fmMeta(Request $req): Response
     {
         $path = $req->query->getString('id');
-        $this->fileOrException($path);
+        $this->checkFileOrException($path);
         // TODO send extra info
-        $file = new File($this->getBaseFolder() . $path);
-        $type = self::EXTENSION_MAP[$file->getExtension()] ?? 'file';
+        $file = new File(Path::join($this->getBaseFolder(), $path));
+        $type = self::getFileType($file->getExtension());
         $json = [];
         if ($type === 'audio') {
 
         }
         if ($type === 'image') {
             $size = getimagesize($file->getPathname());
-            $json['Width'] = strval($size[0]);
-            $json['Height'] = strval($size[1]);
+            $json[] = ["label" => 'Width', "value" => $size[0] . " px"];
+            $json[] = ["label" => 'Height', "value" => $size[1] . " px"];
         }
         if ($type === 'video') {
             // exiftool -overwrite_original -Microsoft:Category="Tag1" -Microsoft:Category="Tag2" "NOMEFILE"
@@ -274,11 +246,10 @@ trait FileManagerTrait
             ];
             foreach ($props as $prop => $label) {
                 if (isset($metadata[$prop])) {
-                    $val = $metadata[$prop];
-                    if (is_array($val)) {
-                        $val = implode(", ", $val);
-                    }
-                    $json[$label] = strval($val);
+                    $json[] = [
+                        "label" => $label,
+                        "value" => $metadata[$prop],
+                    ];
                 }
             }
         }
@@ -286,19 +257,19 @@ trait FileManagerTrait
     }
 
     #[IsGranted('ROLE_USER', null, 'Access Denied.')]
-    #[Route('/make-dir', name: 'make_dir', methods: ['POST'])]
-    public function fmMakeDir(Request $req): Response
+    #[Route('/make-folder', name: 'make_folder', methods: ['POST'])]
+    public function fmMakeFolder(Request $req): Response
     {
         $path = $req->getPayload()->getString('id');
         $name = $req->getPayload()->getString('name');
-        $newPath = $path . $name;
-        $this->noFolderOrException($newPath);
+        $newPath = Path::join($path, $name);
+        $this->checkFolderOrException($newPath, false);
         try {
             $this->getFilesystem()->createDirectory($newPath);
         } catch (FilesystemException $e) {
             throw new HttpException(500, "Error creating folder", $e);
         }
-        return $this->json($this->getFolderSerialize($path, new File($this->getBaseFolder() . $newPath, false)));
+        return $this->jsonFolder($path, [$this->getBaseFolder(), $newPath]);
     }
 
     #[IsGranted('ROLE_USER', null, 'Access Denied.')]
@@ -307,14 +278,14 @@ trait FileManagerTrait
     {
         $path = $req->getPayload()->getString('id');
         $name = $req->getPayload()->getString('name');
-        $newPath = $path . $name;
-        $this->noFileOrException($newPath);
+        $newPath = Path::join($path, $name);
+        $this->checkFileOrException($newPath, false);
         try {
             $this->getFilesystem()->write($newPath, "");
         } catch (FilesystemException $e) {
             throw new HttpException(500, "Error creating file", $e);
         }
-        return $this->json($this->getFileSerialize($path, new File($this->getBaseFolder() . $newPath)));
+        return $this->jsonFile($path, [$this->getBaseFolder(), $newPath]);
     }
 
     #[IsGranted('ROLE_USER', null, 'Access Denied.')]
@@ -322,13 +293,11 @@ trait FileManagerTrait
     public function fmDirect(Request $req): Response
     {
         $path = $req->query->getString('id');
-        $this->fileOrException($path);
+        $this->checkFileOrException($path);
         $download = $req->query->getBoolean('download');
-        $file = new File($this->getBaseFolder() . $path);
         return $this->file(
-            $file,
-            $file->getFilename(),
-            $download ? ResponseHeaderBag::DISPOSITION_ATTACHMENT : ResponseHeaderBag::DISPOSITION_INLINE
+            new File(Path::join($this->getBaseFolder(), $path)),
+            disposition: $download ? ResponseHeaderBag::DISPOSITION_ATTACHMENT : ResponseHeaderBag::DISPOSITION_INLINE
         );
     }
 
@@ -337,11 +306,13 @@ trait FileManagerTrait
     public function fmPreview(Request $req): Response
     {
         $path = $req->query->getString('id');
-        $this->fileOrException($path);
+        $this->checkFileOrException($path);
         $width = $req->query->getInt('width');
         $height = $req->query->getInt('height');
-        $file = new File($this->getBaseFolder() . $path);
-        return $this->file($file, $file->getFilename());
+        return $this->file(
+            new File(Path::join($this->getBaseFolder(), $path)),
+            disposition: ResponseHeaderBag::DISPOSITION_INLINE
+        );
     }
 
     #[IsGranted('ROLE_USER', null, 'Access Denied.')]
@@ -349,7 +320,7 @@ trait FileManagerTrait
     public function fmTextGet(Request $req): Response
     {
         $path = $req->query->getString('id');
-        $this->fileOrException($path);
+        $this->checkFileOrException($path);
         try {
             $content = $this->getFilesystem()->read($path);
         } catch (FilesystemException $e) {
@@ -364,15 +335,13 @@ trait FileManagerTrait
     {
         $path = $req->getPayload()->getString('id');
         $content = $req->getPayload()->get('content');
-        $this->fileOrException($path);
+        $this->checkFileOrException($path);
         try {
             $this->getFilesystem()->write($path, $content);
         } catch (FilesystemException $e) {
             throw new HttpException(500, "Error writing file", $e);
         }
-        $file = new File($this->getBaseFolder() . $path);
-        $relative = '/' . Path::makeRelative($file->getPathname(), $this->getBaseFolder());
-        return $this->json($this->getFileSerialize($relative, $file));
+        return $this->jsonFile(Path::getDirectory($path), [$this->getBaseFolder(), $path]);
     }
 
     #[IsGranted('ROLE_USER', null, 'Access Denied.')]
@@ -392,25 +361,45 @@ trait FileManagerTrait
     }
 
     #[IsGranted('ROLE_USER', null, 'Access Denied.')]
-    #[Route('/rename', name: 'rename', methods: ['POST'])]
-    public function fmRename(Request $req): Response
+    #[Route('/rename-folder', name: 'rename_folder', methods: ['POST'])]
+    public function fmRenameFolder(Request $req): Response
     {
         $path = $req->getPayload()->getString('id');
         $name = $req->getPayload()->getString('name');
-        $this->fileOrException($path);
-        $folder = Path::getDirectory($this->getBaseFolder() . $path);
-        $relative = Path::makeRelative($folder, $this->getBaseFolder());
-        $newPath = Path::join($relative, $name);
-        $file = new File($this->getBaseFolder() . $path);
+        $this->checkFolderOrException($path);
+        $folder = Path::getDirectory($path);
+        $newPath = Path::join($folder, $name);
+        $file = new File(Path::join($this->getBaseFolder(), $path), false);
         if ($file->getFilename() !== $name) {
-            $this->noFileOrException($newPath);
+            $this->checkFolderOrException($newPath, false);
             try {
                 $this->getFilesystem()->move($path, $newPath);
             } catch (FilesystemException $e) {
                 throw new HttpException(500, "Error renaming file", $e);
             }
         }
-        return $this->json(['invalid' => false, 'error' => '', 'id' => '/' . $relative . $name]);
+        return $this->jsonFolder($folder, [$this->getBaseFolder(), $newPath]);
+    }
+
+    #[IsGranted('ROLE_USER', null, 'Access Denied.')]
+    #[Route('/rename-file', name: 'rename_file', methods: ['POST'])]
+    public function fmRenameFile(Request $req): Response
+    {
+        $path = $req->getPayload()->getString('id');
+        $name = $req->getPayload()->getString('name');
+        $this->checkFileOrException($path);
+        $folder = Path::getDirectory($path);
+        $newPath = Path::join($folder, $name);
+        $file = new File(Path::join($this->getBaseFolder(), $path));
+        if ($file->getFilename() !== $name) {
+            $this->checkFileOrException($newPath, false);
+            try {
+                $this->getFilesystem()->move($path, $newPath);
+            } catch (FilesystemException $e) {
+                throw new HttpException(500, "Error renaming file", $e);
+            }
+        }
+        return $this->jsonFile($folder, [$this->getBaseFolder(), $newPath]);
     }
 
     #[IsGranted('ROLE_USER', null, 'Access Denied.')]
@@ -419,20 +408,25 @@ trait FileManagerTrait
     {
         $path = $req->getPayload()->getString('id');
         $to = $req->getPayload()->getString('to');
-        $this->fileOrException($path);
-        $this->folderOrException($to, 'Destination folder not found!');
-        $file = new File($this->getBaseFolder() . $path);
-        $newPath = $to . $file->getFilename();
-        if ($this->getFilesystem()->fileExists($newPath)) {
-            $newPath = $to . Path::getFilenameWithoutExtension($file->getPathname()) . '1' . '.' . $file->getExtension();
+        $this->checkFileOrException($path);
+        $this->checkFolderOrException($to, message: 'Destination folder not found!');
+        $file = new File(Path::join($this->getBaseFolder(), $path));
+        $newPath = Path::join($to, $file->getFilename());
+        $i = 1;
+        $extension = Path::getExtension($file->getPathname());
+        if ($extension) {
+            $extension = "." . $extension;
+        }
+        while ($this->getFilesystem()->fileExists($newPath)) {
+            $newPath = Path::join($to, Path::getFilenameWithoutExtension($file->getPathname()) . " ($i)" . $extension);
+            $i++;
         }
         try {
             $this->getFilesystem()->copy($path, $newPath);
         } catch (FilesystemException $e) {
             throw new HttpException(500, "Error copying file", $e);
         }
-        $newFile = new File($this->getBaseFolder() . $newPath);
-        return $this->json($this->getFileSerialize($to, $newFile));
+        return $this->jsonFile($to, [$this->getBaseFolder(), $newPath]);
     }
 
     #[IsGranted('ROLE_USER', null, 'Access Denied.')]
@@ -441,26 +435,28 @@ trait FileManagerTrait
     {
         $path = $req->getPayload()->getString('id');
         $to = $req->getPayload()->getString('to');
-        $this->fileOrException($path);
-        $this->folderOrException($to, 'Destination folder not found!');
-        $file = new File($this->getBaseFolder() . $path);
-        $newPath = $to . $file->getFilename();
-        $this->noFileOrException($newPath);
+        $this->checkFileOrException($path);
+        $this->checkFolderOrException($to, message: 'Destination folder not found!');
+        $file = new File(Path::join($this->getBaseFolder(), $path));
+        $newPath = Path::join($to, $file->getFilename());
+        if ($path && $newPath) {
+            return $this->jsonFile($to, [$this->getBaseFolder(), $newPath]);
+        }
+        $this->checkFileOrException($newPath, false);
         try {
             $this->getFilesystem()->move($path, $newPath);
         } catch (FilesystemException $e) {
             throw new HttpException(500, "Error moving file", $e);
         }
-        $newFile = new File($this->getBaseFolder() . $newPath);
-        return $this->json($this->getFileSerialize($to, $newFile));
+        return $this->jsonFile($to, [$this->getBaseFolder(), $newPath]);
     }
 
     #[IsGranted('ROLE_USER', null, 'Access Denied.')]
-    #[Route('/delete-dir', name: 'delete_dir', methods: ['POST'])]
-    public function fmDeleteDir(Request $req): Response
+    #[Route('/delete-folder', name: 'delete_folder', methods: ['POST'])]
+    public function fmDeleteFolder(Request $req): Response
     {
         $path = $req->getPayload()->getString('id');
-        $this->folderOrException($path);
+        $this->checkFolderOrException($path);
         try {
             $this->getFilesystem()->deleteDirectory($path);
         } catch (FilesystemException $e) {
@@ -474,7 +470,7 @@ trait FileManagerTrait
     public function fmDeleteFile(Request $req): Response
     {
         $path = $req->getPayload()->getString('id');
-        $this->fileOrException($path);
+        $this->checkFileOrException($path);
         try {
             $this->getFilesystem()->delete($path);
         } catch (FilesystemException $e) {
@@ -491,8 +487,8 @@ trait FileManagerTrait
         /** @var UploadedFile $upload */
         $upload = $req->files->get('file');
         $originalPath = $req->getPayload()->getString('original_path');
-        $newPath = $path . $originalPath;
-        $this->noFileOrException($newPath);
+        $newPath = Path::join($path, $originalPath);
+        $this->checkFileOrException($newPath, false);
         try {
             $this->getFilesystem()->write($newPath, $upload->getContent());
         } catch (FilesystemException $e) {

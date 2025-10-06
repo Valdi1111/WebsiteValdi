@@ -1,92 +1,85 @@
+import FoldersTreeDropdown from "@CoreBundle/components/file-manager/folders/FoldersTreeDropdown";
+import FoldersTreeToolbar from "@CoreBundle/components/file-manager/folders/FoldersTreeToolbar";
+import FoldersTreeInfo from "@CoreBundle/components/file-manager/folders/FoldersTreeInfo";
 import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerContext";
-import FoldersTreeAddNew from "@CoreBundle/components/file-manager/folders/FoldersTreeAddNew";
-import { Button, Flex, Popover, Tree } from "antd";
-import { FilterOutlined } from "@ant-design/icons";
+import { Layout, theme as antdTheme, Tree } from "antd";
 import Highlighter from "react-highlight-words";
-import Search from "antd/es/input/Search";
 import React from "react";
 
 export default function FoldersTree() {
-    const { folders, reloadFolders, selectedId, setSelectedId, setSelectedKey } = useFileManager();
-    const [expandedKeys, setExpandedKeys] = React.useState(["/"]);
+    const [expandedIds, setExpandedIds] = React.useState(["/"]);
     const [searchText, setSearchText] = React.useState("");
+    const [dropdownOpen, setDropdownOpen] = React.useState(null);
+    const [dropdownPosition, setDropdownPosition] = React.useState({ x: 0, y: 0 });
 
-    const onSearch = React.useCallback(e => {
-        const { value } = e.target;
-        setSearchText(value);
-        if (!value) {
-            setExpandedKeys(["/"]);
-            return;
-        }
-        const nodesToExpand = new Set();
+    const { folders, selectedFolder, setSelectedFolder, setSelectedFile } = useFileManager();
+    const { token: { controlItemBgActiveHover } } = antdTheme.useToken();
 
-        function traverse(node, parentKeys = []) {
-            const currentKeys = [...parentKeys, node.key];
+    const filterTreeNode = React.useCallback(({ id }) => {
+        return searchText && expandedIds.includes(id);
+    }, [searchText, expandedIds]);
 
-            // Aggiungi il nodo alla lista se il titolo contiene la stringa di ricerca
-            if (node.title.toLowerCase().includes(value.toLowerCase())) {
-                currentKeys.forEach(key => nodesToExpand.add(key));
-            }
-
-            // Continua la ricerca nei figli, se esistono
-            if (node.children && node.children.length > 0) {
-                node.children.forEach(child => traverse(child, currentKeys));
-            }
-        }
-
-        // Inizia la traversata dall'albero radice
-        folders.forEach(node => traverse(node));
-
-        // Converte il Set in array prima di restituire
-        setExpandedKeys(Array.from(nodesToExpand));
-    }, [folders]);
-
-    const filterTreeNode = React.useCallback(({ key }) => {
-        return searchText && expandedKeys.includes(key);
-    }, [searchText, expandedKeys]);
-
-    const titleRender = React.useCallback(({ key, title }) => {
-        if (!searchText || !expandedKeys.includes(key)) {
-            return title;
+    const titleRender = React.useCallback((node) => {
+        if (!searchText || !expandedIds.includes(node.id)) {
+            return node.title;
         }
         return <Highlighter
             highlightStyle={{
-                backgroundColor: '#ffc069',
-                padding: 0,
+                backgroundColor: controlItemBgActiveHover,
+                borderRadius: '5px',
+                padding: '2px 0',
             }}
             searchWords={[searchText]}
             autoEscape
-            textToHighlight={title ? title.toString() : ''}
+            textToHighlight={node.title ? node.title.toString() : ''}
         />;
-    }, [searchText, expandedKeys]);
+    }, [searchText, expandedIds]);
 
-    function onSelect(selectedKeys, e) {
-        setSelectedKey(null);
-        setSelectedId(selectedKeys[0]);
-        console.debug('Selected', selectedKeys);
+    function onSelect(selectedIds, extra) {
+        setSelectedFolder(extra.node);
+        setSelectedFile(null);
+        console.debug('Selected', extra.node.id);
     }
 
-    return <>
-        <Flex gap="small" style={{ width: "100%" }}>
-            <FoldersTreeAddNew/>
-            <Popover placement={"left"} arrow content={
-                <Search placeholder="Search folders" onChange={onSearch} allowClear/>
-            }>
-                <Button style={{ paddingLeft: "8px", paddingRight: "8px"}} icon={<FilterOutlined/>}/>
-            </Popover>
-        </Flex>
-        <Tree
-            loadData={reloadFolders}
-            treeData={folders}
-            filterTreeNode={filterTreeNode}
-            onExpand={newExpandedKeys => setExpandedKeys(newExpandedKeys)}
-            expandedKeys={expandedKeys}
-            defaultSelectedKeys={['/']}
-            selectedKeys={[selectedId]}
-            onSelect={onSelect}
-            titleRender={titleRender}
-            showLine
+    function onRightClick({ event, node }) {
+        setSelectedFolder(node);
+        if (node.id === "/") {
+            return;
+        }
+        setDropdownPosition({ x: event.clientX, y: event.clientY });
+        setDropdownOpen(true);
+    }
+
+    return <Layout style={{ height: '100%' }}>
+        <FoldersTreeToolbar
+            expandedIds={expandedIds}
+            setExpandedIds={setExpandedIds}
+            searchText={searchText}
+            setSearchText={setSearchText}
         />
-    </>;
+        <Layout.Content style={{ maxHeight: '100%', overflowY: "auto" }}>
+            <FoldersTreeDropdown
+                node={selectedFolder}
+                posX={dropdownPosition.x}
+                posY={dropdownPosition.y}
+                open={dropdownOpen}
+                onOpenChange={(newOpen) => setDropdownOpen(newOpen)}
+            />
+            <Tree
+                fieldNames={{ key: 'id' }}
+                treeData={folders}
+                filterTreeNode={filterTreeNode}
+                onExpand={newExpandedIds => setExpandedIds(newExpandedIds)}
+                expandedKeys={expandedIds}
+                defaultSelectedKeys={["/"]}
+                selectedKeys={selectedFolder ? [selectedFolder.id] : []}
+                onSelect={onSelect}
+                titleRender={titleRender}
+                onRightClick={onRightClick}
+                showLine
+            />
+        </Layout.Content>
+        <FoldersTreeInfo/>
+    </Layout>;
 
 }

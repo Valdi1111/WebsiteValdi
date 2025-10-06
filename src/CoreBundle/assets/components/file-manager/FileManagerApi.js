@@ -1,51 +1,62 @@
+import { createProxy, withErrorHandling, withLoadingMessage } from "@CoreBundle/api-utils";
 import axios from "axios";
-import { message } from "antd";
 
-export default function (apiUrl) {
+/**
+ * @typedef {Object} MessageData
+ * @property {string} key - Unique identifier for the message (used by AntD `message`)
+ * @property {string} loadingContent - Text to display while the operation is loading
+ * @property {string} successContent - Text to display when the operation succeeds
+ * @property {string} [errorContent] - Optional text to display if the operation fails
+ * @property {number} [duration=2.5] - Duration (in seconds) for success/error messages. Defaults to 2.5
+ */
+
+/**
+ * @typedef {Object} FileManagerAPI
+ * @property {() => Promise<axios.AxiosResponse<any>>} fmInfo
+ * @property {(id?: string|number, depth?: int, ignoreLastLevelLeaves?: boolean) => Promise<axios.AxiosResponse<any>>} fmFolders
+ * @property {(id?: string|number) => Promise<axios.AxiosResponse<any>>} fmFiles
+ * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} fmMeta
+ * @property {(id: string|number, download?: boolean) => Promise<axios.AxiosResponse<any>>} fmDirect
+ * @property {(id: string|number, download?: boolean) => Promise<axios.AxiosResponse<any>>} fmDirectHead
+ * @property {(id: string|number, download?: boolean) => string} fmDirectUrl
+ * @property {(id: string|number, name: string|number) => Promise<axios.AxiosResponse<any>>} fmMakeFile
+ * @property {(id: string|number, name: string|number) => Promise<axios.AxiosResponse<any>>} fmMakeFolder
+ * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} fmDeleteFile
+ * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} fmDeleteFolder
+ * @property {(id: string|number, name: string|number) => Promise<axios.AxiosResponse<any>>} fmRenameFile
+ * @property {(id: string|number, name: string|number) => Promise<axios.AxiosResponse<any>>} fmRenameFolder
+ * @property {(id: string|number, to: string|number) => Promise<axios.AxiosResponse<any>>} fmCopy
+ * @property {(id: string|number, to: string|number) => Promise<axios.AxiosResponse<any>>} fmMove
+ * @property {(id: string|number, download?: boolean) => string} fmUploadUrl
+ * @property {(size?: string, type?: string, name?: string) => string} fmIconUrl
+ * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} fmDownload
+ *
+ * @property {() => FileManagerAPI} [withErrorHandling]
+ * @property {(messageData: MessageData) => FileManagerAPI} [withLoadingMessage]
+ */
+
+/** @type {FileManagerAPI} */
+export default function (apiUrl, { message }) {
 
     const axiosInstance = axios.create({
         baseURL: apiUrl
     });
 
-    // TODO da rimuovere quando è stato implementato ovunque, funzione per funzione
-    axiosInstance.interceptors.response.use(
-        res => {
-            // Here you can handle successful responses
-            return res; // Pass the response to the next then
-        },
-        err => {
-            // Handle errors
-            if (err.response) {
-                // The request was made and the server responded with a status code
-                // that falls out of the range of 2xx
-                console.error('Error response:', err.response.data); // title, detail
-                console.error('Error status:', err.response.status);
-                message.error(err.response.data.detail, 5);
-            } else if (err.request) {
-                // The request was made but no response was received
-                console.error('Error request:', err.request);
-            } else {
-                // Something happened in setting up the request that triggered an Error
-                console.error('Error message:', err.message);
-            }
-            // Rethrow the error to allow callers to handle it
-            return Promise.reject(err);
-        }
-    );
-
     const api = {};
 
     api.fmInfo = async () => axiosInstance.get(`/info`);
-    api.fmFolders = async (id = '/') => axiosInstance.get(`/folders`, { params: { id } });
+    api.fmFolders = async (id = '/', depth = -1, ignoreLastLevelLeaves = false) => axiosInstance.get(`/folders`, { params: { id, depth, ignoreLastLevelLeaves } });
     api.fmFiles = async (id = '/') => axiosInstance.get(`/files`, { params: { id } });
+    api.fmMeta = async (id) => axiosInstance.get(`/meta`, { params: { id } });
     api.fmDirect = async (id, download = false) => axiosInstance.get(`/direct`, { params: { id, download } });
     api.fmDirectHead = async (id, download = false) => axiosInstance.head(`/direct`, { params: { id, download } });
     api.fmDirectUrl = (id, download = false) => axiosInstance.getUri({ url: `/direct`, params: { id, download } });
     api.fmMakeFile = async (id, name) => axiosInstance.post(`/make-file`, { id, name });
-    api.fmMakeDir = async (id, name) => axiosInstance.post(`/make-dir`, { id, name });
+    api.fmMakeFolder = async (id, name) => axiosInstance.post(`/make-folder`, { id, name });
     api.fmDeleteFile = async (id) => axiosInstance.post(`/delete-file`, { id });
-    api.fmDeleteDir = async (id) => axiosInstance.post(`/delete-dir`, { id });
-    api.fmRename = async (id, name) => axiosInstance.post(`/rename`, { id, name });
+    api.fmDeleteFolder = async (id) => axiosInstance.post(`/delete-folder`, { id });
+    api.fmRenameFile = async (id, name) => axiosInstance.post(`/rename-file`, { id, name });
+    api.fmRenameFolder = async (id, name) => axiosInstance.post(`/rename-folder`, { id, name });
     api.fmCopy = async (id, to) => axiosInstance.post(`/copy`, { id, to });
     api.fmMove = async (id, to) => axiosInstance.post(`/move`, { id, to });
     api.fmUploadUrl = (id) => axiosInstance.getUri({ url: `/upload`, params: { id } });
@@ -65,5 +76,15 @@ export default function (apiUrl) {
         },
     );
 
-    return api;
+    return {
+        ...api,
+        withErrorHandling: () => createProxy(
+            api,
+            (promiseFn) => withErrorHandling(promiseFn, message)
+        ),
+        withLoadingMessage: (messageData) => createProxy(
+            api,
+            (promiseFn) => withLoadingMessage(promiseFn, message, messageData)
+        ),
+    };
 };

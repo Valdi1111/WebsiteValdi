@@ -24,14 +24,15 @@ export default function LibraryAll() {
 
     function refreshBooks() {
         setLoading(true);
-        return api.books.getAll(BOOKS_PER_PAGE * page.current + 1, 0).then(
-            res => {
+        return api
+            .withErrorHandling()
+            .books()
+            .getAll(BOOKS_PER_PAGE * page.current + 1, 0)
+            .then(res => {
                 books.current = res.data.slice(0, BOOKS_PER_PAGE * page.current);
                 setHasMore(res.data.length > BOOKS_PER_PAGE * page.current);
                 setLoading(false);
-            },
-            err => console.error(err)
-        );
+            });
     }
 
     function startWebsocket() {
@@ -73,15 +74,16 @@ export default function LibraryAll() {
             return;
         }
         setLoadingMore(true);
-        api.books.getAll(BOOKS_PER_PAGE + 1, BOOKS_PER_PAGE * page.current).then(
-            res => {
+        api
+            .withErrorHandling()
+            .books()
+            .getAll(BOOKS_PER_PAGE + 1, BOOKS_PER_PAGE * page.current)
+            .then(res => {
                 books.current.push(...res.data.slice(0, BOOKS_PER_PAGE));
                 setHasMore(res.data.length > BOOKS_PER_PAGE);
                 page.current++;
                 setLoadingMore(false);
-            },
-            err => console.error(err)
-        );
+            });
     }
 
     return <>

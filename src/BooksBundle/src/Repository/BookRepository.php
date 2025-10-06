@@ -105,13 +105,12 @@ class BookRepository extends ServiceEntityRepository
      */
     public function getRegisteredPaths(Library $library): array
     {
-        $res = $this->createQueryBuilder('b')
+        return $this->createQueryBuilder('b')
             ->select('b.url')
             ->andWhere('b.library = :libraryId')
             ->setParameter('libraryId', $library->getId())
             ->getQuery()
-            ->getArrayResult();
-        return array_column($res, 'url');
+            ->getSingleColumnResult();
     }
 
     /**
@@ -125,7 +124,7 @@ class BookRepository extends ServiceEntityRepository
             ->andWhere('b.library = :libraryId')
             ->andWhere("b.url LIKE :path")
             ->setParameter('libraryId', $library->getId())
-            ->setParameter("path", "/$path/%")
+            ->setParameter("path", "$path/%")
             ->getQuery()
             ->getResult();
     }

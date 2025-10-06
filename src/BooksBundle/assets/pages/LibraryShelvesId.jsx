@@ -20,13 +20,14 @@ export default function LibraryShelvesId() {
 
     function refreshShelves() {
         setLoading(true);
-        return api.shelves.get().then(
-            res => {
+        return api
+            .withErrorHandling()
+            .shelves()
+            .get()
+            .then(res => {
                 setShelves(res.data);
                 setLoading(false);
-            },
-            err => console.error(err)
-        );
+            });
     }
 
     return <>

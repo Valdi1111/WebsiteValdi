@@ -25,16 +25,13 @@ use App\AnimeBundle\Service\MyAnimeListService;
 use App\CoreBundle\Entity\Table;
 use App\CoreBundle\Entity\TableParameters;
 use Doctrine\ORM\EntityManagerInterface;
-use League\Flysystem\DirectoryAttributes;
 use League\Flysystem\Filesystem;
 use League\Flysystem\Local\LocalFilesystemAdapter;
-use League\Flysystem\StorageAttributes;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Filesystem\Path;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Attribute\MapQueryParameter;
 use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
@@ -43,12 +40,12 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 
 #[IsGranted('ROLE_USER_ANIME', null, 'Access Denied.')]
 #[Route('/api', name: 'api_', format: 'json')]
 class ApiController extends AbstractController
 {
+    private ?Filesystem $filesystem = null;
 
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
@@ -57,8 +54,17 @@ class ApiController extends AbstractController
     {
     }
 
-    #[Route('/season-folders', name: 'season_folders', methods: ['GET'])]
-    public function apiSeasonFolders(SeasonFolderRepository $listRepo, #[MapQueryString] TableParameters $params): Response
+    public function getFilesystem(): Filesystem
+    {
+        if (!$this->filesystem) {
+            $adapter = new LocalFilesystemAdapter($this->baseFolder);
+            $this->filesystem = new Filesystem($adapter);
+        }
+        return $this->filesystem;
+    }
+
+    #[Route('/season-folders/table', name: 'season_folders_table', methods: ['GET'])]
+    public function apiSeasonFoldersTable(SeasonFolderRepository $listRepo, #[MapQueryString] TableParameters $params): Response
     {
         $table = new Table($listRepo, $params);
         $table->getDefaultParameters()
@@ -74,34 +80,6 @@ class ApiController extends AbstractController
         return $this->json($table);
     }
 
-    #[Route('/season-folders/available', name: 'season_folders_available', methods: ['GET'])]
-    public function apiSeasonFoldersAvailable(#[MapQueryParameter] ?string $path = "/"): Response
-    {
-        $adapter = new LocalFilesystemAdapter($this->baseFolder);
-        $filesystem = new Filesystem($adapter);
-        $contents = $filesystem->listContents($path)
-            ->filter(fn(StorageAttributes $attributes) => $attributes->isDir())
-            ->sortByPath()
-            ->map(function (DirectoryAttributes $attributes) use ($path, $filesystem) {
-                $children = $filesystem->listContents($attributes->path())
-                    ->filter(fn(StorageAttributes $attributes) => $attributes->isDir())
-                    ->toArray();
-                $title = $attributes->path();
-                if ($path !== "/") {
-                    $title = substr($title, strlen($path));
-                }
-                return [
-                    "id" => "/" . $attributes->path(),
-                    "pId" => $path ?: 0,
-                    "value" => "/" . $attributes->path(),
-                    "title" => $title,
-                    "isLeaf" => empty($children),
-                ];
-            })
-            ->toArray();
-        return $this->json($contents);
-    }
-
     #[Route('/season-folders/{season}', name: 'season_folders_id', requirements: ['season' => '\d+'], methods: ['GET'])]
     public function apiSeasonFoldersId(#[MapEntity(message: "Season not found.")] SeasonFolder $season): Response
     {
@@ -110,12 +88,28 @@ class ApiController extends AbstractController
 
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
     #[Route('/season-folders', name: 'season_folders_add', methods: ['POST'])]
-    public function apiSeasonFoldersAdd(#[MapRequestPayload] SeasonFolder $season, SeasonFolderRepository $seasonRepo): Response
+    public function apiSeasonFoldersAdd(#[MapRequestPayload] SeasonFolder $season, SeasonFolderRepository $seasonRepo, EpisodeDownloadRepository $downloadRepo): Response
     {
         if ($seasonRepo->find($season->getId())) {
             throw new ConflictHttpException('Season already exists.');
         }
+        if (!$this->getFilesystem()->directoryExists($season->getFolder())) {
+            throw new ConflictHttpException('Folder not found!');
+        }
         $this->entityManager->persist($season);
+
+        $downloads = $downloadRepo->findBy(['malId' => $season->getId()]);
+        foreach ($downloads as $download) {
+            if ($download->getFolder() !== $season->getFolder()) {
+                $oldEpisodePath = Path::join($download->getFolder(), $download->getFile());
+                $download->setFolder($season->getFolder());
+                if ($this->getFilesystem()->fileExists($oldEpisodePath)) {
+                    $newEpisodePath = Path::join($download->getFolder(), $download->getFile());
+                    $this->getFilesystem()->move($oldEpisodePath, $newEpisodePath);
+                }
+            }
+        }
+
         $this->entityManager->flush();
         return $this->json($season);
     }
@@ -130,8 +124,22 @@ class ApiController extends AbstractController
         return $this->json(['id' => $id]);
     }
 
-    #[Route('/list-anime', name: 'list_anime', methods: ['GET'])]
-    public function apiListAnime(ListAnimeRepository $listRepo, #[MapQueryString] TableParameters $params): Response
+    #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
+    #[Route('/season-folders/{id}/downloads', name: 'season_folders_id_downloads', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function apiSeasonFoldersIdDownloads(int $id, EpisodeDownloadRepository $downloadRepo): Response
+    {
+        $downloads = array_map(
+            fn(EpisodeDownload $download) => [
+                "file_exists" => $this->getFilesystem()->fileExists(Path::join($download->getFolder(), $download->getFile())),
+                "download" => $download,
+            ],
+            $downloadRepo->findBy(['malId' => $id]),
+        );
+        return $this->json($downloads);
+    }
+
+    #[Route('/list-anime/table', name: 'list_anime_table', methods: ['GET'])]
+    public function apiListAnimeTable(ListAnimeRepository $listRepo, #[MapQueryString] TableParameters $params): Response
     {
         $table = new Table($listRepo, $params);
         $table->getDefaultParameters()
@@ -172,8 +180,8 @@ class ApiController extends AbstractController
         return $this->json(['ok' => true]);
     }
 
-    #[Route('/list-manga', name: 'list_manga', methods: ['GET'])]
-    public function apiListManga(ListMangaRepository $listRepo, #[MapQueryString] TableParameters $params): Response
+    #[Route('/list-manga/table', name: 'list_manga_table', methods: ['GET'])]
+    public function apiListMangaTable(ListMangaRepository $listRepo, #[MapQueryString] TableParameters $params): Response
     {
         $table = new Table($listRepo, $params);
         $table->getDefaultParameters()
@@ -215,8 +223,8 @@ class ApiController extends AbstractController
         return $this->json(['ok' => true]);
     }
 
-    #[Route('/downloads', name: 'downloads', methods: ['GET'])]
-    public function apiDownloads(EpisodeDownloadRepository $episodeRepo, #[MapQueryString] TableParameters $params): Response
+    #[Route('/downloads/table', name: 'downloads_table', methods: ['GET'])]
+    public function apiDownloadsTable(EpisodeDownloadRepository $episodeRepo, #[MapQueryString] TableParameters $params): Response
     {
         $table = new Table($episodeRepo, $params);
         $table->getDefaultParameters()
@@ -281,11 +289,9 @@ class ApiController extends AbstractController
     #[Route('/downloads/{download}/retry', name: 'downloads_id_retry', methods: ['POST'])]
     public function apiDownloadsIdRetry(#[MapEntity(message: "Download not found.")] EpisodeDownload $download, MessageBusInterface $bus): Response
     {
-        $adapter = new LocalFilesystemAdapter($this->baseFolder);
-        $filesystem = new Filesystem($adapter);
         $file = Path::join($download->getFolder(), $download->getFile());
-        if ($filesystem->fileExists($file)) {
-            $filesystem->delete($file);
+        if ($this->getFilesystem()->fileExists($file)) {
+            $this->getFilesystem()->delete($file);
         }
         $bus->dispatch(new EpisodeDownloadNotification($download->getId()));
         return $this->json($download);

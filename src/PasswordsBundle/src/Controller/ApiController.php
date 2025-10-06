@@ -28,8 +28,8 @@ class ApiController extends AbstractController
     {
     }
 
-    #[Route('/credentials', name: 'credentials_all', methods: ['GET'])]
-    public function apiCredentialsAll(CredentialRepository $credentialRepo, #[MapQueryString] TableParameters $params): Response
+    #[Route('/credentials/table', name: 'credentials_table', methods: ['GET'])]
+    public function apiCredentialsTable(CredentialRepository $credentialRepo, #[MapQueryString] TableParameters $params): Response
     {
         $table = new Table($credentialRepo, $params);
         $table->getDefaultParameters()

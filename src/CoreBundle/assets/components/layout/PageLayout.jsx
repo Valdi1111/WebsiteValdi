@@ -1,41 +1,53 @@
 import { LogoutOutlined, MoonOutlined, SunOutlined } from "@ant-design/icons";
 import { Avatar, Dropdown, Layout, Menu, theme as antdTheme } from "antd";
 import { useThemes } from "@CoreBundle/components/theme/ThemeContext";
+import { useLocation } from "react-router-dom";
 import React from "react";
 
-export default function PageLayout({navbarItems = [], dropdownItems = [], childrenPre, children, childrenPost}) {
-    const [theme, setTheme] = useThemes();
+export default function PageLayout({ navbarItems = [], dropdownItems = [], childrenPre, children, childrenPost }) {
     const { token: { colorBgContainer } } = antdTheme.useToken();
+    const location = useLocation();
+    const [theme, setTheme] = useThemes();
+
+    const navbarSelectedKeys = React.useMemo(
+        () => navbarItems
+            .filter(item => item.pathnameregex.test(location.pathname))
+            .map(item => item.key.toString()),
+        [location]
+    );
 
     return <Layout style={{ height: '100vh' }}>
         {childrenPre}
         <Layout.Header style={{ display: 'flex', alignItems: 'center', background: colorBgContainer }}>
             <Menu
                 mode="horizontal"
-                // defaultSelectedKeys={['2']} // TODO selected
+                selectedKeys={navbarSelectedKeys}
                 style={{ flex: 1, minWidth: 0 }}
                 items={navbarItems}
             />
-            <Dropdown menu={{
-                items: [
-                    ...dropdownItems,
-                    {
-                        key: 'changeTheme',
-                        label: theme === 'light' ? 'Dark theme' : 'Light theme',
-                        icon: theme === 'light' ? <MoonOutlined/> : <SunOutlined/>,
-                        onClick: () => setTheme(theme => theme === 'light' ? 'dark' : 'light'),
-                    },
-                    {
-                        type: 'divider',
-                    },
-                    {
-                        key: 'signOut',
-                        label: <a href="/logout">Sign out</a>,
-                        icon: <LogoutOutlined/>,
-                        danger: true,
-                    },
-                ]
-            }}>
+            <Dropdown
+                arrow
+                menu={{
+                    items: [
+                        ...dropdownItems,
+                        {
+                            key: 'changeTheme',
+                            label: theme === 'light' ? 'Dark theme' : 'Light theme',
+                            icon: theme === 'light' ? <MoonOutlined/> : <SunOutlined/>,
+                            onClick: () => setTheme(theme => theme === 'light' ? 'dark' : 'light'),
+                        },
+                        {
+                            type: 'divider',
+                        },
+                        {
+                            key: 'signOut',
+                            label: <a href="/logout">Sign out</a>,
+                            icon: <LogoutOutlined/>,
+                            danger: true,
+                        },
+                    ]
+                }}
+            >
                 <Avatar src="https://api.dicebear.com/7.x/miniavs/svg?seed=2"/>
             </Dropdown>
         </Layout.Header>

@@ -31,28 +31,29 @@ export default function ItemInfo({ id, open, setOpen }) {
             return;
         }
         setLoading(true);
-        api.books.getMetadata(id).then(
-            res => {
+        api
+            .withErrorHandling()
+            .books()
+            .getMetadata(id)
+            .then(res => {
                 setPath(res.data.url);
                 setMetadata(res.data.book_metadata);
                 if (res.data.book_cache.cover) {
                     setCoverUrl(res.data.book_cache.cover_url);
                 }
                 setLoading(false);
-            },
-            err => console.error(err)
-        );
+            });
     }
 
     return <Modal
         title={<Space>
             <span>About this book</span>
             {coverUrl &&
-                <Link to={api.books.coverUrl(id)} target="_blank" className="me-2">
+                <Link to={api.books().coverUrl(id)} target="_blank" className="me-2">
                     <ExportOutlined/>
                 </Link>
             }
-            <Link to={api.books.epubUrl(id)} target="_blank" className="me-2">
+            <Link to={api.books().epubUrl(id)} target="_blank" className="me-2">
                 <DownloadOutlined/>
             </Link>
         </Space>}

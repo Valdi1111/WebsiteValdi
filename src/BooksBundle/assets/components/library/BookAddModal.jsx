@@ -28,8 +28,11 @@ export default function BookAddModal({ open, setOpen }) {
             return;
         }
         setLoading(true);
-        api.books.findNew().then(
-            res => {
+        api
+            .withErrorHandling()
+            .books()
+            .findNew()
+            .then(res => {
                 const data = [];
                 for (const [key, value] of Object.entries(res.data)) {
                     data.push({
@@ -47,9 +50,7 @@ export default function BookAddModal({ open, setOpen }) {
                 }
                 setContent(data);
                 setLoading(false);
-            },
-            err => console.error(err)
-        );
+            });
     }
 
     function onDataChange(changed, data) {
@@ -70,7 +71,8 @@ export default function BookAddModal({ open, setOpen }) {
             duration: 0,
         });
         setConfirmLoading(true);
-        Promise.all(selectedPaths.map(path => api.books.create(path))).then(
+        // TODO one loading message for every book and promise for the modal?
+        Promise.all(selectedPaths.map(path => api.withErrorHandling().books().create(path))).then(
             res => {
                 message.open({
                     key: 'books-add-loader',
@@ -108,7 +110,7 @@ export default function BookAddModal({ open, setOpen }) {
             <Form
                 form={form}
                 layout="vertical"
-                name="form_in_modal"
+                name="add_books_modal"
                 clearOnDestroy={true}
                 onValuesChange={onDataChange}
                 onFinish={onBooksAdd}>

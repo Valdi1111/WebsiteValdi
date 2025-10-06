@@ -1,16 +1,18 @@
-import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerContext";
 import FilesTableRowDropdown from "@CoreBundle/components/file-manager/files/FilesTableRowDropdown";
-import { formatBytes, formatDateFromTimestamp } from "@CoreBundle/utils";
-import { FolderOutlined, SearchOutlined, } from "@ant-design/icons";
-import { Button, Input, Space, Table } from "antd";
+import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerContext";
+import { formatBytes, formatDateFromTimestamp } from "@CoreBundle/format-utils";
+import { FolderFilled, SearchOutlined, } from "@ant-design/icons";
+import { Button, Input, Space, Table, theme as antdTheme } from "antd";
 import Highlighter from "react-highlight-words";
 import React from "react";
 
 export default function FilesTable() {
-    const { api, files, filesLoading, setSelectedKey } = useFileManager();
     const [searchText, setSearchText] = React.useState('');
     const [searchedColumn, setSearchedColumn] = React.useState('');
     const searchInput = React.useRef(null);
+
+    const { api, files, filesLoading, setSelectedFile, setSelectedFolder } = useFileManager();
+    const { token: { controlItemBgActiveHover } } = antdTheme.useToken();
 
     const handleSearch = (selectedKeys, confirm, dataIndex, closeDropdown = false) => {
         confirm({ closeDropdown });
@@ -66,8 +68,9 @@ export default function FilesTable() {
         onFilter: (value, record) => record[dataIndex].toString().toLowerCase().includes(value.toLowerCase()),
         render: text => searchedColumn === dataIndex ? <Highlighter
             highlightStyle={{
-                backgroundColor: '#ffc069',
-                padding: 0,
+                backgroundColor: controlItemBgActiveHover,
+                borderRadius: '5px',
+                padding: '2px 0',
             }}
             searchWords={[searchText]}
             autoEscape
@@ -79,51 +82,75 @@ export default function FilesTable() {
         {
             title: '',
             dataIndex: 'type',
-            width: 50,
+            defaultSortOrder: 'ascend',
+            sortDirections: ['ascend', 'descend', 'ascend'],
+            sorter: {
+                compare: (a, b) => {
+                    if (a.type === 'folder' && b.type !== 'folder') return -1;
+                    if (a.type !== 'folder' && b.type === 'folder') return 1;
+                    return 0;
+                },
+                multiple: 3,
+            },
             render: (text, row) => {
                 if (row.type === 'folder') {
-                    return <FolderOutlined/>;
+                    return <FolderFilled style={{ fontSize: "24px" }}/>;
                 }
-                let name = '';
-                if (row.title) {
-                    name = row.title.split('.').pop();
-                }
-                return <img src={api.fmIconUrl('small', row.type, name)} alt="Logo"/>;
+                return <img src={api.fmIconUrl('small', row.type, row.extension)} alt="Logo"/>;
             },
+            width: 50,
         },
         {
             title: 'Name',
             dataIndex: 'title',
             defaultSortOrder: 'ascend',
             sortDirections: ['ascend', 'descend', 'ascend'],
-            sorter: (a, b) => a.title.localeCompare(b.title, 'it'),
+            sorter: {
+                compare: (a, b) => a.title.localeCompare(b.title, 'it'),
+                multiple: 1,
+            },
             ...getColumnSearchProps('title'),
         },
         {
             title: 'Size',
             dataIndex: 'size',
             sortDirections: ['ascend', 'descend'],
-            sorter: (a, b) => a.size - b.size,
-            render: formatBytes,
+            sorter: {
+                compare: (a, b) => a.size - b.size,
+                multiple: 1,
+            },
+            render: value => {
+                if (value === undefined) {
+                    return null;
+                }
+                return formatBytes(value);
+            },
             width: 150,
         },
         {
             title: 'Date',
             dataIndex: 'date',
             sortDirections: ['ascend', 'descend'],
-            sorter: (a, b) => a.date - b.date,
+            sorter: {
+                compare: (a, b) => a.date - b.date,
+                multiple: 1,
+            },
             render: formatDateFromTimestamp,
             width: 150,
         },
     ];
 
     function onRowClick(record) {
-        setSelectedKey(record.key);
+        setSelectedFile(record);
     }
 
     function onRowDoubleClick(record) {
+        if (record.type === 'folder') {
+            setSelectedFolder(record);
+            return;
+        }
         const link = document.createElement('a');
-        link.href = api.fmDirectUrl(record.key);
+        link.href = api.fmDirectUrl(record.id);
         link.target = '_blank';
         link.click();
         link.remove();
@@ -131,7 +158,7 @@ export default function FilesTable() {
 
     return <Table
         sticky
-        rowKey="key"
+        rowKey="id"
         columns={columns}
         dataSource={files}
         loading={filesLoading}
@@ -145,9 +172,12 @@ export default function FilesTable() {
         }}
         components={{
             body: {
-                row: props => <FilesTableRowDropdown rowKey={props['data-row-key']}>
-                    <tr {...props} />
-                </FilesTableRowDropdown>
+                row: (props) => {
+                    const row = files.find(f => f.id === props['data-row-key']);
+                    return <FilesTableRowDropdown row={row}>
+                        <tr {...props} />
+                    </FilesTableRowDropdown>
+                }
             }
         }}
     />;

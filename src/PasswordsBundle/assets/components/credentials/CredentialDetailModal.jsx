@@ -1,7 +1,7 @@
 import DeviceCredentialForm from "@PasswordsBundle/components/credentials/DeviceCredentialForm";
 import WebsiteCredentialForm from "@PasswordsBundle/components/credentials/WebsiteCredentialForm";
 import { useBackendApi } from "@PasswordsBundle/components/BackendApiContext";
-import { App, Form, Modal } from "antd";
+import { Form, Modal } from "antd";
 import React from "react";
 
 export default function CredentialDetailModal({ id, type, open, setOpen }) {
@@ -9,7 +9,6 @@ export default function CredentialDetailModal({ id, type, open, setOpen }) {
     const [loading, setLoading] = React.useState(false);
 
     const [form] = Form.useForm();
-    const { message } = App.useApp();
     const api = useBackendApi();
 
     React.useEffect(() => {
@@ -18,12 +17,14 @@ export default function CredentialDetailModal({ id, type, open, setOpen }) {
             return;
         }
         setLoading(true);
-        api.credentials.getId(id).then(
-            res => {
+        api
+            .withErrorHandling()
+            .credentials()
+            .getId(id)
+            .then(res => {
                 form.setFieldsValue(res.data);
-            },
-            err => console.error(err),
-        ).finally(() => setLoading(false));
+            })
+            .finally(() => setLoading(false));
     }, [open])
 
     const credentialType = React.useMemo(() => {
@@ -38,29 +39,18 @@ export default function CredentialDetailModal({ id, type, open, setOpen }) {
 
     const onSubmit = React.useCallback(data => {
         setConfirmLoading(true);
-        message.open({
-            key: 'credential-saving-loader',
-            type: 'loading',
-            content: 'Saving credential...',
-            duration: 0,
-        });
-        (id ? api.credentials.edit(id, data) : api.credentials.add(data)).then(
-            res => {
-                message.open({
-                    key: 'credential-saving-loader',
-                    type: 'success',
-                    content: 'Credential saved successfully',
-                    duration: 2.5,
-                });
+        const credentialsApi = api
+            .withLoadingMessage({
+                key: 'credential-saving-loader',
+                loadingContent: 'Saving credential...',
+                successContent: 'Credential saved successfully',
+            })
+            .credentials();
+        (id ? credentialsApi.edit(id, data) : credentialsApi.add(data))
+            .then(res => {
                 setOpen(false);
-            },
-            err => {
-                message.destroy('credential-saving-loader');
-                console.error(err);
-            }
-        ).finally(() => {
-            setConfirmLoading(false);
-        });
+            })
+            .finally(() => setConfirmLoading(false));
     }, [id]);
 
     return <>
@@ -79,7 +69,7 @@ export default function CredentialDetailModal({ id, type, open, setOpen }) {
                 <Form
                     form={form}
                     layout="vertical"
-                    name="form_in_modal"
+                    name="credential_detail_modal"
                     clearOnDestroy={true}
                     onFinish={data => onSubmit({ type, ...data })}>
                     {dom}

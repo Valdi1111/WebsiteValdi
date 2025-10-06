@@ -1,7 +1,8 @@
+import FileManagerTreeSelect from "@CoreBundle/components/file-manager/FileManagerTreeSelect";
 import { useBackendApi } from "@BooksBundle/components/BackendApiContext";
-import { App, FloatButton, Form, Input, Menu, Modal } from "antd";
+import { FolderOpenOutlined, PlusOutlined } from "@ant-design/icons";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { PlusOutlined } from "@ant-design/icons";
+import { FloatButton, Form, Input, Menu, Modal } from "antd";
 import React from "react";
 
 export default function ShelvesList({ shelves, refreshShelves }) {
@@ -9,34 +10,26 @@ export default function ShelvesList({ shelves, refreshShelves }) {
     const [addConfirmLoading, setAddConfirmLoading] = React.useState(false);
 
     const [addForm] = Form.useForm();
-    const { message } = App.useApp();
     const navigate = useNavigate();
     const { shelfId } = useParams();
     const api = useBackendApi();
 
     function onShelfAdd(data) {
-        message.open({
-            key: 'shelf-add-loader',
-            type: 'loading',
-            content: 'Adding shelf...',
-            duration: 0,
-        });
         setAddConfirmLoading(true);
-        api.shelves.add(data.path, data.name).then(
-            res => {
-                message.open({
-                    key: 'shelf-add-loader',
-                    type: 'success',
-                    content: 'Shelf added successfully',
-                    duration: 2.5,
-                });
+        api
+            .withLoadingMessage({
+                key: 'shelf-add-loader',
+                loadingContent: 'Adding shelf...',
+                successContent: 'Shelf added successfully',
+            })
+            .shelves()
+            .add(data.path, data.name)
+            .then(res => {
                 navigate(`/library/shelves/${res.data.id}`);
                 refreshShelves();
                 setAddConfirmLoading(false);
                 setAddOpen(false);
-            },
-            err => console.error(err)
-        );
+            });
     }
 
     const items = React.useMemo(() => {
@@ -61,7 +54,7 @@ export default function ShelvesList({ shelves, refreshShelves }) {
                 <Form
                     form={addForm}
                     layout="vertical"
-                    name="form_in_modal"
+                    name="add_shelf_modal"
                     clearOnDestroy={true}
                     onFinish={(data) => onShelfAdd(data)}>
                     {dom}
@@ -71,14 +64,20 @@ export default function ShelvesList({ shelves, refreshShelves }) {
             <Form.Item
                 label="Path"
                 name="path"
-                extra="Insert a folder without the / at the end."
-                rules={[
-                    {
-                        required: true,
-                        message: 'Please input the shelf path!',
-                    },
-                ]}>
-                <Input placeholder="Shelf path"/>
+                rules={[{ required: true, message: 'Please input shelf path.' }]}
+            >
+                <FileManagerTreeSelect
+                    apiUrl={api.fmUrl()}
+                    prefix={<FolderOpenOutlined/>}
+                    placeholder="Path"
+                    showSearch
+                    treeLine
+                    showAddButton={false}
+                    style={{ width: '100%' }}
+                    styles={{
+                        popup: { root: { maxHeight: 400, overflow: 'auto' } },
+                    }}
+                />
             </Form.Item>
             <Form.Item
                 label="Name"

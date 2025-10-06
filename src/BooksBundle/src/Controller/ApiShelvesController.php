@@ -98,7 +98,29 @@ class ApiShelvesController extends AbstractController
     public function apiShelvesIdBooks(Request $req, #[MapEntity(message: "Shelf not found.")] Shelf $shelf, Authorization $authorization): Response
     {
         $authorization->setCookie($req, [sprintf(Channel::LIBRARY_SHELVES_ID, $shelf->getId())]);
-        return $this->json($shelf->getBooks(), 200, [], [
+        $books = $shelf->getBooks();
+        if ($req->query->getBoolean('withSubShelves', true)) {
+            $data = [
+                $shelf->getPath() => ['name' => $shelf->getName(), 'folder' => $shelf->getPath(), 'books' => []],
+            ];
+            foreach ($books as $book) {
+                $path = substr($book->getUrl(), strlen($shelf->getPath()) + 1);
+                $pathSplits = explode('/', $path, 2);
+                $folder = $shelf->getPath();
+                if (count($pathSplits) > 1) {
+                    $folder .= '/' . $pathSplits[0];
+                }
+                if (!isset($data[$folder])) {
+                    $data[$folder] = ['name' => $pathSplits[0], 'folder' => $folder, 'books' => []];
+                }
+                $data[$folder]['books'][] = $book;
+            }
+            $books = [
+                'sub_shelves' => array_values($data),
+                'books_count' => count($books),
+            ];
+        }
+        return $this->json($books, 200, [], [
             BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_THUMB,
             'groups' => ['book:list']
         ]);

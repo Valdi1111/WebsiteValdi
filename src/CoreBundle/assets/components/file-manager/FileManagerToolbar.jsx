@@ -10,17 +10,18 @@ import {
 } from "@ant-design/icons";
 import React from "react";
 
-export default function FileToolbar({ showPreview, setShowPreview }) {
-    const { selectedId, setSelectedId, reloadFolders, folders, reloadFiles } = useFileManager();
+export default function FileManagerToolbar({ showPreview, setShowPreview }) {
     const [loadingSearch, setLoadingSearch] = React.useState(false);
 
-    const getParentNode = React.useCallback((key, treeData) => {
+    const { folders, reloadFolders, selectedFolder, setSelectedFolder, reloadFiles, setSelectedFile, setClipboard } = useFileManager();
+
+    const getParentNode = React.useCallback((selected, treeData) => {
         for (let node of treeData) {
             if (node.children) {
-                if (node.children.some(child => child.key === key)) {
+                if (node.children.some(child => child.id === selected.id)) {
                     return node;
                 }
-                const parent = getParentNode(key, node.children);
+                const parent = getParentNode(selected, node.children);
                 if (parent) {
                     return parent;
                 }
@@ -29,9 +30,9 @@ export default function FileToolbar({ showPreview, setShowPreview }) {
         return null;
     }, []);
 
-    function onSearch(value, _e, info) {
+    function onSearch(value, e, info) {
+        // TODO implement file search
         setLoadingSearch(true);
-        console.log(info?.source, value);
         setTimeout(() => setLoadingSearch(false), 3000);
     }
 
@@ -40,17 +41,17 @@ export default function FileToolbar({ showPreview, setShowPreview }) {
     }
 
     return <Flex
-        style={{ width: "100%", paddingTop: "10px", paddingBottom: "10px" }}
+        style={{ width: "100%", padding: "10px" }}
         justify="space-between"
         gap="small">
         <Button
             style={{ paddingLeft: "8px", paddingRight: "8px"}}
             icon={<ArrowLeftOutlined/>}
-            disabled={selectedId === '/'}
+            disabled={selectedFolder?.id === "/"}
             onClick={() => {
-                const parent = getParentNode(selectedId, folders);
+                const parent = getParentNode(selectedFolder, folders);
                 if (parent) {
-                    setSelectedId(parent.key);
+                    setSelectedFolder(parent);
                 }
             }}
         />
@@ -58,8 +59,9 @@ export default function FileToolbar({ showPreview, setShowPreview }) {
             style={{ paddingLeft: "8px", paddingRight: "8px"}}
             icon={<ReloadOutlined/>}
             onClick={() => {
-                reloadFolders();
-                reloadFiles();
+                setClipboard(null);
+                reloadFolders().then(t => setSelectedFolder(t[0]));
+                reloadFiles().then(() => setSelectedFile(null));
             }}
         />
         <Input.Search

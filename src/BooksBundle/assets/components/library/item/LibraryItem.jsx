@@ -31,7 +31,7 @@ export default function LibraryItem(props) {
     const { title, creator } = props.book.book_metadata;
     const [page, setPage] = React.useState(props.book.book_progress.page);
 
-    const { message, modal } = App.useApp();
+    const { modal } = App.useApp();
     const navigate = useNavigate();
     const api = useBackendApi();
 
@@ -44,26 +44,20 @@ export default function LibraryItem(props) {
             icon: <ExclamationCircleFilled/>,
             title: 'Are you sure you want to recreate the cache for this book?',
             content: title,
-            onOk() {
-                message.open({
+            onOk: () => api
+                .withLoadingMessage({
                     key: 'book-recreate-loader',
-                    type: 'loading',
-                    content: 'Recreating book...',
-                    duration: 0,
-                });
-                return api.books.recreate(id).then(
-                    data => {
-                        console.log("Book", data.id, "Cache recreated successfully!");
-                        message.open({
-                            key: 'book-recreate-loader',
-                            type: 'success',
-                            content: 'Book recreated successfully',
-                            duration: 2.5,
-                        });
-                    },
-                    err => console.error(err)
-                );
-            },
+                    loadingContent: 'Recreating book...',
+                    successContent: 'Book recreated successfully',
+                })
+                .books()
+                .recreate(id)
+                .then(
+                data => {
+                    console.log("Book", data.id, "Cache recreated successfully!");
+                },
+                err => console.error(err)
+            ),
         });
     }
 
@@ -72,26 +66,17 @@ export default function LibraryItem(props) {
             icon: <ExclamationCircleFilled/>,
             title: 'Are you sure you want to delete this book?',
             content: title,
-            onOk() {
-                message.open({
+            onOk: () => api
+                .withLoadingMessage({
                     key: 'book-delete-loader',
-                    type: 'loading',
-                    content: 'Deleting book...',
-                    duration: 0,
-                });
-                return api.books.delete(id).then(
-                    res => {
-                        console.log("Book", id, "Deleted successfully!");
-                        message.open({
-                            key: 'book-delete-loader',
-                            type: 'success',
-                            content: 'Book deleted successfully',
-                            duration: 2.5,
-                        });
-                    },
-                    err => console.error(err)
-                );
-            },
+                    loadingContent: 'Deleting book...',
+                    successContent: 'Book deleted successfully',
+                })
+                .books()
+                .delete(id)
+                .then(res => {
+                    console.log("Book", id, "Deleted successfully!");
+                }),
         });
     }
 

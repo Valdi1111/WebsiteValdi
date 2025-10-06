@@ -1,16 +1,28 @@
 import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerContext";
-import { UploadOutlined } from "@ant-design/icons";
-import { Button, Modal, Upload } from "antd";
+import { formatBytes } from "@CoreBundle/format-utils";
+import { CloudUploadOutlined } from "@ant-design/icons";
+import { App, Modal, Upload } from "antd";
 import React from "react";
 
 export default function UploadFolderModal({ visible, setVisible }) {
-    const { api, selectedId, reloadFolders, reloadFiles } = useFileManager();
     const [fileList, setFileList] = React.useState([]);
+    const { message } = App.useApp();
+
+    const { api, selectedFolder, reloadFolders, reloadFiles } = useFileManager();
 
     const getExtraData = React.useCallback(file => {
         return {
             original_path: file.webkitRelativePath
         };
+    });
+
+    const beforeUpload = React.useCallback(file => {
+        if (file.webkitRelativePath && file.webkitRelativePath.includes("/")) {
+            return true;
+        }
+        // Stop files upload: empty webkitRelativePath
+        message.error(`Files are not supported: ${file.name}`);
+        return Upload.LIST_IGNORE; // skip
     });
 
     const onChange = React.useCallback(info => {
@@ -30,19 +42,28 @@ export default function UploadFolderModal({ visible, setVisible }) {
 
     return <Modal
         open={visible}
-        title={<span>Upload new folder</span>}
+        title={<span>Upload folder</span>}
         footer={null}
         onCancel={() => setVisible(false)}
         destroyOnHidden
     >
-        <Upload
-            action={api.fmUploadUrl(selectedId)}
+        <Upload.Dragger
+            action={api.fmUploadUrl(selectedFolder.id)}
+            beforeUpload={beforeUpload}
             data={getExtraData}
             fileList={fileList}
             onChange={onChange}
             directory
+            pastable
+            showUploadList={{
+                extra: ({size = 0}) => <span className="ant-upload-hint"> ({formatBytes(size)})</span>,
+            }}
         >
-            <Button icon={<UploadOutlined/>}>Upload Directory</Button>
-        </Upload>
+            <p className="ant-upload-drag-icon">
+                <CloudUploadOutlined />
+            </p>
+            <p className="ant-upload-text">Click or drag folder to this area to upload</p>
+            <p className="ant-upload-hint">Support for a single or bulk upload.</p>
+        </Upload.Dragger>
     </Modal>;
 }

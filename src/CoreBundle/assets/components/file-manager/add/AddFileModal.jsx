@@ -2,39 +2,36 @@ import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerC
 import { App, Form, Input, Modal } from "antd";
 import React from "react";
 
-export default function AddFileModal({ visible, setVisible, type, placeholder, backendFunction }) {
-    const { selectedId, reloadFiles } = useFileManager();
+/**
+ * Add file modal
+ * @param {boolean} visible
+ * @param {(visible: boolean) => void} setVisible
+ * @returns {React.JSX.Element}
+ * @constructor
+ */
+export default function AddFileModal({ visible, setVisible }) {
     const [confirmLoading, setConfirmLoading] = React.useState(false);
-    const { message } = App.useApp();
     const [form] = Form.useForm();
+
+    const { api, selectedFolder, reloadFiles } = useFileManager();
 
     const onAddNew = React.useCallback(data => {
         setConfirmLoading(true);
-        message.open({
-            key: 'add-new-file-loader',
-            type: 'loading',
-            content: 'Creating file...',
-            duration: 0,
-        });
-        backendFunction(selectedId, data.name).then(
-            res => {
-                message.open({
-                    key: 'add-new-file-loader',
-                    type: 'success',
-                    content: 'File created successfully',
-                    duration: 2.5,
-                });
+        api
+            .withLoadingMessage({
+                key: 'add-new-file-loader',
+                loadingContent: 'Creating file...',
+                successContent: 'File created successfully',
+            })
+            .fmMakeFile(selectedFolder.id, data.name)
+            .then(res => {
                 reloadFiles();
                 setVisible(false);
-            },
-            err => {
-                message.destroy('add-new-file-loader');
-                console.error(err);
-            }
-        ).finally(() => {
-            setConfirmLoading(false);
-        });
-    }, [selectedId]);
+            })
+            .finally(() => {
+                setConfirmLoading(false);
+            });
+    }, [selectedFolder?.id]);
 
     return <Modal
         open={visible}
@@ -50,7 +47,7 @@ export default function AddFileModal({ visible, setVisible, type, placeholder, b
             <Form
                 form={form}
                 layout="vertical"
-                name="form_in_modal"
+                name="add_file_modal"
                 clearOnDestroy={true}
                 onFinish={(data) => onAddNew(data)}>
                 {dom}
@@ -60,7 +57,7 @@ export default function AddFileModal({ visible, setVisible, type, placeholder, b
         <Form.Item name="name" rules={[
             {
                 required: true,
-                message: `Please input the file name!`,
+                message: 'Please input the file name!',
             },
         ]}>
             <Input placeholder={"New file.txt"}/>

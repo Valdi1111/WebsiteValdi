@@ -24,14 +24,15 @@ export default function LibraryNotInShelves() {
 
     function refreshBooks() {
         setLoading(true);
-        return api.books.getNotInShelf(BOOKS_PER_PAGE * page.current + 1, 0).then(
-            res => {
+        return api
+            .withErrorHandling()
+            .books()
+            .getNotInShelf(BOOKS_PER_PAGE * page.current + 1, 0)
+            .then(res => {
                 books.current = res.data.slice(0, BOOKS_PER_PAGE * page.current);
                 setHasMore(res.data.length > BOOKS_PER_PAGE * page.current);
                 setLoading(false);
-            },
-            err => console.error(err)
-        );
+            });
     }
 
     function startWebsocket() {
@@ -73,15 +74,16 @@ export default function LibraryNotInShelves() {
             return;
         }
         setLoadingMore(true);
-        api.books.getNotInShelf(BOOKS_PER_PAGE + 1, BOOKS_PER_PAGE * page.current).then(
-            res => {
+        api
+            .withErrorHandling()
+            .books()
+            .getNotInShelf(BOOKS_PER_PAGE + 1, BOOKS_PER_PAGE * page.current)
+            .then(res => {
                 books.current.push(...res.data.slice(0, BOOKS_PER_PAGE));
                 setHasMore(res.data.length > BOOKS_PER_PAGE);
                 page.current++;
                 setLoadingMore(false);
-            },
-            err => console.error(err)
-        );
+            });
     }
 
     return <>

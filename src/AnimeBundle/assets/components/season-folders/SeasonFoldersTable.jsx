@@ -43,7 +43,7 @@ export default function SeasonFoldersTable() {
             }}/>
         </FloatButton.Group>
         <StandardTable
-            backendFunction={api.seasonsFolder.get}
+            backendFunction={api.withErrorHandling().seasonsFolder().table}
             tableStyle={{ overflowY: 'auto', width: '100%' }}
             tableOnRow={onRowClick}
         />

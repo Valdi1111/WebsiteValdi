@@ -84,9 +84,17 @@ label.required:before {
   font-weight: bold;
 }
 
+/**
+ * Descriptions
+ */
+
 tr.ant-descriptions-row > th.ant-descriptions-item {
   padding-bottom: 0;
 }
+
+/**
+ * Modal
+ */
 
 .ant-modal .ant-upload-wrapper > .ant-upload-list {
   max-height: 50vh;
@@ -95,4 +103,24 @@ tr.ant-descriptions-row > th.ant-descriptions-item {
 
 .ant-modal .ant-upload-wrapper > .ant-upload.ant-upload-drag {
   margin-bottom: 12px;
+}
+
+/**
+ * Tree
+ */
+
+.ant-tree-treenode {
+  width: 100%;
+}
+
+.ant-tree-node-content-wrapper {
+  min-width: 0;
+}
+
+.ant-tree-title {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

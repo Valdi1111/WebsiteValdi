@@ -19,6 +19,13 @@ interface AnimeDownloaderInterface
     public function createEpisodeDownloads(EpisodeDownloadRequest $downloadReq): array;
 
     /**
+     * @param EpisodeDownload $episode
+     * @return void
+     * @throws Exception
+     */
+    public function refreshDownloadUrl(EpisodeDownload $episode): void;
+
+    /**
      * Website base url
      * @return string
      */

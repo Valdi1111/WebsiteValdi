@@ -38,7 +38,6 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
      */
     private function fetchPage(string $url): Crawler
     {
-
         $crawler = $this->httpBrowser->request('GET', $this->getWebsiteUrl() . $url);
         $response = $this->httpBrowser->getResponse();
         if ($response->getStatusCode() === 202) {
@@ -116,7 +115,7 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
         if ($itemCrawler->matches(".active")) {
             $this->scrapeEpisodeFile($globalCrawler, $episode);
         } else {
-            $episodeCrawler = $this->fetchPage($itemCrawler->attr("href"));
+            $episodeCrawler = $this->fetchPage($episode->getEpisodeUrl());
             $this->scrapeEpisodeFile($episodeCrawler, $episode);
         }
         return $episode;
@@ -152,6 +151,15 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
             $this->entityManager->flush();
         }
         return $episodes;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function refreshDownloadUrl(EpisodeDownload $episode): void
+    {
+        $episodeCrawler = $this->fetchPage($episode->getEpisodeUrl());
+        $this->scrapeEpisodeFile($episodeCrawler, $episode);
     }
 
     /**

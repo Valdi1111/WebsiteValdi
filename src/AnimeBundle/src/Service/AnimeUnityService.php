@@ -9,6 +9,7 @@ use App\AnimeBundle\Entity\SeasonFolder;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
 use Doctrine\ORM\EntityManagerInterface;
 use Exception;
+use Symfony\Component\BrowserKit\HttpBrowser;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DomCrawler\Crawler;
@@ -18,6 +19,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 #[AsAlias('App\AnimeBundle\Service\AnimeDownloaderInterface $animeUnityDownloader')]
 readonly class AnimeUnityService implements AnimeDownloaderInterface
 {
+    private HttpBrowser $httpBrowser;
 
     public function __construct(
         private EntityManagerInterface                       $entityManager,
@@ -25,6 +27,7 @@ readonly class AnimeUnityService implements AnimeDownloaderInterface
         #[Autowire('%anime.temp_folder%')] private string    $tempFolder,
         #[Autowire('%anime.animeunity.url%')] private string $websiteUrl)
     {
+        $this->httpBrowser = new HttpBrowser($this->animeAnimeunityClient);
     }
 
     /**
@@ -34,11 +37,12 @@ readonly class AnimeUnityService implements AnimeDownloaderInterface
      */
     private function fetchPage(string $url): Crawler
     {
-        $response = $this->animeAnimeunityClient->request('GET', $url);
+        $crawler = $this->httpBrowser->request('GET', $this->getWebsiteUrl() . $url);
+        $response = $this->httpBrowser->getResponse();
         if ($response->getStatusCode() !== 200) {
             throw new Exception("Error fetching page from AnimeUnity. Http code = " . $response->getStatusCode());
         }
-        return new Crawler($response->getContent());
+        return $crawler;
     }
 
     /**
@@ -172,6 +176,16 @@ readonly class AnimeUnityService implements AnimeDownloaderInterface
             $this->entityManager->flush();
         }
         return $episodes;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function refreshDownloadUrl(EpisodeDownload $episode): void
+    {
+        $episodeCrawler = $this->fetchPage($episode->getEpisodeUrl());
+        $pageData = $this->scrapeEpisodeDataFromPage($episodeCrawler);
+        $this->scrapeEpisodeFile($pageData['embed_url'], $episode);
     }
 
     /**

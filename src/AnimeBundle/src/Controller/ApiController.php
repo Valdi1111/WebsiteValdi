@@ -287,9 +287,20 @@ class ApiController extends AbstractController
 
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
     #[Route('/downloads/{download}/retry', name: 'downloads_id_retry', methods: ['POST'])]
-    public function apiDownloadsIdRetry(#[MapEntity(message: "Download not found.")] EpisodeDownload $download, MessageBusInterface $bus): Response
+    public function apiDownloadsIdRetry(#[MapEntity(message: "Download not found.")] EpisodeDownload $download, AnimeDownloaderLocator $locator, MessageBusInterface $bus): Response
     {
+        if (!$locator->has($download->getServiceName())) {
+            throw new BadRequestHttpException("No service has been found for the given download.");
+        }
         $file = Path::join($download->getFolder(), $download->getFile());
+
+        $downloader = $locator->get($download->getServiceName());
+        $downloader->refreshDownloadUrl($download);
+        $download->setState(EpisodeDownloadState::created)
+            ->setStarted(null)
+            ->setCompleted(null);
+        $this->entityManager->flush();
+
         if ($this->getFilesystem()->fileExists($file)) {
             $this->getFilesystem()->delete($file);
         }

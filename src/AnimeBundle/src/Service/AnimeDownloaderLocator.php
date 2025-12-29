@@ -7,8 +7,9 @@ use App\AnimeBundle\Exception\UnhandledWebsiteException;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Contracts\Service\ServiceCollectionInterface;
+use Traversable;
 
-readonly class AnimeDownloaderLocator
+readonly class AnimeDownloaderLocator implements ServiceCollectionInterface
 {
 
     /**
@@ -39,4 +40,28 @@ readonly class AnimeDownloaderLocator
         throw new UnhandledWebsiteException();
     }
 
+    public function get(string $id): AnimeDownloaderInterface
+    {
+        return $this->locator->get($id);
+    }
+
+    public function has(string $id): bool
+    {
+        return $this->locator->has($id);
+    }
+
+    public function getIterator(): Traversable
+    {
+        return $this->locator->getIterator();
+    }
+
+    public function count(): int
+    {
+        return $this->locator->count();
+    }
+
+    public function getProvidedServices(): array
+    {
+        return $this->locator->getProvidedServices();
+    }
 }

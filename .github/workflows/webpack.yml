@@ -1,48 +1,48 @@
 name: NodeJS with Webpack
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    push:
+        branches: [ "main" ]
+    pull_request:
+        branches: [ "main" ]
 
 permissions:
-  contents: read
+    contents: read
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+    build:
+        runs-on: ubuntu-latest
 
-    steps:
-    - uses: actions/checkout@v4
+        steps:
+            -   uses: actions/checkout@v4
 
-    # Setup Composer 2.8.3
-    - name: Use Composer 2.8.3
-      uses: php-actions/composer@v6
-      with:
-        php_version: 8.4
-        version: 2.8.3
+            # Setup Composer 2.8.3
+            -   name: Use Composer 2.8.3
+                uses: php-actions/composer@v6
+                with:
+                    php_version: 8.4
+                    version: 2.8.3
 
-    # Cache delle dipendenze di Composer
-    - name: Cache Composer packages
-      id: composer-cache
-      uses: actions/cache@v3
-      with:
-        path: vendor
-        key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-php-
+            # Cache delle dipendenze di Composer
+            -   name: Cache Composer packages
+                id: composer-cache
+                uses: actions/cache@v3
+                with:
+                    path: vendor
+                    key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+                    restore-keys: |
+                        ${{ runner.os }}-php-
 
-    # Setup Node.js 20.x
-    - name: Use Node.js 20.x
-      uses: actions/setup-node@v4
-      with:
-        node-version: 20.x
+            # Setup Node.js 20.x
+            -   name: Use Node.js 20.x
+                uses: actions/setup-node@v4
+                with:
+                    node-version: 20.x
 
-    # Installazione delle dipendenze Node.js
-    - name: Install Node.js dependencies
-      run: npm install
+            # Installazione delle dipendenze Node.js
+            -   name: Install Node.js dependencies
+                run: npm install
 
-    # Build del progetto con Webpack
-    - name: Build Webpack
-      run: npm run build
+            # Build del progetto con Webpack
+            -   name: Build Webpack
+                run: npm run build

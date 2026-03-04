@@ -1,9 +1,9 @@
 name: Deploy Symfony App
 
 on:
-    push:
-        branches:
-            - deploy
+    release:
+        types:
+            - published
 
 jobs:
     deploy:

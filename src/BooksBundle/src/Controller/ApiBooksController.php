@@ -99,7 +99,7 @@ class ApiBooksController extends AbstractController
     ): Response
     {
         $authorization->setCookie($req, [Channel::LIBRARY_ALL]);
-        return $this->json($bookRepo->getAll($this->getLibrary(), $user, $limit, $offset), 200, [], [
+        return $this->json($bookRepo->getAll($this->getLibrary(), $user, $limit, $offset), context: [
             BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_THUMB,
             'groups' => ['book:list']
         ]);
@@ -116,7 +116,7 @@ class ApiBooksController extends AbstractController
     ): Response
     {
         $authorization->setCookie($req, [Channel::LIBRARY_NOT_IN_SHELVES]);
-        return $this->json($bookRepo->getNotInShelves($this->getLibrary(), $user, $limit, $offset), 200, [], [
+        return $this->json($bookRepo->getNotInShelves($this->getLibrary(), $user, $limit, $offset), context: [
             BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_THUMB,
             'groups' => ['book:list']
         ]);
@@ -176,7 +176,7 @@ class ApiBooksController extends AbstractController
             ->setLibrary($this->getLibrary());
         $splits = explode('/', $book->getUrl());
         if (count($splits) > 2) {
-            $shelf = $shelfRepo->findOneBy(['path' => $splits[1]]);
+            $shelf = $shelfRepo->findOneBy(['path' => '/' . $splits[1]]);
             $book->setShelf($shelf);
         }
 
@@ -217,7 +217,7 @@ class ApiBooksController extends AbstractController
     #[Route('/books/{book}', name: 'books_id_get', requirements: ['book' => '\d+'], methods: ['GET'])]
     public function apiBooksIdGet(#[MapEntity(message: "Book not found.")] Book $book): Response
     {
-        return $this->json($book, 200, [], [
+        return $this->json($book, context: [
             BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_COVER
         ]);
     }
@@ -328,7 +328,7 @@ class ApiBooksController extends AbstractController
     #[Route('/books/{book}/metadata', name: 'books_id_metadata', requirements: ['book' => '\d+'], methods: ['GET'])]
     public function apiBooksIdMetadata(#[MapEntity(message: "Book not found.")] Book $book): Response
     {
-        return $this->json($book, 200, [], [
+        return $this->json($book, context: [
             BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_COVER,
             'groups' => ['book:metadata']
         ]);

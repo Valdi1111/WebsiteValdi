@@ -120,7 +120,7 @@ class ApiShelvesController extends AbstractController
                 'books_count' => count($books),
             ];
         }
-        return $this->json($books, 200, [], [
+        return $this->json($books, context: [
             BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_THUMB,
             'groups' => ['book:list']
         ]);

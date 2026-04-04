@@ -11,6 +11,13 @@ interface AnimeDownloaderInterface
 {
 
     /**
+     * @return EpisodeDownload[]
+     * @throws CacheAnimeNotFoundException
+     * @throws Exception
+     */
+    public function checkNewEpisodes(): array;
+
+    /**
      * @param EpisodeDownloadRequest $downloadReq download request data
      * @return EpisodeDownload[]
      * @throws CacheAnimeNotFoundException

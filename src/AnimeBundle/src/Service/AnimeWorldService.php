@@ -4,9 +4,11 @@ namespace App\AnimeBundle\Service;
 
 use App\AnimeBundle\Entity\EpisodeDownload;
 use App\AnimeBundle\Entity\EpisodeDownloadRequest;
+use App\AnimeBundle\Entity\EpisodeRelease;
 use App\AnimeBundle\Entity\ListAnime;
 use App\AnimeBundle\Entity\SeasonFolder;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
+use App\AnimeBundle\Message\EpisodeDownloadNotification;
 use Doctrine\ORM\EntityManagerInterface;
 use Exception;
 use Symfony\Component\BrowserKit\Cookie;
@@ -14,6 +16,7 @@ use Symfony\Component\BrowserKit\HttpBrowser;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 #[AsAlias('animeworld.anime.downloader')]
@@ -25,6 +28,7 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
     public function __construct(
         private EntityManagerInterface                       $entityManager,
         private HttpClientInterface                          $animeAnimeworldClient,
+        private MessageBusInterface                          $bus,
         #[Autowire('%anime.temp_folder%')] private string    $tempFolder,
         #[Autowire('%anime.animeworld.url%')] private string $websiteUrl)
     {
@@ -36,7 +40,7 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
      * @param string $url episode url
      * @return Crawler page
      */
-    private function fetchPage(string $url): Crawler
+    private function fetchPage(string $url = ""): Crawler
     {
         $crawler = $this->httpBrowser->request('GET', $this->getWebsiteUrl() . $url);
         $response = $this->httpBrowser->getResponse();
@@ -86,7 +90,9 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
 
     private function processFolder(?int $malId): string
     {
-        $folder = $this->entityManager->getRepository(SeasonFolder::class)->find($malId);
+        $folder = $this->entityManager
+            ->getRepository(SeasonFolder::class)
+            ->find($malId);
         if ($folder) {
             return $folder->getFolder();
         }
@@ -124,12 +130,66 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
     /**
      * @inheritDoc
      */
+    public function checkNewEpisodes(): array
+    {
+        $crawler = $this->fetchPage();
+        $urlPaths = $crawler
+            ->filter("#main .widget-body .content[data-name='sub'] .film-list > .item > .inner > a.name")
+            ->each(fn($node, $i) => $node->attr("href"));
+        $urlPaths = array_reverse($urlPaths);
+        $episodes = [];
+        foreach ($urlPaths as $urlPath) {
+            // Check if episode has already been released
+            $release = $this->entityManager
+                ->getRepository(EpisodeRelease::class)
+                ->findOneBy([
+                    'serviceName' => self::getServiceName(),
+                    'episodeUrl' => $urlPath,
+                ]);
+            if ($release) {
+                continue;
+            }
+            // Add release to database
+            $release = new EpisodeRelease()
+                ->setEpisodeUrl($urlPath)
+                ->setServiceName(self::getServiceName());
+            $this->entityManager->persist($release);
+            // Create download request
+            // TODO add option to download missed episodes
+            $downloadReq = new EpisodeDownloadRequest()
+                ->setUrl($this->getWebsiteUrl() . $urlPath)
+                ->setSave(false);
+            // Create episode downloads
+            try {
+                $episodesLocal = $this->createEpisodeDownloads($downloadReq);
+                foreach ($episodesLocal as $episodeLocal) {
+                    $this->entityManager->persist($episodeLocal);
+                    $episodes[] = $episodeLocal;
+                }
+            } catch (CacheAnimeNotFoundException $e) {
+                continue;
+            }
+        }
+        $this->entityManager->flush();
+        foreach ($episodes as $episode) {
+            $this->bus->dispatch(new EpisodeDownloadNotification($episode->getId()));
+        }
+        return $episodes;
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function createEpisodeDownloads(EpisodeDownloadRequest $downloadReq): array
     {
+        // TODO add option to download missed episodes
+        // TODO add option to download specific episodes
         $globalCrawler = $this->fetchPage($downloadReq->getUrlPath());
         $malId = $this->scrapeIdFromButton($globalCrawler, 'mal-button');
         if ($downloadReq->isFilter()) {
-            $anime = $this->entityManager->getRepository(ListAnime::class)->find($malId);
+            $anime = $this->entityManager
+                ->getRepository(ListAnime::class)
+                ->find($malId);
             if (!$anime) {
                 throw new CacheAnimeNotFoundException($malId);
             }
@@ -170,6 +230,9 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
         return $this->websiteUrl;
     }
 
+    /**
+     * @inheritDoc
+     */
     public static function getServiceName(): string
     {
         return 'animeworld';

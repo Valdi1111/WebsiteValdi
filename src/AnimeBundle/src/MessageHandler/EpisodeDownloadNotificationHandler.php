@@ -26,7 +26,9 @@ readonly class EpisodeDownloadNotificationHandler
 
     public function __invoke(EpisodeDownloadNotification $message): void
     {
-        $episode = $this->entityManager->getRepository(EpisodeDownload::class)->find($message->getId());
+        $episode = $this->entityManager
+            ->getRepository(EpisodeDownload::class)
+            ->find($message->getId());
         if (!$episode) {
             $this->animeEpisodeDownloaderLogger->info("No episode found in queue");
             return;

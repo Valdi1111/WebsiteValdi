@@ -17,6 +17,9 @@ class SeasonFolder
     #[ORM\Column(length: 255)]
     private ?string $folder = null;
 
+    #[ORM\Column(options: ["default" => 0])]
+    private ?int $episodeOffset = 0;
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, insertable: false, updatable: false, options: ["default" => "CURRENT_TIMESTAMP"])]
     private ?\DateTimeInterface $created = null;
 
@@ -44,6 +47,18 @@ class SeasonFolder
     public function setFolder(string $folder): static
     {
         $this->folder = $folder;
+
+        return $this;
+    }
+
+    public function getEpisodeOffset(): ?int
+    {
+        return $this->episodeOffset;
+    }
+
+    public function setEpisodeOffset(int $episodeOffset): static
+    {
+        $this->episodeOffset = $episodeOffset;
 
         return $this;
     }

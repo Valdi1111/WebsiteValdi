@@ -187,6 +187,9 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
         $globalCrawler = $this->fetchPage($downloadReq->getUrlPath());
         $malId = $this->scrapeIdFromButton($globalCrawler, 'mal-button');
         if ($downloadReq->isFilter()) {
+            if (!$malId) {
+                throw new CacheAnimeNotFoundException($malId);
+            }
             $anime = $this->entityManager
                 ->getRepository(ListAnime::class)
                 ->find($malId);

@@ -25,7 +25,7 @@ class BookCache
     #[ORM\Column]
     private array $locations = [];
 
-    #[ORM\Column(nullable: true, insertable: false, updatable: false)]
+    #[ORM\Column(nullable: true, insertable: false, updatable: false, options: ['generated' => true])]
     private ?int $pages = null;
 
     #[Ignore]

@@ -39,7 +39,7 @@ export default function LibraryItem(props) {
         setPage(val ? -1 : 0);
     }
 
-    function onRecreateOpen() {
+    const onRecreateOpen = React.useCallback(() => {
         modal.confirm({
             icon: <ExclamationCircleFilled/>,
             title: 'Are you sure you want to recreate the cache for this book?',
@@ -52,16 +52,13 @@ export default function LibraryItem(props) {
                 })
                 .books()
                 .recreate(id)
-                .then(
-                data => {
-                    console.log("Book", data.id, "Cache recreated successfully!");
-                },
-                err => console.error(err)
-            ),
+                .then(data => {
+                    console.debug("Book", data.id, "Cache recreated successfully!");
+                }),
         });
-    }
+    }, [id]);
 
-    function onDeleteOpen() {
+    const onDeleteOpen = React.useCallback(() => {
         modal.confirm({
             icon: <ExclamationCircleFilled/>,
             title: 'Are you sure you want to delete this book?',
@@ -75,10 +72,10 @@ export default function LibraryItem(props) {
                 .books()
                 .delete(id)
                 .then(res => {
-                    console.log("Book", id, "Deleted successfully!");
+                    console.debug("Book", id, "Deleted successfully!");
                 }),
         });
-    }
+    }, [id]);
 
     return <>
         <ItemInfo id={id} open={infoOpen} setOpen={setInfoOpen}/>

@@ -41,6 +41,9 @@ export function formatPercent(amount, total) {
 }
 
 export function formatBytes(bytes) {
+    if (bytes === undefined) {
+        return null;
+    }
     let i = 0;
     if (bytes) {
         i = Math.floor(Math.log(bytes) / Math.log(1024));

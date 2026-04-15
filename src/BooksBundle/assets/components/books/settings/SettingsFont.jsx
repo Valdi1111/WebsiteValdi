@@ -1,9 +1,9 @@
+import { useBookSettings } from "@BooksBundle/components/books/BookSettingsContext";
 import { FONT, FONTS } from "@BooksBundle/components/books/BookConstants";
-import { useBook } from "@BooksBundle/components/books/BookContext";
 import React from "react";
 
 export default function SettingsFont() {
-    const { settings, setSetting } = useBook();
+    const { settings, setSetting } = useBookSettings();
 
     function font(e) {
         setSetting(FONT, e.target.value);

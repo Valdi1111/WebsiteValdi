@@ -1,9 +1,9 @@
+import { useBookSettings } from "@BooksBundle/components/books/BookSettingsContext";
 import { FONT_SIZE, FONT_SIZES } from "@BooksBundle/components/books/BookConstants";
-import { useBook } from "@BooksBundle/components/books/BookContext";
 import React from "react";
 
 export default function SettingsFontSize() {
-    const { settings, setSetting } = useBook();
+    const { settings, setSetting } = useBookSettings();
 
     function fontSize(e) {
         setSetting(FONT_SIZE, e.target.value);

@@ -10,31 +10,31 @@ export default function MainLayout({ children }) {
             {
                 key: 1,
                 label: <Link to="/downloads">Downloads</Link>,
-                pathnameregex: /^\/downloads$/,
+                pathname_regex: /^\/downloads$/,
                 icon: <DownloadOutlined/>
             },
             {
                 key: 2,
                 label: <Link to="/season-folders">Season Folders</Link>,
-                pathnameregex: /^\/season-folders$/,
+                pathname_regex: /^\/season-folders$/,
                 icon: <FolderOutlined/>
             },
             {
                 key: 3,
                 label: <Link to="/list-anime">List Anime</Link>,
-                pathnameregex: /^\/list-anime$/,
+                pathname_regex: /^\/list-anime$/,
                 icon: <UnorderedListOutlined/>
             },
             {
                 key: 4,
                 label: <Link to="/list-manga">List Manga</Link>,
-                pathnameregex: /^\/list-manga$/,
+                pathname_regex: /^\/list-manga$/,
                 icon: <UnorderedListOutlined/>
             },
             {
                 key: 5,
                 label: <Link to="/files">Files</Link>,
-                pathnameregex: /^\/files$/,
+                pathname_regex: /^\/files$/,
                 icon: <FolderOpenOutlined/>
             },
         ]}

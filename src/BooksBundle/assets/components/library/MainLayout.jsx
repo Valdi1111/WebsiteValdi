@@ -4,7 +4,7 @@ import PageLayout from "@CoreBundle/components/layout/PageLayout";
 import { Link } from "react-router-dom";
 import React from "react";
 
-export default function LibraryLayout({ children }) {
+export default function MainLayout({ children }) {
     const [addOpen, setAddOpen] = React.useState(false);
 
     return <PageLayout
@@ -12,25 +12,25 @@ export default function LibraryLayout({ children }) {
             {
                 key: 1,
                 label: <Link to="/library/all">All books</Link>,
-                pathnameregex: /^\/library\/all$/,
+                pathname_regex: /^\/library\/all$/,
                 icon: <BookOutlined/>
             },
             {
                 key: 2,
                 label: <Link to="/library/shelves">Shelves</Link>,
-                pathnameregex: /^\/library\/shelves(?:\/\d+)?$/,
+                pathname_regex: /^\/library\/shelves(?:\/\d+)?$/,
                 icon: <GroupOutlined/>
             },
             {
                 key: 3,
                 label: <Link to="/library/not-in-shelves">Not in shelves</Link>,
-                pathnameregex: /^\/library\/not-in-shelves$/,
+                pathname_regex: /^\/library\/not-in-shelves$/,
                 icon: <BookOutlined/>
             },
             {
                 key: 4,
                 label: <Link to="/files">Files</Link>,
-                pathnameregex: /^\/files$/,
+                pathname_regex: /^\/files$/,
                 icon: <FolderOpenOutlined/>
             },
         ]}
@@ -42,7 +42,7 @@ export default function LibraryLayout({ children }) {
                 onClick: () => setAddOpen(true)
             },
         ]}
-        childrenPre={<BookAddModal open={addOpen} setOpen={setAddOpen}/>}
+        childrenPre={<BookAddModal visible={addOpen} setVisible={setAddOpen}/>}
         children={children}
     />;
 

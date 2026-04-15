@@ -5,6 +5,7 @@ namespace App\CoreBundle\Security;
 use App\CoreBundle\Service\PermissionHierarchyInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\CacheableVoterInterface;
+use Symfony\Component\Security\Core\Authorization\Voter\Vote;
 use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
 
 class PermissionVoter implements CacheableVoterInterface
@@ -14,9 +15,8 @@ class PermissionVoter implements CacheableVoterInterface
     ) {
     }
 
-    public function vote(TokenInterface $token, mixed $subject, array $attributes/* , ?Vote $vote = null */): int
+    public function vote(TokenInterface $token, mixed $subject, array $attributes, ?Vote $vote = null): int
     {
-        $vote = 3 < func_num_args() ? func_get_arg(3) : null;
         $result = VoterInterface::ACCESS_ABSTAIN;
         $permissions = $this->extractPermissions($token);
         $missingPermissions = [];

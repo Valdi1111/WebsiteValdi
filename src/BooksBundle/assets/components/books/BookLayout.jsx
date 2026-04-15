@@ -1,5 +1,5 @@
 import ImageViewModal from "@BooksBundle/components/books/modals/ImageViewModal";
-import BookContext from "@BooksBundle/components/books/BookContext";
+import BookSettingsContext from "@BooksBundle/components/books/BookSettingsContext";
 import SpinComponent from "@CoreBundle/components/SpinComponent";
 import {
     FONT, FONTS, FONT_SIZE,
@@ -7,30 +7,31 @@ import {
     FORCE_FONT, FORCE_FONT_SIZE, JUSTIFY,
     LAYOUT, LAYOUTS, UPDATE_LAST_READ
 } from "@BooksBundle/components/books/BookConstants";
+import { Layout } from "antd";
 import React from "react";
 
 export default function BookLayout({ children }) {
+    const [loading, setLoading] = React.useState(true);
     const [settings, setSettings] = React.useState({});
-    const [readySettings, setReadySettings] = React.useState(false);
 
-    // Load settings or set defaults
+    // Load settings or set default values
     React.useEffect(() => {
         const s = {};
-        getSettingOrSave(s, FONT, Object.keys(FONTS)[0]);
-        getSettingOrSave(s, FONT_SIZE, 19);
-        getSettingOrSave(s, FORCE_FONT, true);
-        getSettingOrSave(s, FORCE_FONT_SIZE, true);
-        getSettingOrSave(s, SPACING, 1.4);
-        getSettingOrSave(s, MARGINS, 100);
-        getSettingOrSave(s, WIDTH, 1700);
-        getSettingOrSave(s, LAYOUT, Object.keys(LAYOUTS)[0]);
-        getSettingOrSave(s, JUSTIFY, true);
-        getSettingOrSave(s, UPDATE_LAST_READ, true);
+        loadSettingOrSave(s, FONT, Object.keys(FONTS)[0]);
+        loadSettingOrSave(s, FONT_SIZE, 19);
+        loadSettingOrSave(s, FORCE_FONT, true);
+        loadSettingOrSave(s, FORCE_FONT_SIZE, true);
+        loadSettingOrSave(s, SPACING, 1.4);
+        loadSettingOrSave(s, MARGINS, 100);
+        loadSettingOrSave(s, WIDTH, 1700);
+        loadSettingOrSave(s, LAYOUT, Object.keys(LAYOUTS)[0]);
+        loadSettingOrSave(s, JUSTIFY, true);
+        loadSettingOrSave(s, UPDATE_LAST_READ, true);
         setSettings(s);
-        setReadySettings(true);
+        setLoading(false);
     }, []);
 
-    function getSettingOrSave(s, key, def) {
+    const loadSettingOrSave = React.useCallback((s, key, def) => {
         const value = localStorage.getItem(key);
         if (value != null) {
             s[key] = value;
@@ -38,24 +39,22 @@ export default function BookLayout({ children }) {
         }
         localStorage.setItem(key, def);
         s[key] = def;
-    }
+    }, []);
 
-    function setSetting(key, value) {
+    const setSetting = React.useCallback((key, value) => {
         localStorage.setItem(key, value);
-        const s = settings;
+        const s = { ...settings };
         s[key] = value;
-        setSettings({ ...s });
-    }
+        setSettings(s);
+    }, [settings]);
 
     // Wait for settings
-    return <div className="vw-100 vh-100 d-flex flex-column">
-        <SpinComponent loading={!readySettings} size="large">
-            <ImageViewModal/>
-            <BookContext value={{ settings, setSetting }}>
-                <div className="vw-100 vh-100 d-flex flex-column">
-                    {children}
-                </div>
-            </BookContext>
-        </SpinComponent>
-    </div>;
+    return <BookSettingsContext value={{ settings, setSettings, setSetting }}>
+        <Layout style={{ height: '100vh' }}>
+            <SpinComponent loading={loading} size="large">
+                <ImageViewModal/>
+                {children}
+            </SpinComponent>
+        </Layout>
+    </BookSettingsContext>;
 }

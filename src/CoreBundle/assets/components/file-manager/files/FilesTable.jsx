@@ -5,6 +5,7 @@ import { FolderFilled, SearchOutlined, } from "@ant-design/icons";
 import { Button, Input, Space, Table, theme as antdTheme } from "antd";
 import Highlighter from "react-highlight-words";
 import React from "react";
+import "./FilesTable.css";
 
 export default function FilesTable() {
     const [searchText, setSearchText] = React.useState('');
@@ -75,7 +76,7 @@ export default function FilesTable() {
             searchWords={[searchText]}
             autoEscape
             textToHighlight={text ? text.toString() : ''}
-        /> : text
+        /> : <span>{text}</span>
     });
 
     const columns = [
@@ -99,6 +100,7 @@ export default function FilesTable() {
                 return <img src={api.fmIconUrl('small', row.type, row.extension)} alt="Logo"/>;
             },
             width: 50,
+            className: 'fm-table-type-td',
         },
         {
             title: 'Name',
@@ -110,6 +112,7 @@ export default function FilesTable() {
                 multiple: 1,
             },
             ...getColumnSearchProps('title'),
+            className: 'fm-table-title-td',
         },
         {
             title: 'Size',
@@ -119,13 +122,9 @@ export default function FilesTable() {
                 compare: (a, b) => a.size - b.size,
                 multiple: 1,
             },
-            render: value => {
-                if (value === undefined) {
-                    return null;
-                }
-                return formatBytes(value);
-            },
-            width: 150,
+            render: formatBytes,
+            width: 100,
+            className: 'fm-table-size-td',
         },
         {
             title: 'Date',
@@ -137,6 +136,7 @@ export default function FilesTable() {
             },
             render: formatDateFromTimestamp,
             width: 150,
+            className: 'fm-table-date-td',
         },
     ];
 
@@ -175,7 +175,7 @@ export default function FilesTable() {
                 row: (props) => {
                     const row = files.find(f => f.id === props['data-row-key']);
                     return <FilesTableRowDropdown row={row}>
-                        <tr {...props} />
+                        <tr {...props} className={`${props.className ?? ''} fm-table-tr`}/>
                     </FilesTableRowDropdown>
                 }
             }

@@ -10,7 +10,7 @@ export default function MainLayout({ children }) {
             {
                 key: 1,
                 label: <Link to="/credentials/all">Credentials</Link>,
-                pathnameregex: /^\/credentials\/all$/,
+                pathname_regex: /^\/credentials\/all$/,
                 icon: <KeyOutlined/>,
             },
         ]}

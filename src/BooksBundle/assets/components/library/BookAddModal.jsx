@@ -5,12 +5,12 @@ import React from "react";
 
 /**
  * Modal
- * @param open
- * @param setOpen
+ * @param {boolean} visible
+ * @param {(visible: boolean) => void} setVisible
  * @returns {JSX.Element}
  * @constructor
  */
-export default function BookAddModal({ open, setOpen }) {
+export default function BookAddModal({ visible, setVisible }) {
     const [loading, setLoading] = React.useState(true);
     const [confirmLoading, setConfirmLoading] = React.useState(false);
     const [content, setContent] = React.useState([]);
@@ -20,14 +20,13 @@ export default function BookAddModal({ open, setOpen }) {
     const { message } = App.useApp();
     const api = useBackendApi();
 
-    function afterOpenChange(opened) {
+    const afterOpenChange = React.useCallback((opened) => {
+        setLoading(true);
         if (!opened) {
-            setLoading(true);
-            setContent({});
+            setContent([]);
             setSelectedAmount(0);
             return;
         }
-        setLoading(true);
         api
             .withErrorHandling()
             .books()
@@ -51,16 +50,16 @@ export default function BookAddModal({ open, setOpen }) {
                 setContent(data);
                 setLoading(false);
             });
-    }
+    }, []);
 
-    function onDataChange(changed, data) {
+    const onDataChange = React.useCallback((changed, data) => {
         const selectedPaths = Object.entries(data)
             .filter(([key, value]) => value)
             .map(([key, value]) => key);
         setSelectedAmount(selectedPaths.length);
-    }
+    }, []);
 
-    function onBooksAdd(data) {
+    const onBooksAdd = React.useCallback((data) => {
         const selectedPaths = Object.entries(data)
             .filter(([key, value]) => value)
             .map(([key, value]) => key);
@@ -72,23 +71,28 @@ export default function BookAddModal({ open, setOpen }) {
         });
         setConfirmLoading(true);
         // TODO one loading message for every book and promise for the modal?
-        Promise.all(selectedPaths.map(path => api.withErrorHandling().books().create(path))).then(
-            res => {
-                message.open({
-                    key: 'books-add-loader',
-                    type: 'success',
-                    content: 'Books added successfully',
-                    duration: 2.5,
-                });
-                setConfirmLoading(false);
-                setOpen(false);
-            },
-            err => console.error(err)
-        );
-    }
+        Promise
+            .all(selectedPaths.map(path => api.withErrorHandling().books().create(path)))
+            .then(
+                res => {
+                    message.open({
+                        key: 'books-add-loader',
+                        type: 'success',
+                        content: 'Books added successfully',
+                        duration: 2.5,
+                    });
+                    setConfirmLoading(false);
+                    setVisible(false);
+                },
+                err => {
+                    message.destroy('books-add-loader')
+                    console.error(err);
+                }
+            );
+    }, []);
 
     return <Modal
-        open={open}
+        open={visible}
         title={'Add books to Library'}
         footer={(parent, { OkBtn, CancelBtn }) =>
             <Flex align="center" justify="space-between">
@@ -99,7 +103,7 @@ export default function BookAddModal({ open, setOpen }) {
                 </Space>
             </Flex>
         }
-        onCancel={() => setOpen(false)}
+        onCancel={() => setVisible(false)}
         destroyOnHidden
         okButtonProps={{ htmlType: 'submit' }}
         loading={loading}

@@ -1,6 +1,9 @@
+import { useBook } from "@BooksBundle/components/books/BookContext";
 import React from "react";
 
-export default function TocItem({ close, item, level, chapter, navigateTo }) {
+export default function TocItem({ close, item, level }) {
+    const { chapter, navigateTo } = useBook();
+
     function active() {
         if (chapter && item.id === chapter.id) {
             return "active";

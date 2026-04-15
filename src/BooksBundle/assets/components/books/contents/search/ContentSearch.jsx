@@ -1,12 +1,14 @@
 import SearchItem from "@BooksBundle/components/books/contents/search/SearchItem";
+import { useBook } from "@BooksBundle/components/books/BookContext";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowRight } from "@fortawesome/free-solid-svg-icons";
 import React from "react";
 
-export default function ContentSearch({ close, navigateTo, search }) {
+export default function ContentSearch({ close }) {
     const [searchResults, setSearchResults] = React.useState([]);
     const searchAll = React.useRef();
     const input = React.useRef();
+    const { search } = useBook();
 
     React.useEffect(() => {
         input.current.onkeydown = (e) => {
@@ -47,7 +49,7 @@ export default function ContentSearch({ close, navigateTo, search }) {
         </div>
         <ul className="list-unstyled overflow-auto mb-1" style={{ maxHeight: "400px" }}>
             {searchResults.map(i =>
-                <SearchItem key={i.cfi} close={close} item={i} navigateTo={navigateTo}/>
+                <SearchItem key={i.cfi} close={close} item={i}/>
             )}
         </ul>
         <span className="dropdown-header text-secondary py-0 px-2">{searchResults.length} results</span>

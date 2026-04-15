@@ -6,7 +6,7 @@ import React from "react";
 export default function ItemProgress({ id, page, total, setRead }) {
     const api = useBackendApi();
 
-    function onMarkRead() {
+    const onMarkRead = React.useCallback(() => {
         api
             .withLoadingMessage({
                 key: 'book-read-toggle-loader',
@@ -18,9 +18,9 @@ export default function ItemProgress({ id, page, total, setRead }) {
             .then(res => {
                 setRead(true);
             });
-    }
+    }, [id]);
 
-    function onMarkUnread() {
+    const onMarkUnread = React.useCallback(() => {
         api
             .withLoadingMessage({
                 key: 'book-read-toggle-loader',
@@ -32,7 +32,7 @@ export default function ItemProgress({ id, page, total, setRead }) {
             .then(res => {
                 setRead(false);
             });
-    }
+    }, [id]);
 
     if (page === -1) {
         return <CheckCircleFilled className="text-success" onClick={() => onMarkUnread()}/>;

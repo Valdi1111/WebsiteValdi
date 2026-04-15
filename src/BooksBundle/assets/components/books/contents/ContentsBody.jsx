@@ -3,9 +3,10 @@ import ContentSearch from "@BooksBundle/components/books/contents/search/Content
 import ContentToc from "@BooksBundle/components/books/contents/toc/ContentToc";
 import React from "react";
 
-export default function ContentsBody({ content, close, search, chapter, navigation, navigateTo }) {
+export default function ContentsBody({ content, close }) {
+
     if (content === TOC) {
-        return <ContentToc close={close} chapter={chapter} navigation={navigation} navigateTo={navigateTo}/>;
+        return <ContentToc close={close}/>;
     }
     if (content === ANNOTATIONS) {
         return <></>;
@@ -14,7 +15,8 @@ export default function ContentsBody({ content, close, search, chapter, navigati
         return <></>;
     }
     if (content === SEARCH) {
-        return <ContentSearch close={close} navigateTo={navigateTo} search={search}/>;
+        return <ContentSearch close={close}/>;
     }
     return <></>;
+
 }

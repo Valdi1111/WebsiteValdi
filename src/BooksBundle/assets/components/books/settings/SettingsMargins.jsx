@@ -1,11 +1,11 @@
+import { useBookSettings } from "@BooksBundle/components/books/BookSettingsContext";
 import { MARGINS } from "@BooksBundle/components/books/BookConstants";
-import { useBook } from "@BooksBundle/components/books/BookContext";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faMinus, faPlus } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React from "react";
 
 export default function SettingsMargins() {
-    const { settings, setSetting } = useBook();
+    const { settings, setSetting } = useBookSettings();
 
     function margins(e, up) {
         const input = document.getElementById('input-margins');

@@ -1,6 +1,9 @@
+import { useBook } from "@BooksBundle/components/books/BookContext";
 import React from "react";
 
-export default function SearchItem({ close, item, navigateTo }) {
+export default function SearchItem({ close, item }) {
+    const { navigateTo } = useBook();
+
     function onClick() {
         navigateTo(item.cfi)
     }

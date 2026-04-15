@@ -1,4 +1,4 @@
-import FileManager from "@CoreBundle/components/FileManager";
+import FileManager from "@CoreBundle/components/file-manager/FileManager";
 import VideoPlayer from "@CoreBundle/components/VideoPlayer";
 import MainLayout from "@VideosBundle/components/MainLayout";
 import NotFoundComponent from "@CoreBundle/components/NotFoundComponent";
@@ -19,10 +19,12 @@ export default function App() {
                 <Route path="/" element={<Navigate to="/files"/>}/>
                 <Route path="/files" element={
                     <MainLayout>
-                        <FileManager apiUrl={api.fmUrl() + "/"}/>
+                        <FileManager apiUrl={api.fmUrl()}/>
                     </MainLayout>
                 }/>
-                <Route path="/videos" element={<VideoPlayer apiUrl={api.fmDirectUrl}/>}/>
+                <Route path="/videos" element={
+                    <VideoPlayer apiUrl={api.fmDirectUrl}/>
+                }/>
                 <Route path="*" element={
                     <MainLayout>
                         <NotFoundComponent redirectPath="/files" redirectText="Back Home"/>

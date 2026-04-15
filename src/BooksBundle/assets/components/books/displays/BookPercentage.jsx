@@ -1,6 +1,8 @@
+import { useBook } from "@BooksBundle/components/books/BookContext";
 import React from "react";
 
-export default function BookPercentage({ percentage }) {
+export default function BookPercentage() {
+    const { percentage } = useBook();
 
     if (percentage === null) {
         return <p id="book-percentage" className="col mb-0 text-center text-truncate px-2"></p>;

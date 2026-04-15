@@ -1,11 +1,12 @@
 import SpinComponent from "@CoreBundle/components/SpinComponent";
+import { Flex, Layout } from "antd";
 import React from "react";
 
-export default function BookBody({ loaded }) {
+export default function BookBody({ loading }) {
 
-    return <div className="position-relative flex-grow-1">
-        <div id="book-view" className="position-absolute w-100 h-100 d-flex justify-content-center"/>
-        <SpinComponent loading={!loaded} size="large"/>
-    </div>;
+    return <Layout.Content style={{ height: '100%' }}>
+        <Flex id="book-view" style={{ height: '100%' }}/>
+        <SpinComponent loading={loading} size="large"/>
+    </Layout.Content>;
 
 }

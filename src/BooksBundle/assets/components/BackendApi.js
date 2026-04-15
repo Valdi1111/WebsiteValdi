@@ -76,7 +76,7 @@ export default function (apiUrl, libraryId, { message }) {
     api._books.getId = async (id) => axiosInstance.get(`/libraries/${libraryId}/books/${id}`);
     api._books.delete = async (id) => axiosInstance.delete(`/libraries/${libraryId}/books/${id}`);
     api._books.create = async (url) => {
-        console.log("Creating book from link...");
+        console.debug("Creating book from link...");
         const epub = new Book(api.epubUrl(url));
         const book = await epub.opened;
         try {
@@ -92,14 +92,14 @@ export default function (apiUrl, libraryId, { message }) {
                 },
                 {}
             );
-            console.log("Book", res.data.id, "Created successfully!");
+            console.debug("Book", res.data.id, "Created successfully!");
             return Promise.resolve(res.data);
         } catch (e) {
             return Promise.reject(e);
         }
     }
     api._books.recreate = async (id) => {
-        console.log("Book", id, "Recreating cache...");
+        console.debug("Book", id, "Recreating cache...");
         const epub = new Book(api.books().epubUrl(id), { openAs: 'epub' });
         const book = await epub.opened;
         try {

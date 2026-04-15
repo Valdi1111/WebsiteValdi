@@ -6,6 +6,7 @@ use Symfony\Component\DependencyInjection\Attribute\AsDecorator;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\CacheableVoterInterface;
+use Symfony\Component\Security\Core\Authorization\Voter\Vote;
 use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
 
 #[AsDecorator('security.access.role_hierarchy_voter', priority: 100, onInvalid: ContainerInterface::IGNORE_ON_INVALID_REFERENCE)]
@@ -21,7 +22,7 @@ class DummyRoleHierarchyVoter implements CacheableVoterInterface
         return false;
     }
 
-    public function vote(TokenInterface $token, mixed $subject, array $attributes): int
+    public function vote(TokenInterface $token, mixed $subject, array $attributes, ?Vote $vote = null): int
     {
         return VoterInterface::ACCESS_ABSTAIN;
     }

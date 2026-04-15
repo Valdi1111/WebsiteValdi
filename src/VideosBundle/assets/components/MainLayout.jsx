@@ -10,7 +10,7 @@ export default function MainLayout({ children }) {
             {
                 key: 1,
                 label: <Link to="/files">Files</Link>,
-                pathnameregex: /^\/files$/,
+                pathname_regex: /^\/files$/,
                 icon: <FolderOpenOutlined/>
             },
         ]}

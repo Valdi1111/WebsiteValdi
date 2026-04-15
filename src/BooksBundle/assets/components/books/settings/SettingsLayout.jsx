@@ -1,9 +1,9 @@
-import { useBook } from "@BooksBundle/components/books/BookContext";
+import { useBookSettings } from "@BooksBundle/components/books/BookSettingsContext";
 import {LAYOUT} from "@BooksBundle/components/books/BookConstants";
 import React from "react";
 
 export default function SettingsLayout({ id, name }) {
-    const { settings, setSetting } = useBook();
+    const { settings, setSetting } = useBookSettings();
 
     function layout(e) {
         setSetting(LAYOUT, e.target.value);

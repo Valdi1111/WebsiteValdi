@@ -11,7 +11,7 @@ export default function PageLayout({ navbarItems = [], dropdownItems = [], child
 
     const navbarSelectedKeys = React.useMemo(
         () => navbarItems
-            .filter(item => item.pathnameregex.test(location.pathname))
+            .filter(item => item.pathname_regex.test(location.pathname))
             .map(item => item.key.toString()),
         [location]
     );

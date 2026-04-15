@@ -42,7 +42,3 @@ export const LAYOUTS = {
         settings: { flow: 'scrolled', manager: 'continuous' }
     }
 }
-
-export function isWheelAllowed(layout) {
-    return layout === 'auto' || layout === 'single';
-}

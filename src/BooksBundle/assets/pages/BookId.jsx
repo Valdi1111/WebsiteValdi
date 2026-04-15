@@ -1,43 +1,44 @@
 import BookHeader from "@BooksBundle/components/books/BookHeader";
 import BookFooter from "@BooksBundle/components/books/BookFooter";
 import BookBody from "@BooksBundle/components/books/BookBody";
-import {
-    FONT, FONTS, FONT_SIZE,
-    SPACING, MARGINS, WIDTH,
-    FORCE_FONT, FORCE_FONT_SIZE, JUSTIFY,
-    LAYOUT, LAYOUTS,
-    UPDATE_LAST_READ, isWheelAllowed
-} from "@BooksBundle/components/books/BookConstants";
+import BookContext from "@BooksBundle/components/books/BookContext";
 import { BOOKS_THEMES } from "@BooksBundle/components/books/BookThemeConstants";
 import { useThemes } from "@CoreBundle/components/theme/ThemeContext";
-import { useBook } from "@BooksBundle/components/books/BookContext";
+import { useBookSettings } from "@BooksBundle/components/books/BookSettingsContext";
 import { useBackendApi } from "@BooksBundle/components/BackendApiContext";
 import { useParams } from "react-router-dom";
 import { Helmet } from "react-helmet";
 import { Book, EpubCFI } from "epubjs";
 import React from "react";
-import $ from "jquery";
 import "@BooksBundle/scss/iframe.css";
+import {
+    FONT, FONTS, FONT_SIZE,
+    SPACING, MARGINS, WIDTH,
+    FORCE_FONT, FORCE_FONT_SIZE, JUSTIFY,
+    LAYOUT, LAYOUTS,
+    UPDATE_LAST_READ
+} from "@BooksBundle/components/books/BookConstants";
 
 export default function BookId() {
-    const { settings, setSetting } = useBook();
+    const { settings, setSetting } = useBookSettings();
     const [theme, setTheme] = useThemes();
-    // book
+    // Book
     const book = React.useRef(null);
     const ready = React.useRef(false);
-    const navigation = React.useRef([]);
     // State for loading screen
-    const [loaded, setLoaded] = React.useState(false);
-    const [title, setTitle] = React.useState('');
+    const [loading, setLoading] = React.useState(true);
+    // Book mark (position and page)
+    const [mark, setMark] = React.useState({ position: null, page: 0 });
     // Book data
-    const [mark, setMark] = React.useState({ position: null, page: 0 }); // current position and page
-    const [chapter, setChapter] = React.useState(null); // current chapter
-    const [section, setSection] = React.useState(null); // current section (from spine)
+    const [title, setTitle] = React.useState('');
+    const [navigation, setNavigation] = React.useState([]);
+    const [chapter, setChapter] = React.useState(null);
+    const [section, setSection] = React.useState(null);
     const [location, setLocation] = React.useState(null);
     const [percentage, setPercentage] = React.useState(null);
-    const { bookId } = useParams();
 
     const api = useBackendApi();
+    const { bookId } = useParams();
 
     /**
      * Handle layout updates
@@ -47,75 +48,42 @@ export default function BookId() {
             return;
         }
         ready.current = false;
-        updateLayout(mark);
-    }, [settings[LAYOUT], settings[MARGINS]]);
-
-    /**
-     * Handle font settings updates
-     */
-    React.useEffect(() => {
-        if (!ready.current) {
-            return;
-        }
-        updateDefaultTheme();
-    }, [
-        settings[FONT],
-        settings[FONT_SIZE],
-        settings[SPACING],
-        settings[JUSTIFY],
-        settings[FORCE_FONT],
-        settings[FORCE_FONT_SIZE]
-    ]);
-
-    /**
-     * Handle dimension updates
-     */
-    React.useEffect(() => {
-        if (!ready.current) {
-            return;
-        }
-        const width = parseInt(settings[WIDTH]) + parseInt(settings[MARGINS]);
-        book.current.rendition.resize(width, '100%');
-    }, [settings[WIDTH]]);
-
-    /**
-     * Handle theme updates
-     */
-    React.useEffect(() => {
-        if (!ready.current) {
-            return;
-        }
-        updateTheme();
-    }, [theme]);
+        updateLayout().then(() => ready.current = true);
+    }, [theme, settings]);
 
     /**
      * Load book
      */
     React.useEffect(() => {
-        if (book.current) {
-            return;
-        }
+        setLoading(true);
+        ready.current = false;
         api
             .withErrorHandling()
             .books()
             .getId(bookId)
             .then(res => {
-                console.log("Loading book", bookId);
-                book.current = new Book(api.books().epubUrl(res.data.id), { openAs: 'epub' });
+                console.debug("Loading book", bookId);
+                book.current = new Book(api.books().epubUrl(res.data.id), { openAs: 'epub' })
                 setTitle(res.data.book_metadata.title);
-                navigation.current = res.data.book_cache.navigation;
+                setNavigation(res.data.book_cache.navigation);
                 setMark(res.data.book_progress);
                 // Generate locations
                 book.current.ready.then(() => {
-                    console.log("Loading locations...");
+                    console.debug("Loading locations...");
                     book.current.locations.load(res.data.book_cache.locations);
-                    console.log("Locations loaded!");
+                    console.debug("Locations loaded!");
                     document.onkeydown = onKeyDown;
-                    updateLayout(res.data.book_progress);
-                    setLoaded(true);
+                    setLoading(false);
                 });
             });
     }, [bookId]);
+
+    React.useEffect(() => {
+        if (loading) {
+            return;
+        }
+        updateLayout().then(() => ready.current = true);
+    }, [loading]);
 
     /**
      * Update position
@@ -139,35 +107,30 @@ export default function BookId() {
      * Render book
      * @param localMark {{position: string|null, page: int}} book's bookmark
      */
-    function updateLayout(localMark) {
-        const $area = $("#book-view");
-        $area.empty();
+    const updateLayout = React.useCallback(async () => {
+        const area = document.getElementById('book-view');
+        area.innerHTML = '';
         const gap = parseInt(settings[MARGINS]);
         const width = parseInt(settings[WIDTH]) + gap;
-        let rendition = book.current.renderTo($area.get(0), {
+        const rendition = book.current.renderTo(area, {
             ...LAYOUTS[settings[LAYOUT]].settings,
             allowScriptedContent: true,
             width: width,
             height: '100%',
             gap: gap
         });
-        if (!localMark.position) {
-            rendition.display().then(r => ready.current = true);
-        } else {
-            rendition.display(localMark.position).then(r => ready.current = true);
-        }
         rendition.on('relocated', updatePage);
         rendition.on('keydown', onKeyDown);
         // Open image view modal when clicking on img or image tag
         rendition.on('click', async e => {
             if (e.target.tagName.toLowerCase() === 'img' || e.target.tagName.toLowerCase() === 'image') {
                 const { default: Modal } = await import("bootstrap/js/dist/modal");
-                new Modal($('#image-view-modal')).show(e.target);
+                new Modal(document.getElementById('image-view-modal')).show(e.target);
             }
         });
         // Turn page on mouse wheel
         rendition.hooks.content.register(contents => {
-            if (!isWheelAllowed(settings[LAYOUT])) {
+            if (settings[LAYOUT] !== 'auto' && settings[LAYOUT] !== 'single') {
                 return;
             }
             contents.documentElement.onwheel = e => {
@@ -220,31 +183,26 @@ export default function BookId() {
                 }, 3000);
             }
         });
-        updateDefaultTheme();
+        // Update default theme
+        const t = {};
+        t['font-family'] = FONTS[settings[FONT]] + (settings[FORCE_FONT] === 'true' ? ' !important' : '');
+        t['font-size'] = settings[FONT_SIZE] + (settings[FORCE_FONT_SIZE] === 'true' ? 'px !important' : 'px');
+        t['line-height'] = settings[SPACING];
+        t['text-align'] = settings[JUSTIFY] === 'true' ? 'justify' : 'left';
+        book.current.rendition.themes.default({ body: t });
+        // Register themes
         Object.entries(BOOKS_THEMES).map(([id, value]) => rendition.themes.register(id, value.css));
-        updateTheme();
-    }
-
-    /**
-     * Update default book theme settings
-     */
-    function updateDefaultTheme() {
-        const theme = {};
-        theme['font-family'] = FONTS[settings[FONT]] + (settings[FORCE_FONT] === 'true' ? ' !important' : '');
-        theme['font-size'] = settings[FONT_SIZE] + (settings[FORCE_FONT_SIZE] === 'true' ? 'px !important' : 'px');
-        theme['line-height'] = settings[SPACING];
-        theme['text-align'] = settings[JUSTIFY] === 'true' ? 'justify' : 'left';
-        book.current.rendition.themes.default({ body: theme });
-    }
-
-    /**
-     * Update book theme
-     */
-    function updateTheme() {
+        // Select theme
         book.current.rendition.themes.select(theme);
-    }
+        // Display
+        if (!mark.position) {
+            await rendition.display();
+        } else {
+            await rendition.display(mark.position);
+        }
+    }, [settings, theme, mark, navigation]);
 
-    function updatePage(loc) {
+    const updatePage = React.useCallback((loc) => {
         const { cfi, href, displayed } = loc.start;
         // update current chapter
         setChapter(getChapFromCfi(loc.end.cfi));
@@ -257,37 +215,39 @@ export default function BookId() {
         setPercentage(book.current.locations.percentageFromCfi(cfi));
         // update cache position
         setMark({ position: cfi, page: page });
-    }
-
-    function flattenNav(items) {
-        return [].concat.apply([], items.map(item => [].concat.apply([item], flattenNav(item.subitems))));
-    }
+    }, [navigation]);
 
     /**
      * Get navigation chapter from epub cfi if it exists, null otherwise.
      * @param cfi {string} the cfi
      * @returns {*} the chapter
      */
-    function getChapFromCfi(cfi) {
+    const getChapFromCfi = React.useCallback((cfi) => {
+
+        function flattenNav(items) {
+            return [].concat.apply([], items.map(item => [].concat.apply([item], flattenNav(item.subitems))));
+        }
+
         let prev = null;
         // TODO fix current chapter bug
         //let found = false;
-        flattenNav(navigation.current).forEach(s => {
-            if (s.cfi !== null) {
-                //console.log(cfi, s);
-                if (new EpubCFI().compare(cfi, s.cfi) === -1) {
-                    //if(prev && !found) {
-                    //    found = true;
-                    //}
-                    return;
-                }
-                //if(!found) {
-                prev = s;
-                //}
+        flattenNav(navigation).forEach(s => {
+            if (s.cfi === null) {
+                return;
             }
+            //console.log(cfi, s);
+            if (new EpubCFI().compare(cfi, s.cfi) === -1) {
+                //if(prev && !found) {
+                //    found = true;
+                //}
+                return;
+            }
+            //if(!found) {
+            prev = s;
+            //}
         })
         return prev;
-    }
+    }, [navigation]);
 
     /**
      * Search a string inside spine.
@@ -295,7 +255,7 @@ export default function BookId() {
      * @param value the string to search
      * @returns {Promise<*[]>} an array of results
      */
-    function searchSpine(item, value) {
+    const searchSpine = React.useCallback((item, value) => {
         return item.load(book.current.load.bind(book.current))
             .then(item.find.bind(item, value))
             .finally(item.unload.bind(item))
@@ -303,7 +263,7 @@ export default function BookId() {
                 e.chapter = getChapFromCfi(e.cfi);
                 return e;
             }));
-    }
+    }, [navigation]);
 
     /**
      * Search a string inside the book
@@ -311,28 +271,28 @@ export default function BookId() {
      * @param all true to search inside all the book, false to search only inside the current chapter
      * @returns {Promise<*[]>}
      */
-    function search(value, all) {
+    const search = React.useCallback((value, all) => {
         if (all) {
             return Promise.all(book.current.spine.spineItems.map(item => searchSpine(item, value)))
                 .then(results => Promise.resolve([].concat.apply([], results)));
         }
         const item = book.current.spine.get(book.current.rendition.location.start.cfi);
         return searchSpine(item, value);
-    }
+    }, [navigation]);
 
     /**
      * Navigate to location
      * @param href {string} book location
      */
-    function navigateTo(href) {
+    const navigateTo = React.useCallback((href) => {
         book.current.rendition.display(href).then(res => console.debug("Navigate", href));
-    }
+    }, []);
 
     /**
      * Handle arrow right/left to navigate book pages
      * @param e event
      */
-    function onKeyDown(e) {
+    const onKeyDown = React.useCallback((e) => {
         let code = e.keyCode || e.which;
         if (code === 37) {
             prev();
@@ -340,37 +300,38 @@ export default function BookId() {
         if (code === 39) {
             next();
         }
-    }
+    }, []);
 
     /**
      * Go to previous page
      */
-    function prev() {
-        if (!ready.current) {
-            return;
-        }
+    const prev = React.useCallback(() => {
         book.current.rendition.prev();
-    }
+    }, []);
 
     /**
      * Go to next page
      */
-    function next() {
-        if (!ready.current) {
-            return;
-        }
+    const next = React.useCallback(() => {
         book.current.rendition.next();
-    }
+    }, []);
 
-    return <>
+    return <BookContext value={{
+        title, setTitle,
+        navigation, setNavigation,
+        chapter, setChapter,
+        section, setSection,
+        location, setLocation,
+        percentage, setPercentage,
+        navigateTo, search,
+        prev, next,
+    }}>
         <Helmet>
             <title>{title}</title>
         </Helmet>
-        <BookHeader title={title} chapter={chapter} navigation={navigation.current} navigateTo={navigateTo}
-                    search={search}/>
-        <BookBody loaded={loaded}/>
-        <BookFooter chapter={chapter} section={section} location={location} percentage={percentage} prev={prev}
-                    next={next}/>
-    </>;
+        <BookHeader/>
+        <BookBody loading={loading}/>
+        <BookFooter/>
+    </BookContext>;
 
 }

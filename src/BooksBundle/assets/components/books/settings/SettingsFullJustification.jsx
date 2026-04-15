@@ -1,9 +1,9 @@
+import { useBookSettings } from "@BooksBundle/components/books/BookSettingsContext";
 import { JUSTIFY } from "@BooksBundle/components/books/BookConstants";
-import { useBook } from "@BooksBundle/components/books/BookContext";
 import React from "react";
 
 export default function SettingsFullJustification() {
-    const { settings, setSetting } = useBook();
+    const { settings, setSetting } = useBookSettings();
 
     function justify(e) {
         setSetting(JUSTIFY, e.target.checked ? "true" : "false");

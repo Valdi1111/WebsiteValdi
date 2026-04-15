@@ -1,9 +1,9 @@
+import { useBookSettings } from "@BooksBundle/components/books/BookSettingsContext";
 import { FORCE_FONT } from "@BooksBundle/components/books/BookConstants";
-import { useBook } from "@BooksBundle/components/books/BookContext";
 import React from "react";
 
 export default function SettingsForceFont() {
-    const { settings, setSetting } = useBook();
+    const { settings, setSetting } = useBookSettings();
 
     function forceFont(e) {
         setSetting(FORCE_FONT, e.target.checked ? "true" : "false");

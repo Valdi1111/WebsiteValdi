@@ -1,5 +1,5 @@
 import FileManager from "@CoreBundle/components/file-manager/FileManager";
-import LibraryLayout from "@BooksBundle/components/library/LibraryLayout";
+import MainLayout from "@BooksBundle/components/library/MainLayout";
 import BookLayout from "@BooksBundle/components/books/BookLayout";
 import LibraryAll from "@BooksBundle/pages/LibraryAll";
 import LibraryShelvesId from "@BooksBundle/pages/LibraryShelvesId";
@@ -23,19 +23,19 @@ export default function App() {
             <Routes>
                 <Route path="/" element={<Navigate to="/library/all"/>}/>
                 <Route path="/library/all" element={
-                    <LibraryLayout>
+                    <MainLayout>
                         <LibraryAll/>
-                    </LibraryLayout>
+                    </MainLayout>
                 }/>
                 <Route path="/library/not-in-shelves" element={
-                    <LibraryLayout>
+                    <MainLayout>
                         <LibraryNotInShelves/>
-                    </LibraryLayout>
+                    </MainLayout>
                 }/>
                 <Route path="/library/shelves/:shelfId?" element={
-                    <LibraryLayout>
+                    <MainLayout>
                         <LibraryShelvesId/>
-                    </LibraryLayout>
+                    </MainLayout>
                 }/>
                 <Route path="/books/:bookId" element={
                     <BookLayout>
@@ -43,14 +43,14 @@ export default function App() {
                     </BookLayout>
                 }/>
                 <Route path="/files" element={
-                    <LibraryLayout>
+                    <MainLayout>
                         <FileManager apiUrl={api.fmUrl()}/>
-                    </LibraryLayout>
+                    </MainLayout>
                 }/>
                 <Route path="*" element={
-                    <LibraryLayout>
+                    <MainLayout>
                         <NotFoundComponent redirectPath="/library/all" redirectText="Back Home"/>
-                    </LibraryLayout>
+                    </MainLayout>
                 }/>
             </Routes>
         </BrowserRouter>

@@ -9,7 +9,7 @@ export const ANNOTATIONS = 'annotations';
 export const BOOKMARKS = 'bookmarks';
 export const SEARCH = 'search';
 
-export default function BookContents({ chapter, navigation, navigateTo, search }) {
+export default function BookContents() {
     const [content, setContent] = React.useState(TOC);
     const dropdown = React.useRef();
 
@@ -25,8 +25,7 @@ export default function BookContents({ chapter, navigation, navigateTo, search }
         <div className="dropdown-menu" aria-labelledby="ctn-dropdown" style={{ width: "300px" }}>
             <ContentsHeader setContent={setContent}/>
             <hr className="text-secondary my-2"/>
-            <ContentsBody content={content} close={close} search={search} chapter={chapter} navigation={navigation}
-                          navigateTo={navigateTo}/>
+            <ContentsBody content={content} close={close}/>
         </div>
     </div>;
 }

@@ -116,7 +116,7 @@ class ApiController extends AbstractController
 
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
     #[Route('/season-folders/{season}', name: 'season_folders_id_delete', requirements: ['season' => '\d+'], methods: ['DELETE'])]
-    public function apiSeasonFoldersDelete(#[MapEntity(message: "Season not found.")]  SeasonFolder $season): Response
+    public function apiSeasonFoldersDelete(#[MapEntity(message: "Season not found.")] SeasonFolder $season): Response
     {
         $id = $season->getId();
         $this->entityManager->remove($season);

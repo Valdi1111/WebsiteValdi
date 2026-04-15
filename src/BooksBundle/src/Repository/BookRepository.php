@@ -19,6 +19,9 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class BookRepository extends ServiceEntityRepository
 {
+    const int SHELF_FILTER_NO_FILTER = 0;
+    const int SHELF_FILTER_NOT_IN_SHELVES = -1;
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Book::class);
@@ -27,25 +30,24 @@ class BookRepository extends ServiceEntityRepository
     /**
      * @param Library $library
      * @param User $user
-     * @param ?int $limit
-     * @param ?int $offset
-     * @param ?int $shelfId
+     * @param null|int $limit
+     * @param null|int $offset
+     * @param int $shelfId
      * @return QueryBuilder
      */
-    private function books(Library $library, User $user, ?int $limit, ?int $offset, ?int $shelfId = null): QueryBuilder
+    private function books(Library $library, User $user, ?int $limit = null, ?int $offset = null, int $shelfId = self::SHELF_FILTER_NO_FILTER): QueryBuilder
     {
         $qb = $this->createQueryBuilder('b')
             ->select('b AS book')
             ->leftJoin('b.bookProgresses', 'bp')
-            ->leftJoin('b.shelf', 's')
-            ->andWhere('b.library = :libraryId')
-            ->andWhere('bp.user = :userId OR bp.user IS NULL')
-            ->setParameter('libraryId', $library->getId())
-            ->setParameter('userId', $user->getId());
-        if ($shelfId === -1) {
-            $qb->andWhere("s.id IS NULL");
-        } else if ($shelfId) {
-            $qb->andWhere("s.id = :shelfId")
+            ->andWhere('b.library = :library')
+            ->andWhere('bp.user = :user OR bp.user IS NULL')
+            ->setParameter('library', $library)
+            ->setParameter('user', $user);
+        if ($shelfId === self::SHELF_FILTER_NOT_IN_SHELVES) {
+            $qb->andWhere("b.shelf IS NULL");
+        } else if ($shelfId != self::SHELF_FILTER_NO_FILTER) {
+            $qb->andWhere("b.shelf = :shelfId")
                 ->setParameter("shelfId", $shelfId);
         }
         if ($limit) {
@@ -62,7 +64,7 @@ class BookRepository extends ServiceEntityRepository
      * @param User $user
      * @param int $limit
      * @param int $offset
-     * @return Book[]
+     * @return array{books: Book[], books_count: int}
      */
     public function getAll(Library $library, User $user, int $limit, int $offset): array
     {
@@ -72,11 +74,13 @@ class BookRepository extends ServiceEntityRepository
             ->addOrderBy('b.id', 'DESC')
             ->getQuery()
             ->getResult();
-        $books = [];
-        foreach ($results as $result) {
-            $books[] = $result['book'];
-        }
-        return $books;
+        return [
+            "books" => array_column($results, 'book'),
+            "books_count" => $this->books($library, $user)
+                ->select('COUNT(b)')
+                ->getQuery()
+                ->getSingleScalarResult(),
+        ];
     }
 
     /**
@@ -84,19 +88,21 @@ class BookRepository extends ServiceEntityRepository
      * @param User $user
      * @param int $limit
      * @param int $offset
-     * @return Book[]
+     * @return array{books: Book[], books_count: int}
      */
     public function getNotInShelves(Library $library, User $user, int $limit, int $offset): array
     {
-        $results = $this->books($library, $user, $limit, $offset, -1)
+        $results = $this->books($library, $user, $limit, $offset, self::SHELF_FILTER_NOT_IN_SHELVES)
             ->addOrderBy('b.url', 'ASC')
             ->getQuery()
             ->getResult();
-        $books = [];
-        foreach ($results as $result) {
-            $books[] = $result['book'];
-        }
-        return $books;
+        return [
+            "books" => array_column($results, 'book'),
+            "books_count" => $this->books($library, $user, shelfId: self::SHELF_FILTER_NOT_IN_SHELVES)
+                ->select('COUNT(b)')
+                ->getQuery()
+                ->getSingleScalarResult(),
+        ];
     }
 
     /**
@@ -107,8 +113,8 @@ class BookRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('b')
             ->select('b.url')
-            ->andWhere('b.library = :libraryId')
-            ->setParameter('libraryId', $library->getId())
+            ->andWhere('b.library = :library')
+            ->setParameter('library', $library)
             ->getQuery()
             ->getSingleColumnResult();
     }
@@ -121,9 +127,9 @@ class BookRepository extends ServiceEntityRepository
     public function getWithPath(Library $library, string $path): array
     {
         return $this->createQueryBuilder('b')
-            ->andWhere('b.library = :libraryId')
+            ->andWhere('b.library = :library')
             ->andWhere("b.url LIKE :path")
-            ->setParameter('libraryId', $library->getId())
+            ->setParameter('library', $library)
             ->setParameter("path", "$path/%")
             ->getQuery()
             ->getResult();

@@ -15,19 +15,22 @@ import React from "react";
  */
 export default function ItemInfo({ id, open, setOpen }) {
     const [loading, setLoading] = React.useState(true);
-
-    const [path, setPath] = React.useState('');
-    const [metadata, setMetadata] = React.useState({});
-    const [coverUrl, setCoverUrl] = React.useState(null);
+    const [data, setData] = React.useState({
+        path: '',
+        metadata: {},
+        coverUrl: null,
+    });
 
     const api = useBackendApi();
 
-    function afterOpenChange(opened){
+    const afterOpenChange = React.useCallback((opened) => {
         if (!opened) {
             setLoading(true);
-            setPath('');
-            setMetadata({});
-            setCoverUrl(null);
+            setData({
+                path: '',
+                metadata: {},
+                coverUrl: null,
+            });
             return;
         }
         setLoading(true);
@@ -36,19 +39,19 @@ export default function ItemInfo({ id, open, setOpen }) {
             .books()
             .getMetadata(id)
             .then(res => {
-                setPath(res.data.url);
-                setMetadata(res.data.book_metadata);
-                if (res.data.book_cache.cover) {
-                    setCoverUrl(res.data.book_cache.cover_url);
-                }
+                setData({
+                    path: res.data.url,
+                    metadata: res.data.book_metadata,
+                    coverUrl: res.data.book_cache.cover ? res.data.book_cache.cover_url : null,
+                });
                 setLoading(false);
             });
-    }
+    }, [id]);
 
     return <Modal
         title={<Space>
             <span>About this book</span>
-            {coverUrl &&
+            {data.coverUrl &&
                 <Link to={api.books().coverUrl(id)} target="_blank" className="me-2">
                     <ExportOutlined/>
                 </Link>
@@ -66,51 +69,51 @@ export default function ItemInfo({ id, open, setOpen }) {
     >
         <Row gutter={[8, 8]}>
             <Col span={8}>
-                <img className="img-fluid w-100 h-auto" src={coverUrl ?? missingCoverUrl}
+                <img className="img-fluid w-100 h-auto" src={data.coverUrl ?? missingCoverUrl}
                      alt="Book cover" loading="lazy"/>
             </Col>
             <Col span={16}>
-                <h6 className="mb-1">{metadata.title}</h6>
-                <div className="small">{metadata.creator}</div>
+                <h6 className="mb-1">{data.metadata.title}</h6>
+                <div className="small">{data.metadata.creator}</div>
             </Col>
         </Row>
         <Descriptions column={2} layout={'vertical'} items={[
             {
                 key: 1,
                 label: 'Path',
-                children: path,
+                children: data.path,
                 span: 2,
             },
             {
                 key: 2,
                 label: 'Publisher',
-                children: metadata.publisher,
+                children: data.metadata.publisher,
             },
             {
                 key: 5,
                 label: 'Language',
-                children: metadata.language,
+                children: data.metadata.language,
             },
             {
                 key: 3,
                 label: 'Publication Date',
-                children: metadata.publication,
+                children: data.metadata.publication,
             },
             {
                 key: 4,
                 label: 'Modified Date',
-                children: metadata.modified,
+                children: data.metadata.modified,
             },
             {
                 key: 6,
                 label: 'Identifier',
-                children: metadata.identifier,
+                children: data.metadata.identifier,
                 span: 2,
             },
             {
                 key: 7,
                 label: 'Copyright',
-                children: metadata.rights,
+                children: data.metadata.rights,
                 span: 2,
             },
         ]}/>

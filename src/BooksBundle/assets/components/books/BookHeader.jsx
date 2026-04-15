@@ -1,14 +1,19 @@
 import BookContents from "@BooksBundle/components/books/contents/BookContents";
 import BookTitle from "@BooksBundle/components/books/displays/BookTitle";
 import BookSettings from "@BooksBundle/components/books/settings/BookSettings";
+import { Flex, theme as antdTheme } from "antd";
 import React from "react";
 
-export default function BookHeader({ title, chapter, navigation, navigateTo, search }) {
+export default function BookHeader() {
+    const { token: { colorBgContainer } } = antdTheme.useToken();
 
-    return <header className="p-2 border-bottom d-flex flex-row align-items-center">
-        <BookContents chapter={chapter} navigation={navigation} navigateTo={navigateTo} search={search}/>
-        <BookTitle title={title}/>
+    return <Flex
+        style={{ width: "100%", padding: "10px", alignItems: 'center', background: colorBgContainer }}
+        justify="space-between"
+        gap="small">
+        <BookContents/>
+        <BookTitle/>
         <BookSettings/>
-    </header>;
+    </Flex>;
 
 }

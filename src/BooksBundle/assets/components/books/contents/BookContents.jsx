@@ -1,31 +1,79 @@
-import ContentsHeader from "@BooksBundle/components/books/contents/ContentsHeader";
-import ContentsBody from "@BooksBundle/components/books/contents/ContentsBody";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faBars } from "@fortawesome/free-solid-svg-icons";
+import { EditOutlined, MenuOutlined, SearchOutlined, TagsOutlined, UnorderedListOutlined } from "@ant-design/icons";
+import ContentToc from "@BooksBundle/components/books/contents/ContentToc";
+import ContentNotes from "@BooksBundle/components/books/contents/ContentNotes";
+import ContentBookmarks from "@BooksBundle/components/books/contents/ContentBookmarks";
+import ContentSearch from "@BooksBundle/components/books/contents/ContentSearch";
+import { useBook } from "@BooksBundle/components/books/BookContext";
+import { Button, Drawer, Tabs } from "antd";
 import React from "react";
+import "./BookContents.css";
 
-export const TOC = 'toc';
-export const ANNOTATIONS = 'annotations';
-export const BOOKMARKS = 'bookmarks';
-export const SEARCH = 'search';
+const items = [
+    {
+        key: 'toc',
+        label: 'TOC',
+        icon: <UnorderedListOutlined/>,
+        children: <ContentToc/>,
+    },
+    {
+        key: 'notes',
+        label: 'Notes',
+        icon: <EditOutlined/>,
+        children: <ContentNotes/>,
+    },
+    {
+        key: 'bookmarks',
+        label: 'Bookmarks',
+        icon: <TagsOutlined/>,
+        children: <ContentBookmarks/>,
+    },
+    {
+        key: 'search',
+        label: 'Search',
+        icon: <SearchOutlined/>,
+        children: <ContentSearch/>,
+    },
+];
 
 export default function BookContents() {
-    const [content, setContent] = React.useState(TOC);
-    const dropdown = React.useRef();
+    const { contentsDrawerOpen, setContentsDrawerOpen } = useBook();
 
-    function close() {
-        dropdown.current.click();
-    }
+    return <>
+        <Button
+            color="default"
+            variant="filled"
+            icon={<MenuOutlined/>}
+            onClick={() => setContentsDrawerOpen(current => !current)}
+        />
+        <Drawer
+            title="Contents"
+            placement="left"
+            onClose={() => setContentsDrawerOpen(false)}
+            open={contentsDrawerOpen}
+            key="book-contents-drawer"
+            styles={{
+                body: {
+                    height: '100%',
+                    padding: 0,
+                },
+            }}
+        >
+            <Tabs
+                className="book-contents-drawer-tabs"
+                defaultActiveKey="toc"
+                items={items}
+                centered={true}
+                styles={{
+                    root: {
+                        flex: 1,
+                        minHeight: 0,
+                    },
+                    item: {
+                        margin: '8px',
+                    },
+                }}
+            />
+        </Drawer>
+    </>;
 
-    return <div className="dropdown">
-        <button className="btn btn-icon btn-outline-secondary" type="button" id="ctn-dropdown"
-                data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded={false} ref={dropdown}>
-            <FontAwesomeIcon icon={faBars} width={16} height={16}/>
-        </button>
-        <div className="dropdown-menu" aria-labelledby="ctn-dropdown" style={{ width: "300px" }}>
-            <ContentsHeader setContent={setContent}/>
-            <hr className="text-secondary my-2"/>
-            <ContentsBody content={content} close={close}/>
-        </div>
-    </div>;
 }

@@ -2,7 +2,7 @@ import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
 import { formatDateTimeFromIso } from "@CoreBundle/format-utils";
 import { Descriptions, Modal, Space } from "antd";
 import { DownloadOutlined } from "@ant-design/icons";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import React from "react";
 
 export default function DownloadDetailModal({ open, setOpen, selectedId }) {

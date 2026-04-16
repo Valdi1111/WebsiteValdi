@@ -1,6 +1,6 @@
 import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
 import { Descriptions, Modal } from "antd";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import React from "react";
 
 export default function ListAnimeDetailModal({ open, setOpen, selectedId }) {

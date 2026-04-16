@@ -2,7 +2,7 @@ import ItemCover from "@BooksBundle/components/library/item/ItemCover";
 import ItemProgress from "@BooksBundle/components/library/item/ItemProgress";
 import ItemInfo from "@BooksBundle/components/library/item/ItemInfo";
 import { useBackendApi } from "@BooksBundle/components/BackendApiContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { App, Card, Dropdown } from "antd";
 import React from "react";
 import {

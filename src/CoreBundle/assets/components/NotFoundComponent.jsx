@@ -1,5 +1,5 @@
 import { Button, Flex, Result } from "antd";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import React from "react";
 
 export default function NotFoundComponent({ redirectPath, redirectText }) {

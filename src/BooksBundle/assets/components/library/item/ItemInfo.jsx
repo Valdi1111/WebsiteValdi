@@ -2,7 +2,7 @@ import { useBackendApi } from "@BooksBundle/components/BackendApiContext";
 import missingCoverUrl from "@BooksBundle/images/books-missing-cover.png";
 import { DownloadOutlined, ExportOutlined } from "@ant-design/icons";
 import { Col, Descriptions, Modal, Row, Space } from "antd";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import React from "react";
 
 /**

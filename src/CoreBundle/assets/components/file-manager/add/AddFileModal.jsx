@@ -60,7 +60,7 @@ export default function AddFileModal({ visible, setVisible }) {
                 message: 'Please input the file name!',
             },
         ]}>
-            <Input placeholder={"New file.txt"}/>
+            <Input placeholder="New file.txt"/>
         </Form.Item>
     </Modal>;
 }

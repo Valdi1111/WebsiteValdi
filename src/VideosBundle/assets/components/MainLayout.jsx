@@ -1,6 +1,6 @@
 import PageLayout from "@CoreBundle/components/layout/PageLayout";
 import { FolderOpenOutlined } from "@ant-design/icons";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import React from "react";
 
 export default function MainLayout({ children }) {

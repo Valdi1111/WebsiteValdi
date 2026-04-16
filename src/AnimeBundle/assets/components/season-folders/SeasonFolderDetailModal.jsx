@@ -2,7 +2,7 @@ import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
 import { DeleteOutlined, ExclamationCircleFilled } from "@ant-design/icons";
 import { App, Button, Descriptions, Modal, Space, Tooltip } from "antd";
 import { formatDateTimeFromIso } from "@CoreBundle/format-utils";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import React from "react";
 
 export default function SeasonFolderDetailModal({ open, setOpen, selectedId, type }) {

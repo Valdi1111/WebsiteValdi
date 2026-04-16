@@ -32,9 +32,3 @@ yarn-error.log
 /docker/apache/certs
 /compose.override.yaml
 /.idea/
-
-/src/CoreBundle/public/webix/*
-/src/CoreBundle/public/docmanager/*
-/src/CoreBundle/public/filemanager/*
-/src/CoreBundle/public/gantt/*
-/src/CoreBundle/public/scheduler/*

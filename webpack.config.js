@@ -47,7 +47,7 @@ Encore
     // When enabled, Webpack "splits" your files into smaller pieces for greater optimization.
     .splitEntryChunks()
 
-    // enables the Symfony UX Stimulus bridge (used in assets/bootstrap.js)
+    // enables the Symfony UX Stimulus bridge (used in assets/app.js)
     .enableStimulusBridge('./assets/controllers.json')
 
     // will require an extra script tag for runtime.js
@@ -62,7 +62,10 @@ Encore
      * https://symfony.com/doc/current/frontend.html#adding-more-features
      */
     .cleanupOutputBeforeBuild()
+
+    // Displays build status system notifications to the user
     .enableBuildNotifications()
+
     .enableSourceMaps(!Encore.isProduction())
     // enables hashed filenames (e.g. app.abc123.css)
     .enableVersioning(Encore.isProduction())
@@ -75,7 +78,7 @@ Encore
     // enables and configure @babel/preset-env polyfills
     .configureBabelPresetEnv((config) => {
         config.useBuiltIns = 'usage';
-        config.corejs = '3.39';
+        config.corejs = '3.49';
     })
 
     // enables Sass/SCSS support

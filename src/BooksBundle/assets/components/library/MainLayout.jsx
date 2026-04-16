@@ -1,7 +1,7 @@
 import { BookOutlined, FolderOpenOutlined, GroupOutlined, PlusOutlined } from "@ant-design/icons";
 import BookAddModal from "@BooksBundle/components/library/BookAddModal";
 import PageLayout from "@CoreBundle/components/layout/PageLayout";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import React from "react";
 
 export default function MainLayout({ children }) {

@@ -33,7 +33,7 @@ export default function FoldersTreeToolbar({ expandedIds, setExpandedIds, search
 
     return <Flex gap="small" style={{ paddingBottom: "10px", paddingLeft: "10px", paddingRight: "10px" }}>
         <FoldersTreeAddNew/>
-        <Popover placement={"left"} arrow content={
+        <Popover placement="left" arrow content={
             <Input.Search placeholder="Search folders" onSearch={onSearch} allowClear/>
         }>
             <Button style={{ paddingLeft: "8px", paddingRight: "8px" }} icon={<FilterOutlined/>}/>

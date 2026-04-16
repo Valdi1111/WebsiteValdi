@@ -21,8 +21,4 @@ return [
     Twig\Extra\TwigExtraBundle\TwigExtraBundle::class => ['all' => true],
     Oneup\FlysystemBundle\OneupFlysystemBundle::class => ['all' => true],
     Symfony\UX\StimulusBundle\StimulusBundle::class => ['all' => true],
-    Symfony\UX\React\ReactBundle::class => ['all' => true],
-    Symfony\UX\Dropzone\DropzoneBundle::class => ['all' => true],
-    Symfony\UX\Cropperjs\CropperjsBundle::class => ['all' => true],
-    Symfony\UX\Chartjs\ChartjsBundle::class => ['all' => true],
 ];

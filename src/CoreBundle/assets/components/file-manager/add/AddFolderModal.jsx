@@ -61,7 +61,7 @@ export default function AddFolderModal({ visible, setVisible }) {
                 message: 'Please input the folder name!',
             },
         ]}>
-            <Input placeholder={"New folder"}/>
+            <Input placeholder="New folder"/>
         </Form.Item>
     </Modal>;
 }

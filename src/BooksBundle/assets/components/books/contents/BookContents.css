@@ -1,0 +1,16 @@
+.book-contents-drawer-tabs.ant-tabs {
+    height: 100%;
+}
+
+.book-contents-drawer-tabs .ant-tabs-content {
+    height: 100%;
+}
+
+.book-contents-drawer-tabs .ant-tabs-tabpane {
+    height: 100%;
+}
+
+.book-contents-drawer-tabs .ant-tabs-content-holder {
+    overflow-y: auto;
+    min-height: 0;
+}

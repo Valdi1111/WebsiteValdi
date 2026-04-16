@@ -2,7 +2,7 @@ import ShelfAddModal from "@BooksBundle/components/library/shelves/ShelfAddModal
 import { useShelves } from "@BooksBundle/components/library/shelves/ShelvesContext";
 import { PlusOutlined } from "@ant-design/icons";
 import { FloatButton, Menu } from "antd";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import React from "react";
 
 export default function ShelvesList() {

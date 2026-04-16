@@ -1,5 +1,5 @@
 import PlyrVideoComponent from "@CoreBundle/components/PlyrVideoComponent";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import React from "react";
 
 /**

@@ -1,7 +1,7 @@
 import { LogoutOutlined, MoonOutlined, SunOutlined } from "@ant-design/icons";
 import { Avatar, Dropdown, Layout, Menu, theme as antdTheme } from "antd";
 import { useThemes } from "@CoreBundle/components/theme/ThemeContext";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import React from "react";
 
 export default function PageLayout({ navbarItems = [], dropdownItems = [], childrenPre, children, childrenPost }) {

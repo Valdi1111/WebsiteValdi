@@ -5,7 +5,7 @@ import NotFoundComponent from "@CoreBundle/components/NotFoundComponent";
 import BackendApiContext from "@VideosBundle/components/BackendApiContext";
 import createBackendApi from "@VideosBundle/components/BackendApi";
 import { API_URL, ROOT_URL } from "@VideosBundle/constants";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 import { App as AntdApp } from "antd";
 import React from "react";
 

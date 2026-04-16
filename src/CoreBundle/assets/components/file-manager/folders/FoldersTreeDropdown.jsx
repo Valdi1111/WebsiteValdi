@@ -114,7 +114,9 @@ export default function FoldersTreeDropdown({ children, node, posX, posY, open, 
             </Form.Item>
         </Modal>
         <Dropdown
-            overlayStyle={{ left: `${posX}px`, top: `${posY}px` }}
+            styles={{
+                root: { left: `${posX}px`, top: `${posY}px` },
+            }}
             open={open}
             onOpenChange={onOpenChange}
             menu={{ items }}

@@ -349,11 +349,11 @@ trait FileManagerTrait
     #[Route('/icons/{size}/{type}/{name}', name: 'icons', methods: ['GET'])]
     public function fmIcons(Request $req, string $size, string $type, string $name): Response
     {
-        $file = new File("bundles/core/filemanager/icons/$size/$name", false);
+        $file = new File("bundles/core/file-manager/icons/$size/$name", false);
         if ($file->isFile()) {
             return $this->file($file, $file->getFilename());
         }
-        $file = new File("bundles/core/filemanager/icons/$size/types/$type.svg", false);
+        $file = new File("bundles/core/file-manager/icons/$size/types/$type.svg", false);
         if ($file->isFile()) {
             return $this->file($file, $file->getFilename());
         }

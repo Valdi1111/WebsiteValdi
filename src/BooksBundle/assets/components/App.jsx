@@ -9,7 +9,7 @@ import NotFoundComponent from "@CoreBundle/components/NotFoundComponent";
 import BackendApiContext from "@BooksBundle/components/BackendApiContext";
 import createBackendApi from "@BooksBundle/components/BackendApi";
 import { API_URL, ROOT_URL } from "@BooksBundle/constants";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 import { App as AntdApp } from "antd";
 import React from "react";
 

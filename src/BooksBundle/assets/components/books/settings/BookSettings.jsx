@@ -7,17 +7,29 @@ import SettingsLayouts from "@BooksBundle/components/books/settings/SettingsLayo
 import SettingsMargins from "@BooksBundle/components/books/settings/SettingsMargins";
 import SettingsSpacing from "@BooksBundle/components/books/settings/SettingsSpacing";
 import SettingsWidth from "@BooksBundle/components/books/settings/SettingsWidth";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faGear } from "@fortawesome/free-solid-svg-icons";
+import { useBook } from "@BooksBundle/components/books/BookContext";
+import { SettingOutlined } from "@ant-design/icons";
+import { Button, Drawer } from "antd";
 import React from "react";
 
 export default function BookSettings() {
-    return <div className="dropdown">
-        <button className="btn btn-icon btn-outline-secondary" type="button" id="settings-dropdown"
-                data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded={false}>
-            <FontAwesomeIcon icon={faGear} width={16} height={16}/>
-        </button>
-        <div className="dropdown-menu" aria-labelledby="settings-dropdown" style={{ width: "300px" }}>
+    const { settingsDrawerOpen, setSettingsDrawerOpen } = useBook();
+
+    return <>
+        <Button
+            color="default"
+            variant="filled"
+            icon={<SettingOutlined/>}
+            onClick={() => setSettingsDrawerOpen(current => !current)}
+        />
+        <Drawer
+            title="Settings"
+            placement="right"
+            closable={{ placement: 'end' }}
+            onClose={() => setSettingsDrawerOpen(false)}
+            open={settingsDrawerOpen}
+            key="book-settings-drawer"
+        >
             <SettingsFont/>
             <SettingsFontSize/>
             <SettingsSpacing/>
@@ -27,6 +39,6 @@ export default function BookSettings() {
             <SettingsForceFontSize/>
             <SettingsFullJustification/>
             <SettingsLayouts/>
-        </div>
-    </div>;
+        </Drawer>
+    </>;
 }

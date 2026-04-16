@@ -4,8 +4,7 @@ import SpinComponent from "@CoreBundle/components/SpinComponent";
 import { useShelves } from "@BooksBundle/components/library/shelves/ShelvesContext";
 import { useBackendApi } from "@BooksBundle/components/BackendApiContext";
 import { App, Badge, Button, Col, Empty, Row, Space, Tabs, Tooltip } from "antd";
-import { useNavigate, useParams } from "react-router-dom";
-import { Helmet } from "react-helmet";
+import { useNavigate, useParams } from "react-router";
 import React from "react";
 import {
     DeleteOutlined,
@@ -111,9 +110,7 @@ export default function ShelvesContent() {
     }
 
     return <SpinComponent loading={contentLoading} size="large">
-        <Helmet>
-            <title>{selectedShelf?.name ?? "Shelves"}</title>
-        </Helmet>
+        <title>{selectedShelf?.name ?? "Shelves"}</title>
         <ShelfEditModal visible={editOpen} setVisible={setEditOpen}/>
         <Tabs
             tabBarExtraContent={{

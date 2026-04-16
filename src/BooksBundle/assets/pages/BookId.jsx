@@ -6,8 +6,7 @@ import { BOOKS_THEMES } from "@BooksBundle/components/books/BookThemeConstants";
 import { useThemes } from "@CoreBundle/components/theme/ThemeContext";
 import { useBookSettings } from "@BooksBundle/components/books/BookSettingsContext";
 import { useBackendApi } from "@BooksBundle/components/BackendApiContext";
-import { useParams } from "react-router-dom";
-import { Helmet } from "react-helmet";
+import { useParams } from "react-router";
 import { Book, EpubCFI } from "epubjs";
 import React from "react";
 import "@BooksBundle/scss/iframe.css";
@@ -20,6 +19,8 @@ import {
 } from "@BooksBundle/components/books/BookConstants";
 
 export default function BookId() {
+    const [contentsDrawerOpen, setContentsDrawerOpen] = React.useState(false);
+    const [settingsDrawerOpen, setSettingsDrawerOpen] = React.useState(false);
     const { settings, setSetting } = useBookSettings();
     const [theme, setTheme] = useThemes();
     // Book
@@ -325,10 +326,10 @@ export default function BookId() {
         percentage, setPercentage,
         navigateTo, search,
         prev, next,
+        contentsDrawerOpen, setContentsDrawerOpen,
+        settingsDrawerOpen, setSettingsDrawerOpen,
     }}>
-        <Helmet>
-            <title>{title}</title>
-        </Helmet>
+        <title>{title}</title>
         <BookHeader/>
         <BookBody loading={loading}/>
         <BookFooter/>

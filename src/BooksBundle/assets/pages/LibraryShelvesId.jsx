@@ -3,8 +3,7 @@ import ShelvesList from "@BooksBundle/components/library/shelves/ShelvesList";
 import ShelvesContext from "@BooksBundle/components/library/shelves/ShelvesContext";
 import { useBackendApi } from "@BooksBundle/components/BackendApiContext";
 import { Layout, theme as antdTheme } from "antd";
-import { useParams } from "react-router-dom";
-import { Helmet } from "react-helmet";
+import { useParams } from "react-router";
 import React from "react";
 
 export default function LibraryShelvesId() {
@@ -73,9 +72,7 @@ export default function LibraryShelvesId() {
         selectedShelf, setSelectedShelf,
         collapsed, setCollapsed,
     }}>
-        <Helmet>
-            <title>Shelves</title>
-        </Helmet>
+        <title>Shelves</title>
         <Layout>
             <Layout.Sider collapsed={collapsed} collapsedWidth={0}
                           style={{ maxHeight: '100%', overflowY: 'scroll', background: colorBgContainer }}>

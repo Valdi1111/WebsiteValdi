@@ -17,12 +17,6 @@ export default function AppRoot({ children }) {
             return;
         }
         elems[0].setAttribute('data-bs-theme', theme);
-        // update webix theme
-        for (const link of document.getElementsByTagName('link')) {
-            if (link.rel === 'stylesheet' && /\/bundles\/core\/(docmanager|filemanager|gantt|scheduler|webix)\/skins\/\w+.css/.test(link.getAttribute('href'))) {
-                link.setAttribute('href', link.getAttribute('href').replace(/\w+.css/, THEMES[theme].webix));
-            }
-        }
     }, [theme]);
 
     return <ThemeContext value={[theme, setTheme]}>

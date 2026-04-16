@@ -3,7 +3,7 @@ import { useShelves } from "@BooksBundle/components/library/shelves/ShelvesConte
 import { useBackendApi } from "@BooksBundle/components/BackendApiContext";
 import { FolderOpenOutlined } from "@ant-design/icons";
 import { Form, Input, Modal } from "antd";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import React from "react";
 
 /**

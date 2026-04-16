@@ -3,7 +3,6 @@ import LibraryItem from "@BooksBundle/components/library/item/LibraryItem";
 import SpinComponent from "@CoreBundle/components/SpinComponent";
 import { useBackendApi } from "@BooksBundle/components/BackendApiContext";
 import { BOOKS_PER_PAGE } from "@BooksBundle/constants";
-import { Helmet } from "react-helmet";
 import { Col, Row } from "antd";
 import React from "react";
 
@@ -83,9 +82,7 @@ export default function LibraryAll() {
     }
 
     return <>
-        <Helmet>
-            <title>All books</title>
-        </Helmet>
+        <title>All books</title>
         <div style={{ overflowY: 'scroll', width: '100%' }}>
             <SpinComponent loading={loading} size="large">
                 <Row style={{ padding: '8px', marginRight: 0, marginLeft: 0 }}

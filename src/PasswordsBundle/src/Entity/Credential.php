@@ -11,7 +11,7 @@ use Symfony\Component\Serializer\Attribute\Groups;
 #[ORM\Table(name: 'credential')]
 #[ORM\Entity(repositoryClass: CredentialRepository::class)]
 #[ORM\InheritanceType('SINGLE_TABLE')]
-#[ORM\DiscriminatorColumn(name: 'type', type: 'string', columnDefinition: "ENUM('device','website') NOT NULL")]
+#[ORM\DiscriminatorColumn(name: 'type', type: 'string', length: 50)]
 #[ORM\DiscriminatorMap(['device' => DeviceCredential::class, 'website' => WebsiteCredential::class])]
 #[Serializer\DiscriminatorMap('type', ['device' => DeviceCredential::class, 'website' => WebsiteCredential::class])]
 abstract class Credential

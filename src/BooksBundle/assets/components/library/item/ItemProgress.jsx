@@ -35,7 +35,7 @@ export default function ItemProgress({ id, page, total, setRead }) {
     }, [id]);
 
     if (page === -1) {
-        return <CheckCircleFilled className="text-success" onClick={() => onMarkUnread()}/>;
+        return <CheckCircleFilled type="success" onClick={() => onMarkUnread()}/>;
     }
-    return <span className="text-secondary" onClick={() => onMarkRead()}>{formatPercent(page, total)}</span>;
+    return <span onClick={() => onMarkRead()}>{formatPercent(page, total)}</span>;
 }

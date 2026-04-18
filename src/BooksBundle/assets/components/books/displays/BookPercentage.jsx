@@ -1,14 +1,15 @@
 import { useBook } from "@BooksBundle/components/books/BookContext";
+import { Typography } from "antd";
 import React from "react";
 
 export default function BookPercentage() {
     const { percentage } = useBook();
 
     if (percentage === null) {
-        return <p id="book-percentage" className="col mb-0 text-center text-truncate px-2"></p>;
+        return <Typography.Text id="book-percentage"/>;
     }
 
-    return <p id="book-percentage" className="col mb-0 text-center text-truncate px-2">
+    return <Typography.Text id="book-percentage" ellipsis>
         {Math.round(percentage * 100)}%
-    </p>;
+    </Typography.Text>;
 }

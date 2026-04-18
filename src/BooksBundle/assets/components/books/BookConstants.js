@@ -21,7 +21,7 @@ export const FONTS = {
 export const FONT_SIZES = range(6, 30);
 
 function range(start, end) {
-    return Array(end - start + 1).fill().map((_, idx) => start + idx)
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
 }
 
 export const LAYOUTS = {
@@ -30,7 +30,7 @@ export const LAYOUTS = {
         settings: { flow: 'paginated', maxSpreadColumns: 2 }
     },
     single: {
-        name: 'Single Column',
+        name: 'Single column',
         settings: { flow: 'paginated', spread: 'none' }
     },
     scrolled: {

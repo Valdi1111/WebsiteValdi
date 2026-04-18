@@ -40,6 +40,7 @@ export default function BookContents() {
 
     return <>
         <Button
+            style={{ flexShrink: 0 }}
             color="default"
             variant="filled"
             icon={<MenuOutlined/>}
@@ -59,7 +60,7 @@ export default function BookContents() {
             }}
         >
             <Tabs
-                className="book-contents-drawer-tabs"
+                id="#book-contents-drawer-tabs"
                 defaultActiveKey="toc"
                 items={items}
                 centered={true}
@@ -69,7 +70,7 @@ export default function BookContents() {
                         minHeight: 0,
                     },
                     item: {
-                        margin: '8px',
+                        margin: '0 8px',
                     },
                 }}
             />

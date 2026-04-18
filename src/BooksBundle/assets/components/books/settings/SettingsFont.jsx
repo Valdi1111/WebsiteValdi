@@ -1,22 +1,24 @@
 import { useBookSettings } from "@BooksBundle/components/books/BookSettingsContext";
 import { FONT, FONTS } from "@BooksBundle/components/books/BookConstants";
+import { Flex, Select, Typography } from "antd";
 import React from "react";
+
+const options = Object
+    .entries(FONTS)
+    .map(([id, value]) => ({ value: id, label: value }));
 
 export default function SettingsFont() {
     const { settings, setSetting } = useBookSettings();
 
-    function font(e) {
-        setSetting(FONT, e.target.value);
-    }
-
-    return <div className="row mx-0 mb-2">
-        <label className="col-4 col-form-label" htmlFor="input-font">Font</label>
-        <div className="col-8">
-            <select id="input-font" className="form-select" defaultValue={settings[FONT]} onChange={font}>
-                {Object.entries(FONTS).map(([id, value]) =>
-                    <option key={id} value={id}>{value}</option>
-                )}
-            </select>
-        </div>
-    </div>;
+    return <Flex justify="space-between" align="center">
+        <Typography.Text>Font</Typography.Text>
+        <Select
+            style={{ width: 160 }}
+            onChange={val => setSetting(FONT, val)}
+            value={settings[FONT]}
+            options={options}
+            optionRender={option => <span style={{ fontFamily: option.value }}>{option.label}</span>}
+            showSearch
+        />
+    </Flex>
 }

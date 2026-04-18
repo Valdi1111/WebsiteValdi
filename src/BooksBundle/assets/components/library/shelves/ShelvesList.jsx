@@ -23,6 +23,6 @@ export default function ShelvesList() {
             style={{ flex: 1, minWidth: 0 }}
             items={items}
         />
-        <FloatButton icon={<PlusOutlined/>} tooltip={'Add shelf'} onClick={() => setAddOpen(true)}/>
+        <FloatButton icon={<PlusOutlined/>} tooltip="Add shelf" onClick={() => setAddOpen(true)}/>
     </>;
 }

@@ -95,7 +95,7 @@ export default function FilesTable() {
             },
             render: (text, row) => {
                 if (row.type === 'folder') {
-                    return <FolderFilled style={{ fontSize: "24px" }}/>;
+                    return <FolderFilled style={{ fontSize: 24 }}/>;
                 }
                 return <img src={api.fmIconUrl('small', row.type, row.extension)} alt="Logo"/>;
             },

@@ -44,7 +44,7 @@ export default function ContentToc() {
             styles={{
                 root: {
                     backgroundColor: colorBgElevated,
-                    paddingRight: '16px',
+                    paddingRight: 16,
                 },
             }}
         />

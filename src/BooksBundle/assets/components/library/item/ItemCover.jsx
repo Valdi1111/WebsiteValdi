@@ -1,23 +1,49 @@
 import { useNavigate } from "react-router";
+import { Flex, theme as antdTheme, Typography } from "antd";
 import React from "react";
 
 export default function ItemCover({ id, hasCover, coverUrl, title, creator }) {
+    const { token: { lineWidth, lineType, colorBorderSecondary } } = antdTheme.useToken();
     const navigate = useNavigate();
 
     if (hasCover) {
-        return <img style={{ width: '100%', height: '100%', objectFit: 'cover', aspectRatio: '2 / 3' }}
-            src={coverUrl} onClick={() => navigate(`/books/${id}`)}
+        return <img
+            onClick={() => navigate(`/books/${id}`)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', aspectRatio: '2 / 3' }}
+            src={coverUrl}
             alt="Book cover"
         />;
     }
 
-    return <div style={{ width: '100%', height: '100%', aspectRatio: '2 / 3' }}
+    return <Flex
         onClick={() => navigate(`/books/${id}`)}
-        className="d-flex flex-column justify-content-center py-3">
-        <p className="overflow-hidden border-top border-bottom p-2 mb-1"
-           style={{ fontWeight: 500, fontSize: '95%' }}>
-            {title}
-        </p>
-        <span className="small align-self-end px-2">{creator}</span>
-    </div>;
+        style={{ display: 'flex', width: '100%', height: '100%', aspectRatio: '2 / 3', padding: '16px 0' }}
+        justify='center'
+        align='center'
+        vertical
+    >
+        <div style={{
+            borderTop: `${lineWidth}px ${lineType} ${colorBorderSecondary}`,
+            borderBottom: `${lineWidth}px ${lineType} ${colorBorderSecondary}`,
+            width: '100%',
+            padding: 8,
+        }}>
+            <Typography.Paragraph
+                style={{ marginBottom: 0 }}
+                ellipsis={{ tooltip: true, rows: 6 }}
+                strong
+            >
+                {title}
+            </Typography.Paragraph>
+        </div>
+        <div style={{ width: '100%', marginTop: 4, textAlign: 'right' }}>
+            <Typography.Text
+                style={{ fontSize: '90%', padding: '0 8px' }}
+                ellipsis={{ tooltip: true }}
+                type="secondary"
+            >
+                {creator}
+            </Typography.Text>
+        </div>
+    </Flex>;
 }

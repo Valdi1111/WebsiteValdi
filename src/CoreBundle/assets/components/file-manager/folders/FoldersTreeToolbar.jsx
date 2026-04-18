@@ -31,12 +31,12 @@ export default function FoldersTreeToolbar({ expandedIds, setExpandedIds, search
         setExpandedIds(Array.from(nodesToExpand));
     }, [folders]);
 
-    return <Flex gap="small" style={{ paddingBottom: "10px", paddingLeft: "10px", paddingRight: "10px" }}>
+    return <Flex gap="small" style={{ paddingBottom: 8, paddingLeft: 8, paddingRight: 8 }}>
         <FoldersTreeAddNew/>
         <Popover placement="left" arrow content={
             <Input.Search placeholder="Search folders" onSearch={onSearch} allowClear/>
         }>
-            <Button style={{ paddingLeft: "8px", paddingRight: "8px" }} icon={<FilterOutlined/>}/>
+            <Button style={{ paddingLeft: 8, paddingRight: 8 }} icon={<FilterOutlined/>}/>
         </Popover>
     </Flex>;
 

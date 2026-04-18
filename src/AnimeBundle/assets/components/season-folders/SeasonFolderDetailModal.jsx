@@ -95,7 +95,7 @@ export default function SeasonFolderDetailModal({ open, setOpen, selectedId, typ
         onCancel={() => setOpen(false)}
         destroyOnHidden
     >
-        <Descriptions column={4} layout={'vertical'} items={items}/>
+        <Descriptions column={4} layout="vertical" items={items}/>
     </Modal>;
 
 }

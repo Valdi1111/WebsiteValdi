@@ -1,7 +1,7 @@
 import { useBackendApi } from "@BooksBundle/components/BackendApiContext";
 import missingCoverUrl from "@BooksBundle/images/books-missing-cover.png";
 import { DownloadOutlined, ExportOutlined } from "@ant-design/icons";
-import { Col, Descriptions, Modal, Row, Space } from "antd";
+import { Col, Descriptions, Modal, Row, Space, Typography } from "antd";
 import { Link } from "react-router";
 import React from "react";
 
@@ -52,11 +52,11 @@ export default function ItemInfo({ id, open, setOpen }) {
         title={<Space>
             <span>About this book</span>
             {data.coverUrl &&
-                <Link to={api.books().coverUrl(id)} target="_blank" className="me-2">
+                <Link to={api.books().coverUrl(id)} target="_blank">
                     <ExportOutlined/>
                 </Link>
             }
-            <Link to={api.books().epubUrl(id)} target="_blank" className="me-2">
+            <Link to={api.books().epubUrl(id)} target="_blank">
                 <DownloadOutlined/>
             </Link>
         </Space>}
@@ -69,15 +69,19 @@ export default function ItemInfo({ id, open, setOpen }) {
     >
         <Row gutter={[8, 8]}>
             <Col span={8}>
-                <img className="img-fluid w-100 h-auto" src={data.coverUrl ?? missingCoverUrl}
-                     alt="Book cover" loading="lazy"/>
+                <img
+                    style={{ width: '100%', maxWidth: '100%', height: 'auto' }}
+                    src={data.coverUrl ?? missingCoverUrl}
+                    alt="Book cover"
+                    loading="lazy"
+                />
             </Col>
             <Col span={16}>
-                <h6 className="mb-1">{data.metadata.title}</h6>
-                <div className="small">{data.metadata.creator}</div>
+                <Typography.Title level={5}>{data.metadata.title}</Typography.Title>
+                <Typography.Text type="secondary">{data.metadata.creator}</Typography.Text>
             </Col>
         </Row>
-        <Descriptions column={2} layout={'vertical'} items={[
+        <Descriptions column={2} layout="vertical" items={[
             {
                 key: 1,
                 label: 'Path',

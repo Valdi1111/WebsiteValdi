@@ -1,5 +1,6 @@
 import PlyrVideoComponent from "@CoreBundle/components/PlyrVideoComponent";
 import { useSearchParams } from "react-router";
+import { Flex } from "antd";
 import React from "react";
 
 /**
@@ -11,8 +12,8 @@ import React from "react";
 export default function VideoPlayer({ apiUrl }) {
     const [searchParams, setSearchParams] = useSearchParams();
 
-    return <main className="d-flex flex-column vh-100 vw-100">
+    return <Flex style={{ width: '100vw', height: '100vh' }} vertical>
         <PlyrVideoComponent src={apiUrl(searchParams.get('id'))}/>
-    </main>;
+    </Flex>;
 
 }

@@ -41,11 +41,11 @@ export default function FileManagerToolbar({ showPreview, setShowPreview }) {
     }
 
     return <Flex
-        style={{ width: "100%", padding: "10px" }}
+        style={{ width: "100%", padding: 8 }}
         justify="space-between"
         gap="small">
         <Button
-            style={{ paddingLeft: "8px", paddingRight: "8px"}}
+            style={{ paddingLeft: 8, paddingRight: 8}}
             icon={<ArrowLeftOutlined/>}
             disabled={selectedFolder?.id === "/"}
             onClick={() => {
@@ -56,7 +56,7 @@ export default function FileManagerToolbar({ showPreview, setShowPreview }) {
             }}
         />
         <Button
-            style={{ paddingLeft: "8px", paddingRight: "8px"}}
+            style={{ paddingLeft: 8, paddingRight: 8}}
             icon={<ReloadOutlined/>}
             onClick={() => {
                 setClipboard(null);
@@ -70,7 +70,7 @@ export default function FileManagerToolbar({ showPreview, setShowPreview }) {
             loading={loadingSearch}
         />
         <Button
-            style={{ paddingLeft: "8px", paddingRight: "8px"}}
+            style={{ paddingLeft: 8, paddingRight: 8}}
             icon={showPreview ? <EyeOutlined/> : <EyeInvisibleOutlined/>}
             onClick={togglePreview}
         />

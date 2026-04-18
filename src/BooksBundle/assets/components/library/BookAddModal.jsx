@@ -93,7 +93,7 @@ export default function BookAddModal({ visible, setVisible }) {
 
     return <Modal
         open={visible}
-        title={'Add books to Library'}
+        title="Add books to Library"
         footer={(parent, { OkBtn, CancelBtn }) =>
             <Flex align="center" justify="space-between">
                 <span>{selectedAmount} items selected</span>
@@ -109,7 +109,7 @@ export default function BookAddModal({ visible, setVisible }) {
         loading={loading}
         confirmLoading={confirmLoading}
         afterOpenChange={afterOpenChange}
-        okText={'Add'}
+        okText="Add"
         modalRender={(dom) =>
             <Form
                 form={form}

@@ -2,7 +2,6 @@ import BookHeader from "@BooksBundle/components/books/BookHeader";
 import BookFooter from "@BooksBundle/components/books/BookFooter";
 import BookBody from "@BooksBundle/components/books/BookBody";
 import BookContext from "@BooksBundle/components/books/BookContext";
-import { BOOKS_THEMES } from "@BooksBundle/components/books/BookThemeConstants";
 import { useThemes } from "@CoreBundle/components/theme/ThemeContext";
 import { useBookSettings } from "@BooksBundle/components/books/BookSettingsContext";
 import { useBackendApi } from "@BooksBundle/components/BackendApiContext";
@@ -17,8 +16,10 @@ import {
     LAYOUT, LAYOUTS,
     UPDATE_LAST_READ
 } from "@BooksBundle/components/books/BookConstants";
+import { theme as antdTheme } from "antd";
 
 export default function BookId() {
+    const { token: { colorBgElevated, colorText, colorLink, colorLinkHover } } = antdTheme.useToken();
     const [contentsDrawerOpen, setContentsDrawerOpen] = React.useState(false);
     const [settingsDrawerOpen, setSettingsDrawerOpen] = React.useState(false);
     const { settings, setSetting } = useBookSettings();
@@ -109,6 +110,7 @@ export default function BookId() {
      * @param localMark {{position: string|null, page: int}} book's bookmark
      */
     const updateLayout = React.useCallback(async () => {
+        console.log("Updating layout...");
         const area = document.getElementById('book-view');
         area.innerHTML = '';
         const gap = parseInt(settings[MARGINS]);
@@ -124,6 +126,7 @@ export default function BookId() {
         rendition.on('keydown', onKeyDown);
         // Open image view modal when clicking on img or image tag
         rendition.on('click', async e => {
+            // TODO convertire a Image di antd
             if (e.target.tagName.toLowerCase() === 'img' || e.target.tagName.toLowerCase() === 'image') {
                 const { default: Modal } = await import("bootstrap/js/dist/modal");
                 new Modal(document.getElementById('image-view-modal')).show(e.target);
@@ -185,22 +188,34 @@ export default function BookId() {
             }
         });
         // Update default theme
-        const t = {};
-        t['font-family'] = FONTS[settings[FONT]] + (settings[FORCE_FONT] === 'true' ? ' !important' : '');
-        t['font-size'] = settings[FONT_SIZE] + (settings[FORCE_FONT_SIZE] === 'true' ? 'px !important' : 'px');
-        t['line-height'] = settings[SPACING];
-        t['text-align'] = settings[JUSTIFY] === 'true' ? 'justify' : 'left';
-        book.current.rendition.themes.default({ body: t });
-        // Register themes
-        Object.entries(BOOKS_THEMES).map(([id, value]) => rendition.themes.register(id, value.css));
-        // Select theme
-        book.current.rendition.themes.select(theme);
+        const defaultCss = {
+            body: {
+                background: colorBgElevated,
+                color: colorText,
+                'font-family': FONTS[settings[FONT]] + (settings[FORCE_FONT] === 'true' ? ' !important' : ''),
+                'font-size': settings[FONT_SIZE] + (settings[FORCE_FONT_SIZE] === 'true' ? 'px !important' : 'px'),
+                'line-height': settings[SPACING],
+                'text-align': settings[JUSTIFY] === 'true' ? 'justify' : 'left',
+            },
+            a: {
+                color: colorLink,
+            },
+            'a:hover': {
+                color: colorLinkHover,
+            },
+            'a:active': {
+                color: colorLinkHover,
+            },
+        };
+        book.current.rendition.themes.default(defaultCss);
         // Display
         if (!mark.position) {
             await rendition.display();
         } else {
             await rendition.display(mark.position);
         }
+        console.log(book.current);
+        console.log(rendition);
     }, [settings, theme, mark, navigation]);
 
     const updatePage = React.useCallback((loc) => {
@@ -304,16 +319,22 @@ export default function BookId() {
     }, []);
 
     /**
-     * Go to previous page
+     * Go to the previous page
      */
     const prev = React.useCallback(() => {
+        if (!book.current) {
+            return;
+        }
         book.current.rendition.prev();
     }, []);
 
     /**
-     * Go to next page
+     * Go to the next page
      */
     const next = React.useCallback(() => {
+        if (!book.current) {
+            return;
+        }
         book.current.rendition.next();
     }, []);
 

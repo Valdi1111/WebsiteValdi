@@ -130,7 +130,7 @@ export default function DownloadDetailModal({ open, setOpen, selectedId }) {
     return <Modal
         title={<Space>
             <span>Download details</span>
-            <Link to={"downloadIdRefresh(id)"} target="_blank" className="me-2">
+            <Link to={"downloadIdRefresh(id)"} target="_blank">
                 <DownloadOutlined/>
             </Link>
         </Space>}

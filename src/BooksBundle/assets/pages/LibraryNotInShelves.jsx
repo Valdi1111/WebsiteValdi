@@ -85,14 +85,14 @@ export default function LibraryNotInShelves() {
         <title>Not in shelves</title>
         <div style={{ overflowY: 'scroll', width: '100%' }}>
             <SpinComponent loading={loading} size="large">
-                <Row style={{ padding: '8px', marginRight: 0, marginLeft: 0 }}
+                <Row style={{ padding: 8, marginRight: 0, marginLeft: 0 }}
                      gutter={[8, 8]}>
                     {data.map(book =>
-                        <Col key={book.id} style={{ width: '165px' }}>
+                        <Col key={book.id} style={{ width: 165 }}>
                             <LibraryItem key={book.id} book={book}/>
                         </Col>
                     )}
-                    <Col style={{ width: '165px' }}>
+                    <Col style={{ width: 165 }}>
                         <LibraryItemAdder hasMore={hasMore} loadMore={loadMore} loadingMore={loadingMore}/>
                     </Col>
                 </Row>

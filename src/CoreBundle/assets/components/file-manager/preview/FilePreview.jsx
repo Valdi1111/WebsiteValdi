@@ -11,7 +11,7 @@ export default function FilePreview() {
 
     if (!selectedFile) {
         return <Flex
-            style={{ paddingLeft: '8px', paddingRight: '8px', height: '100%' }}
+            style={{ paddingLeft: 8, paddingRight: 8, height: '100%' }}
             justify="center"
             align="center"
             vertical>
@@ -19,13 +19,13 @@ export default function FilePreview() {
         </Flex>
     }
 
-    return <Flex style={{ paddingLeft: '16px', paddingRight: '16px' }} vertical>
+    return <Flex style={{ paddingLeft: 16, paddingRight: 16 }} vertical>
         <Flex justify="space-between" gap="small" style={{ width: '100%' }}>
             <Typography.Title level={4} style={{ marginBottom: 0 }} ellipsis>
                 {selectedFile.title}
             </Typography.Title>
             <Button
-                style={{ paddingLeft: "8px", paddingRight: "8px" }}
+                style={{ paddingLeft: 8, paddingRight: 8 }}
                 icon={<DownloadOutlined/>}
                 onClick={() => {
                     console.debug("Downloading", selectedFile.id);

@@ -1,5 +1,5 @@
 import { useBook } from "@BooksBundle/components/books/BookContext";
-import { Input, Layout, List, Radio, Space, theme as antdTheme } from "antd";
+import { Input, Layout, List, Radio, Space, theme as antdTheme, Typography } from "antd";
 import Highlighter from "react-highlight-words";
 import React from "react";
 
@@ -70,11 +70,10 @@ export default function ContentSearch() {
                 bordered
                 dataSource={searchResults}
                 renderItem={item => <ContentSearchItem key={item.cfi} item={item} searchText={searchText}/>}
-                height={'150px'}
             />
         </Layout.Content>
-        <Layout.Footer style={{ background: colorBgElevated, padding: '16px' }}>
-            <span className="dropdown-header text-secondary py-0 px-2">{searchResults.length} results</span>
+        <Layout.Footer style={{ background: colorBgElevated, padding: 16 }}>
+            <Typography.Text type="secondary">{searchResults.length} results</Typography.Text>
         </Layout.Footer>
     </Layout>;
 

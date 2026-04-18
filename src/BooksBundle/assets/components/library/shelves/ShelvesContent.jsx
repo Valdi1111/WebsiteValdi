@@ -84,16 +84,16 @@ export default function ShelvesContent() {
         if (item.books.length > 0) {
             children = <Row
                 style={{
-                    paddingLeft: '8px',
-                    paddingRight: '8px',
-                    paddingBottom: '16px',
+                    paddingLeft: 8,
+                    paddingRight: 8,
+                    paddingBottom: 16,
                     marginRight: 0,
                     marginLeft: 0
                 }}
                 gutter={[8, 8]}>
                 {item.books.map(book =>
-                    <Col key={book.id} style={{ width: '165px' }}>
-                        <LibraryItem key={book.id} book={book}/>
+                    <Col key={book.id} style={{ width: 165 }}>
+                        <LibraryItem key={book.id} book={book} hide_shelf/>
                     </Col>
                 )}
             </Row>;
@@ -114,21 +114,21 @@ export default function ShelvesContent() {
         <ShelfEditModal visible={editOpen} setVisible={setEditOpen}/>
         <Tabs
             tabBarExtraContent={{
-                left: <Space style={{ marginLeft: '16px', marginRight: '16px' }}>
+                left: <Space style={{ marginLeft: 16, marginRight: 16 }}>
                     <Button
                         type="text"
                         icon={collapsed ? <MenuUnfoldOutlined/> : <MenuFoldOutlined/>}
                         onClick={() => setCollapsed(!collapsed)}
                     />
                 </Space>,
-                right: <Space style={{ marginLeft: '16px', marginRight: '16px' }}>
-                    <Tooltip title={'Edit shelf'}>
-                        <Button shape="circle" color="primary" variant="outlined" icon={<EditOutlined/>}
+                right: <Space style={{ marginLeft: 16, marginRight: 16 }}>
+                    <Tooltip title="Edit shelf">
+                        <Button color="primary" variant="filled" icon={<EditOutlined/>}
                                 onClick={() => setEditOpen(true)}
                         />
                     </Tooltip>
-                    <Tooltip title={'Delete shelf'}>
-                        <Button shape="circle" color="danger" variant="outlined" icon={<DeleteOutlined/>}
+                    <Tooltip title="Delete shelf">
+                        <Button color="danger" variant="filled" icon={<DeleteOutlined/>}
                                 onClick={() => onDelete()}
                         />
                     </Tooltip>

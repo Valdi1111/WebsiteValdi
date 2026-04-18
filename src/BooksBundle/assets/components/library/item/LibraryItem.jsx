@@ -77,43 +77,53 @@ export default function LibraryItem(props) {
         });
     }, [id]);
 
+    const dropdownItems = React.useMemo(() => {
+        const items = [];
+        if (!hide_shelf) {
+            items.push({
+                key: 'goToShelf',
+                label: 'Go to shelf',
+                icon: <ExportOutlined/>,
+                disabled: !shelf_id,
+                onClick: () => navigate(`/library/shelves/${shelf_id}`),
+            });
+        }
+        items.push({
+                key: 'recreate',
+                label: 'Recreate',
+                icon: <RedoOutlined/>,
+                onClick: () => onRecreateOpen(),
+            },
+            {
+                key: 'delete',
+                label: 'Delete',
+                icon: <DeleteOutlined/>,
+                danger: true,
+                onClick: () => onDeleteOpen(),
+            }
+        );
+        return items;
+    }, [hide_shelf, shelf_id, onRecreateOpen, onDeleteOpen]);
+
     return <>
         <ItemInfo id={id} open={infoOpen} setOpen={setInfoOpen}/>
         <Card
             styles={{ body: { display: 'none' } }}
-            hoverable={true}
-            cover={<ItemCover id={id} hasCover={cover} coverUrl={cover_url} title={title} creator={creator}/>}
-            style={{ borderRadius: "10px" }}
+            cover={<ItemCover
+                id={id}
+                hasCover={cover}
+                coverUrl={cover_url}
+                title={title}
+                creator={creator}
+            />}
             actions={[
                 <ItemProgress id={id} page={page} total={pages} setRead={setRead}/>,
                 <InfoCircleOutlined key="info" onClick={() => setInfoOpen(true)}/>,
-                <Dropdown destroyOnHidden menu={{
-                    items: [
-                        {
-                            key: 'goToShelf',
-                            label: 'Go to shelf',
-                            icon: <ExportOutlined/>,
-                            disabled: hide_shelf || !shelf_id,
-                            onClick: () => navigate(`/library/shelves/${shelf_id}`),
-                        },
-                        {
-                            key: 'recreate',
-                            label: 'Recreate',
-                            icon: <RedoOutlined/>,
-                            onClick: () => onRecreateOpen(),
-                        },
-                        {
-                            key: 'delete',
-                            label: 'Delete',
-                            icon: <DeleteOutlined/>,
-                            danger: true,
-                            onClick: () => onDeleteOpen(),
-                        },
-                    ]
-                }}>
+                <Dropdown destroyOnHidden menu={{ items: dropdownItems }}>
                     <EllipsisOutlined key="ellipsis"/>
                 </Dropdown>,
             ]}
+            hoverable
         />
     </>;
 }

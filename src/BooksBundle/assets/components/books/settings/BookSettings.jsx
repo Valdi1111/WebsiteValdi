@@ -3,13 +3,13 @@ import SettingsFontSize from "@BooksBundle/components/books/settings/SettingsFon
 import SettingsForceFont from "@BooksBundle/components/books/settings/SettingsForceFont";
 import SettingsForceFontSize from "@BooksBundle/components/books/settings/SettingsForceFontSize";
 import SettingsFullJustification from "@BooksBundle/components/books/settings/SettingsFullJustification";
-import SettingsLayouts from "@BooksBundle/components/books/settings/SettingsLayouts";
-import SettingsMargins from "@BooksBundle/components/books/settings/SettingsMargins";
 import SettingsSpacing from "@BooksBundle/components/books/settings/SettingsSpacing";
+import SettingsMargins from "@BooksBundle/components/books/settings/SettingsMargins";
 import SettingsWidth from "@BooksBundle/components/books/settings/SettingsWidth";
+import SettingsLayout from "@BooksBundle/components/books/settings/SettingsLayout";
 import { useBook } from "@BooksBundle/components/books/BookContext";
 import { SettingOutlined } from "@ant-design/icons";
-import { Button, Drawer } from "antd";
+import { Button, Divider, Drawer, Flex } from "antd";
 import React from "react";
 
 export default function BookSettings() {
@@ -17,6 +17,7 @@ export default function BookSettings() {
 
     return <>
         <Button
+            style={{ flexShrink: 0 }}
             color="default"
             variant="filled"
             icon={<SettingOutlined/>}
@@ -30,15 +31,20 @@ export default function BookSettings() {
             open={settingsDrawerOpen}
             key="book-settings-drawer"
         >
-            <SettingsFont/>
-            <SettingsFontSize/>
-            <SettingsSpacing/>
-            <SettingsMargins/>
-            <SettingsWidth/>
-            <SettingsForceFont/>
-            <SettingsForceFontSize/>
-            <SettingsFullJustification/>
-            <SettingsLayouts/>
+            <Flex vertical gap="medium">
+                <Divider titlePlacement="start" style={{ margin: 0 }}>Typography / Text</Divider>
+                <SettingsFont/>
+                <SettingsFontSize/>
+                <SettingsForceFont/>
+                <SettingsForceFontSize/>
+                <SettingsFullJustification/>
+                <SettingsSpacing/>
+                <Divider titlePlacement="start" style={{ margin: 0 }}>Layout / Page Style</Divider>
+                <SettingsMargins/>
+                <SettingsWidth/>
+                <Divider titlePlacement="start" style={{ margin: 0 }}>Reading Mode / Pagination</Divider>
+                <SettingsLayout/>
+            </Flex>
         </Drawer>
     </>;
 }

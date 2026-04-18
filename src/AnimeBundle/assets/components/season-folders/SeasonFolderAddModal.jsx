@@ -133,7 +133,6 @@ export default function SeasonFolderAddModal({ open, setOpen }) {
                 loading={downloadedLoading}
                 dataSource={downloaded}
                 renderItem={(item) => <DownloadedListItem download={item.download} fileExists={item.file_exists}/>}
-                height={'150px'}
             />
     </Modal>;
 

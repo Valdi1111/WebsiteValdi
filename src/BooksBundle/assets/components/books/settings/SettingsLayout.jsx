@@ -1,17 +1,20 @@
 import { useBookSettings } from "@BooksBundle/components/books/BookSettingsContext";
-import {LAYOUT} from "@BooksBundle/components/books/BookConstants";
+import { LAYOUT, LAYOUTS } from "@BooksBundle/components/books/BookConstants";
+import { Radio } from "antd";
 import React from "react";
 
-export default function SettingsLayout({ id, name }) {
+const options = Object
+    .entries(LAYOUTS)
+    .map(([id, { name }]) => ({ value: id, label: name }));
+
+export default function SettingsLayout() {
     const { settings, setSetting } = useBookSettings();
 
-    function layout(e) {
-        setSetting(LAYOUT, e.target.value);
-    }
-
-    return <div className="form-check">
-        <input className="form-check-input" name="input-layout" type="radio" onChange={layout}
-               defaultChecked={settings[LAYOUT] === id} value={id} id={"layout-" + id}/>
-        <label className="form-check-label w-100" htmlFor={"layout-" + id}>{name}</label>
-    </div>;
+    return <Radio.Group
+        style={{ width: 160 }}
+        onChange={val => setSetting(LAYOUT, val[0])}
+        value={settings[LAYOUT]}
+        options={options}
+        vertical
+    />;
 }

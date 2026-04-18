@@ -267,7 +267,7 @@ export default function StandardTable({
     return <>
         <Modal
             open={isVisibilityColumnsOpen}
-            title={'Columns displayed'}
+            title="Columns displayed"
             onCancel={() => setVisibilityColumnsOpen && setVisibilityColumnsOpen(false)}
             destroyOnHidden
             okButtonProps={{ htmlType: 'submit' }}

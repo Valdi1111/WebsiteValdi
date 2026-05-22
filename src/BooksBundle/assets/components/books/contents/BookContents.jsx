@@ -60,7 +60,7 @@ export default function BookContents() {
             }}
         >
             <Tabs
-                id="#book-contents-drawer-tabs"
+                id="book-contents-drawer-tabs"
                 defaultActiveKey="toc"
                 items={items}
                 centered={true}

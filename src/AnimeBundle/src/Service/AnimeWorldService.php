@@ -23,11 +23,13 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 #[AsAlias('App\AnimeBundle\Service\AnimeDownloaderInterface $animeWorldDownloader')]
 readonly class AnimeWorldService implements AnimeDownloaderInterface
 {
+    const string URL_REGEX = "/^\/play\/(?<animeLink>.+?)\.(?<animeIdentifier>[^\/]+)\/(?<episodeToken>[^\/]+)$/";
     private HttpBrowser $httpBrowser;
 
     public function __construct(
         private EntityManagerInterface                       $entityManager,
         private HttpClientInterface                          $animeAnimeworldClient,
+        private HttpClientInterface                          $nodeServicesClient,
         private MessageBusInterface                          $bus,
         #[Autowire('%anime.temp_folder%')] private string    $tempFolder,
         #[Autowire('%anime.animeworld.url%')] private string $websiteUrl)
@@ -44,14 +46,14 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
     {
         $crawler = $this->httpBrowser->request('GET', $this->getWebsiteUrl() . $url);
         $response = $this->httpBrowser->getResponse();
-        if ($response->getStatusCode() === 202) {
-            if (!preg_match('/(SecurityAW-[^=]+)=([^;]+)/', $response->getContent(), $matches)) {
-                throw new Exception("Error fetching page from AnimeWorld. Cookie SecurityAW-XX not found.");
-            }
-            $this->httpBrowser->getCookieJar()->set(new Cookie(trim($matches[1]), trim($matches[2])));
-            $crawler = $this->httpBrowser->request('GET', $this->getWebsiteUrl() . $url);
-            $response = $this->httpBrowser->getResponse();
-        }
+//        if ($response->getStatusCode() === 202) {
+//            if (!preg_match('/(SecurityAW-[^=]+)=([^;]+)/', $response->getContent(), $matches)) {
+//                throw new Exception("Error fetching page from AnimeWorld. Cookie SecurityAW-XX not found.");
+//            }
+//            $this->httpBrowser->getCookieJar()->set(new Cookie(trim($matches[1]), trim($matches[2])));
+//            $crawler = $this->httpBrowser->request('GET', $this->getWebsiteUrl() . $url);
+//            $response = $this->httpBrowser->getResponse();
+//        }
         if ($response->getStatusCode() !== 200) {
             throw new Exception("Error fetching page from AnimeWorld. Http code = " . $response->getStatusCode());
         }
@@ -60,13 +62,20 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
 
     /**
      * Add download url e file to episode object
-     * @param Crawler $crawler anime page
      * @param EpisodeDownload $episode episode object
      * @return void
      */
-    private function scrapeEpisodeFile(Crawler $crawler, EpisodeDownload $episode): void
+    private function scrapeEpisodeFile(EpisodeDownload $episode): void
     {
-        $dlUrl = $crawler->filter("#downloadLink")->first()->attr("href");
+        preg_match(self::URL_REGEX, $episode->getEpisodeUrl(), $matches);
+        $episodeToken = $matches['episodeToken'];
+        $response = $this->nodeServicesClient->request('GET', "/animeworld/extract-url", [
+            'query' => [
+                'url' => "{$this->getWebsiteUrl()}/api/episode/serverPlayerAnimeWorld?id=$episodeToken"
+            ]
+        ]);
+        $data = $response->toArray();
+        $dlUrl = $data['url'];
         $episode->setDownloadUrl(str_replace("download-file.php?id=", "", $dlUrl));
         $episode->setFile(substr($dlUrl, strrpos($dlUrl, '/') + 1));
     }
@@ -118,12 +127,7 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
             ->setFolder($folder)
             ->setMalId($malId)
             ->setAlId($alId);
-        if ($itemCrawler->matches(".active")) {
-            $this->scrapeEpisodeFile($globalCrawler, $episode);
-        } else {
-            $episodeCrawler = $this->fetchPage($episode->getEpisodeUrl());
-            $this->scrapeEpisodeFile($episodeCrawler, $episode);
-        }
+        $this->scrapeEpisodeFile($episode);
         return $episode;
     }
 
@@ -221,8 +225,7 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
      */
     public function refreshDownloadUrl(EpisodeDownload $episode): void
     {
-        $episodeCrawler = $this->fetchPage($episode->getEpisodeUrl());
-        $this->scrapeEpisodeFile($episodeCrawler, $episode);
+        $this->scrapeEpisodeFile($episode);
     }
 
     /**

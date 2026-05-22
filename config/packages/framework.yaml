@@ -19,6 +19,11 @@ framework:
     php_errors:
         log: true
 
+    http_client:
+        scoped_clients:
+            node_services.client:
+                base_uri: 'http://localhost:%node_services_port%'
+
 when@test:
     framework:
         test: true

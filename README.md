@@ -1,6 +1,3 @@
-## Database
-Create tables for user, token, etc with `php bin/console doctrine:schema:update --dump-sql`
-
 ## youtube-dlp
 * Install ffmpeg and ffprobe `sudo apt install ffmpeg -y`
 * Install youtube-dlp
@@ -42,6 +39,7 @@ ProxyFCGISetEnvIf "true" HTTP_X_SENDFILE_TYPE "X-Sendfile"
 * `sudo tar -xvzf mercure_Linux_arm64.tar.gz`
 * `sudo rm mercure_Linux_arm64.tar.gz`
 ### Create and start mercure service
+* File [mercure.service](scripts/mercure.service)
 * `systemctl enable mercure.service`
 * `systemctl start mercure.service`
 ### Edit apache configuration
@@ -58,27 +56,36 @@ ProxyFCGISetEnvIf "true" HTTP_X_SENDFILE_TYPE "X-Sendfile"
 ```
 
 ## Deploy
-* Copy new files
-* Install php packages `composer install --no-dev --optimize-autoloader`
-* Clear symfony cache `php bin/console c:c`
-* Install assets from bundles `php bin/console assets:install`
-* Install node packages `npm install`
-* Build webpack `npm run build`
-* Restart all running workers `php bin/console messenger:stop-workers`
+* Pull latest code
+* Install PHP dependencies `composer install --no-dev --optimize-autoloader`
+* Run Doctrine migrations `php bin/console doctrine:migrations:migrate `
+* Clear and warmup cache 
+  * `php bin/console cache:clear --env=prod`
+  * `php bin/console cache:warmup --env=prod`
+* Install Symfony assets `php bin/console assets:install`
+* Install Node dependencies (frontend) `npm ci`
+* Build frontend `npm run build`
+* Install Node dependencies (node-services) 
+  * `cd node-services`
+  * `npm ci`
+  * `npx playwright install chromium`
+  * `cd ..`
+* Restart node services `sudo supervisorctl restart website-node-services`
+* Restart messenger workers `php bin/console messenger:stop-workers`
+
+## Deploy script
+* File [website-deploy.sh](scripts/website-deploy.sh)
+* Add `YOURUSER ALL=(ALL) NOPASSWD:/usr/bin/supervisorctl` to `sudo visudo` for github actions
 
 ## Services
-* Command messenger:consume core_async
-  * `systemctl enable website-messenger-core.service`
-  * `systemctl start website-messenger-core.service`
-* Command messenger:consume scheduler_default
-  * `systemctl enable website-scheduler-default.service`
-  * `systemctl start website-scheduler-default.service`
-* Command anime:aw-socket-listener
-  * `systemctl enable website-anime-aw-socket.service`
-  * `systemctl start website-anime-aw-socket.service`
-* Command messenger:consume anime_episode_download (currently unused)
-  * `systemctl enable website-anime-episode-download@{1..12}.service`
-  * `systemctl start website-anime-episode-download@{1..12}.service`
+* Install supervisor `sudo apt install supervisor`
+* Copy service files in `/etc/supervisor/conf.d/`
+  * [website-node-services](scripts/website-node-services.conf)
+  * [website-anime-download](scripts/website-anime-download.conf)
+  * [website-messenger-core](scripts/website-messenger-core.conf)
+  * [website-scheduler-default](scripts/website-scheduler-default.conf)
+* Replace `YOURUSER` and `/path/to/your/app`
+* Enable and start services with `sudo supervisorctl reread && sudo supervisorctl update`
 
 ## Create a new Bundle
 

@@ -7,7 +7,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Component\Serializer\Annotation\Ignore;
+use Symfony\Component\Serializer\Attribute\Ignore;
 
 #[ORM\UniqueConstraint(name: 'IDX_name', columns: ['name'])]
 #[ORM\UniqueConstraint(name: 'IDX_path', columns: ['path'])]

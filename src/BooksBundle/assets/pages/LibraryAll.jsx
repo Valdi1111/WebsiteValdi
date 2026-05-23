@@ -51,16 +51,12 @@ export default function LibraryAll() {
      */
     const handleWebsocket = React.useCallback((event) => {
         const json = JSON.parse(event.data);
-        if (json.action === 'book:add') {
-            refreshBooks();
-        }
-        if (json.action === 'book:recreate') {
-            refreshBooks();
-        }
-        if (json.action === 'book:remove') {
-            if (data.find(b => b.id === parseInt(json.book.id))) {
+        switch (json.action) {
+            case 'book:add':
+            case 'book:recreate':
+            case 'book:remove':
                 refreshBooks();
-            }
+                break;
         }
     }, [data]);
 

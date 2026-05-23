@@ -30,6 +30,7 @@ use League\Flysystem\Local\LocalFilesystemAdapter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\Filesystem\Path;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapQueryString;
@@ -40,6 +41,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 #[IsGranted('ROLE_USER_ANIME', null, 'Access Denied.')]
 #[Route('/api', name: 'api_', format: 'json')]
@@ -280,9 +282,32 @@ class ApiController extends AbstractController
     }
 
     #[Route('/downloads/{download}', name: 'downloads_id', requirements: ['download' => '\d+'], methods: ['GET'])]
-    public function apiDownloadsId(#[MapEntity(message: "Download not found.")] EpisodeDownload $download): Response
+    public function apiDownloadsId(#[MapEntity(message: "Download not found.")] EpisodeDownload $download, HttpClientInterface $client): Response
     {
-        return $this->json($download);
+        $res = ["download" => $download];
+        if ($download->getMalId()) {
+            $res["myanimelist"]["url"] = "https://myanimelist.net/anime/{$download->getMalId()}";
+            $res["myanimelist"]["title"] = $this->getOgTitle($client, $res["myanimelist"]["url"]);
+        }
+        if ($download->getAlId()) {
+            $res["anilist"]["url"] = "https://anilist.co/anime/{$download->getAlId()}";
+            $res["anilist"]["title"] = $this->getOgTitle($client, $res["anilist"]["url"]);
+        }
+        return $this->json($res);
+    }
+
+    private function getOgTitle(HttpClientInterface $client, string $url): ?string
+    {
+        try {
+            $response = $client->request('GET', $url);
+            $html = $response->getContent();
+            $crawler = new Crawler($html);
+            return $crawler
+                ->filter('meta[property="og:title"]')
+                ->attr('content');
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]

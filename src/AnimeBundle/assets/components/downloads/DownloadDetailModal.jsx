@@ -1,35 +1,34 @@
 import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
 import { formatDateTimeFromIso } from "@CoreBundle/format-utils";
-import { Descriptions, Modal, Space } from "antd";
-import { DownloadOutlined } from "@ant-design/icons";
+import { App, Button, Descriptions, Modal, Space } from "antd";
+import { DownloadOutlined, ExclamationCircleFilled } from "@ant-design/icons";
 import { Link } from "react-router";
 import React from "react";
 
 export default function DownloadDetailModal({ open, setOpen, selectedId }) {
     const [loading, setLoading] = React.useState(true);
-    const [confirmLoading, setConfirmLoading] = React.useState(false);
 
+    const { modal } = App.useApp();
     const [data, setData] = React.useState(null);
     const api = useBackendApi();
 
-    // TODO creare il retry
-    const onRetry = React.useCallback(() => {
+    const onRetryOpen = React.useCallback(() => {
         if (!data) {
             return;
         }
-        setConfirmLoading(true);
-        api
-            .withLoadingMessage({
-                key: 'download-retry-loader',
-                loadingContent: 'Adding download...',
-                successContent: 'Download added successfully',
-            })
-            .downloads()
-            .retry(data.id)
-            .then(res => {
-                setOpen(false);
-            })
-            .finally(() => setConfirmLoading(false));
+        modal.confirm({
+            icon: <ExclamationCircleFilled/>,
+            title: 'Are you sure you want to retry this download?',
+            content: data.download.file,
+            onOk: () => api
+                .withLoadingMessage({
+                    key: 'download-retry-loader',
+                    loadingContent: 'Adding download...',
+                    successContent: 'Download added successfully',
+                })
+                .downloads()
+                .retry(data.download.id),
+        });
     }, [data]);
 
     const afterOpenChange = React.useCallback(opened => {
@@ -57,70 +56,70 @@ export default function DownloadDetailModal({ open, setOpen, selectedId }) {
             {
                 key: 1,
                 label: 'Episode URL',
-                children: data.episode_url,
+                children: data.download.episode_url,
                 span: 10,
             },
             {
                 key: 2,
                 label: 'Download URL',
-                children: data.download_url,
+                children: data.download.download_url,
                 span: 10,
             },
             {
                 key: 3,
                 label: 'Folder',
-                children: data.folder,
+                children: data.download.folder,
                 span: 4,
             },
             {
                 key: 4,
                 label: 'File',
-                children: data.file,
+                children: data.download.file,
                 span: 6,
             },
             {
                 key: 5,
                 label: 'Episode',
-                children: data.episode,
+                children: data.download.episode,
                 span: 2,
             },
             {
                 key: 6,
                 label: 'State',
-                children: data.state,
+                children: data.download.state,
                 span: 4,
             },
             {
                 key: 7,
                 label: 'Created',
-                children: formatDateTimeFromIso(data.created),
+                children: formatDateTimeFromIso(data.download.created),
                 span: 4,
             },
             {
                 key: 8,
                 label: 'Started',
-                children: formatDateTimeFromIso(data.started, "Not started"),
+                children: formatDateTimeFromIso(data.download.started, "Not started"),
                 span: 5,
             },
             {
                 key: 9,
                 label: 'Completed',
-                children: formatDateTimeFromIso(data.completed, "Not completed"),
+                children: formatDateTimeFromIso(data.download.completed, "Not completed"),
                 span: 5,
             },
             {
                 key: 10,
                 label: 'MyAnimeList ID',
-                children: <Link to={`https://myanimelist.net/anime/${data.mal_id}`} target="_blank">
-                    {data.mal_id}
+                children: <Link to={data.myanimelist?.url} target="_blank">
+                    {data.myanimelist?.title}
                 </Link>,
                 span: 5,
             },
             {
                 key: 11,
                 label: 'AniList ID',
-                children: <Link to={`https://anilist.co/anime/${data.al_id}`} target="_blank">
-                    {data.al_id}
+                children: <Link to={data.anilist?.url} target="_blank">
+                    {data.anilist?.title}
                 </Link>,
                 span: 5,
             },
@@ -130,9 +129,11 @@ export default function DownloadDetailModal({ open, setOpen, selectedId }) {
     return <Modal
         title={<Space>
             <span>Download details</span>
-            <Link to={"downloadIdRefresh(id)"} target="_blank">
-                <DownloadOutlined/>
-            </Link>
+            <Button
+                type="primary"
+                onClick={onRetryOpen}
+                icon={<DownloadOutlined/>}
+                size="small"/>
         </Space>}
         footer={null}
         loading={loading}

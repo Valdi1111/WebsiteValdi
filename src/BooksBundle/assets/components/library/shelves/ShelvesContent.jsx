@@ -45,14 +45,12 @@ export default function ShelvesContent() {
      */
     const handleWebsocket = React.useCallback((event) => {
         const json = JSON.parse(event.data);
-        if (json.action === 'book:add') {
-            refreshContent();
-        }
-        if (json.action === 'book:recreate') {
-            refreshContent();
-        }
-        if (json.action === 'book:remove') {
-            refreshContent();
+        switch (json.action) {
+            case 'book:add':
+            case 'book:recreate':
+            case 'book:remove':
+                refreshContent();
+                break;
         }
     }, []);
 

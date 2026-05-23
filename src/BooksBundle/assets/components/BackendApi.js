@@ -100,7 +100,7 @@ export default function (apiUrl, libraryId, { message }) {
     }
     api._books.recreate = async (id) => {
         console.debug("Book", id, "Recreating cache...");
-        const epub = new Book(api.books().epubUrl(id), { openAs: 'epub' });
+        const epub = new Book(api._books.epubUrl(id), { openAs: 'epub' });
         const book = await epub.opened;
         try {
             // Generate Cache

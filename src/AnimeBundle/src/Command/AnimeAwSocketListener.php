@@ -25,12 +25,15 @@ class AnimeAwSocketListener extends Command
     private ?Client $client;
 
     public function __construct(
-        private readonly LoggerInterface                                    $animeAwHandlerLogger,
-        private readonly AnimeDownloaderInterface                           $animeWorldDownloader,
-        #[Autowire('%anime.animeworld.api_url%')] private readonly string   $awApiUrl,
-        #[Autowire('%anime.animeworld.client_id%')] private readonly string $awClientId,
-        #[Autowire('%anime.animeworld.api_key%')] private readonly string   $awApiKey,
-        ?string                                                             $name = null)
+        private readonly LoggerInterface          $animeAwHandlerLogger,
+        private readonly AnimeDownloaderInterface $animeWorldDownloader,
+        #[Autowire(param: 'anime.animeworld.api_url')]
+        private readonly string                   $awApiUrl,
+        #[Autowire(param: 'anime.animeworld.client_id')]
+        private readonly string                   $awClientId,
+        #[Autowire(param: 'anime.animeworld.api_key')]
+        private readonly string                   $awApiKey,
+        ?string                                   $name = null)
     {
         parent::__construct($name);
     }

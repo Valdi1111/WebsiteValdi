@@ -27,12 +27,14 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
     private HttpBrowser $httpBrowser;
 
     public function __construct(
-        private EntityManagerInterface                       $entityManager,
-        private HttpClientInterface                          $animeAnimeworldClient,
-        private HttpClientInterface                          $nodeServicesClient,
-        private MessageBusInterface                          $bus,
-        #[Autowire('%anime.temp_folder%')] private string    $tempFolder,
-        #[Autowire('%anime.animeworld.url%')] private string $websiteUrl)
+        private EntityManagerInterface $entityManager,
+        private HttpClientInterface    $animeAnimeworldClient,
+        private HttpClientInterface    $nodeServicesClient,
+        private MessageBusInterface    $bus,
+        #[Autowire(param: 'anime.temp_folder')]
+        private string                 $tempFolder,
+        #[Autowire(param: 'anime.animeworld.url')]
+        private string                 $websiteUrl)
     {
         $this->httpBrowser = new HttpBrowser($this->animeAnimeworldClient);
     }

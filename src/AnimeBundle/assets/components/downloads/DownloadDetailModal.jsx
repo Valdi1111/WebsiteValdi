@@ -109,7 +109,7 @@ export default function DownloadDetailModal({ open, setOpen, selectedId }) {
             },
             {
                 key: 10,
-                label: 'MyAnimeList ID',
+                label: 'MyAnimeList',
                 children: <Link to={data.myanimelist?.url} target="_blank">
                     {data.myanimelist?.title}
                 </Link>,
@@ -117,7 +117,7 @@ export default function DownloadDetailModal({ open, setOpen, selectedId }) {
             },
             {
                 key: 11,
-                label: 'AniList ID',
+                label: 'AniList',
                 children: <Link to={data.anilist?.url} target="_blank">
                     {data.anilist?.title}
                 </Link>,

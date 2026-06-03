@@ -19,8 +19,10 @@ readonly class EpisodeDownloadNotificationHandler
     public function __construct(
         private LoggerInterface                                   $animeEpisodeDownloaderLogger,
         private EntityManagerInterface                            $entityManager,
-        #[Autowire('%anime.youtube_dl.bin_path%')] private string $youtubeDlBinPath,
-        #[Autowire('%anime.base_folder%')] private string         $baseFolder)
+        #[Autowire(param: 'anime.youtube_dl.bin_path')]
+        private string $youtubeDlBinPath,
+        #[Autowire(param: 'anime.base_folder')]
+        private string $baseFolder)
     {
     }
 

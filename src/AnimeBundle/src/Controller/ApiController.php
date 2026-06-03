@@ -51,7 +51,7 @@ class ApiController extends AbstractController
 
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
-        #[Autowire('%anime.base_folder%')]
+        #[Autowire(param: 'anime.base_folder')]
         private readonly string                 $baseFolder)
     {
     }

@@ -15,7 +15,7 @@ class ApiFilesController extends AbstractController
     use FileManagerTrait;
 
     public function __construct(
-        #[Autowire('%videos.base_folder%')]
+        #[Autowire(param: 'videos.base_folder')]
         private readonly string $baseFolder)
     {
     }

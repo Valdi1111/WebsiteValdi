@@ -8,7 +8,8 @@ readonly class EncryptionService
 {
 
     public function __construct(
-        #[Autowire('%passwords.encryption_key%')] private string $encryptionKey
+        #[Autowire(param: 'passwords.encryption_key')]
+        private string $encryptionKey
     )
     {
     }

@@ -22,10 +22,12 @@ readonly class AnimeUnityService implements AnimeDownloaderInterface
     private HttpBrowser $httpBrowser;
 
     public function __construct(
-        private EntityManagerInterface                       $entityManager,
-        private HttpClientInterface                          $animeAnimeunityClient,
-        #[Autowire('%anime.temp_folder%')] private string    $tempFolder,
-        #[Autowire('%anime.animeunity.url%')] private string $websiteUrl)
+        private EntityManagerInterface $entityManager,
+        private HttpClientInterface    $animeAnimeunityClient,
+        #[Autowire(param: 'anime.temp_folder')]
+        private string                 $tempFolder,
+        #[Autowire(param: 'anime.animeunity.url')]
+        private string                 $websiteUrl)
     {
         $this->httpBrowser = new HttpBrowser($this->animeAnimeunityClient);
     }

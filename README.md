@@ -262,8 +262,10 @@ System.config({
 ## Setup shared folder
 * `sudo groupadd condivisi`
 * `sudo usermod -aG condivisi www-data`
-* `sudo chgrp -R condivisi /media/*`
-* `sudo chmod -R 2775 /media/*`
+* `sudo usermod -aG condivisi $USER`
+* `sudo own -R $USER:condivisi /media/*`
+* `sudo chmod -R 664 /media/*`
+* `sudo find /media/* -type d -exec chmod 2775 {} \;`
 
 ### Example of shared folder on samba
 ```aiignore
@@ -279,3 +281,8 @@ System.config({
    directory mask = 2775
    inherit permissions = yes
 ```
+
+## Application permission
+* `sudo chown -R $USER:www-data /var/www/*`
+* `sudo chmod -R 775 /var/www/*`
+* `sudo find /var/www/* -type d -exec chmod 2775 {} \;`

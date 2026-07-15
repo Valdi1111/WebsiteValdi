@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e  # stop se qualcosa fallisce
+umask 022
 
 echo "=============================="
 echo "START DEPLOY"

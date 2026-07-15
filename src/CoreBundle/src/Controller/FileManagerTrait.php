@@ -6,6 +6,7 @@ use League\Flysystem\Config;
 use League\Flysystem\Filesystem;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\Local\LocalFilesystemAdapter;
+use League\Flysystem\UnixVisibility\PortableVisibilityConverter;
 use SplFileInfo;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Filesystem\Path;
@@ -47,7 +48,7 @@ trait FileManagerTrait
     public function getFilesystem(): Filesystem
     {
         if (!$this->filesystem) {
-            $adapter = new LocalFilesystemAdapter($this->getBaseFolder());
+            $adapter = new LocalFilesystemAdapter($this->getBaseFolder(), new PortableVisibilityConverter(directoryPublic: 2775));
             $this->filesystem = new Filesystem($adapter, [
                 Config::OPTION_DIRECTORY_VISIBILITY => 'public',
                 Config::OPTION_VISIBILITY => 'public',

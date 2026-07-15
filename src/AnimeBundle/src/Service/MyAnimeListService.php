@@ -5,16 +5,10 @@ namespace App\AnimeBundle\Service;
 use App\AnimeBundle\Entity\ListAnime;
 use App\AnimeBundle\Entity\ListManga;
 use App\AnimeBundle\Exception\CacheRefreshException;
-use App\AnimeBundle\Message\AnimeCacheRefreshNotification;
-use App\AnimeBundle\Message\MangaCacheRefreshNotification;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\Messenger\MessageBusInterface;
-use Symfony\Component\Scheduler\Attribute\AsCronTask;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-#[AsCronTask('@midnight', method: 'scheduleRefreshAnimeCache')]
-#[AsCronTask('@midnight', method: 'scheduleRefreshMangaCache')]
 readonly class MyAnimeListService
 {
     const string FETCH_URL = 'https://api.myanimelist.net/v2/users/%1$s/%2$slist?nsfw=true&limit=%3$d&fields=%4$s';
@@ -26,8 +20,7 @@ readonly class MyAnimeListService
     public function __construct(
         private LoggerInterface        $animeCacheLogger,
         private EntityManagerInterface $entityManager,
-        private HttpClientInterface    $animeMyanimelistClient,
-        private MessageBusInterface    $bus)
+        private HttpClientInterface    $animeMyanimelistClient)
     {
     }
 
@@ -89,24 +82,6 @@ readonly class MyAnimeListService
     public function refreshMangaCache(): array
     {
         return $this->refreshCache('manga', self::FIELDS_MANGA, ListManga::class);
-    }
-
-    /**
-     * Refresh anime cache async
-     * @return void
-     */
-    public function scheduleRefreshAnimeCache(): void
-    {
-        $this->bus->dispatch(new AnimeCacheRefreshNotification());
-    }
-
-    /**
-     * Refresh manga cache async
-     * @return void
-     */
-    public function scheduleRefreshMangaCache(): void
-    {
-        $this->bus->dispatch(new MangaCacheRefreshNotification());
     }
 
 }

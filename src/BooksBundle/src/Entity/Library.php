@@ -10,6 +10,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Doctrine\ORM\Mapping\OneToMany;
 use League\Flysystem\Filesystem;
 use League\Flysystem\Local\LocalFilesystemAdapter;
+use League\Flysystem\UnixVisibility\PortableVisibilityConverter;
 use Symfony\Component\Serializer\Attribute\Ignore;
 
 #[ORM\UniqueConstraint(name: 'IDX_name', columns: ['name'])]
@@ -116,7 +117,7 @@ class Library
     public function getFilesystem(): Filesystem
     {
         if (!$this->filesystem) {
-            $adapter = new LocalFilesystemAdapter($this->getBasePath());
+            $adapter = new LocalFilesystemAdapter($this->getBasePath(), new PortableVisibilityConverter(directoryPublic: 2775));
             $this->filesystem = new Filesystem($adapter);
         }
         return $this->filesystem;

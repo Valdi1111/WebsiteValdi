@@ -21,14 +21,15 @@ use App\AnimeBundle\Repository\ListAnimeRepository;
 use App\AnimeBundle\Repository\ListMangaRepository;
 use App\AnimeBundle\Repository\SeasonFolderRepository;
 use App\AnimeBundle\Service\AnimeDownloaderLocator;
-use App\AnimeBundle\Service\MyAnimeListService;
 use App\CoreBundle\Entity\Table;
 use App\CoreBundle\Entity\TableParameters;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\Filesystem;
 use League\Flysystem\Local\LocalFilesystemAdapter;
+use League\Flysystem\UnixVisibility\PortableVisibilityConverter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Console\Messenger\RunCommandMessage;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\Filesystem\Path;
@@ -37,6 +38,7 @@ use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Symfony\Component\Messenger\Message\RedispatchMessage;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Routing\Attribute\Route;
@@ -59,7 +61,7 @@ class ApiController extends AbstractController
     public function getFilesystem(): Filesystem
     {
         if (!$this->filesystem) {
-            $adapter = new LocalFilesystemAdapter($this->baseFolder);
+            $adapter = new LocalFilesystemAdapter($this->baseFolder, new PortableVisibilityConverter(directoryPublic: 2775));
             $this->filesystem = new Filesystem($adapter);
         }
         return $this->filesystem;
@@ -176,9 +178,9 @@ class ApiController extends AbstractController
 
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
     #[Route('/list-anime/refresh', name: 'list_anime_refresh', methods: ['POST'])]
-    public function apiListAnimeRefresh(MyAnimeListService $malService): Response
+    public function apiListAnimeRefresh(MessageBusInterface $bus): Response
     {
-        $malService->scheduleRefreshAnimeCache();
+        $bus->dispatch(new RedispatchMessage(new RunCommandMessage('anime:cache-refresh anime'), 'core_async'));
         return $this->json(['ok' => true]);
     }
 
@@ -219,9 +221,9 @@ class ApiController extends AbstractController
 
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
     #[Route('/list-manga/refresh', name: 'list_manga_refresh', methods: ['POST'])]
-    public function apiListMangaRefresh(MyAnimeListService $malService): Response
+    public function apiListMangaRefresh(MessageBusInterface $bus): Response
     {
-        $malService->scheduleRefreshMangaCache();
+        $bus->dispatch(new RedispatchMessage(new RunCommandMessage('anime:cache-refresh manga'), 'core_async'));
         return $this->json(['ok' => true]);
     }
 

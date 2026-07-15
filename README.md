@@ -258,3 +258,24 @@ System.config({
 
 ### Refresh composer
 `composer dump-autoload`
+
+## Setup shared folder
+* `sudo groupadd condivisi`
+* `sudo usermod -aG condivisi www-data`
+* `sudo chgrp -R condivisi /media/*`
+* `sudo chmod -R 2775 /media/*`
+
+### Example of shared folder on samba
+```aiignore
+[xyz]
+   comment = xyz
+   path = /media/xyz
+   browsable = yes
+   writable = yes
+   guest ok = no
+
+   force group = condivisi
+   create mask = 0664
+   directory mask = 2775
+   inherit permissions = yes
+```

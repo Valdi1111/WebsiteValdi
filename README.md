@@ -32,6 +32,15 @@ XSendFilePath /media
 ProxyFCGISetEnvIf "true" HTTP_X_SENDFILE_TYPE "X-Sendfile"
 ```
 
+## Configure php-fpm
+* `systemctl edit php8.4-fpm`
+```aiignore
+[Service]
+UMask=0002
+```
+* `systemctl daemon-reload`
+* `systemctl restart php8.4-fpm`
+
 ## Mercure
 ### Install mercure
 * `sudo mkdir mercure_Linux_arm64`

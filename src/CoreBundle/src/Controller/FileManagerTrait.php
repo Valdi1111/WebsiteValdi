@@ -48,7 +48,7 @@ trait FileManagerTrait
     public function getFilesystem(): Filesystem
     {
         if (!$this->filesystem) {
-            $adapter = new LocalFilesystemAdapter($this->getBaseFolder(), new PortableVisibilityConverter(directoryPublic: 2775));
+            $adapter = new LocalFilesystemAdapter($this->getBaseFolder(), new PortableVisibilityConverter(directoryPublic: 02775));
             $this->filesystem = new Filesystem($adapter, [
                 Config::OPTION_DIRECTORY_VISIBILITY => 'public',
                 Config::OPTION_VISIBILITY => 'public',

@@ -15,33 +15,33 @@ class AnimeBundle extends AbstractBundle
         return dirname(__DIR__ . '/src');
     }
 
-    public function prependExtension(ContainerConfigurator $container, ContainerBuilder $builder): void
+    public function prependExtension(ContainerConfigurator $configurator, ContainerBuilder $container): void
     {
-        $container->import('./config/packages/');
+        $configurator->import('./config/packages/');
     }
 
-    public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
+    public function loadExtension(array $config, ContainerConfigurator $configurator, ContainerBuilder $container): void
     {
-        $container->import('./config/services.yaml');
-        $container->parameters()->set('anime.domain_name', $config['domain_name']);
-        $container->parameters()->set('anime.base_folder', $config['base_folder']);
-        $container->parameters()->set('anime.temp_folder', $config['temp_folder']);
-        $container->parameters()->set('anime.myanimelist.url', $config['myanimelist']['url']);
-        $container->parameters()->set('anime.myanimelist.api_url', $config['myanimelist']['api_url']);
-        $container->parameters()->set('anime.myanimelist.client_id', $config['myanimelist']['client_id']);
-        $container->parameters()->set('anime.myanimelist.client_secret', $config['myanimelist']['client_secret']);
-        $container->parameters()->set('anime.anilist.url', $config['anilist']['url']);
-        $container->parameters()->set('anime.anilist.api_url', $config['anilist']['api_url']);
-        $container->parameters()->set('anime.anilist.client_id', $config['anilist']['client_id']);
-        $container->parameters()->set('anime.anilist.client_secret', $config['anilist']['client_secret']);
-        $container->parameters()->set('anime.animeworld.url_regex', $config['animeworld']['url_regex']);
-        $container->parameters()->set('anime.animeworld.url', $config['animeworld']['url']);
-        $container->parameters()->set('anime.animeworld.api_url', $config['animeworld']['api_url']);
-        $container->parameters()->set('anime.animeworld.client_id', $config['animeworld']['client_id']);
-        $container->parameters()->set('anime.animeworld.api_key', $config['animeworld']['api_key']);
-        $container->parameters()->set('anime.animeunity.url_regex', $config['animeunity']['url_regex']);
-        $container->parameters()->set('anime.animeunity.url', $config['animeunity']['url']);
-        $container->parameters()->set('anime.youtube_dl.bin_path', $config['youtube_dl']['bin_path']);
+        $configurator->import('./config/services.yaml');
+        $configurator->parameters()->set('anime.domain_name', $config['domain_name']);
+        $configurator->parameters()->set('anime.base_folder', $config['base_folder']);
+        $configurator->parameters()->set('anime.temp_folder', $config['temp_folder']);
+        $configurator->parameters()->set('anime.myanimelist.url', $config['myanimelist']['url']);
+        $configurator->parameters()->set('anime.myanimelist.api_url', $config['myanimelist']['api_url']);
+        $configurator->parameters()->set('anime.myanimelist.client_id', $config['myanimelist']['client_id']);
+        $configurator->parameters()->set('anime.myanimelist.client_secret', $config['myanimelist']['client_secret']);
+        $configurator->parameters()->set('anime.anilist.url', $config['anilist']['url']);
+        $configurator->parameters()->set('anime.anilist.api_url', $config['anilist']['api_url']);
+        $configurator->parameters()->set('anime.anilist.client_id', $config['anilist']['client_id']);
+        $configurator->parameters()->set('anime.anilist.client_secret', $config['anilist']['client_secret']);
+        $configurator->parameters()->set('anime.animeworld.url_regex', $config['animeworld']['url_regex']);
+        $configurator->parameters()->set('anime.animeworld.url', $config['animeworld']['url']);
+        $configurator->parameters()->set('anime.animeworld.api_url', $config['animeworld']['api_url']);
+        $configurator->parameters()->set('anime.animeworld.client_id', $config['animeworld']['client_id']);
+        $configurator->parameters()->set('anime.animeworld.api_key', $config['animeworld']['api_key']);
+        $configurator->parameters()->set('anime.animeunity.url_regex', $config['animeunity']['url_regex']);
+        $configurator->parameters()->set('anime.animeunity.url', $config['animeunity']['url']);
+        $configurator->parameters()->set('anime.youtube_dl.bin_path', $config['youtube_dl']['bin_path']);
     }
 
     public function configure(DefinitionConfigurator $definition): void

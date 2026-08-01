@@ -116,6 +116,7 @@ src/CoreBundle/
         Exception/ [optional]
         Message/ [optional]
         MessageHandler/ [optional]
+        Model/
         Normalizer/ [optional]
         Repository/
         Security/ [optional]
@@ -184,6 +185,7 @@ services:
         exclude:
             - '../src/DependencyInjection/'
             - '../src/Entity/'
+            - '../src/Model/'
             - '../src/Kernel.php'
 
     # add more service definitions when explicit configuration is needed

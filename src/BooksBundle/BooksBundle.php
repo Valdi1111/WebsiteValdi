@@ -15,15 +15,15 @@ class BooksBundle extends AbstractBundle
         return dirname(__DIR__ . '/src');
     }
 
-    public function prependExtension(ContainerConfigurator $container, ContainerBuilder $builder): void
+    public function prependExtension(ContainerConfigurator $configurator, ContainerBuilder $container): void
     {
-        $container->import('./config/packages/');
+        $configurator->import('./config/packages/');
     }
 
-    public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
+    public function loadExtension(array $config, ContainerConfigurator $configurator, ContainerBuilder $container): void
     {
-        $container->import('./config/services.yaml');
-        $container->parameters()->set('books.domain_name', $config['domain_name']);
+        $configurator->import('./config/services.yaml');
+        $configurator->parameters()->set('books.domain_name', $config['domain_name']);
     }
 
     public function configure(DefinitionConfigurator $definition): void

@@ -15,16 +15,16 @@ class PasswordsBundle extends AbstractBundle
         return dirname(__DIR__ . '/src');
     }
 
-    public function prependExtension(ContainerConfigurator $container, ContainerBuilder $builder): void
+    public function prependExtension(ContainerConfigurator $configurator, ContainerBuilder $container): void
     {
-        $container->import('./config/packages/');
+        $configurator->import('./config/packages/');
     }
 
-    public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
+    public function loadExtension(array $config, ContainerConfigurator $configurator, ContainerBuilder $container): void
     {
-        $container->import('./config/services.yaml');
-        $container->parameters()->set('passwords.domain_name', $config['domain_name']);
-        $container->parameters()->set('passwords.encryption_key', $config['encryption_key']);
+        $configurator->import('./config/services.yaml');
+        $configurator->parameters()->set('passwords.domain_name', $config['domain_name']);
+        $configurator->parameters()->set('passwords.encryption_key', $config['encryption_key']);
     }
 
     public function configure(DefinitionConfigurator $definition): void

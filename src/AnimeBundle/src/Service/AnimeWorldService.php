@@ -3,15 +3,14 @@
 namespace App\AnimeBundle\Service;
 
 use App\AnimeBundle\Entity\EpisodeDownload;
-use App\AnimeBundle\Entity\EpisodeDownloadRequest;
 use App\AnimeBundle\Entity\EpisodeRelease;
 use App\AnimeBundle\Entity\ListAnime;
 use App\AnimeBundle\Entity\SeasonFolder;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
 use App\AnimeBundle\Message\EpisodeDownloadNotification;
+use App\AnimeBundle\Model\EpisodeDownloadRequest;
 use Doctrine\ORM\EntityManagerInterface;
 use Exception;
-use Symfony\Component\BrowserKit\Cookie;
 use Symfony\Component\BrowserKit\HttpBrowser;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;

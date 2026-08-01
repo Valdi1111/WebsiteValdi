@@ -1,6 +1,6 @@
 <?php
 
-namespace App\AnimeBundle\Entity;
+namespace App\AnimeBundle\Model;
 
 use Symfony\Component\Validator\Constraints as Assert;
 

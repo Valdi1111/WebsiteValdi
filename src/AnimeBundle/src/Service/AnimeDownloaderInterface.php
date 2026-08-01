@@ -3,8 +3,8 @@
 namespace App\AnimeBundle\Service;
 
 use App\AnimeBundle\Entity\EpisodeDownload;
-use App\AnimeBundle\Entity\EpisodeDownloadRequest;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
+use App\AnimeBundle\Model\EpisodeDownloadRequest;
 use Exception;
 
 interface AnimeDownloaderInterface

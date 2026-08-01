@@ -2,8 +2,8 @@
 
 namespace App\AnimeBundle\Command;
 
-use App\AnimeBundle\Entity\EpisodeDownloadRequest;
 use App\AnimeBundle\Message\EpisodeDownloadNotification;
+use App\AnimeBundle\Model\EpisodeDownloadRequest;
 use App\AnimeBundle\Service\AnimeDownloaderLocator;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -34,7 +34,7 @@ class AnimeAddDownloadCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $downloadReq = (new EpisodeDownloadRequest())
+        $downloadReq = new EpisodeDownloadRequest()
             ->setUrl($input->getArgument('url'))
             ->setAll($input->getOption('all'))
             ->setFilter(!$input->getOption('no-filter'))

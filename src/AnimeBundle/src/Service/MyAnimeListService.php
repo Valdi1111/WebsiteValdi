@@ -4,9 +4,9 @@ namespace App\AnimeBundle\Service;
 
 use App\AnimeBundle\Entity\ListAnime;
 use App\AnimeBundle\Entity\ListManga;
-use App\AnimeBundle\Entity\MalListAnime;
-use App\AnimeBundle\Entity\MalListManga;
 use App\AnimeBundle\Exception\CacheRefreshException;
+use App\AnimeBundle\Model\MalListAnime;
+use App\AnimeBundle\Model\MalListManga;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\ObjectMapper\ObjectMapperInterface;

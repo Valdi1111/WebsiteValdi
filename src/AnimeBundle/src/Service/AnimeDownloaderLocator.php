@@ -2,8 +2,8 @@
 
 namespace App\AnimeBundle\Service;
 
-use App\AnimeBundle\Entity\EpisodeDownloadRequest;
 use App\AnimeBundle\Exception\UnhandledWebsiteException;
+use App\AnimeBundle\Model\EpisodeDownloadRequest;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Contracts\Service\ServiceCollectionInterface;

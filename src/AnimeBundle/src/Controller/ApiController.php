@@ -3,19 +3,19 @@
 namespace App\AnimeBundle\Controller;
 
 use App\AnimeBundle\Entity\EpisodeDownload;
-use App\AnimeBundle\Entity\EpisodeDownloadRequest;
-use App\AnimeBundle\Entity\EpisodeDownloadState;
 use App\AnimeBundle\Entity\ListAnime;
-use App\AnimeBundle\Entity\ListAnimeStatus;
-use App\AnimeBundle\Entity\ListAnimeType;
 use App\AnimeBundle\Entity\ListManga;
-use App\AnimeBundle\Entity\ListMangaStatus;
-use App\AnimeBundle\Entity\ListMangaType;
-use App\AnimeBundle\Entity\Nsfw;
 use App\AnimeBundle\Entity\SeasonFolder;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
 use App\AnimeBundle\Exception\UnhandledWebsiteException;
 use App\AnimeBundle\Message\EpisodeDownloadNotification;
+use App\AnimeBundle\Model\EpisodeDownloadRequest;
+use App\AnimeBundle\Model\EpisodeDownloadState;
+use App\AnimeBundle\Model\ListAnimeStatus;
+use App\AnimeBundle\Model\ListAnimeType;
+use App\AnimeBundle\Model\ListMangaStatus;
+use App\AnimeBundle\Model\ListMangaType;
+use App\AnimeBundle\Model\Nsfw;
 use App\AnimeBundle\Repository\EpisodeDownloadRepository;
 use App\AnimeBundle\Repository\ListAnimeRepository;
 use App\AnimeBundle\Repository\ListMangaRepository;

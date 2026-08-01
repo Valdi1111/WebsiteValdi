@@ -2,6 +2,7 @@
 
 namespace App\AnimeBundle\Entity;
 
+use App\AnimeBundle\Model\EpisodeDownloadState;
 use App\AnimeBundle\Repository\EpisodeDownloadRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;

@@ -2,8 +2,8 @@
 
 namespace App\AnimeBundle\Command;
 
-use App\AnimeBundle\Entity\EpisodeDownloadRequest;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
+use App\AnimeBundle\Model\EpisodeDownloadRequest;
 use App\AnimeBundle\Service\AnimeDownloaderInterface;
 use ElephantIO\Client;
 use Exception;
@@ -151,7 +151,7 @@ class AnimeAwSocketListener extends Command
         if ($data['anime']['dub']) {
             return;
         }
-        $downloadReq = (new EpisodeDownloadRequest())
+        $downloadReq = new EpisodeDownloadRequest()
             ->setUrl($data['episode']['link']);
         try {
             $episodes = $this->animeWorldDownloader->createEpisodeDownloads($downloadReq);

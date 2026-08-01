@@ -1,7 +1,8 @@
 <?php
 
-namespace App\AnimeBundle\Entity;
+namespace App\AnimeBundle\Model;
 
+use App\AnimeBundle\Entity\ListAnime;
 use Symfony\Component\ObjectMapper\Attribute\Map;
 use Symfony\Component\Serializer\Attribute\Context;
 use Symfony\Component\Serializer\Attribute\SerializedPath;

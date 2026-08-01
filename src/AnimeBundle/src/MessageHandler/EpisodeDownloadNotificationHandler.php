@@ -3,8 +3,8 @@
 namespace App\AnimeBundle\MessageHandler;
 
 use App\AnimeBundle\Entity\EpisodeDownload;
-use App\AnimeBundle\Entity\EpisodeDownloadState;
 use App\AnimeBundle\Message\EpisodeDownloadNotification;
+use App\AnimeBundle\Model\EpisodeDownloadState;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;

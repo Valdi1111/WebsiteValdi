@@ -2,6 +2,9 @@
 
 namespace App\AnimeBundle\Entity;
 
+use App\AnimeBundle\Model\ListMangaStatus;
+use App\AnimeBundle\Model\ListMangaType;
+use App\AnimeBundle\Model\Nsfw;
 use App\AnimeBundle\Repository\ListMangaRepository;
 use Doctrine\ORM\Mapping as ORM;
 

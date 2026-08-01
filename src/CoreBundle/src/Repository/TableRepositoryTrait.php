@@ -2,8 +2,7 @@
 
 namespace App\CoreBundle\Repository;
 
-use App\CoreBundle\Entity\Table;
-use App\CoreBundle\Entity\TableColumn;
+use App\CoreBundle\Model\Table;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 

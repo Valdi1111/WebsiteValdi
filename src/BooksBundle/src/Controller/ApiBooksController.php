@@ -6,14 +6,14 @@ use App\BooksBundle\Entity\Book;
 use App\BooksBundle\Entity\BookCache;
 use App\BooksBundle\Entity\BookMetadata;
 use App\BooksBundle\Entity\BookProgress;
-use App\BooksBundle\Entity\Channel;
 use App\BooksBundle\Entity\Library;
+use App\BooksBundle\Model\Channel;
+use App\BooksBundle\Model\EbookLoader;
 use App\BooksBundle\Normalizer\BookCacheNormalizer;
 use App\BooksBundle\Repository\BookRepository;
 use App\BooksBundle\Repository\LibraryRepository;
 use App\BooksBundle\Repository\ShelfRepository;
 use App\BooksBundle\Service\BookCoverLoader;
-use App\BooksBundle\Service\EbookLoader;
 use App\CoreBundle\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FileAttributes;
@@ -160,7 +160,7 @@ class ApiBooksController extends AbstractController
 
     #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
     #[Route('/books', name: 'books_add', methods: ['POST'])]
-    public function apiBooksAdd(Request $req, #[CurrentUser] ?User $user, ShelfRepository $shelfRepo, EbookLoader $ebookLoader, NormalizerInterface $normalizer, HubInterface $hub): Response
+    public function apiBooksAdd(Request $req, #[CurrentUser] ?User $user, ShelfRepository $shelfRepo, NormalizerInterface $normalizer, HubInterface $hub): Response
     {
         if (!$req->getPayload()->has('url')) {
             throw new BadRequestHttpException("Parameter 'url' not found.");
@@ -171,7 +171,7 @@ class ApiBooksController extends AbstractController
         if (!$req->getPayload()->has('book_metadata')) {
             throw new BadRequestHttpException("Parameter 'book_metadata' not found.");
         }
-        $book = (new Book())
+        $book = new Book()
             ->setUrl($req->getPayload()->getString('url'))
             ->setLibrary($this->getLibrary());
         $splits = explode('/', $book->getUrl());
@@ -180,6 +180,7 @@ class ApiBooksController extends AbstractController
             $book->setShelf($shelf);
         }
 
+        $ebookLoader = new EbookLoader();
         $ebookLoader->load($book);
         $serializer = new Serializer([$normalizer]);
         // Book cache
@@ -190,7 +191,7 @@ class ApiBooksController extends AbstractController
         $metadata = $serializer->denormalize($req->getPayload()->all('book_metadata'), BookMetadata::class);
         $book->setBookMetadata($metadata);
         // Book progress
-        $progress = (new BookProgress())->setUser($user);
+        $progress = new BookProgress()->setUser($user);
         $book->addBookProgress($progress);
 
         $this->entityManager->persist($book);
@@ -224,7 +225,7 @@ class ApiBooksController extends AbstractController
 
     #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
     #[Route('/books/{book}', name: 'books_id_edit', requirements: ['book' => '\d+'], methods: ['PUT'])]
-    public function apiBooksIdEdit(Request $req, #[MapEntity(message: "Book not found.")] Book $book, EbookLoader $ebookLoader, NormalizerInterface $normalizer, HubInterface $hub, CacheManager $cacheManager): Response
+    public function apiBooksIdEdit(Request $req, #[MapEntity(message: "Book not found.")] Book $book, NormalizerInterface $normalizer, HubInterface $hub, CacheManager $cacheManager): Response
     {
         if (!$req->getPayload()->has('book_cache')) {
             throw new BadRequestHttpException("Parameter 'book_cache' not found.");
@@ -237,6 +238,7 @@ class ApiBooksController extends AbstractController
             $cacheManager->remove($book->getId());
         }
 
+        $ebookLoader = new EbookLoader();
         $ebookLoader->load($book);
         $serializer = new Serializer([$normalizer]);
         // Book cache
@@ -311,7 +313,7 @@ class ApiBooksController extends AbstractController
     {
         $progress = $book->getBookProgress($user);
         if (!$progress) {
-            $progress = (new BookProgress())->setUser($user);
+            $progress = new BookProgress()->setUser($user);
             $book->addBookProgress($progress);
         }
         $progress->setPosition(null);
@@ -339,7 +341,7 @@ class ApiBooksController extends AbstractController
     {
         $progress = $book->getBookProgress($user);
         if (!$progress) {
-            $progress = (new BookProgress())->setUser($user);
+            $progress = new BookProgress()->setUser($user);
             $book->addBookProgress($progress);
         }
         if (!$req->getPayload()->has('position')) {

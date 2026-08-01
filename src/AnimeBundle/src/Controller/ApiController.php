@@ -16,13 +16,13 @@ use App\AnimeBundle\Model\ListAnimeType;
 use App\AnimeBundle\Model\ListMangaStatus;
 use App\AnimeBundle\Model\ListMangaType;
 use App\AnimeBundle\Model\Nsfw;
-use App\AnimeBundle\Repository\EpisodeDownloadRepository;
-use App\AnimeBundle\Repository\ListAnimeRepository;
-use App\AnimeBundle\Repository\ListMangaRepository;
-use App\AnimeBundle\Repository\SeasonFolderRepository;
+use App\AnimeBundle\Repository\EpisodeDownloadRepositoryInterface;
+use App\AnimeBundle\Repository\ListAnimeRepositoryInterface;
+use App\AnimeBundle\Repository\ListMangaRepositoryInterface;
+use App\AnimeBundle\Repository\SeasonFolderRepositoryInterface;
 use App\AnimeBundle\Service\AnimeDownloaderLocator;
-use App\CoreBundle\Entity\Table;
-use App\CoreBundle\Entity\TableParameters;
+use App\CoreBundle\Model\Table;
+use App\CoreBundle\Model\TableParameters;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\Filesystem;
 use League\Flysystem\Local\LocalFilesystemAdapter;
@@ -68,7 +68,7 @@ class ApiController extends AbstractController
     }
 
     #[Route('/season-folders/table', name: 'season_folders_table', methods: ['GET'])]
-    public function apiSeasonFoldersTable(SeasonFolderRepository $listRepo, #[MapQueryString] TableParameters $params): Response
+    public function apiSeasonFoldersTable(SeasonFolderRepositoryInterface $listRepo, #[MapQueryString] TableParameters $params): Response
     {
         $table = new Table($listRepo, $params);
         $table->getDefaultParameters()
@@ -92,7 +92,7 @@ class ApiController extends AbstractController
 
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
     #[Route('/season-folders', name: 'season_folders_add', methods: ['POST'])]
-    public function apiSeasonFoldersAdd(#[MapRequestPayload] SeasonFolder $season, SeasonFolderRepository $seasonRepo, EpisodeDownloadRepository $downloadRepo): Response
+    public function apiSeasonFoldersAdd(#[MapRequestPayload] SeasonFolder $season, SeasonFolderRepositoryInterface $seasonRepo, EpisodeDownloadRepositoryInterface $downloadRepo): Response
     {
         if ($seasonRepo->find($season->getId())) {
             throw new ConflictHttpException('Season already exists.');
@@ -130,7 +130,7 @@ class ApiController extends AbstractController
 
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
     #[Route('/season-folders/{id}/downloads', name: 'season_folders_id_downloads', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function apiSeasonFoldersIdDownloads(int $id, EpisodeDownloadRepository $downloadRepo): Response
+    public function apiSeasonFoldersIdDownloads(int $id, EpisodeDownloadRepositoryInterface $downloadRepo): Response
     {
         $downloads = array_map(
             fn(EpisodeDownload $download) => [
@@ -143,7 +143,7 @@ class ApiController extends AbstractController
     }
 
     #[Route('/list-anime/table', name: 'list_anime_table', methods: ['GET'])]
-    public function apiListAnimeTable(ListAnimeRepository $listRepo, #[MapQueryString] TableParameters $params): Response
+    public function apiListAnimeTable(ListAnimeRepositoryInterface $listRepo, #[MapQueryString] TableParameters $params): Response
     {
         $table = new Table($listRepo, $params);
         $table->getDefaultParameters()
@@ -185,7 +185,7 @@ class ApiController extends AbstractController
     }
 
     #[Route('/list-manga/table', name: 'list_manga_table', methods: ['GET'])]
-    public function apiListMangaTable(ListMangaRepository $listRepo, #[MapQueryString] TableParameters $params): Response
+    public function apiListMangaTable(ListMangaRepositoryInterface $listRepo, #[MapQueryString] TableParameters $params): Response
     {
         $table = new Table($listRepo, $params);
         $table->getDefaultParameters()
@@ -228,7 +228,7 @@ class ApiController extends AbstractController
     }
 
     #[Route('/downloads/table', name: 'downloads_table', methods: ['GET'])]
-    public function apiDownloadsTable(EpisodeDownloadRepository $episodeRepo, #[MapQueryString] TableParameters $params): Response
+    public function apiDownloadsTable(EpisodeDownloadRepositoryInterface $episodeRepo, #[MapQueryString] TableParameters $params): Response
     {
         $table = new Table($episodeRepo, $params);
         $table->getDefaultParameters()

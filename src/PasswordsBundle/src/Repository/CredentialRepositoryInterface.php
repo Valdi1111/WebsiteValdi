@@ -2,7 +2,7 @@
 
 namespace App\PasswordsBundle\Repository;
 
-use App\CoreBundle\Repository\ITableRepository;
+use App\CoreBundle\Repository\TableRepositoryInterface;
 use App\CoreBundle\Repository\TableRepositoryTrait;
 use App\PasswordsBundle\Entity\Credential;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -16,7 +16,7 @@ use Doctrine\Persistence\ManagerRegistry;
  * @method Credential[]    findAll()
  * @method Credential[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
  */
-class CredentialRepository extends ServiceEntityRepository implements ITableRepository
+class CredentialRepositoryInterface extends ServiceEntityRepository implements TableRepositoryInterface
 {
     use TableRepositoryTrait;
 

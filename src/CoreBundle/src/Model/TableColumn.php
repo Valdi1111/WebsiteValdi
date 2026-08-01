@@ -1,6 +1,6 @@
 <?php
 
-namespace App\CoreBundle\Entity;
+namespace App\CoreBundle\Model;
 
 use BackedEnum;
 use Symfony\Component\Serializer\Attribute\Ignore;

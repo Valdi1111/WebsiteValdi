@@ -3,7 +3,7 @@
 namespace App\AnimeBundle\Entity;
 
 use App\AnimeBundle\Model\EpisodeDownloadState;
-use App\AnimeBundle\Repository\EpisodeDownloadRepository;
+use App\AnimeBundle\Repository\EpisodeDownloadRepositoryInterface;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -12,7 +12,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'IDX_al_id', columns: ['al_id'])]
 #[ORM\Index(name: 'IDX_service_name', columns: ['service_name'])]
 #[ORM\Table(name: 'episode_download')]
-#[ORM\Entity(repositoryClass: EpisodeDownloadRepository::class)]
+#[ORM\Entity(repositoryClass: EpisodeDownloadRepositoryInterface::class)]
 class EpisodeDownload
 {
     #[ORM\Id]

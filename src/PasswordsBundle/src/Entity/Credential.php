@@ -2,14 +2,14 @@
 
 namespace App\PasswordsBundle\Entity;
 
-use App\PasswordsBundle\Repository\CredentialRepository;
+use App\PasswordsBundle\Repository\CredentialRepositoryInterface;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute as Serializer;
 use Symfony\Component\Serializer\Attribute\Groups;
 
 #[ORM\Table(name: 'credential')]
-#[ORM\Entity(repositoryClass: CredentialRepository::class)]
+#[ORM\Entity(repositoryClass: CredentialRepositoryInterface::class)]
 #[ORM\InheritanceType('SINGLE_TABLE')]
 #[ORM\DiscriminatorColumn(name: 'type', type: 'string', length: 50)]
 #[ORM\DiscriminatorMap(['device' => DeviceCredential::class, 'website' => WebsiteCredential::class])]

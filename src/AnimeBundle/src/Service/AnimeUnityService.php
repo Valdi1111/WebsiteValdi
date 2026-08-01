@@ -133,7 +133,7 @@ readonly class AnimeUnityService implements AnimeDownloaderInterface
     private function getEpisodeObject(array $pageData, int $episodeKey, string $folder, ?int $malId, ?int $alId): EpisodeDownload
     {
         $episodeData = &$pageData['episodes'][$episodeKey];
-        $episode = (new EpisodeDownload())
+        $episode = new EpisodeDownload()
             ->setServiceName(self::getServiceName())
             ->setEpisodeUrl("/anime/{$pageData['anime']['id']}-{$pageData['anime']['slug']}/{$episodeData['id']}")
             ->setEpisode($episodeData['number'])

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\BooksBundle\Service;
+namespace App\BooksBundle\Model;
 
 use App\BooksBundle\Entity\Book;
 use Kiwilan\Archive\Models\ArchiveItem;

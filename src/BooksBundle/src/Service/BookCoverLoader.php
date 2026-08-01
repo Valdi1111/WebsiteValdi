@@ -2,6 +2,7 @@
 
 namespace App\BooksBundle\Service;
 
+use App\BooksBundle\Model\EbookLoader;
 use App\BooksBundle\Repository\BookRepository;
 use Liip\ImagineBundle\Binary\BinaryInterface;
 use Liip\ImagineBundle\Binary\Loader\LoaderInterface;
@@ -18,10 +19,7 @@ class BookCoverLoader implements LoaderInterface
         'png' => 'image/png',
     ];
 
-    public function __construct(
-        private readonly BookRepository $bookRepository,
-        private readonly EbookLoader    $ebookLoader
-    )
+    public function __construct(private readonly BookRepository $bookRepository)
     {
     }
 
@@ -40,13 +38,14 @@ class BookCoverLoader implements LoaderInterface
         if (!file_exists($filepath)) {
             throw new NotLoadableException(sprintf('Cover image not resolvable, book with id "%s" has an invalid path "%s"', $path, $filepath));
         }
-        $this->ebookLoader->loadFromPath($filepath);
-        $coverItem = $this->ebookLoader->getCoverItem();
+        $ebookLoader = new EbookLoader();
+        $ebookLoader->loadFromPath($filepath);
+        $coverItem = $ebookLoader->getCoverItem();
         if (!$coverItem) {
             throw new NotLoadableException(sprintf('Cover image not resolvable, book with id "%s" has an invalid cover', $path));
         }
         return new Binary(
-            $this->ebookLoader->getEbook()->getArchive()->getContents($coverItem),
+            $ebookLoader->getEbook()->getArchive()->getContents($coverItem),
             $this->mimeTypes[$coverItem->getExtension()]??"image/jpeg",
             $coverItem->getExtension()
         );

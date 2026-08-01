@@ -3,7 +3,7 @@
 namespace App\AnimeBundle\Repository;
 
 use App\AnimeBundle\Entity\SeasonFolder;
-use App\CoreBundle\Repository\ITableRepository;
+use App\CoreBundle\Repository\TableRepositoryInterface;
 use App\CoreBundle\Repository\TableRepositoryTrait;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -16,7 +16,7 @@ use Doctrine\Persistence\ManagerRegistry;
  * @method SeasonFolder[]    findAll()
  * @method SeasonFolder[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
  */
-class SeasonFolderRepository extends ServiceEntityRepository implements ITableRepository
+class SeasonFolderRepositoryInterface extends ServiceEntityRepository implements TableRepositoryInterface
 {
     use TableRepositoryTrait;
 

@@ -2,10 +2,10 @@
 
 namespace App\PasswordsBundle\Controller;
 
-use App\CoreBundle\Entity\Table;
-use App\CoreBundle\Entity\TableParameters;
+use App\CoreBundle\Model\Table;
+use App\CoreBundle\Model\TableParameters;
 use App\PasswordsBundle\Entity\Credential;
-use App\PasswordsBundle\Repository\CredentialRepository;
+use App\PasswordsBundle\Repository\CredentialRepositoryInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -29,7 +29,7 @@ class ApiController extends AbstractController
     }
 
     #[Route('/credentials/table', name: 'credentials_table', methods: ['GET'])]
-    public function apiCredentialsTable(CredentialRepository $credentialRepo, #[MapQueryString] TableParameters $params): Response
+    public function apiCredentialsTable(CredentialRepositoryInterface $credentialRepo, #[MapQueryString] TableParameters $params): Response
     {
         $table = new Table($credentialRepo, $params);
         $table->getDefaultParameters()

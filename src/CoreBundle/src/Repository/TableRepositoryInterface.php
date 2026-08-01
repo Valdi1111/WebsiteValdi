@@ -2,10 +2,10 @@
 
 namespace App\CoreBundle\Repository;
 
-use App\CoreBundle\Entity\Table;
+use App\CoreBundle\Model\Table;
 use Doctrine\ORM\QueryBuilder;
 
-interface ITableRepository
+interface TableRepositoryInterface
 {
 
     public function qbTableResultCount(Table $table): QueryBuilder;

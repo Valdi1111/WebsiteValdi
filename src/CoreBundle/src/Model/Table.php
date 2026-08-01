@@ -1,8 +1,8 @@
 <?php
 
-namespace App\CoreBundle\Entity;
+namespace App\CoreBundle\Model;
 
-use App\CoreBundle\Repository\ITableRepository;
+use App\CoreBundle\Repository\TableRepositoryInterface;
 use Symfony\Component\Serializer\Attribute\Ignore;
 use Symfony\Component\Serializer\Attribute\SerializedName;
 
@@ -16,12 +16,12 @@ class Table
     private TableParameters $defaultParameters;
 
     /**
-     * @param ITableRepository $repository
+     * @param TableRepositoryInterface $repository
      * @param TableParameters $queryParameters
      */
     public function __construct(
-        private readonly ITableRepository $repository,
-        private readonly TableParameters  $queryParameters,
+        private readonly TableRepositoryInterface $repository,
+        private readonly TableParameters          $queryParameters,
     )
     {
         $this->defaultParameters = new TableParameters();
@@ -52,10 +52,10 @@ class Table
     }
 
     /**
-     * @return ITableRepository
+     * @return TableRepositoryInterface
      */
     #[Ignore]
-    public function getRepository(): ITableRepository
+    public function getRepository(): TableRepositoryInterface
     {
         return $this->repository;
     }

@@ -5,11 +5,11 @@ namespace App\AnimeBundle\Entity;
 use App\AnimeBundle\Model\ListAnimeStatus;
 use App\AnimeBundle\Model\ListAnimeType;
 use App\AnimeBundle\Model\Nsfw;
-use App\AnimeBundle\Repository\ListAnimeRepository;
+use App\AnimeBundle\Repository\ListAnimeRepositoryInterface;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Table(name: 'list_anime')]
-#[ORM\Entity(repositoryClass: ListAnimeRepository::class)]
+#[ORM\Entity(repositoryClass: ListAnimeRepositoryInterface::class)]
 class ListAnime
 {
     #[ORM\Id]

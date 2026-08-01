@@ -1,6 +1,6 @@
 <?php
 
-namespace App\BooksBundle\Entity;
+namespace App\BooksBundle\Model;
 
 class Channel
 {

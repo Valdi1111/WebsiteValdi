@@ -3,7 +3,7 @@
 namespace App\AnimeBundle\Repository;
 
 use App\AnimeBundle\Entity\ListManga;
-use App\CoreBundle\Repository\ITableRepository;
+use App\CoreBundle\Repository\TableRepositoryInterface;
 use App\CoreBundle\Repository\TableRepositoryTrait;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -16,7 +16,7 @@ use Doctrine\Persistence\ManagerRegistry;
  * @method ListManga[]    findAll()
  * @method ListManga[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
  */
-class ListMangaRepository extends ServiceEntityRepository implements ITableRepository
+class ListMangaRepositoryInterface extends ServiceEntityRepository implements TableRepositoryInterface
 {
     use TableRepositoryTrait;
 

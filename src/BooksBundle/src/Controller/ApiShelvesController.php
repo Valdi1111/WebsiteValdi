@@ -2,9 +2,9 @@
 
 namespace App\BooksBundle\Controller;
 
-use App\BooksBundle\Entity\Channel;
 use App\BooksBundle\Entity\Library;
 use App\BooksBundle\Entity\Shelf;
+use App\BooksBundle\Model\Channel;
 use App\BooksBundle\Normalizer\BookCacheNormalizer;
 use App\BooksBundle\Repository\BookRepository;
 use App\BooksBundle\Repository\LibraryRepository;
@@ -61,7 +61,7 @@ class ApiShelvesController extends AbstractController
         if (!$req->getPayload()->has('name')) {
             throw new BadRequestHttpException("Parameter 'name' not found.");
         }
-        $shelf = (new Shelf())
+        $shelf = new Shelf()
             ->setPath($req->getPayload()->getString('path'))
             ->setName($req->getPayload()->getString('name'))
             ->setLibrary($this->getLibrary());

@@ -16,6 +16,8 @@ class EpisodeDownloadRequest
 
     private bool $save = true;
 
+    private int $delay = 0;
+
     /**
      * Episode url without hostname
      * @return string
@@ -85,6 +87,17 @@ class EpisodeDownloadRequest
     public function setSave(bool $save): static
     {
         $this->save = $save;
+        return $this;
+    }
+
+    public function getDelay(): int
+    {
+        return $this->delay;
+    }
+
+    public function setDelay(int $delay): EpisodeDownloadRequest
+    {
+        $this->delay = $delay;
         return $this;
     }
 

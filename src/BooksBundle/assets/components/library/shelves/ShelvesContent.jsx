@@ -36,7 +36,12 @@ export default function ShelvesContent() {
         ws.current = new EventSource(hub, { withCredentials: true });
         ws.current.addEventListener('message', handleWebsocket);
         // Close connection on unmount
-        return () => ws.current?.close();
+        return () => {
+            if (ws.current) {
+                ws.current?.close();
+                ws.current = null;
+            }
+        };
     }, [selectedShelf?.id]);
 
     /**

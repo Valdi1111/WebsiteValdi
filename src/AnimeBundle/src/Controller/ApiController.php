@@ -277,8 +277,11 @@ class ApiController extends AbstractController
             throw new BadRequestHttpException("This series isn't on your anime list", $e);
         }
         foreach ($downloads as $download) {
-            // TODO parametrizzare o rendere opzionale
-            $bus->dispatch(new EpisodeDownloadNotification($download->getId()), [new DelayStamp(60000)]);
+            $stamps = [];
+            if ($downloadReq->getDelay() > 0) {
+                $stamps[] = new DelayStamp($downloadReq->getDelay() * 1000);
+            }
+            $bus->dispatch(new EpisodeDownloadNotification($download->getId()), $stamps);
         }
         return $this->json($downloads);
     }

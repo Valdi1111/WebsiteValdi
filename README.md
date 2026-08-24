@@ -265,7 +265,7 @@ System.config({
 * `sudo groupadd condivisi`
 * `sudo usermod -aG condivisi www-data`
 * `sudo usermod -aG condivisi $USER`
-* `sudo own -R $USER:condivisi /media/*`
+* `sudo chown -R $USER:condivisi /media/*`
 * `sudo chmod -R 664 /media/*`
 * `sudo find /media/* -type d -exec chmod 2775 {} \;`
 

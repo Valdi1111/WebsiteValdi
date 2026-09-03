@@ -98,6 +98,15 @@
             "./config/packages/debug.yaml"
         ]
     },
+    "symfony/discord-notifier": {
+        "version": "8.0",
+        "recipe": {
+            "repo": "github.com/symfony/recipes",
+            "branch": "main",
+            "version": "5.2",
+            "ref": "4382408da6e53630230b4d41256b93a6f3b8c33e"
+        }
+    },
     "symfony/flex": {
         "version": "2.4",
         "recipe": {
@@ -290,6 +299,15 @@
             "assets/controllers/csrf_protection_controller.js",
             "assets/controllers/hello_controller.js"
         ]
+    },
+    "symfony/telegram-notifier": {
+        "version": "8.0",
+        "recipe": {
+            "repo": "github.com/symfony/recipes",
+            "branch": "main",
+            "version": "5.0",
+            "ref": "a3b62351bdaf9af180ffaf8a9c5ae0df70886abe"
+        }
     },
     "symfony/translation": {
         "version": "7.0",

@@ -28,6 +28,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private ?string $password = null;
 
+    #[ORM\Column(length: 50, nullable: true)]
+    private ?string $discordUserId = null;
+
+    #[ORM\Column(length: 50, nullable: true)]
+    private ?string $telegramCHatId = null;
+
     /**
      * @var Collection<int, UserRole>
      */
@@ -99,6 +105,30 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         // If you store any temporary, sensitive data on the user, clear it here
         // $this->plainPassword = null;
+    }
+
+    public function getDiscordUserId(): ?string
+    {
+        return $this->discordUserId;
+    }
+
+    public function setDiscordUserId(string $discordUserId): static
+    {
+        $this->discordUserId = $discordUserId;
+
+        return $this;
+    }
+
+    public function getTelegramChatId(): ?string
+    {
+        return $this->telegramCHatId;
+    }
+
+    public function setTelegramChatId(string $telegramCHatId): static
+    {
+        $this->telegramCHatId = $telegramCHatId;
+
+        return $this;
     }
 
     /**

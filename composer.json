@@ -23,6 +23,7 @@
         "symfony/browser-kit": "8.0.*",
         "symfony/console": "8.0.*",
         "symfony/css-selector": "8.0.*",
+        "symfony/discord-notifier": "8.0.*",
         "symfony/doctrine-messenger": "8.0.*",
         "symfony/dom-crawler": "8.0.*",
         "symfony/dotenv": "8.0.*",
@@ -53,6 +54,7 @@
         "symfony/serializer": "8.0.*",
         "symfony/stimulus-bundle": "^3.0",
         "symfony/string": "8.0.*",
+        "symfony/telegram-notifier": "8.0.*",
         "symfony/translation": "8.0.*",
         "symfony/twig-bundle": "8.0.*",
         "symfony/uid": "8.0.*",
@@ -78,6 +80,8 @@
             "App\\CoreBundle\\": "src/CoreBundle/src/",
             "App\\AnimeBundle\\": "src/AnimeBundle/src/",
             "App\\BooksBundle\\": "src/BooksBundle/src/",
+            "App\\GachaCompanionBundle\\": "src/GachaCompanionBundle/src/",
+            "App\\HoyoverseBundle\\": "src/HoyoverseBundle/src/",
             "App\\PasswordsBundle\\": "src/PasswordsBundle/src/",
             "App\\VideosBundle\\": "src/VideosBundle/src/"
         }
@@ -88,6 +92,8 @@
             "App\\CoreBundle\\Tests\\": "src/CoreBundle/tests/",
             "App\\AnimeBundle\\Tests\\": "src/AnimeBundle/tests/",
             "App\\BooksBundle\\Tests\\": "src/BooksBundle/tests/",
+            "App\\GachaCompanionBundle\\Tests\\": "src/GachaCompanionBundle/tests/",
+            "App\\HoyoverseBundle\\Tests\\": "src/HoyoverseBundle/tests/",
             "App\\PasswordsBundle\\Tests\\": "src/PasswordsBundle/tests/",
             "App\\VideosBundle\\Tests\\": "src/VideosBundle/tests/"
         }

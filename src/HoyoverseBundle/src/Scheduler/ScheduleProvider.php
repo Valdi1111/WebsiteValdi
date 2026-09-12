@@ -3,6 +3,7 @@
 namespace App\HoyoverseBundle\Scheduler;
 
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Component\Messenger\Message\RedispatchMessage;
 use Symfony\Component\Scheduler\Attribute\AsSchedule;
 use Symfony\Component\Scheduler\RecurringMessage;
 use Symfony\Component\Scheduler\Schedule;
@@ -43,7 +44,7 @@ class ScheduleProvider implements ScheduleProviderInterface
                     $schedule->add(
                         RecurringMessage::cron(
                             $cronExpression,
-                            new $messageClass($regionKey),
+                            new RedispatchMessage(new $messageClass($regionKey)),
                             new \DateTimeZone($timeZoneString)
                         )
                     );
@@ -51,7 +52,7 @@ class ScheduleProvider implements ScheduleProviderInterface
             } else {
                 // Global task: single cron
                 $schedule->add(
-                    RecurringMessage::cron($cronExpression, new $messageClass())
+                    RecurringMessage::cron($cronExpression, new RedispatchMessage(new $messageClass()))
                 );
             }
         }

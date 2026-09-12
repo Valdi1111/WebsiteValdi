@@ -33,6 +33,7 @@ use Symfony\Component\Console\Messenger\RunCommandMessage;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\Filesystem\Path;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -304,7 +305,7 @@ class ApiController extends AbstractController
     private function getOgTitle(HttpClientInterface $client, string $url): ?string
     {
         try {
-            $response = $client->request('GET', $url);
+            $response = $client->request(Request::METHOD_GET, $url);
             $html = $response->getContent();
             $crawler = new Crawler($html);
             return $crawler

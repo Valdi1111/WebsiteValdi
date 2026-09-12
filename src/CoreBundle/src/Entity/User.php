@@ -2,6 +2,7 @@
 
 namespace App\CoreBundle\Entity;
 
+use App\CoreBundle\Model\Notification\NotifiableUserInterface;
 use App\CoreBundle\Repository\UserRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -12,7 +13,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
 #[ORM\UniqueConstraint(name: 'IDX_email', columns: ['email'])]
 #[ORM\Table(name: 'user')]
 #[ORM\Entity(repositoryClass: UserRepository::class)]
-class User implements UserInterface, PasswordAuthenticatedUserInterface
+class User implements UserInterface, PasswordAuthenticatedUserInterface, NotifiableUserInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

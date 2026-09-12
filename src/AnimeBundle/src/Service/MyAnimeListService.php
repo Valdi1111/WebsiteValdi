@@ -9,6 +9,8 @@ use App\AnimeBundle\Model\MalListAnime;
 use App\AnimeBundle\Model\MalListManga;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\ObjectMapper\ObjectMapperInterface;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -45,8 +47,8 @@ readonly class MyAnimeListService
         try {
             $next = sprintf(self::FETCH_URL, self::USER, $type, self::LIMIT, implode(',', $fields));
             while ($next) {
-                $response = $this->animeMyanimelistClient->request('GET', $next);
-                if ($response->getStatusCode() !== 200) {
+                $response = $this->animeMyanimelistClient->request(Request::METHOD_GET, $next);
+                if ($response->getStatusCode() !== Response::HTTP_OK) {
                     throw new \RuntimeException("Error fetching list from MyAnimeList. (Http code {$response->getStatusCode()})");
                 }
                 $content = $response->toArray();

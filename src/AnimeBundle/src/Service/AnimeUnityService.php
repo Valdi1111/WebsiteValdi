@@ -13,6 +13,8 @@ use Symfony\Component\BrowserKit\HttpBrowser;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 #[AsAlias('animeunity.anime.downloader')]
@@ -39,9 +41,9 @@ readonly class AnimeUnityService implements AnimeDownloaderInterface
      */
     private function fetchPage(string $url): Crawler
     {
-        $crawler = $this->httpBrowser->request('GET', $this->getWebsiteUrl() . $url);
+        $crawler = $this->httpBrowser->request(Request::METHOD_GET, $this->getWebsiteUrl() . $url);
         $response = $this->httpBrowser->getResponse();
-        if ($response->getStatusCode() !== 200) {
+        if ($response->getStatusCode() !== Response::HTTP_OK) {
             throw new Exception("Error fetching page from AnimeUnity. Http code = " . $response->getStatusCode());
         }
         return $crawler;

@@ -13,6 +13,7 @@
         "doctrine/orm": "^3.6",
         "dragonmantank/cron-expression": "^3.6",
         "elephantio/elephant.io": "^5.3",
+        "erusev/parsedown": "^1.8",
         "kiwilan/php-ebook": "^3.0",
         "liip/imagine-bundle": "^2.17",
         "norkunas/youtube-dl-php": "2.*",

@@ -15,6 +15,8 @@ use Symfony\Component\BrowserKit\HttpBrowser;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
@@ -45,17 +47,17 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
      */
     private function fetchPage(string $url = ""): Crawler
     {
-        $crawler = $this->httpBrowser->request('GET', $this->getWebsiteUrl() . $url);
+        $crawler = $this->httpBrowser->request(Request::METHOD_GET, $this->getWebsiteUrl() . $url);
         $response = $this->httpBrowser->getResponse();
-//        if ($response->getStatusCode() === 202) {
+//        if ($response->getStatusCode() === Response::HTTP_ACCEPTED) {
 //            if (!preg_match('/(SecurityAW-[^=]+)=([^;]+)/', $response->getContent(), $matches)) {
 //                throw new Exception("Error fetching page from AnimeWorld. Cookie SecurityAW-XX not found.");
 //            }
 //            $this->httpBrowser->getCookieJar()->set(new Cookie(trim($matches[1]), trim($matches[2])));
-//            $crawler = $this->httpBrowser->request('GET', $this->getWebsiteUrl() . $url);
+//            $crawler = $this->httpBrowser->request(Request::METHOD_GET', $this->getWebsiteUrl() . $url);
 //            $response = $this->httpBrowser->getResponse();
 //        }
-        if ($response->getStatusCode() !== 200) {
+        if ($response->getStatusCode() !== Response::HTTP_OK) {
             throw new Exception("Error fetching page from AnimeWorld. Http code = " . $response->getStatusCode());
         }
         return $crawler;
@@ -70,7 +72,7 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
     {
         preg_match(self::URL_REGEX, $episode->getEpisodeUrl(), $matches);
         $episodeToken = $matches['episodeToken'];
-        $response = $this->nodeServicesClient->request('GET', "/animeworld/extract-url", [
+        $response = $this->nodeServicesClient->request(Request::METHOD_GET, "/animeworld/extract-url", [
             'query' => [
                 'url' => "{$this->getWebsiteUrl()}/api/episode/serverPlayerAnimeWorld?id=$episodeToken"
             ]

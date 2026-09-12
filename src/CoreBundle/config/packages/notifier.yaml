@@ -1,0 +1,5 @@
+framework:
+    notifier:
+        chatter_transports:
+            discord: '%env(DISCORD_DSN)%'
+            telegram: '%env(TELEGRAM_DSN)%'

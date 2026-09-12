@@ -41,9 +41,6 @@ class AnimeBundle extends AbstractBundle
         $configurator->parameters()->set('anime.animeworld.api_key', $config['animeworld']['api_key']);
         $configurator->parameters()->set('anime.animeunity.url_regex', $config['animeunity']['url_regex']);
         $configurator->parameters()->set('anime.animeunity.url', $config['animeunity']['url']);
-        $configurator->parameters()->set('anime.etabeta.url', $config['etabeta']['url']);
-        $configurator->parameters()->set('anime.etabeta.username', $config['etabeta']['username']);
-        $configurator->parameters()->set('anime.etabeta.password', $config['etabeta']['password']);
         $configurator->parameters()->set('anime.youtube_dl.bin_path', $config['youtube_dl']['bin_path']);
     }
 
@@ -83,13 +80,6 @@ class AnimeBundle extends AbstractBundle
                 ->children()
                     ->scalarNode('url_regex')->defaultNull()->end()
                     ->scalarNode('url')->defaultNull()->end()
-                ->end()
-            ->end()
-            ->arrayNode('etabeta')
-                ->children()
-                    ->scalarNode('url')->defaultNull()->end()
-                    ->scalarNode('username')->defaultNull()->end()
-                    ->scalarNode('password')->defaultNull()->end()
                 ->end()
             ->end()
             ->arrayNode('youtube_dl')

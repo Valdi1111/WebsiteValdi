@@ -152,12 +152,112 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         url_regex?: scalar|Param|null, // Default: null
  *         url?: scalar|Param|null, // Default: null
  *     },
+ *     etabeta?: array{
+ *         url?: scalar|Param|null, // Default: null
+ *         username?: scalar|Param|null, // Default: null
+ *         password?: scalar|Param|null, // Default: null
+ *     },
  *     youtube_dl?: array{
  *         bin_path?: scalar|Param|null, // Default: null
  *     },
  * }
  * @psalm-type BooksConfig = array{
  *     domain_name?: scalar|Param|null, // Default: null
+ * }
+ * @psalm-type HoyoverseConfig = array{
+ *     tasks?: array{
+ *         hoyolab_check_in?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\HoyolabCheckInMessage"
+ *             cron?: scalar|Param|null, // Default: "0 20 * * *"
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *         hoyolab_missed_check_in?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\HoyolabMissedCheckInMessage"
+ *             cron?: scalar|Param|null, // Default: "0 14 * * *"
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *         code_redeem?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\CodesRedeemMessage"
+ *             cron?: scalar|Param|null, // Default: "*/15 * * * *"
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *         stamina?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\StaminaCheckMessage"
+ *             cron?: scalar|Param|null, // Default: "*/30 * * * *"
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *         expedition?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\ExpeditionCheckMessage"
+ *             cron?: scalar|Param|null, // Default: "*/30 * * * *"
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *         realm_currency?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\RealmCurrencyMessage"
+ *             cron?: scalar|Param|null, // Default: "0 * * * *"
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *         shop_status?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\ShopStatusMessage"
+ *             cron?: scalar|Param|null, // Default: "0 * * * *"
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *         mimo?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\MimoTaskMessage"
+ *             cron?: scalar|Param|null, // Default: "0 */6 * * *"
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: 3
+ *         },
+ *         hilichurl?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\HilichurlTaskMessage"
+ *             cron?: scalar|Param|null, // Default: "0 11 * * *"
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: 3
+ *         },
+ *         update_cookie?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\UpdateCookieMessage"
+ *             cron?: scalar|Param|null, // Default: "0 3 * * *"
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *         howl_scratch_card?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\HowlScratchCardMessage"
+ *             cron?: scalar|Param|null, // Default: "0 21 * * *"
+ *             regional?: bool|Param, // Default: true
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *         dailies_reminder?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\DailiesReminderMessage"
+ *             cron?: scalar|Param|null, // Default: "0 21 * * *"
+ *             regional?: bool|Param, // Default: true
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *         weeklies_reminder?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\WeekliesReminderMessage"
+ *             cron?: scalar|Param|null, // Default: "0 21 * * 0"
+ *             regional?: bool|Param, // Default: true
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *     },
  * }
  * @psalm-type PasswordsConfig = array{
  *     domain_name?: scalar|Param|null, // Default: null
@@ -1742,6 +1842,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     services?: ServicesConfig,
  *     anime?: AnimeConfig,
  *     books?: BooksConfig,
+ *     hoyoverse?: HoyoverseConfig,
  *     passwords?: PasswordsConfig,
  *     videos?: VideosConfig,
  *     doctrine?: DoctrineConfig,
@@ -1762,6 +1863,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         services?: ServicesConfig,
  *         anime?: AnimeConfig,
  *         books?: BooksConfig,
+ *         hoyoverse?: HoyoverseConfig,
  *         passwords?: PasswordsConfig,
  *         videos?: VideosConfig,
  *         doctrine?: DoctrineConfig,
@@ -1786,6 +1888,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         services?: ServicesConfig,
  *         anime?: AnimeConfig,
  *         books?: BooksConfig,
+ *         hoyoverse?: HoyoverseConfig,
  *         passwords?: PasswordsConfig,
  *         videos?: VideosConfig,
  *         doctrine?: DoctrineConfig,
@@ -1807,6 +1910,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         services?: ServicesConfig,
  *         anime?: AnimeConfig,
  *         books?: BooksConfig,
+ *         hoyoverse?: HoyoverseConfig,
  *         passwords?: PasswordsConfig,
  *         videos?: VideosConfig,
  *         doctrine?: DoctrineConfig,

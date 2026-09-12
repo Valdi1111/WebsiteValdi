@@ -1,0 +1,42 @@
+monolog:
+    channels:
+        - hoyoverse
+        - hoyoverse_hi3
+        - hoyoverse_tot
+        - hoyoverse_gi
+        - hoyoverse_hsr
+        - hoyoverse_zzz
+
+when@prod:
+    monolog:
+        handlers:
+            hoyoverse_file:
+                type: stream
+                path: '%kernel.logs_dir%/hoyoverse.log'
+                level: debug
+                channels: ['hoyoverse']
+            hoyoverse_hi3_file:
+                type: stream
+                path: '%kernel.logs_dir%/hoyoverse-honkai-impact-3rd.log'
+                level: debug
+                channels: ['hoyoverse_hi3']
+            hoyoverse_tot_file:
+                type: stream
+                path: '%kernel.logs_dir%/hoyoverse-tears-of-themis.log'
+                level: debug
+                channels: ['hoyoverse_tot']
+            hoyoverse_gi_file:
+                type: stream
+                path: '%kernel.logs_dir%/hoyoverse-genshin-impact.log'
+                level: debug
+                channels: ['hoyoverse_gi']
+            hoyoverse_hsr_file:
+                type: stream
+                path: '%kernel.logs_dir%/hoyoverse-honkai-star-rail.log'
+                level: debug
+                channels: ['hoyoverse_hsr']
+            hoyoverse_zzz_file:
+                type: stream
+                path: '%kernel.logs_dir%/hoyoverse-zenless-zone-zero.log'
+                level: debug
+                channels: ['hoyoverse_zzz']

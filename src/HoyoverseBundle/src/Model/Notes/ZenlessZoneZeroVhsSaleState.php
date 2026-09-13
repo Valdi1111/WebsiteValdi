@@ -8,6 +8,11 @@ enum ZenlessZoneZeroVhsSaleState: string
     case DOING = 'SaleStateDoing';
     case DONE = 'SaleStateDone';
 
+    public function isDone(): bool
+    {
+        return $this === self::DONE;
+    }
+
     public function getLabel(): string
     {
         return match ($this) {

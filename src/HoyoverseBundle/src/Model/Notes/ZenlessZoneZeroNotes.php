@@ -5,7 +5,7 @@ namespace App\HoyoverseBundle\Model\Notes;
 use Symfony\Component\Serializer\Attribute\SerializedName;
 use Symfony\Component\Serializer\Attribute\SerializedPath;
 
-class ZenlessZoneZeroNotes implements GameNotes, HasStaminaNotes, HasDailiesNotes, HasWeekliesNotes, HasHowlScratchCardNotes
+class ZenlessZoneZeroNotes implements GameNotes, HasStaminaNotes, HasDailiesNotes, HasWeekliesNotes, HasHowlScratchCardNotes, HasShopStatusNotes
 {
     // =========================================================================
     // Stamina (Battery Charge / Energy)

@@ -44,7 +44,7 @@ class ScheduleProvider implements ScheduleProviderInterface
                     $schedule->add(
                         RecurringMessage::cron(
                             $cronExpression,
-                            new RedispatchMessage(new $messageClass($regionKey)),
+                            new RedispatchMessage(new $messageClass($regionKey), 'hoyoverse'),
                             new \DateTimeZone($timeZoneString)
                         )
                     );
@@ -52,7 +52,7 @@ class ScheduleProvider implements ScheduleProviderInterface
             } else {
                 // Global task: single cron
                 $schedule->add(
-                    RecurringMessage::cron($cronExpression, new RedispatchMessage(new $messageClass()))
+                    RecurringMessage::cron($cronExpression, new RedispatchMessage(new $messageClass(), 'hoyoverse'))
                 );
             }
         }

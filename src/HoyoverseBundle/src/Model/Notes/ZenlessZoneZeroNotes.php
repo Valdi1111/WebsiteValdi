@@ -61,6 +61,9 @@ class ZenlessZoneZeroNotes implements GameNotes, HasStaminaNotes, HasDailiesNote
     #[SerializedPath('[weekly_task?][max_point]')]
     private ?int $weeklyTaskMaxPoint = null;
 
+    #[SerializedPath('[weekly_task?][unlock]')]
+    private ?bool $weeklyTaskUnlock = null;
+
     // =========================================================================
     // Random Play (VHS Store Sale) & Cafe
     // =========================================================================
@@ -229,6 +232,17 @@ class ZenlessZoneZeroNotes implements GameNotes, HasStaminaNotes, HasDailiesNote
         return $this;
     }
 
+    public function isWeeklyTaskUnlock(): ?bool
+    {
+        return $this->weeklyTaskUnlock;
+    }
+
+    public function setWeeklyTaskUnlock(?bool $weeklyTaskUnlock): self
+    {
+        $this->weeklyTaskUnlock = $weeklyTaskUnlock;
+        return $this;
+    }
+
     public function getVhsSaleState(): ?ZenlessZoneZeroVhsSaleState
     {
         return $this->vhsSaleState;
@@ -270,14 +284,16 @@ class ZenlessZoneZeroNotes implements GameNotes, HasStaminaNotes, HasDailiesNote
     {
         return new GameNotesWeeklies()
             ->addWeekly(
-                "Bounty Commission",
+                "Bounty Commissions",
                 $this->getBountyCommissionNum(),
                 $this->getBountyCommissionTotal(),
+                unlocked: $this->isBountyCommissionUnlock(),
             )
             ->addWeekly(
-                "Survey Points",
-                $this->getSurveyPointsNum(),
-                $this->getSurveyPointsTotal(),
+                "Weekly Points",
+                $this->getWeeklyTaskCurPoint(),
+                $this->getWeeklyTaskMaxPoint(),
+                unlocked: $this->isWeeklyTaskUnlock()
             );
     }
 }

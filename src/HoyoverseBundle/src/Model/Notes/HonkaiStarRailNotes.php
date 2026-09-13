@@ -39,7 +39,7 @@ class HonkaiStarRailNotes implements GameNotes, HasStaminaNotes, HasDailiesNotes
     private ?int $maxTrainScore = null;
 
     // =========================================================================
-    // Weeklies (Echo of War, Simulated Universe & Divergent Universe)
+    // Weeklies (Echo of War, Simulated Universe, Divergent Universe & Currency Wars)
     // =========================================================================
 
     #[SerializedName('weekly_cocoon_cnt')]
@@ -71,6 +71,12 @@ class HonkaiStarRailNotes implements GameNotes, HasStaminaNotes, HasDailiesNotes
 
     #[SerializedName('grid_fight_weekly_max')]
     private ?int $gridFightWeeklyMax = null;
+
+    #[SerializedName('period_score')]
+    private ?int $periodScore = null;
+
+    #[SerializedName('period_max_score')]
+    private ?int $periodMaxScore = null;
 
     // =========================================================================
     // Expeditions (Assignments)
@@ -297,6 +303,28 @@ class HonkaiStarRailNotes implements GameNotes, HasStaminaNotes, HasDailiesNotes
         return $this;
     }
 
+    public function getPeriodScore(): ?int
+    {
+        return $this->periodScore;
+    }
+
+    public function setPeriodScore(?int $periodScore): self
+    {
+        $this->periodScore = $periodScore;
+        return $this;
+    }
+
+    public function getPeriodMaxScore(): ?int
+    {
+        return $this->periodMaxScore;
+    }
+
+    public function setPeriodMaxScore(?int $periodMaxScore): self
+    {
+        $this->periodMaxScore = $periodMaxScore;
+        return $this;
+    }
+
     public function getAcceptedExpeditionNum(): ?int
     {
         return $this->acceptedExpeditionNum;
@@ -366,21 +394,15 @@ class HonkaiStarRailNotes implements GameNotes, HasStaminaNotes, HasDailiesNotes
     {
         return new GameNotesWeeklies()
             ->addWeekly(
-                "Weekly Boss",
+                "Weekly Bosses",
                 $this->getWeeklyCocoonCnt(),
                 $this->getWeeklyCocoonLimit(),
                 checkType: GameNotesWeeklyCheckType::CURRENT_EQUALS_ZERO
             )
             ->addWeekly(
-                "Simulated Universe",
-                $this->getCurrentRogueScore(),
-                $this->getMaxRogueScore(),
-            )
-            ->addWeekly(
-                "Divergent Universe",
-                $this->getRogueTournWeeklyCur(),
-                $this->getRogueTournWeeklyMax(),
-                unlocked: $this->isRogueTournWeeklyUnlocked(),
+                "Weekly Points",
+                $this->getPeriodScore(),
+                $this->getPeriodMaxScore(),
             );
     }
 

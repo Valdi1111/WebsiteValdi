@@ -1,10 +1,10 @@
+import HoyoverseGameProfileSettingsDrawer from "@HoyoverseBundle/components/game-profile/HoyoverseGameProfileSettingsDrawer";
+import HoyoverseAddAccountModal from "@HoyoverseBundle/components/account/HoyoverseAddAccountModal";
+import HoyoverseAccountCard from "@HoyoverseBundle/components/account/HoyoverseAccountCard";
+import { useBackendApi } from "@HoyoverseBundle/components/BackendApiContext";
 import React, { useState, useEffect, useCallback } from "react";
 import { Button, Typography, Space, Empty, Spin } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
-import { useBackendApi } from "@HoyoverseBundle/components/BackendApiContext";
-import HoyoverseAccountCard from "@HoyoverseBundle/components/account/HoyoverseAccountCard";
-import HoyoverseAddAccountModal from "@HoyoverseBundle/components/account/HoyoverseAddAccountModal";
-import HoyoverseGameProfileSettingsDrawer from "@HoyoverseBundle/components/game-profile/HoyoverseGameProfileSettingsDrawer";
 
 const { Title, Text } = Typography;
 
@@ -77,8 +77,8 @@ export default function HoyoverseAccountsPage() {
             });
     };
 
-    const handleOpenSettings = (accountId, profileId) => {
-        setSelectedTarget({ accountId, profileId });
+    const handleOpenSettings = (accountId, canRedeemCodes, profileId) => {
+        setSelectedTarget({ accountId, canRedeemCodes, profileId });
         setIsSettingsOpen(true);
     };
 
@@ -132,6 +132,7 @@ export default function HoyoverseAccountsPage() {
                 open={isSettingsOpen}
                 accountId={selectedTarget?.accountId}
                 profileId={selectedTarget?.profileId}
+                accountCanRedeemCodes={selectedTarget?.canRedeemCodes}
                 onClose={() => {
                     setIsSettingsOpen(false);
                     setSelectedTarget(null);

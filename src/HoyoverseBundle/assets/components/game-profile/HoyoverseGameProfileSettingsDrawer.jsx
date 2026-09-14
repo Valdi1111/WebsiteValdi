@@ -1,3 +1,4 @@
+import { useBackendApi } from "@HoyoverseBundle/components/BackendApiContext";
 import React, { useState, useCallback } from "react";
 import {
     Drawer,
@@ -15,7 +16,6 @@ import {
     Spin,
     ConfigProvider
 } from "antd";
-import { useBackendApi } from "@HoyoverseBundle/components/BackendApiContext";
 
 /**
  * Reusable layout row ensuring labels and input controls stay side-by-side
@@ -47,7 +47,51 @@ function SettingRow({ label, description, children }) {
     );
 }
 
-export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, profileId, onClose, onSaved }) {
+/**
+ * Number input with explicit visual indicator when threshold is disabled (-1).
+ * Displays "Off" directly in the input when value is <= -1, with a "Turn off" button stacked underneath.
+ */
+function ThresholdInput({ value, onChange, min = -1, max, step = 1, disabled, width = 110 }) {
+    const isOff = value === undefined || value === null || value <= -1;
+
+    return (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+            <InputNumber
+                min={min}
+                max={max}
+                step={step}
+                value={value}
+                onChange={onChange}
+                disabled={disabled}
+                style={{ width }}
+                formatter={(val) => {
+                    if (val === "" || val === undefined || val === null) return "";
+                    return Number(val) <= -1 ? "Off" : String(val);
+                }}
+                parser={(displayValue) => {
+                    if (!displayValue || displayValue.trim().toLowerCase() === "off") {
+                        return -1;
+                    }
+                    const parsed = parseInt(displayValue.replace(/[^\d-]/g, ""), 10);
+                    return isNaN(parsed) ? -1 : parsed;
+                }}
+            />
+            {!disabled && !isOff && (
+                <Button
+                    size="small"
+                    type="link"
+                    danger
+                    onClick={() => onChange?.(-1)}
+                    style={{ fontSize: 11, padding: 0, height: 18, marginTop: 2 }}
+                >
+                    Turn off
+                </Button>
+            )}
+        </div>
+    );
+}
+
+export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, profileId, accountCanRedeemCodes, onClose, onSaved }) {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -260,9 +304,20 @@ export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, pr
                             </SettingRow>
                         )}
                         {supports("code_redeem") && (
-                            <SettingRow label="Auto Promo Code Redemption">
+                            <SettingRow
+                                label="Auto Promo Code Redemption"
+                                description={
+                                    !accountCanRedeemCodes ? (
+                                        <span style={{ color: "#faad14" }}>
+                                            Unavailable: Account cookie lacks redemption tokens (cookie_token_v2, account_mid_v2, account_id_v2). Re-add account cookie to enable.
+                                        </span>
+                                    ) : (
+                                        "Automatically claim newly discovered promo codes"
+                                    )
+                                }
+                            >
                                 <Form.Item name="code_redeem" valuePropName="checked" noStyle>
-                                    <Switch disabled={!isProfileActive} />
+                                    <Switch disabled={!isProfileActive || !accountCanRedeemCodes} />
                                 </Form.Item>
                             </SettingRow>
                         )}
@@ -281,9 +336,9 @@ export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, pr
                                     </SettingRow>
                                 )}
                                 {supports("stamina_threshold") && (
-                                    <SettingRow label="Stamina Threshold" description="Set -1 to disable threshold alert">
+                                    <SettingRow label="Stamina Threshold" description="Trigger alert when stamina reaches this amount">
                                         <Form.Item name="stamina_threshold" noStyle>
-                                            <InputNumber min={-1} max={300} style={{ width: 100 }} disabled={!isProfileActive} />
+                                            <ThresholdInput min={-1} max={300} disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
@@ -311,9 +366,9 @@ export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, pr
                                     </SettingRow>
                                 )}
                                 {supports("realm_currency_threshold") && (
-                                    <SettingRow label="Currency Threshold" description="Set -1 to disable threshold alert">
+                                    <SettingRow label="Currency Threshold" description="Trigger alert when teapot coins reach this amount">
                                         <Form.Item name="realm_currency_threshold" noStyle>
-                                            <InputNumber min={-1} step={100} style={{ width: 100 }} disabled={!isProfileActive} />
+                                            <ThresholdInput min={-1} step={100} width={120} disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
@@ -385,9 +440,9 @@ export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, pr
                                     </SettingRow>
                                 )}
                                 {supports("mimo_reserve_points") && (
-                                    <SettingRow label="Mimo Reserve Points" description="Set -1 to spend all points">
+                                    <SettingRow label="Mimo Reserve Points" description="Points to keep in reserve (Off = spend all)">
                                         <Form.Item name="mimo_reserve_points" noStyle>
-                                            <InputNumber min={-1} style={{ width: 100 }} disabled={!isProfileActive} />
+                                            <ThresholdInput min={-1} step={50} width={120} disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}

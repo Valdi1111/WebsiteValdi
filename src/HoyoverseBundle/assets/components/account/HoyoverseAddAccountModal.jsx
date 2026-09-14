@@ -1,6 +1,6 @@
-import React, { useMemo } from "react";
-import { Modal, Form, Input, Space, Button, Descriptions, Tag, Alert } from "antd";
 import { CheckCircleOutlined, CloseCircleOutlined, KeyOutlined } from "@ant-design/icons";
+import { Modal, Form, Input, Space, Button, Descriptions, Tag, Alert } from "antd";
+import React, { useMemo } from "react";
 
 export default function HoyoverseAddAccountModal({ open, onCancel, onSubmit, loading }) {
     const [form] = Form.useForm();

@@ -1,10 +1,10 @@
-import React from "react";
 import { Card, Avatar, Tag, Tooltip, Typography, Space } from "antd";
-import { SettingOutlined, LinkOutlined } from "@ant-design/icons";
+import {SettingOutlined, LinkOutlined, WarningOutlined} from "@ant-design/icons";
+import React from "react";
 
 const { Text } = Typography;
 
-export default function HoyoverseGameProfileCard({ profile, onOpenSettings }) {
+export default function HoyoverseGameProfileCard({ profile, accountCanRedeemCodes, onOpenSettings }) {
     const actions = [
         <Tooltip title="Configure Settings" key="settings">
             <SettingOutlined onClick={() => onOpenSettings(profile.id)} />
@@ -63,8 +63,14 @@ export default function HoyoverseGameProfileCard({ profile, onOpenSettings }) {
                                     {"hoyolab_check_in" in profile && profile.hoyolab_check_in && (
                                         <Tag color="green">Check-In</Tag>
                                     )}
-                                    {"code_redeem" in profile && profile.code_redeem && (
-                                        <Tag color="cyan">Codes</Tag>
+                                    {'code_redeem' in profile && profile.code_redeem && (
+                                        accountCanRedeemCodes ? (
+                                            <Tag color="cyan">Codes</Tag>
+                                        ) : (
+                                            <Tooltip title="Code redemption is enabled in settings, but the account cookie lacks required redemption tokens.">
+                                                <Tag color="warning" icon={<WarningOutlined />}>Codes (No Token)</Tag>
+                                            </Tooltip>
+                                        )
                                     )}
                                     {"stamina_check" in profile && profile.stamina_check && (
                                         <Tag color="orange">Stamina</Tag>

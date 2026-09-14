@@ -7,51 +7,51 @@ use Symfony\Component\Serializer\Attribute\SerializedName;
 class ParsedCookie implements \JsonSerializable, \Stringable
 {
     #[SerializedName('ltoken_v2')]
-    private string $ltokenV2;
+    private ?string $ltokenV2 = null;
 
     #[SerializedName('ltuid_v2')]
-    private string $ltuidV2;
+    private ?string $ltuidV2 = null;
 
     #[SerializedName('ltmid_v2')]
-    private string $ltmidV2;
+    private ?string $ltmidV2 = null;
 
     #[SerializedName('cookie_token_v2')]
-    private ?string $cookieTokenV2;
+    private ?string $cookieTokenV2 = null;
 
     #[SerializedName('account_mid_v2')]
-    private ?string $accountMidV2;
+    private ?string $accountMidV2 = null;
 
     #[SerializedName('account_id_v2')]
-    private ?string $accountIdV2;
+    private ?string $accountIdV2 = null;
 
-    public function getLtokenV2(): string
+    public function getLtokenV2(): ?string
     {
         return $this->ltokenV2;
     }
 
-    public function setLtokenV2(string $ltokenV2): ParsedCookie
+    public function setLtokenV2(?string $ltokenV2): ParsedCookie
     {
         $this->ltokenV2 = $ltokenV2;
         return $this;
     }
 
-    public function getLtuidV2(): string
+    public function getLtuidV2(): ?string
     {
         return $this->ltuidV2;
     }
 
-    public function setLtuidV2(string $ltuidV2): ParsedCookie
+    public function setLtuidV2(?string $ltuidV2): ParsedCookie
     {
         $this->ltuidV2 = $ltuidV2;
         return $this;
     }
 
-    public function getLtmidV2(): string
+    public function getLtmidV2(): ?string
     {
         return $this->ltmidV2;
     }
 
-    public function setLtmidV2(string $ltmidV2): ParsedCookie
+    public function setLtmidV2(?string $ltmidV2): ParsedCookie
     {
         $this->ltmidV2 = $ltmidV2;
         return $this;

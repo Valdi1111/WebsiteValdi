@@ -5,9 +5,12 @@ namespace App\HoyoverseBundle\Entity;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Attribute\Ignore;
 
 #[ORM\Index(name: 'IDX_game_id_game_uid', columns: ['game_id', 'game_uid'])]
 #[ORM\Index(name: 'IDX_game_biz_game_uid', columns: ['game_biz', 'game_uid'])]
+#[ORM\Index(name: 'IDX_game_id_hoyoverse_account', columns: ['game_id', 'hoyoverse_account_id'])]
+#[ORM\Index(name: 'IDX_game_biz_hoyoverse_account', columns: ['game_biz', 'hoyoverse_account_id'])]
 #[ORM\Index(name: 'FK_hoyoverse_game_profile_hoyoverse_account', columns: ['hoyoverse_account_id'])]
 #[ORM\Table(name: 'hoyoverse_game_profile')]
 #[ORM\Entity(repositoryClass: HoyoverseGameProfileRepository::class)]
@@ -18,6 +21,7 @@ class HoyoverseGameProfile
     #[ORM\Column]
     private ?int $id = null;
 
+    #[Ignore]
     #[ORM\ManyToOne(targetEntity: HoyoverseAccount::class, inversedBy: 'gameProfiles')]
     #[ORM\JoinColumn(name: 'hoyoverse_account_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
     private ?HoyoverseAccount $account = null;
@@ -318,7 +322,7 @@ class HoyoverseGameProfile
         return $this;
     }
 
-    public function isRedeemCode(): ?bool
+    public function isCodeRedeem(): ?bool
     {
         return $this->codeRedeem;
     }
@@ -366,7 +370,7 @@ class HoyoverseGameProfile
         return $this;
     }
 
-    public function isRealmCoinsCheck(): ?bool
+    public function isRealmCurrencyCheck(): ?bool
     {
         return $this->realmCurrencyCheck;
     }

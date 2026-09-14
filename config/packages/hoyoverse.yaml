@@ -1,4 +1,5 @@
 hoyoverse:
+    domain_name: 'hoyoverse.%domain_name%'
     tasks:
         hoyolab_check_in:
             cron: '0 20 * * *'

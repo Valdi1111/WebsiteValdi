@@ -1,0 +1,18 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Hoyoverse{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {{ encore_entry_link_tags('hoyoverse') }}
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('hoyoverse') }}
+{% endblock %}
+
+{% block body %}
+    <div id="root">
+    </div>
+{% endblock %}

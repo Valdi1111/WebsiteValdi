@@ -14,10 +14,6 @@ class GameNotesStateMetric implements GameNotesMetricInterface
 
     private bool $unlocked = true;
 
-    private GameNotesMetricCheckType $checkType = GameNotesMetricCheckType::CURRENT_EQUALS_MAX;
-
-    private GameNotesMetricOutputType $outputType = GameNotesMetricOutputType::FRACTION;
-
     public function getName(): ?string
     {
         return $this->name;
@@ -59,28 +55,6 @@ class GameNotesStateMetric implements GameNotesMetricInterface
     public function setUnlocked(bool $unlocked): self
     {
         $this->unlocked = $unlocked;
-        return $this;
-    }
-
-    public function getCheckType(): GameNotesMetricCheckType
-    {
-        return $this->checkType;
-    }
-
-    public function setCheckType(GameNotesMetricCheckType $checkType): self
-    {
-        $this->checkType = $checkType;
-        return $this;
-    }
-
-    public function getOutputType(): GameNotesMetricOutputType
-    {
-        return $this->outputType;
-    }
-
-    public function setOutputType(GameNotesMetricOutputType $outputType): self
-    {
-        $this->outputType = $outputType;
         return $this;
     }
 

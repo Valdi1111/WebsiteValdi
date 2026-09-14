@@ -1,2 +1,3 @@
 twig:
     globals:
+        hoyoverse_domain_name: '%hoyoverse.domain_name%'

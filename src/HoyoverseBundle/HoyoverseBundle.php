@@ -39,6 +39,7 @@ class HoyoverseBundle extends AbstractBundle
     public function loadExtension(array $config, ContainerConfigurator $configurator, ContainerBuilder $container): void
     {
         $configurator->import('./config/services.yaml');
+        $configurator->parameters()->set('hoyoverse.domain_name', $config['domain_name']);
 
         $hoyoverseTasks = $config['tasks'] ?? [];
 
@@ -115,6 +116,7 @@ class HoyoverseBundle extends AbstractBundle
         $rootNode = $definition->rootNode();
         $hoyoverseNode = $rootNode
             ->children()
+            ->scalarNode('domain_name')->defaultNull()->end()
             ->arrayNode('tasks')
             ->addDefaultsIfNotSet()
             ->children();

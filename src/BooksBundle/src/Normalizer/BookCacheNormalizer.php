@@ -29,7 +29,7 @@ class BookCacheNormalizer implements NormalizerInterface
     public function normalize(mixed $data, ?string $format = null, array $context = []): array
     {
         if (!$data instanceof BookCache) {
-            throw new InvalidArgumentException("The object must implement the 'BookCache' class.");
+            throw new InvalidArgumentException(sprintf("The object must be an instance of '%s'.", BookCache::class));
         }
         $json = $this->normalizer->normalize($data, $format, $context);
         if(isset($context[self::FILTER_TYPE])) {

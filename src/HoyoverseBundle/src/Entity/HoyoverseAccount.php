@@ -8,6 +8,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Attribute\Ignore;
 
 #[ORM\Index(name: 'FK_hoyoverse_account_user', columns: ['user_id'])]
 #[ORM\Table(name: 'hoyoverse_account')]
@@ -19,9 +20,11 @@ class HoyoverseAccount
     #[ORM\Column]
     private ?int $id = null;
 
+    #[Ignore]
     #[ORM\Column(type: Types::TEXT)]
     private ?string $cookie = null;
 
+    #[Ignore]
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
     private ?User $user = null;

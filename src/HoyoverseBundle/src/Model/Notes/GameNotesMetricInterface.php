@@ -9,8 +9,4 @@ interface GameNotesMetricInterface
     public function getFormattedOutput(): string;
 
     public function isUnlocked(): bool;
-
-    public function getCheckType(): GameNotesMetricCheckType;
-
-    public function getOutputType(): GameNotesMetricOutputType;
 }

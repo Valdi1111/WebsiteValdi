@@ -13,6 +13,7 @@ Encore
         '@CoreBundle': path.resolve(__dirname, 'src/CoreBundle/assets/'),
         '@AnimeBundle': path.resolve(__dirname, 'src/AnimeBundle/assets/'),
         '@BooksBundle': path.resolve(__dirname, 'src/BooksBundle/assets/'),
+        '@HoyoverseBundle': path.resolve(__dirname, 'src/HoyoverseBundle/assets/'),
         '@PasswordsBundle': path.resolve(__dirname, 'src/PasswordsBundle/assets/'),
         '@VideosBundle': path.resolve(__dirname, 'src/VideosBundle/assets/'),
     })
@@ -27,6 +28,7 @@ Encore
         {from: path.resolve(__dirname, 'src/AnimeBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
         {from: path.resolve(__dirname, 'src/BooksBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
         {from: path.resolve(__dirname, 'src/CoreBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
+        {from: path.resolve(__dirname, 'src/HoyoverseBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
         {from: path.resolve(__dirname, 'src/PasswordsBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
         {from: path.resolve(__dirname, 'src/VideosBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
     ])
@@ -40,6 +42,7 @@ Encore
     .addEntry('core', '@CoreBundle/app.js')
     .addEntry('anime', '@AnimeBundle/app.js')
     .addEntry('books', '@BooksBundle/app.js')
+    .addEntry('hoyoverse', '@HoyoverseBundle/app.js')
     .addEntry('passwords', '@PasswordsBundle/app.js')
     .addEntry('videos', '@VideosBundle/app.js')
     //.addEntry('books', './assets/app.js')

@@ -165,6 +165,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     domain_name?: scalar|Param|null, // Default: null
  * }
  * @psalm-type HoyoverseConfig = array{
+ *     domain_name?: scalar|Param|null, // Default: null
  *     tasks?: array{
  *         hoyolab_check_in?: array{
  *             enabled?: bool|Param, // Default: true

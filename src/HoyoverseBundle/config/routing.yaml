@@ -1,1 +1,7 @@
 controllers:
+    resource:
+        path: ../src/Controller/
+        namespace: App\HoyoverseBundle\Controller
+    type: attribute
+    name_prefix: hoyoverse_
+    host: '%hoyoverse.domain_name%'

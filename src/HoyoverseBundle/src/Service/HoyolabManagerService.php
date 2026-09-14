@@ -122,8 +122,8 @@ class HoyolabManagerService
         $gameProfileRepo = $this->entityManager->getRepository(HoyoverseGameProfile::class);
         foreach ($gameRoles as $gameRole) {
             $gameProfile = $gameProfileRepo->findOneBy([
+                "account" => $account,
                 "gameBiz" => $gameRole->getGameBiz(),
-                "gameUid" => $gameRole->getGameUid()
             ]);
             if (!$gameProfile) {
                 $gameProfile = new HoyoverseGameProfile();
@@ -224,8 +224,8 @@ class HoyolabManagerService
         $gameProfileRepo = $this->entityManager->getRepository(HoyoverseGameProfile::class);
         foreach ($gameRecords as $gameRecord) {
             $gameProfile = $gameProfileRepo->findOneBy([
+                "account" => $account,
                 "gameId" => $gameRecord->getGameId(),
-                "gameUid" => $gameRecord->getGameUid()
             ]);
             if (!$gameProfile) {
                 $gameProfile = new HoyoverseGameProfile();

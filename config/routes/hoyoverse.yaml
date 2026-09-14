@@ -1,0 +1,2 @@
+hoyoverse:
+    resource: '@HoyoverseBundle/config/routing.yaml'

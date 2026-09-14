@@ -307,18 +307,23 @@ class GenshinImpactNotes implements GameNotes, HasStaminaNotes, HasDailiesNotes,
     public function getDailiesData(): GameNotesDailies
     {
         return new GameNotesDailies()
-            ->setCurrentTask($this->getFinishedTaskNum())
-            ->setMaxTask($this->getTotalTaskNum());
+            ->addDaily(
+                new GameNotesProgressMetric()
+                    ->setName("Daily Tasks")
+                    ->setCurrentValue($this->getFinishedTaskNum())
+                    ->setMaxValue($this->getTotalTaskNum())
+            );
     }
 
     public function getWeekliesData(): GameNotesWeeklies
     {
         return new GameNotesWeeklies()
             ->addWeekly(
-                "Resin Discount",
-                $this->getRemainResinDiscountNum(),
-                $this->getResinDiscountNumLimit(),
-                checkType: GameNotesWeeklyCheckType::CURRENT_EQUALS_ZERO,
+                new GameNotesProgressMetric()
+                    ->setName("Resin Discounts")
+                    ->setCurrentValue($this->getRemainResinDiscountNum())
+                    ->setMaxValue($this->getResinDiscountNumLimit())
+                    ->setCheckType(GameNotesMetricCheckType::CURRENT_EQUALS_ZERO)
             );
     }
 

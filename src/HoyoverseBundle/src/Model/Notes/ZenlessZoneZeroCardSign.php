@@ -2,7 +2,9 @@
 
 namespace App\HoyoverseBundle\Model\Notes;
 
-enum ZenlessZoneZeroCardSignStatus: string
+use App\CoreBundle\Model\LabeledInterface;
+
+enum ZenlessZoneZeroCardSign: string implements LabeledInterface
 {
     case NO = 'CardSignNo';
     case DONE = 'CardSignDone';

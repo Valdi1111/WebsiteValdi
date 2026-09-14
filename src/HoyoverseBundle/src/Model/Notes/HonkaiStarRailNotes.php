@@ -386,23 +386,29 @@ class HonkaiStarRailNotes implements GameNotes, HasStaminaNotes, HasDailiesNotes
     public function getDailiesData(): GameNotesDailies
     {
         return new GameNotesDailies()
-            ->setCurrentTask($this->getCurrentTrainScore())
-            ->setMaxTask($this->getMaxTrainScore());
+            ->addDaily(
+                new GameNotesProgressMetric()
+                    ->setName("Activity Points")
+                    ->setCurrentValue($this->getCurrentTrainScore())
+                    ->setMaxValue($this->getMaxTrainScore())
+            );
     }
 
     public function getWeekliesData(): GameNotesWeeklies
     {
         return new GameNotesWeeklies()
             ->addWeekly(
-                "Weekly Bosses",
-                $this->getWeeklyCocoonCnt(),
-                $this->getWeeklyCocoonLimit(),
-                checkType: GameNotesWeeklyCheckType::CURRENT_EQUALS_ZERO
+                new GameNotesProgressMetric()
+                    ->setName("Weekly Bosses")
+                    ->setCurrentValue($this->getWeeklyCocoonCnt())
+                    ->setMaxValue($this->getWeeklyCocoonLimit())
+                    ->setCheckType(GameNotesMetricCheckType::CURRENT_EQUALS_ZERO)
             )
             ->addWeekly(
-                "Weekly Points",
-                $this->getPeriodScore(),
-                $this->getPeriodMaxScore(),
+                new GameNotesProgressMetric()
+                    ->setName("Period Points")
+                    ->setCurrentValue($this->getPeriodScore())
+                    ->setMaxValue($this->getPeriodMaxScore())
             );
     }
 

@@ -4,5 +4,5 @@ namespace App\HoyoverseBundle\Model\Notes;
 
 interface HasShopStatusNotes
 {
-    public function getVhsSaleState(): ?ZenlessZoneZeroVhsSaleState;
+    public function getVhsSaleState(): ?ZenlessZoneZeroVhsSale;
 }

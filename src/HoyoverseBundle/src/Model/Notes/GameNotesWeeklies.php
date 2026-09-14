@@ -5,26 +5,23 @@ namespace App\HoyoverseBundle\Model\Notes;
 use Doctrine\Common\Collections\ArrayCollection;
 
 /**
- * @extends ArrayCollection<int, GameNotesWeekly>
+ * @extends ArrayCollection<int, GameNotesProgressMetric>
  */
 class GameNotesWeeklies extends ArrayCollection
 {
 
-    public function addWeekly(
-        string                   $name,
-        ?int                     $currentValue,
-        ?int                     $maxValue,
-        bool                     $unlocked = true,
-        GameNotesWeeklyCheckType $checkType = GameNotesWeeklyCheckType::CURRENT_EQUALS_MAX
-    ): self
+    public function addWeekly(GameNotesMetricInterface $metric): self
     {
-        $this->add(new GameNotesWeekly()
-            ->setName($name)
-            ->setCurrentValue($currentValue)
-            ->setMaxValue($maxValue)
-            ->setUnlocked($maxValue)
-            ->setCheckType($checkType));
+        $this->add($metric);
         return $this;
+    }
+
+    public function allDone(): bool
+    {
+        if ($this->isEmpty()) {
+            return true;
+        }
+        return $this->forAll(static fn (int $i, GameNotesProgressMetric $metric) => $metric->isDone());
     }
 
 }

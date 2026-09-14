@@ -6,7 +6,7 @@ use App\HoyoverseBundle\Message\TaskMessageInterface;
 use App\HoyoverseBundle\Message\WeekliesReminderMessage;
 use App\HoyoverseBundle\Model\Game\HasWeekliesInterface;
 use App\HoyoverseBundle\Model\Game\GameInterface;
-use App\HoyoverseBundle\Model\Notes\GameNotesWeekly;
+use App\HoyoverseBundle\Model\Notes\GameNotesProgressMetric;
 use App\HoyoverseBundle\Model\Notes\HasWeekliesNotes;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -38,10 +38,8 @@ class WeekliesReminderMessageHandler extends AbstractTaskMessageHandler
             return;
         }
 
-        $weeklies = $notes->getWeekliesData()
-            ->filter(static fn(GameNotesWeekly $weekly) => !$weekly->isDone());
-
-        if ($weeklies->isEmpty()) {
+        $weeklies = $notes->getWeekliesData();
+        if ($weeklies->allDone()) {
             return;
         }
 
@@ -49,7 +47,7 @@ class WeekliesReminderMessageHandler extends AbstractTaskMessageHandler
             ->setDescription("Don't Forget to Do Your Weeklies!");
 
         foreach ($weeklies as $weekly) {
-            $notification->addField($weekly->getName(), "{$weekly->getCurrentValue()}/{$weekly->getMaxValue()}", icon: "📊", inline: true);
+            $notification->addField($weekly->getName(), $weekly->getFormattedOutput(), icon: "📊", inline: true);
         }
 
         $this->sendNotificationToAccountData($accountData, $notification);

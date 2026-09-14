@@ -110,9 +110,6 @@ class HoyoverseGameProfile
     private ?bool $hilichurlRedeem = false;
 
     #[ORM\Column(options: ["default" => "1"])]
-    private ?bool $howlScratchCardCheck = false;
-
-    #[ORM\Column(options: ["default" => "1"])]
     private ?bool $dailiesCheck = true;
 
     #[ORM\Column(options: ["default" => "1"])]
@@ -485,18 +482,6 @@ class HoyoverseGameProfile
     public function setHilichurlRedeem(bool $hilichurlRedeem): static
     {
         $this->hilichurlRedeem = $hilichurlRedeem;
-
-        return $this;
-    }
-
-    public function getHowlScratchCardCheck(): ?bool
-    {
-        return $this->howlScratchCardCheck;
-    }
-
-    public function setHowlScratchCardCheck(?bool $howlScratchCardCheck): static
-    {
-        $this->howlScratchCardCheck = $howlScratchCardCheck;
 
         return $this;
     }

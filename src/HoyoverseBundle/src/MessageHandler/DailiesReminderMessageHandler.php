@@ -38,16 +38,16 @@ class DailiesReminderMessageHandler extends AbstractTaskMessageHandler
         }
 
         $dailies = $notes->getDailiesData();
-        $stamina = $notes->getStaminaData();
-
-        if ($dailies->isDone()) {
+        if ($dailies->allDone()) {
             return;
         }
 
         $notification = $this->createNotificationWithAccountData($accountData, "Dailies Reminder")
-            ->setDescription("Don't Forget to Do Your Dailies!")
-            ->addField("Completed Dailies", "{$dailies->getCurrentTask()}/{$dailies->getMaxTask()}", icon: "📅", inline: true)
-            ->addField("Stamina", "{$stamina->getCurrentStamina()}/{$stamina->getMaxStamina()} ({$gameService->getHoyolabUtils()->formatTime($stamina->getStaminaRecoveryTime())})", icon: "🔋", inline: true);
+            ->setDescription("Don't Forget to Do Your Dailies!");
+
+        foreach ($dailies as $daily) {
+            $notification->addField($daily->getName(), $daily->getFormattedOutput(), icon: "📅", inline: true);
+        }
 
         $this->sendNotificationToAccountData($accountData, $notification);
     }

@@ -5,7 +5,7 @@ namespace App\HoyoverseBundle\Model\Notes;
 use Symfony\Component\Serializer\Attribute\SerializedName;
 use Symfony\Component\Serializer\Attribute\SerializedPath;
 
-class ZenlessZoneZeroNotes implements GameNotes, HasStaminaNotes, HasDailiesNotes, HasWeekliesNotes, HasHowlScratchCardNotes, HasShopStatusNotes
+class ZenlessZoneZeroNotes implements GameNotes, HasStaminaNotes, HasDailiesNotes, HasWeekliesNotes, HasShopStatusNotes
 {
     // =========================================================================
     // Stamina (Battery Charge / Energy)
@@ -31,7 +31,7 @@ class ZenlessZoneZeroNotes implements GameNotes, HasStaminaNotes, HasDailiesNote
     private ?int $maxVitality = null;
 
     #[SerializedName('card_sign')]
-    private ?ZenlessZoneZeroCardSignStatus $cardSign = null;
+    private ?ZenlessZoneZeroCardSign $cardSign = null;
 
     // =========================================================================
     // Weeklies (Bounty Commission & Survey Points / Hollow Zero)
@@ -69,10 +69,10 @@ class ZenlessZoneZeroNotes implements GameNotes, HasStaminaNotes, HasDailiesNote
     // =========================================================================
 
     #[SerializedPath('[vhs_sale?][sale_state]')]
-    private ?ZenlessZoneZeroVhsSaleState $vhsSaleState = null;
+    private ?ZenlessZoneZeroVhsSale $vhsSaleState = null;
 
     #[SerializedName('cafe_state')]
-    private ?string $cafeState = null;
+    private ?ZenlessZoneZeroCafe $cafeState = null;
 
     // =========================================================================
     // Getters & Setters
@@ -133,12 +133,12 @@ class ZenlessZoneZeroNotes implements GameNotes, HasStaminaNotes, HasDailiesNote
         return $this;
     }
 
-    public function getCardSign(): ?ZenlessZoneZeroCardSignStatus
+    public function getCardSign(): ?ZenlessZoneZeroCardSign
     {
         return $this->cardSign;
     }
 
-    public function setCardSign(?ZenlessZoneZeroCardSignStatus $cardSign): self
+    public function setCardSign(?ZenlessZoneZeroCardSign $cardSign): self
     {
         $this->cardSign = $cardSign;
         return $this;
@@ -243,23 +243,23 @@ class ZenlessZoneZeroNotes implements GameNotes, HasStaminaNotes, HasDailiesNote
         return $this;
     }
 
-    public function getVhsSaleState(): ?ZenlessZoneZeroVhsSaleState
+    public function getVhsSaleState(): ?ZenlessZoneZeroVhsSale
     {
         return $this->vhsSaleState;
     }
 
-    public function setVhsSaleState(?ZenlessZoneZeroVhsSaleState $vhsSaleState): self
+    public function setVhsSaleState(?ZenlessZoneZeroVhsSale $vhsSaleState): self
     {
         $this->vhsSaleState = $vhsSaleState;
         return $this;
     }
 
-    public function getCafeState(): ?string
+    public function getCafeState(): ?ZenlessZoneZeroCafe
     {
         return $this->cafeState;
     }
 
-    public function setCafeState(?string $cafeState): self
+    public function setCafeState(?ZenlessZoneZeroCafe $cafeState): self
     {
         $this->cafeState = $cafeState;
         return $this;
@@ -276,24 +276,42 @@ class ZenlessZoneZeroNotes implements GameNotes, HasStaminaNotes, HasDailiesNote
     public function getDailiesData(): GameNotesDailies
     {
         return new GameNotesDailies()
-            ->setCurrentTask($this->getCurrentVitality())
-            ->setMaxTask($this->getMaxVitality());
+            ->addDaily(
+                new GameNotesProgressMetric()
+                    ->setName("Engagement Points")
+                    ->setCurrentValue($this->getCurrentVitality())
+                    ->setMaxValue($this->getMaxVitality())
+            )
+            ->addDaily(
+                new GameNotesStateMetric()
+                    ->setName("Scratch Card")
+                    ->setCurrentValue($this->getCardSign())
+                    ->setTargetValue(ZenlessZoneZeroCardSign::DONE)
+            )
+            ->addDaily(
+                new GameNotesStateMetric()
+                    ->setName("Coff Cafe")
+                    ->setCurrentValue($this->getCafeState())
+                    ->setTargetValue(ZenlessZoneZeroCafe::DONE)
+            );
     }
 
     public function getWeekliesData(): GameNotesWeeklies
     {
         return new GameNotesWeeklies()
             ->addWeekly(
-                "Bounty Commissions",
-                $this->getBountyCommissionNum(),
-                $this->getBountyCommissionTotal(),
-                unlocked: $this->isBountyCommissionUnlock(),
+                new GameNotesProgressMetric()
+                    ->setName("Bounty Commissions")
+                    ->setCurrentValue($this->getBountyCommissionNum())
+                    ->setMaxValue($this->getBountyCommissionTotal())
+                    ->setUnlocked($this->isBountyCommissionUnlock())
             )
             ->addWeekly(
-                "Weekly Points",
-                $this->getWeeklyTaskCurPoint(),
-                $this->getWeeklyTaskMaxPoint(),
-                unlocked: $this->isWeeklyTaskUnlock()
+                new GameNotesProgressMetric()
+                    ->setName("Ridu Weekly Points")
+                    ->setCurrentValue($this->getWeeklyTaskCurPoint())
+                    ->setMaxValue($this->getWeeklyTaskMaxPoint())
+                    ->setUnlocked($this->isWeeklyTaskUnlock())
             );
     }
 }

@@ -7,7 +7,6 @@ use App\HoyoverseBundle\Model\Game\HasAutoCodeRedemptionInterface;
 use App\HoyoverseBundle\Model\Game\HasDailiesInterface;
 use App\HoyoverseBundle\Model\Game\HasDiaryInterface;
 use App\HoyoverseBundle\Model\Game\DiaryTrait;
-use App\HoyoverseBundle\Model\Game\HasHowlScratchCardInterface;
 use App\HoyoverseBundle\Model\Game\HasShopStatusInterface;
 use App\HoyoverseBundle\Model\Game\HasWeekliesInterface;
 use App\HoyoverseBundle\Model\Game\GameService;
@@ -18,7 +17,7 @@ use App\HoyoverseBundle\Model\Game\StaminaTrait;
 use App\HoyoverseBundle\Model\Notes\ZenlessZoneZeroNotes;
 use Psr\Log\LoggerInterface;
 
-class ZenlessZoneZeroService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasHowlScratchCardInterface, HasShopStatusInterface
+class ZenlessZoneZeroService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasShopStatusInterface
 {
     use NotesTrait;
     use DiaryTrait;

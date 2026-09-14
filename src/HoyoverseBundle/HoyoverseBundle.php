@@ -7,7 +7,6 @@ use App\HoyoverseBundle\Message\HoyolabCheckInMessage;
 use App\HoyoverseBundle\Message\DailiesReminderMessage;
 use App\HoyoverseBundle\Message\ExpeditionCheckMessage;
 use App\HoyoverseBundle\Message\HilichurlTaskMessage;
-use App\HoyoverseBundle\Message\HowlScratchCardMessage;
 use App\HoyoverseBundle\Message\MimoTaskMessage;
 use App\HoyoverseBundle\Message\HoyolabMissedCheckInMessage;
 use App\HoyoverseBundle\Message\RealmCurrencyMessage;
@@ -91,7 +90,6 @@ class HoyoverseBundle extends AbstractBundle
         $addCronNode = function (
             ArrayNodeDefinition $node,
             string $defaultClass,
-            string $defaultCron,
             bool $isRegional = false,
             ?int $defaultJitter = null
         ) {
@@ -100,7 +98,7 @@ class HoyoverseBundle extends AbstractBundle
                 ->children()
                 ->booleanNode('enabled')->defaultTrue()->end()
                 ->scalarNode('message_class')->cannotBeEmpty()->defaultValue($defaultClass)->end()
-                ->scalarNode('cron')->cannotBeEmpty()->defaultValue($defaultCron)->end()
+                ->scalarNode('cron')->cannotBeEmpty()->defaultNull()->end()
                 ->booleanNode('regional')->defaultValue($isRegional)->end();
 
             $jitterNode = $child->integerNode('jitter')->min(0);
@@ -122,21 +120,20 @@ class HoyoverseBundle extends AbstractBundle
             ->children();
 
         // 1. Global tasks (regional = false)
-        $addCronNode($hoyoverseNode->arrayNode('hoyolab_check_in'), HoyolabCheckInMessage::class, '0 20 * * *');
-        $addCronNode($hoyoverseNode->arrayNode('hoyolab_missed_check_in'), HoyolabMissedCheckInMessage::class, '0 14 * * *');
-        $addCronNode($hoyoverseNode->arrayNode('code_redeem'), CodesRedeemMessage::class, '*/15 * * * *');
-        $addCronNode($hoyoverseNode->arrayNode('stamina'), StaminaCheckMessage::class, '*/30 * * * *');
-        $addCronNode($hoyoverseNode->arrayNode('expedition'), ExpeditionCheckMessage::class, '*/30 * * * *');
-        $addCronNode($hoyoverseNode->arrayNode('realm_currency'), RealmCurrencyMessage::class, '0 * * * *');
-        $addCronNode($hoyoverseNode->arrayNode('shop_status'), ShopStatusMessage::class, '0 * * * *');
-        $addCronNode($hoyoverseNode->arrayNode('mimo'), MimoTaskMessage::class, '0 */6 * * *', defaultJitter: 3);
-        $addCronNode($hoyoverseNode->arrayNode('hilichurl'), HilichurlTaskMessage::class, '0 11 * * *', defaultJitter: 3);
-        $addCronNode($hoyoverseNode->arrayNode('update_cookie'), UpdateCookieMessage::class, '0 3 * * *');
+        $addCronNode($hoyoverseNode->arrayNode('hoyolab_check_in'), HoyolabCheckInMessage::class);
+        $addCronNode($hoyoverseNode->arrayNode('hoyolab_missed_check_in'), HoyolabMissedCheckInMessage::class);
+        $addCronNode($hoyoverseNode->arrayNode('code_redeem'), CodesRedeemMessage::class);
+        $addCronNode($hoyoverseNode->arrayNode('stamina'), StaminaCheckMessage::class);
+        $addCronNode($hoyoverseNode->arrayNode('expedition'), ExpeditionCheckMessage::class);
+        $addCronNode($hoyoverseNode->arrayNode('realm_currency'), RealmCurrencyMessage::class);
+        $addCronNode($hoyoverseNode->arrayNode('shop_status'), ShopStatusMessage::class);
+        $addCronNode($hoyoverseNode->arrayNode('mimo'), MimoTaskMessage::class, defaultJitter: 3);
+        $addCronNode($hoyoverseNode->arrayNode('hilichurl'), HilichurlTaskMessage::class, defaultJitter: 3);
+        $addCronNode($hoyoverseNode->arrayNode('update_cookie'), UpdateCookieMessage::class);
 
         // 2. Regional tasks (regional = true)
-        $addCronNode($hoyoverseNode->arrayNode('howl_scratch_card'), HowlScratchCardMessage::class, '0 21 * * *', isRegional: true);
-        $addCronNode($hoyoverseNode->arrayNode('dailies_reminder'), DailiesReminderMessage::class, '0 21 * * *', isRegional: true);
-        $addCronNode($hoyoverseNode->arrayNode('weeklies_reminder'), WeekliesReminderMessage::class, '0 21 * * 0', isRegional: true);
+        $addCronNode($hoyoverseNode->arrayNode('dailies_reminder'), DailiesReminderMessage::class, isRegional: true);
+        $addCronNode($hoyoverseNode->arrayNode('weeklies_reminder'), WeekliesReminderMessage::class, isRegional: true);
 
         $hoyoverseNode->end()->end()->end();
     }

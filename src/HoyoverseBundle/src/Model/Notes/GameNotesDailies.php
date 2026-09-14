@@ -2,37 +2,26 @@
 
 namespace App\HoyoverseBundle\Model\Notes;
 
-class GameNotesDailies
+use Doctrine\Common\Collections\ArrayCollection;
+
+/**
+ * @extends ArrayCollection<int, GameNotesMetricInterface>
+ */
+class GameNotesDailies extends ArrayCollection
 {
-    private ?int $currentTask = null;
 
-    private ?int $maxTask = null;
-
-    public function getCurrentTask(): ?int
+    public function addDaily(GameNotesMetricInterface $metric): self
     {
-        return $this->currentTask;
-    }
-
-    public function setCurrentTask(?int $currentTask): self
-    {
-        $this->currentTask = $currentTask;
+        $this->add($metric);
         return $this;
     }
 
-    public function getMaxTask(): ?int
+    public function allDone(): bool
     {
-        return $this->maxTask;
-    }
-
-    public function setMaxTask(?int $maxTask): self
-    {
-        $this->maxTask = $maxTask;
-        return $this;
-    }
-
-    public function isDone(): bool
-    {
-        return $this->getCurrentTask() == $this->getMaxTask();
+        if ($this->isEmpty()) {
+            return true;
+        }
+        return $this->forAll(static fn (int $i, GameNotesProgressMetric $metric) => $metric->isDone());
     }
 
 }

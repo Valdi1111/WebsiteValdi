@@ -90,7 +90,7 @@ UMask=0002
 * Install supervisor `sudo apt install supervisor`
 * Copy service files in `/etc/supervisor/conf.d/`
   * [website-node-services](scripts/website-node-services.conf)
-  * [website-anime-download](scripts/website-anime-download.conf)
+  * [website-anime-download](scripts/website-messenger-anime-episode-download.conf)
   * [website-messenger-core](scripts/website-messenger-core.conf)
   * [website-scheduler-default](scripts/website-scheduler-default.conf)
 * Replace `YOURUSER` and `/path/to/your/app`

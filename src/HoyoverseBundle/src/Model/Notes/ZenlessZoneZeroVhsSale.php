@@ -2,7 +2,9 @@
 
 namespace App\HoyoverseBundle\Model\Notes;
 
-enum ZenlessZoneZeroVhsSaleState: string
+use App\CoreBundle\Model\LabeledInterface;
+
+enum ZenlessZoneZeroVhsSale: string implements LabeledInterface
 {
     case NO = 'SaleStateNo';
     case DOING = 'SaleStateDoing';

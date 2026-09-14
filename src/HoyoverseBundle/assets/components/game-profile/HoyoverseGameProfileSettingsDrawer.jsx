@@ -53,8 +53,10 @@ export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, pr
     const [saving, setSaving] = useState(false);
     const [profile, setProfile] = useState(null);
 
-    // Watch active switch value to dynamically disable all downstream settings
-    const isActive = Form.useWatch("active", form);
+    // Watch active switch value; fallback to profile.active if undefined during mount
+    const watchedActive = Form.useWatch("active", form);
+    const isProfileActive = Boolean(watchedActive ?? profile?.active ?? true);
+
     const api = useBackendApi();
 
     // Field capability checkers: returns true if the property exists in the returned profile object
@@ -171,7 +173,7 @@ export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, pr
                             size={64}
                             src={profile.icon_url}
                             shape="square"
-                            style={{ filter: isActive ? "none" : "grayscale(100%)" }}
+                            style={{ filter: isProfileActive ? "none" : "grayscale(100%)" }}
                         >
                             {profile.game_name?.[0]}
                         </Avatar>
@@ -188,8 +190,8 @@ export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, pr
                         <Descriptions.Item label="Region">{profile.parsed_region}</Descriptions.Item>
                         <Descriptions.Item label="Timezone">{profile.parsed_timezone}</Descriptions.Item>
                         <Descriptions.Item label="Status">
-                            <Tag color={isActive ? "success" : "error"}>
-                                {isActive ? "Active" : "Suspended"}
+                            <Tag color={isProfileActive ? "success" : "error"}>
+                                {isProfileActive ? "Active" : "Suspended"}
                             </Tag>
                         </Descriptions.Item>
                         <Descriptions.Item label="Account">#{accountId}</Descriptions.Item>
@@ -200,7 +202,7 @@ export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, pr
                     </Divider>
 
                     <Form form={form} onFinish={handleFinish}>
-                        {/* Profile Active switch with dedicated theme override */}
+                        {/* Profile Active switch with ConfigProvider wrapping Form.Item directly */}
                         {supports("active") && (
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, gap: 12 }}>
                                 <div style={{ flex: 1 }}>
@@ -210,25 +212,25 @@ export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, pr
                                     </div>
                                 </div>
                                 <div style={{ flexShrink: 0 }}>
-                                    <Form.Item name="active" valuePropName="checked" noStyle>
-                                        <ConfigProvider
-                                            theme={{
-                                                components: {
-                                                    Switch: {
-                                                        trackMinWidth: 110,
-                                                        innerMinMargin: 10,
-                                                    },
+                                    <ConfigProvider
+                                        theme={{
+                                            components: {
+                                                Switch: {
+                                                    trackMinWidth: 110,
+                                                    innerMinMargin: 10,
                                                 },
-                                            }}
-                                        >
+                                            },
+                                        }}
+                                    >
+                                        <Form.Item name="active" valuePropName="checked" noStyle>
                                             <Switch checkedChildren="Active" unCheckedChildren="Suspended" />
-                                        </ConfigProvider>
-                                    </Form.Item>
+                                        </Form.Item>
+                                    </ConfigProvider>
                                 </div>
                             </div>
                         )}
 
-                        {!isActive && (
+                        {!isProfileActive && (
                             <Alert
                                 type="warning"
                                 showIcon
@@ -246,21 +248,21 @@ export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, pr
                         {supports("hoyolab_check_in") && (
                             <SettingRow label="HoYoLAB Daily Check-In">
                                 <Form.Item name="hoyolab_check_in" valuePropName="checked" noStyle>
-                                    <Switch disabled={!isActive} />
+                                    <Switch disabled={!isProfileActive} />
                                 </Form.Item>
                             </SettingRow>
                         )}
                         {supports("hoyolab_missed_check_in") && (
                             <SettingRow label="Missed Check-In Make-Up">
                                 <Form.Item name="hoyolab_missed_check_in" valuePropName="checked" noStyle>
-                                    <Switch disabled={!isActive} />
+                                    <Switch disabled={!isProfileActive} />
                                 </Form.Item>
                             </SettingRow>
                         )}
                         {supports("code_redeem") && (
                             <SettingRow label="Auto Promo Code Redemption">
                                 <Form.Item name="code_redeem" valuePropName="checked" noStyle>
-                                    <Switch disabled={!isActive} />
+                                    <Switch disabled={!isProfileActive} />
                                 </Form.Item>
                             </SettingRow>
                         )}
@@ -274,21 +276,21 @@ export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, pr
                                 {supports("stamina_check") && (
                                     <SettingRow label="Stamina Alert">
                                         <Form.Item name="stamina_check" valuePropName="checked" noStyle>
-                                            <Switch disabled={!isActive} />
+                                            <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
                                 {supports("stamina_threshold") && (
                                     <SettingRow label="Stamina Threshold" description="Set -1 to disable threshold alert">
                                         <Form.Item name="stamina_threshold" noStyle>
-                                            <InputNumber min={-1} max={300} style={{ width: 100 }} disabled={!isActive} />
+                                            <InputNumber min={-1} max={300} style={{ width: 100 }} disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
                                 {supports("expedition_check") && (
                                     <SettingRow label="Expeditions Check">
                                         <Form.Item name="expedition_check" valuePropName="checked" noStyle>
-                                            <Switch disabled={!isActive} />
+                                            <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
@@ -304,14 +306,14 @@ export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, pr
                                 {supports("realm_currency_check") && (
                                     <SettingRow label="Realm Currency Alert">
                                         <Form.Item name="realm_currency_check" valuePropName="checked" noStyle>
-                                            <Switch disabled={!isActive} />
+                                            <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
                                 {supports("realm_currency_threshold") && (
                                     <SettingRow label="Currency Threshold" description="Set -1 to disable threshold alert">
                                         <Form.Item name="realm_currency_threshold" noStyle>
-                                            <InputNumber min={-1} step={100} style={{ width: 100 }} disabled={!isActive} />
+                                            <InputNumber min={-1} step={100} style={{ width: 100 }} disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
@@ -327,21 +329,21 @@ export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, pr
                                 {supports("shop_status_check") && (
                                     <SettingRow label="Shop Status Check">
                                         <Form.Item name="shop_status_check" valuePropName="checked" noStyle>
-                                            <Switch disabled={!isActive} />
+                                            <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
                                 {supports("dailies_check") && (
                                     <SettingRow label="Dailies Check">
                                         <Form.Item name="dailies_check" valuePropName="checked" noStyle>
-                                            <Switch disabled={!isActive} />
+                                            <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
                                 {supports("weeklies_check") && (
                                     <SettingRow label="Weeklies Check">
                                         <Form.Item name="weeklies_check" valuePropName="checked" noStyle>
-                                            <Switch disabled={!isActive} />
+                                            <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
@@ -357,35 +359,35 @@ export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, pr
                                 {supports("mimo_check") && (
                                     <SettingRow label="Mimo Check">
                                         <Form.Item name="mimo_check" valuePropName="checked" noStyle>
-                                            <Switch disabled={!isActive} />
+                                            <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
                                 {supports("mimo_redeem") && (
                                     <SettingRow label="Mimo Redeem">
                                         <Form.Item name="mimo_redeem" valuePropName="checked" noStyle>
-                                            <Switch disabled={!isActive} />
+                                            <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
                                 {supports("mimo_redeem_draw") && (
                                     <SettingRow label="Mimo Redeem Draw">
                                         <Form.Item name="mimo_redeem_draw" valuePropName="checked" noStyle>
-                                            <Switch disabled={!isActive} />
+                                            <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
                                 {supports("mimo_lottery") && (
                                     <SettingRow label="Mimo Lottery">
                                         <Form.Item name="mimo_lottery" valuePropName="checked" noStyle>
-                                            <Switch disabled={!isActive} />
+                                            <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
                                 {supports("mimo_reserve_points") && (
                                     <SettingRow label="Mimo Reserve Points" description="Set -1 to spend all points">
                                         <Form.Item name="mimo_reserve_points" noStyle>
-                                            <InputNumber min={-1} style={{ width: 100 }} disabled={!isActive} />
+                                            <InputNumber min={-1} style={{ width: 100 }} disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
@@ -401,14 +403,14 @@ export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, pr
                                 {supports("hilichurl_check") && (
                                     <SettingRow label="Hilichurl Check">
                                         <Form.Item name="hilichurl_check" valuePropName="checked" noStyle>
-                                            <Switch disabled={!isActive} />
+                                            <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
                                 {supports("hilichurl_redeem") && (
                                     <SettingRow label="Hilichurl Redeem">
                                         <Form.Item name="hilichurl_redeem" valuePropName="checked" noStyle>
-                                            <Switch disabled={!isActive} />
+                                            <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
@@ -427,7 +429,7 @@ export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, pr
                                             mode="multiple"
                                             placeholder="Select notification platforms"
                                             style={{ width: "100%" }}
-                                            disabled={!isActive}
+                                            disabled={!isProfileActive}
                                             options={[
                                                 { label: "Telegram", value: "telegram" },
                                                 { label: "Discord", value: "discord" },

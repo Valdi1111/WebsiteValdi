@@ -2,6 +2,7 @@
 
 namespace App\HoyoverseBundle\Service;
 
+use App\HoyoverseBundle\Model\Diary\GenshinImpactDiaryItem;
 use App\HoyoverseBundle\Model\Game\AutoCodeRedemptionTrait;
 use App\HoyoverseBundle\Model\Game\HasAutoCodeRedemptionInterface;
 use App\HoyoverseBundle\Model\Game\HasDailiesInterface;
@@ -127,9 +128,14 @@ class GenshinImpactService extends GameService implements HasNotesInterface, Has
         return "https://sg-hk4e-api.hoyolab.com/event/ysledgeros/month_detail";
     }
 
-    public function getDiaryMonth(int $month, int $year): int|string
+    public function getDiaryItemClass(): string
     {
-        return $month;
+        return GenshinImpactDiaryItem::class;
+    }
+
+    public function getDiaryPeriod(\DateTimeInterface $date): string
+    {
+        return $date->format("m");
     }
 
     public function getUrlFetchRedeemableCodes(): string

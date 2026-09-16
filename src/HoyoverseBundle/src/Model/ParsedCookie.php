@@ -24,6 +24,9 @@ class ParsedCookie implements \JsonSerializable, \Stringable
     #[SerializedName('account_id_v2')]
     private ?string $accountIdV2 = null;
 
+    #[SerializedName('stoken')]
+    private ?string $stoken = null;
+
     public function getLtokenV2(): ?string
     {
         return $this->ltokenV2;
@@ -90,6 +93,17 @@ class ParsedCookie implements \JsonSerializable, \Stringable
         return $this;
     }
 
+    public function getStoken(): ?string
+    {
+        return $this->stoken;
+    }
+
+    public function setStoken(?string $stoken): ParsedCookie
+    {
+        $this->stoken = $stoken;
+        return $this;
+    }
+
     public function isValid(): bool
     {
         return !empty($this->getLtokenV2()) && !empty($this->getLtuidV2()) && !empty($this->getLtmidV2());
@@ -98,6 +112,11 @@ class ParsedCookie implements \JsonSerializable, \Stringable
     public function canRedeemCodes(): bool
     {
         return !empty($this->getCookieTokenV2()) && !empty($this->getAccountMidV2()) && !empty($this->getAccountIdV2());
+    }
+
+    public function canAutoRenew(): bool
+    {
+        return !empty($this->getStoken());
     }
 
     public function jsonSerialize(): array
@@ -124,5 +143,21 @@ class ParsedCookie implements \JsonSerializable, \Stringable
     public function __toString(): string
     {
         return http_build_query($this->jsonSerialize(), '', '; ');
+    }
+
+    public function toStorageString(): string
+    {
+        $json = $this->jsonSerialize();
+        if ($this->canAutoRenew()) {
+            $json['stoken'] = $this->getStoken();
+        }
+        return http_build_query(
+            array_filter(
+                $json,
+                static fn(?string $val): bool => $val !== null && $val !== ''
+            ),
+            '',
+            '; '
+        );
     }
 }

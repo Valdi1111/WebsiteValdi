@@ -19,7 +19,6 @@ class HoyoverseAccountNormalizer implements NormalizerInterface
     ) {
     }
 
-
     /* -------------------------------------------------------------------------
      * NORMALIZER (Entity -> Array/JSON)
      * ------------------------------------------------------------------------- */
@@ -34,6 +33,7 @@ class HoyoverseAccountNormalizer implements NormalizerInterface
 
         $json = $this->objectNormalizer->normalize($data, $format, $context);
         $json["can_redeem_codes"] = $parsedCookie->canRedeemCodes();
+        $json["can_auto_renew"] = $parsedCookie->canAutoRenew();
         return $json;
     }
 

@@ -6,19 +6,25 @@ use Symfony\Component\Serializer\Attribute\SerializedName;
 
 class GameRecord
 {
+    #[SerializedName('game_id')]
     private int $gameId;
 
     #[SerializedName('game_role_id')]
     private string $gameUid;
 
+    #[SerializedName('nickname')]
     private string $nickname;
 
+    #[SerializedName('region')]
     private string $region;
 
+    #[SerializedName('level')]
     private int $level;
 
+    #[SerializedName('data')]
     private array $data;
 
+    #[SerializedName('region_name')]
     private string $regionName;
 
     #[SerializedName('url')]
@@ -27,6 +33,7 @@ class GameRecord
     #[SerializedName('logo')]
     private string $iconUrl;
 
+    #[SerializedName('game_name')]
     private string $gameName;
 
     public function getGameId(): int

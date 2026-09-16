@@ -2,12 +2,17 @@
 
 namespace App\HoyoverseBundle\Model;
 
+use Symfony\Component\Serializer\Attribute\SerializedName;
+
 class AwardData
 {
+    #[SerializedName('icon')]
     private string $icon;
 
+    #[SerializedName('name')]
     private string $name;
 
+    #[SerializedName('cnt')]
     private int $cnt;
 
     public function getIcon(): string

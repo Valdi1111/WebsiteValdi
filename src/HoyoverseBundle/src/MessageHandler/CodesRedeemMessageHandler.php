@@ -36,7 +36,7 @@ class CodesRedeemMessageHandler
         private readonly LoggerInterface                $hoyoverseLogger,
         private readonly UnifiedNotificationService     $notificationService,
         private readonly CacheItemPoolInterface         $hoyoverseRedemptionHistoryCache,
-        private readonly MessageBusInterface            $messageBus,
+        private readonly MessageBusInterface            $bus,
     )
     {
     }
@@ -167,7 +167,7 @@ class CodesRedeemMessageHandler
                 $this->getCache()->save($pendingItem);
 
                 // Dispatch immediato: il rate limiting sarà gestito direttamente dal worker
-                $this->messageBus->dispatch(
+                $this->bus->dispatch(
                     new GameProfileCodeRedeemMessage($profileId, $redeemableCode)
                 );
 

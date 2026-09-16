@@ -2,18 +2,26 @@
 
 namespace App\HoyoverseBundle\Model;
 
+use Symfony\Component\Serializer\Attribute\SerializedName;
+
 class UserGameRole
 {
+    #[SerializedName('game_biz')]
     private ?string $gameBiz = null;
 
+    #[SerializedName('region')]
     private ?string $region = null;
 
+    #[SerializedName('region_name')]
     private ?string $regionName = null;
 
+    #[SerializedName('game_uid')]
     private ?string $gameUid = null;
 
+    #[SerializedName('nickname')]
     private ?string $nickname = null;
 
+    #[SerializedName('level')]
     private ?int $level = null;
 
     public function getGameBiz(): ?string

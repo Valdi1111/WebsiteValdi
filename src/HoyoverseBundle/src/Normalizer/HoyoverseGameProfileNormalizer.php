@@ -84,7 +84,7 @@ class HoyoverseGameProfileNormalizer implements NormalizerInterface, Denormalize
      */
     protected function getIgnoredFields(int $gameId): array
     {
-        $ignored = ['account'];
+        $ignored = [];
 
         if (!$this->locatorByGameId->has($gameId)) {
             foreach (self::CONDITIONAL_SETTINGS as $fields) {

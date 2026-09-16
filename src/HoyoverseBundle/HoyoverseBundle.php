@@ -13,6 +13,7 @@ use App\HoyoverseBundle\Message\RealmCurrencyMessage;
 use App\HoyoverseBundle\Message\RegionalTaskMessageInterface;
 use App\HoyoverseBundle\Message\ShopStatusMessage;
 use App\HoyoverseBundle\Message\StaminaCheckMessage;
+use App\HoyoverseBundle\Message\SyncDiaryMessage;
 use App\HoyoverseBundle\Message\TaskMessageInterface;
 use App\HoyoverseBundle\Message\UpdateCookieMessage;
 use App\HoyoverseBundle\Message\WeekliesReminderMessage;
@@ -131,6 +132,7 @@ class HoyoverseBundle extends AbstractBundle
         $addCronNode($hoyoverseNode->arrayNode('shop_status'), ShopStatusMessage::class);
         $addCronNode($hoyoverseNode->arrayNode('mimo'), MimoTaskMessage::class, defaultJitter: 3);
         $addCronNode($hoyoverseNode->arrayNode('hilichurl'), HilichurlTaskMessage::class, defaultJitter: 3);
+        $addCronNode($hoyoverseNode->arrayNode('sync_diary'), SyncDiaryMessage::class);
         $addCronNode($hoyoverseNode->arrayNode('update_cookie'), UpdateCookieMessage::class);
 
         // 2. Regional tasks (regional = true)

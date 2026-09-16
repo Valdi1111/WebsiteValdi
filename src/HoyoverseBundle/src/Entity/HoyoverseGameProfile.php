@@ -3,6 +3,8 @@
 namespace App\HoyoverseBundle\Entity;
 
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Ignore;
@@ -80,8 +82,8 @@ class HoyoverseGameProfile
     #[ORM\Column(options: ["default" => "-1"])]
     private ?int $staminaThreshold = -1;
 
-    #[ORM\Column(options: ["default" => "1"])]
-    private ?bool $expeditionCheck = true;
+    #[ORM\Column(options: ["default" => "0"])]
+    private ?bool $expeditionCheck = false;
 
     #[ORM\Column(options: ["default" => "0"])]
     private ?bool $realmCurrencyCheck = false;
@@ -113,17 +115,32 @@ class HoyoverseGameProfile
     #[ORM\Column(options: ["default" => "0"])]
     private ?bool $hilichurlRedeem = false;
 
-    #[ORM\Column(options: ["default" => "1"])]
-    private ?bool $dailiesCheck = true;
+    #[ORM\Column(options: ["default" => "0"])]
+    private ?bool $dailiesCheck = false;
 
-    #[ORM\Column(options: ["default" => "1"])]
-    private ?bool $weekliesCheck = true;
+    #[ORM\Column(options: ["default" => "0"])]
+    private ?bool $weekliesCheck = false;
+
+    #[ORM\Column(options: ["default" => "0"])]
+    private ?bool $syncDiary = false;
 
     #[ORM\Column]
     private array $notificationPlatforms = [];
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, insertable: false, updatable: false, options: ["default" => "CURRENT_TIMESTAMP"])]
     private ?\DateTimeInterface $addedAt = null;
+
+    /**
+     * @var Collection<int, HoyoverseDiaryEntry>
+     */
+    #[Ignore]
+    #[ORM\OneToMany(targetEntity: HoyoverseDiaryEntry::class, mappedBy: 'gameProfile', cascade: ['persist', 'remove'])]
+    private Collection $diaryEntries;
+
+    public function __construct()
+    {
+        $this->diaryEntries = new ArrayCollection();
+    }
 
     public function getId(): ?int
     {
@@ -514,6 +531,17 @@ class HoyoverseGameProfile
         return $this;
     }
 
+    public function isSyncDiary(): ?bool
+    {
+        return $this->syncDiary;
+    }
+
+    public function setSyncDiary(?bool $syncDiary): static
+    {
+        $this->syncDiary = $syncDiary;
+        return $this;
+    }
+
     public function getNotificationPlatforms(): array
     {
         return $this->notificationPlatforms;
@@ -529,6 +557,36 @@ class HoyoverseGameProfile
     public function getAddedAt(): \DateTimeInterface
     {
         return $this->addedAt;
+    }
+
+    /**
+     * @return Collection<int, HoyoverseDiaryEntry>
+     */
+    public function getDiaryEntries(): Collection
+    {
+        return $this->diaryEntries;
+    }
+
+    public function addDiaryEntry(HoyoverseDiaryEntry $diaryEntry): static
+    {
+        if (!$this->diaryEntries->contains($diaryEntry)) {
+            $this->diaryEntries->add($diaryEntry);
+            $diaryEntry->setGameProfile($this);
+        }
+
+        return $this;
+    }
+
+    public function removeDiaryEntry(HoyoverseDiaryEntry $diaryEntry): static
+    {
+        if ($this->diaryEntries->removeElement($diaryEntry)) {
+            // set the owning side to null (unless already changed)
+            if ($diaryEntry->getGameProfile() === $this) {
+                $diaryEntry->setGameProfile(null);
+            }
+        }
+
+        return $this;
     }
 
     public function updateParsedRegion(): static

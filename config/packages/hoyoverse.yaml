@@ -25,5 +25,7 @@ hoyoverse:
             cron: '0 21 * * *'
         weeklies_reminder:
             cron: '0 21 * * 0'
+        sync_diary:
+            cron: '0 0 2 * *'
         update_cookie:
-            cron: '0 3 * * *'
+            cron: '0 */4 * * *'

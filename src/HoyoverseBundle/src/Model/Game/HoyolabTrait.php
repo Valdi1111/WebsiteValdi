@@ -5,6 +5,7 @@ namespace App\HoyoverseBundle\Model\Game;
 use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
 use App\HoyoverseBundle\Service\HoyolabUtilsService;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\ObjectMapper\ObjectMapperInterface;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\Service\Attribute\Required;
@@ -15,6 +16,7 @@ trait HoyolabTrait
     private ?HoyolabCookieUtilsService $cookieUtils = null;
     private ?HoyolabUtilsService $hoyolabUtils = null;
     private ?DenormalizerInterface $denormalizer = null;
+    private ?ObjectMapperInterface $objectMapper = null;
 
     public function __construct(
         private readonly LoggerInterface $hoyoverseLogger
@@ -69,6 +71,17 @@ trait HoyolabTrait
     public function setDenormalizer(DenormalizerInterface $denormalizer): void
     {
         $this->denormalizer = $denormalizer;
+    }
+
+    public function getObjectMapper(): ?ObjectMapperInterface
+    {
+        return $this->objectMapper;
+    }
+
+    #[Required]
+    public function setObjectMapper(?ObjectMapperInterface $objectMapper): void
+    {
+        $this->objectMapper = $objectMapper;
     }
 
 }

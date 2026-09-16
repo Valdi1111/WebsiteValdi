@@ -2,6 +2,7 @@
 
 namespace App\HoyoverseBundle\Service;
 
+use App\HoyoverseBundle\Model\Diary\HonkaiStarRailDiaryItem;
 use App\HoyoverseBundle\Model\Game\AutoCodeRedemptionTrait;
 use App\HoyoverseBundle\Model\Game\HasAutoCodeRedemptionInterface;
 use App\HoyoverseBundle\Model\Game\HasDailiesInterface;
@@ -126,9 +127,14 @@ class HonkaiStarRailService extends GameService implements HasNotesInterface, Ha
         return "https://sg-public-api.hoyolab.com/event/srledger/month_detail";
     }
 
-    public function getDiaryMonth(int $month, int $year): int|string
+    public function getDiaryItemClass(): string
     {
-        return $year . str_pad($month, 2);
+        return HonkaiStarRailDiaryItem::class;
+    }
+
+    public function getDiaryPeriod(\DateTimeInterface $date): string
+    {
+        return $date->format("Ym");
     }
 
     public function getUrlFetchRedeemableCodes(): string

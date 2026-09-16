@@ -32,6 +32,12 @@ class HoyoverseAccount
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, insertable: false, updatable: false, options: ["default" => "CURRENT_TIMESTAMP"])]
     private ?\DateTimeInterface $addedAt = null;
 
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeInterface $lastCookieRefreshedAt = null;
+
+    #[ORM\Column(options: ["default" => "0"])]
+    private ?bool $cookieRefreshFailed = false;
+
     /**
      * @var Collection<int, HoyoverseGameProfile>
      */
@@ -75,6 +81,28 @@ class HoyoverseAccount
     public function getAddedAt(): \DateTimeInterface
     {
         return $this->addedAt;
+    }
+
+    public function getLastCookieRefreshedAt(): ?\DateTimeInterface
+    {
+        return $this->lastCookieRefreshedAt;
+    }
+
+    public function setLastCookieRefreshedAt(?\DateTimeInterface $lastCookieRefreshedAt): static
+    {
+        $this->lastCookieRefreshedAt = $lastCookieRefreshedAt;
+        return $this;
+    }
+
+    public function isCookieRefreshFailed(): ?bool
+    {
+        return $this->cookieRefreshFailed;
+    }
+
+    public function setCookieRefreshFailed(bool $cookieRefreshFailed): static
+    {
+        $this->cookieRefreshFailed = $cookieRefreshFailed;
+        return $this;
     }
 
     /**

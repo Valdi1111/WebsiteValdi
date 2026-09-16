@@ -18,7 +18,6 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\ObjectMapper\ObjectMapperInterface;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
 use Symfony\Contracts\Service\ServiceCollectionInterface;
 
@@ -28,14 +27,12 @@ class HoyolabManagerService
 
     /**
      * @param LoggerInterface $hoyoverseLogger
-     * @param ObjectMapperInterface $objectMapper
      * @param EntityManagerInterface $entityManager
      * @param ServiceCollectionInterface<GameInterface> $locatorByGameBiz
      * @param ServiceCollectionInterface<GameInterface> $locatorByGameId
      */
     public function __construct(
         private readonly LoggerInterface              $hoyoverseLogger,
-        private readonly ObjectMapperInterface        $objectMapper,
         private readonly EntityManagerInterface       $entityManager,
         #[AutowireLocator(services: 'hoyoverse.game', defaultIndexMethod: 'getGameBiz')]
         protected readonly ServiceCollectionInterface $locatorByGameBiz,
@@ -132,7 +129,7 @@ class HoyolabManagerService
                 $gameProfile->setGameName($gameService->getGameName());
             }
 
-            $this->objectMapper->map($gameRole, $gameProfile);
+            $this->getObjectMapper()->map($gameRole, $gameProfile);
             $gameProfile->updateParsedRegion();
             $gameProfile->updateParsedTimezone();
 
@@ -233,7 +230,7 @@ class HoyolabManagerService
                 $gameProfile->setGameBiz($gameService::getGameBiz());
             }
 
-            $this->objectMapper->map($gameRecord, $gameProfile);
+            $this->getObjectMapper()->map($gameRecord, $gameProfile);
             $gameProfile->updateParsedRegion();
             $gameProfile->updateParsedTimezone();
 

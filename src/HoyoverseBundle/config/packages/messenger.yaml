@@ -10,3 +10,11 @@ framework:
                 dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
                 options:
                     queue_name: hoyoverse_redeem
+            hoyoverse_diary:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    queue_name: hoyoverse_diary
+                retry_strategy:
+                    max_retries: 3
+                    delay: 60000
+                    multiplier: 2

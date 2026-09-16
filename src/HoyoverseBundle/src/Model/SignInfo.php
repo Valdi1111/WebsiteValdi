@@ -2,20 +2,29 @@
 
 namespace App\HoyoverseBundle\Model;
 
+use Symfony\Component\Serializer\Attribute\SerializedName;
+
 class SignInfo
 {
+    #[SerializedName('total_sign_day')]
     private int $totalSignDay;
 
+    #[SerializedName('today')]
     private \DateTime $today;
 
+    #[SerializedName('is_sign')]
     private bool $isSign;
 
+    #[SerializedName('first_bind')]
     private bool $firstBind;
 
+    #[SerializedName('is_sub')]
     private bool $isSub;
 
+    #[SerializedName('region')]
     private string $region;
 
+    #[SerializedName('month_last_day')]
     private bool $monthLastDay;
 
     public function getTotalSignDay(): int

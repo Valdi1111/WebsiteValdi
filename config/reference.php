@@ -152,11 +152,6 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         url_regex?: scalar|Param|null, // Default: null
  *         url?: scalar|Param|null, // Default: null
  *     },
- *     etabeta?: array{
- *         url?: scalar|Param|null, // Default: null
- *         username?: scalar|Param|null, // Default: null
- *         password?: scalar|Param|null, // Default: null
- *     },
  *     youtube_dl?: array{
  *         bin_path?: scalar|Param|null, // Default: null
  *     },
@@ -229,6 +224,13 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *             cron?: scalar|Param|null, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: 3
+ *         },
+ *         sync_diary?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\SyncDiaryMessage"
+ *             cron?: scalar|Param|null, // Default: null
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: null
  *         },
  *         update_cookie?: array{
  *             enabled?: bool|Param, // Default: true

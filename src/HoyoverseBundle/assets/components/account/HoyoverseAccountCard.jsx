@@ -1,4 +1,4 @@
-import { UserOutlined, SyncOutlined, DeleteOutlined, GiftOutlined, WarningOutlined } from "@ant-design/icons";
+import { UserOutlined, SyncOutlined, DeleteOutlined, GiftOutlined, WarningOutlined, ReloadOutlined } from "@ant-design/icons";
 import { Card, Space, Button, Popconfirm, Typography, Row, Col, Empty, Tag, Tooltip } from "antd";
 import GameProfileCard from "@HoyoverseBundle/components/game-profile/HoyoverseGameProfileCard";
 import React from "react";
@@ -14,6 +14,7 @@ export default function HoyoverseAccountCard({
                                              }) {
     const hasProfiles = account.game_profiles && account.game_profiles.length > 0;
     const canRedeemCodes = Boolean(account.can_redeem_codes);
+    const canAutoRenew = Boolean(account.can_auto_renew);
 
     return (
         <Card
@@ -25,7 +26,20 @@ export default function HoyoverseAccountCard({
                         (Added: {account.added_at ? new Date(account.added_at).toLocaleDateString() : "-"})
                     </Text>
 
-                    {/* Badge stato Code Redemption */}
+                    {/* Auto-renew badge */}
+                    {canAutoRenew ? (
+                        <Tag color="green" icon={<ReloadOutlined />}>
+                            Auto-Renew Ready
+                        </Tag>
+                    ) : (
+                        <Tooltip title="Account cookie is missing 'stoken'. Cookies cannot be automatically renewed and will expire.">
+                            <Tag color="warning" icon={<WarningOutlined />}>
+                                Auto-Renew Unavailable
+                            </Tag>
+                        </Tooltip>
+                    )}
+
+                    {/* Code redemption badge */}
                     {canRedeemCodes ? (
                         <Tag color="cyan" icon={<GiftOutlined />}>
                             Code Redemption Ready

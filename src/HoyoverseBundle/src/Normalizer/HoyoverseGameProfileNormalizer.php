@@ -6,6 +6,7 @@ use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasCodeRedemptionInterface;
 use App\HoyoverseBundle\Model\Game\HasDailiesInterface;
+use App\HoyoverseBundle\Model\Game\HasDiaryInterface;
 use App\HoyoverseBundle\Model\Game\HasExpeditionsInterface;
 use App\HoyoverseBundle\Model\Game\HasHilichurlInterface;
 use App\HoyoverseBundle\Model\Game\HasHoyolabCheckInInterface;
@@ -35,6 +36,7 @@ class HoyoverseGameProfileNormalizer implements NormalizerInterface, Denormalize
         HasHilichurlInterface::class => ['hilichurlCheck', 'hilichurlRedeem'],
         HasDailiesInterface::class => ['dailiesCheck'],
         HasWeekliesInterface::class => ['weekliesCheck'],
+        HasDiaryInterface::class => ['syncDiary'],
     ];
 
     /**

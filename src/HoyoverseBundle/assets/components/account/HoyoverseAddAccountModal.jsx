@@ -8,7 +8,7 @@ export default function HoyoverseAddAccountModal({ open, onCancel, onSubmit, loa
 
     const parsedTokens = useMemo(() => {
         if (!rawCookie || typeof rawCookie !== "string") {
-            return { tokens: {}, isValid: false, canRedeemCodes: false };
+            return { tokens: {}, isValid: false, canRedeemCodes: false, canAutoRenew: false };
         }
 
         const tokens = {};
@@ -25,8 +25,10 @@ export default function HoyoverseAddAccountModal({ open, onCancel, onSubmit, loa
 
         const isValid = Boolean(tokens.ltoken_v2 && tokens.ltuid_v2 && tokens.ltmid_v2);
         const canRedeemCodes = Boolean(tokens.cookie_token_v2 && tokens.account_mid_v2 && tokens.account_id_v2);
+        // Check for presence of stoken or stoken_v2 required for automatic token renewal
+        const canAutoRenew = Boolean(tokens.stoken || tokens.stoken_v2);
 
-        return { tokens, isValid, canRedeemCodes };
+        return { tokens, isValid, canRedeemCodes, canAutoRenew };
     }, [rawCookie]);
 
     const handleClose = () => {
@@ -83,6 +85,14 @@ export default function HoyoverseAddAccountModal({ open, onCancel, onSubmit, loa
                                 </Space>
                             </Descriptions.Item>
 
+                            <Descriptions.Item label={<strong>Auto Renewal Tokens</strong>}>
+                                <Space wrap>
+                                    <Tag color={(parsedTokens.tokens.stoken || parsedTokens.tokens.stoken_v2) ? "success" : "default"} icon={(parsedTokens.tokens.stoken || parsedTokens.tokens.stoken_v2) ? <CheckCircleOutlined /> : <CloseCircleOutlined />}>
+                                        stoken
+                                    </Tag>
+                                </Space>
+                            </Descriptions.Item>
+
                             <Descriptions.Item label={<strong>Code Redemption Tokens</strong>}>
                                 <Space wrap>
                                     <Tag color={parsedTokens.tokens.cookie_token_v2 ? "success" : "default"} icon={parsedTokens.tokens.cookie_token_v2 ? <CheckCircleOutlined /> : <CloseCircleOutlined />}>
@@ -98,28 +108,50 @@ export default function HoyoverseAddAccountModal({ open, onCancel, onSubmit, loa
                             </Descriptions.Item>
                         </Descriptions>
 
-                        <div style={{ marginTop: 12 }}>
-                            {!parsedTokens.isValid ? (
+                        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                            {!parsedTokens.isValid && (
                                 <Alert
                                     type="error"
                                     showIcon
-                                    message="Invalid Cookie"
+                                    title="Invalid Cookie"
                                     description="Missing required base credentials (ltoken_v2, ltuid_v2, or ltmid_v2). The account cannot be saved without them."
                                 />
-                            ) : parsedTokens.canRedeemCodes ? (
-                                <Alert
-                                    type="success"
-                                    showIcon
-                                    message="Code Redemption Enabled"
-                                    description="All 3 redemption tokens (cookie_token_v2, account_mid_v2, and account_id_v2) are present. Automatic promo code redemption will be functional."
-                                />
-                            ) : (
-                                <Alert
-                                    type="warning"
-                                    showIcon
-                                    message="Code Redemption Disabled"
-                                    description="Missing one or more redemption tokens (cookie_token_v2, account_mid_v2, account_id_v2). Daily check-in and stamina checks will work, but automatic promo code redemption will not be supported."
-                                />
+                            )}
+
+                            {parsedTokens.isValid && (
+                                <>
+                                    {parsedTokens.canAutoRenew ? (
+                                        <Alert
+                                            type="success"
+                                            showIcon
+                                            title="Auto-Renewal Enabled"
+                                            description="The 'stoken' token is present. The system will be able to refresh session cookies automatically."
+                                        />
+                                    ) : (
+                                        <Alert
+                                            type="warning"
+                                            showIcon
+                                            title="Auto-Renewal Unavailable"
+                                            description="Missing 'stoken'. Cookies will not refresh automatically and will expire over time."
+                                        />
+                                    )}
+
+                                    {parsedTokens.canRedeemCodes ? (
+                                        <Alert
+                                            type="success"
+                                            showIcon
+                                            title="Code Redemption Enabled"
+                                            description="All 3 redemption tokens (cookie_token_v2, account_mid_v2, and account_id_v2) are present. Automatic promo code redemption will be functional."
+                                        />
+                                    ) : (
+                                        <Alert
+                                            type="warning"
+                                            showIcon
+                                            title="Code Redemption Disabled"
+                                            description="Missing one or more redemption tokens (cookie_token_v2, account_mid_v2, account_id_v2). Daily check-in and stamina checks will work, but automatic promo code redemption will not be supported."
+                                        />
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>

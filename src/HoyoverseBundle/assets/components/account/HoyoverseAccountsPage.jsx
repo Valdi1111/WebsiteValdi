@@ -107,7 +107,7 @@ export default function HoyoverseAccountsPage() {
             ) : accounts.length === 0 ? (
                 <Empty description="No HoYoverse accounts found" />
             ) : (
-                <Space direction="vertical" size="large" style={{ width: "100%" }}>
+                <Space orientation="vertical" size="large" style={{ width: "100%" }}>
                     {accounts.map((acc) => (
                         <HoyoverseAccountCard
                             key={acc.id}

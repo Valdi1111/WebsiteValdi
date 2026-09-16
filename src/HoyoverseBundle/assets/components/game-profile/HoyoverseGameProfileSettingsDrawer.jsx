@@ -138,6 +138,7 @@ export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, pr
                 checkAndSet("hoyolab_check_in", true);
                 checkAndSet("hoyolab_missed_check_in", true);
                 checkAndSet("code_redeem", true);
+                checkAndSet("sync_diary", false);
                 checkAndSet("stamina_check", false);
                 checkAndSet("stamina_threshold", -1);
                 checkAndSet("expedition_check", true);
@@ -188,7 +189,7 @@ export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, pr
         <Drawer
             title="Profile Details & Settings"
             placement="right"
-            width={540}
+            size={540}
             open={open}
             onClose={onClose}
             afterOpenChange={handleAfterOpenChange}
@@ -279,7 +280,7 @@ export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, pr
                                 type="warning"
                                 showIcon
                                 style={{ marginBottom: 16 }}
-                                message="Profile is Suspended"
+                                title="Profile is Suspended"
                                 description="All background tasks (Check-ins, Redemptions, Resins, Web Events) are completely bypassed. You do not need to turn off individual switches below."
                             />
                         )}
@@ -320,6 +321,23 @@ export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, pr
                                     <Switch disabled={!isProfileActive || !accountCanRedeemCodes} />
                                 </Form.Item>
                             </SettingRow>
+                        )}
+
+                        {/* Resource Diary Sync */}
+                        {supports("sync_diary") && (
+                            <>
+                                <Divider orientation="left">
+                                    <strong>Resource Diary & History</strong>
+                                </Divider>
+                                <SettingRow
+                                    label="Sync Diary Logs"
+                                    description="Download and synchronize resource acquisition logs for charts and historical tracking"
+                                >
+                                    <Form.Item name="sync_diary" valuePropName="checked" noStyle>
+                                        <Switch disabled={!isProfileActive} />
+                                    </Form.Item>
+                                </SettingRow>
+                            </>
                         )}
 
                         {/* Stamina & Expeditions */}

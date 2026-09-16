@@ -1,5 +1,5 @@
 import { Card, Avatar, Tag, Tooltip, Typography, Space } from "antd";
-import {SettingOutlined, LinkOutlined, WarningOutlined} from "@ant-design/icons";
+import { SettingOutlined, LinkOutlined, WarningOutlined } from "@ant-design/icons";
 import React from "react";
 
 const { Text } = Typography;
@@ -77,6 +77,9 @@ export default function HoyoverseGameProfileCard({ profile, accountCanRedeemCode
                                     )}
                                     {"realm_currency_check" in profile && profile.realm_currency_check && (
                                         <Tag color="purple">Teapot</Tag>
+                                    )}
+                                    {"sync_diary" in profile && profile.sync_diary && (
+                                        <Tag color="geekblue">Diary Sync</Tag>
                                     )}
                                 </>
                             )}

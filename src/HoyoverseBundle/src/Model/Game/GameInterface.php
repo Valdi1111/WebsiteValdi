@@ -2,8 +2,6 @@
 
 namespace App\HoyoverseBundle\Model\Game;
 
-use App\HoyoverseBundle\Model\AccountInfoData;
-use App\HoyoverseBundle\Model\ParsedCookie;
 use App\HoyoverseBundle\Service\HoyolabUtilsService;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
@@ -34,14 +32,4 @@ interface GameInterface
     public function getDenormalizer(): ?DenormalizerInterface;
 
     public function getHoyolabUtils(): ?HoyolabUtilsService;
-
-    /**
-     * @deprecated
-     */
-    public function getWebApiUrl(): string;
-
-    /**
-     * @deprecated
-     */
-    public function updateCookie(ParsedCookie $cookie): AccountInfoData;
 }

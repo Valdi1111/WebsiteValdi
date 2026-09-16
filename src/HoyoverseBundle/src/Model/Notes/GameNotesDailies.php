@@ -21,7 +21,7 @@ class GameNotesDailies extends ArrayCollection
         if ($this->isEmpty()) {
             return true;
         }
-        return $this->forAll(static fn (int $i, GameNotesProgressMetric $metric) => $metric->isDone());
+        return $this->forAll(static fn (int $i, GameNotesMetricInterface $metric) => $metric->isDone());
     }
 
 }

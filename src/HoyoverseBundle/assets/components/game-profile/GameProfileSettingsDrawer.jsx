@@ -91,7 +91,7 @@ function ThresholdInput({ value, onChange, min = -1, max, step = 1, disabled, wi
     );
 }
 
-export default function HoyoverseGameProfileSettingsDrawer({ open, accountId, profileId, accountCanRedeemCodes, onClose, onSaved }) {
+export default function GameProfileSettingsDrawer({ open, accountId, profileId, accountCanRedeemCodes, onClose, onSaved }) {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);

@@ -1,6 +1,7 @@
-import HoyoverseGameProfileSettingsDrawer from "@HoyoverseBundle/components/game-profile/HoyoverseGameProfileSettingsDrawer";
-import HoyoverseAddAccountModal from "@HoyoverseBundle/components/account/HoyoverseAddAccountModal";
-import HoyoverseAccountCard from "@HoyoverseBundle/components/account/HoyoverseAccountCard";
+import GameProfileSettingsDrawer from "@HoyoverseBundle/components/game-profile/GameProfileSettingsDrawer";
+import AddAccountModal from "@HoyoverseBundle/components/account/AddAccountModal";
+import AccountCard from "@HoyoverseBundle/components/account/AccountCard";
+
 import { useBackendApi } from "@HoyoverseBundle/components/BackendApiContext";
 import React, { useState, useEffect, useCallback } from "react";
 import { Button, Typography, Space, Empty, Spin } from "antd";
@@ -8,7 +9,7 @@ import { PlusOutlined } from "@ant-design/icons";
 
 const { Title, Text } = Typography;
 
-export default function HoyoverseAccountsPage() {
+export default function AccountsPage() {
     const [accounts, setAccounts] = useState([]);
     const [loading, setLoading] = useState(false);
     const [syncingAccountId, setSyncingAccountId] = useState(null);
@@ -109,7 +110,7 @@ export default function HoyoverseAccountsPage() {
             ) : (
                 <Space orientation="vertical" size="large" style={{ width: "100%" }}>
                     {accounts.map((acc) => (
-                        <HoyoverseAccountCard
+                        <AccountCard
                             key={acc.id}
                             account={acc}
                             isSyncing={syncingAccountId === acc.id}
@@ -121,14 +122,14 @@ export default function HoyoverseAccountsPage() {
                 </Space>
             )}
 
-            <HoyoverseAddAccountModal
+            <AddAccountModal
                 open={isAddModalOpen}
                 loading={submittingAccount}
                 onCancel={() => setIsAddModalOpen(false)}
                 onSubmit={handleCreateAccount}
             />
 
-            <HoyoverseGameProfileSettingsDrawer
+            <GameProfileSettingsDrawer
                 open={isSettingsOpen}
                 accountId={selectedTarget?.accountId}
                 profileId={selectedTarget?.profileId}

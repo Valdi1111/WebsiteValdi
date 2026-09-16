@@ -1,5 +1,5 @@
-import HoyoverseAccountsPage from "@HoyoverseBundle/components/account/HoyoverseAccountsPage";
-import HoyoverseGameProfileDiaryPage from "@HoyoverseBundle/components/diary/HoyoverseGameProfileDiaryPage";
+import AccountsPage from "@HoyoverseBundle/components/account/AccountsPage";
+import DiaryPage from "@HoyoverseBundle/components/diary/DiaryPage";
 import MainLayout from "@HoyoverseBundle/components/MainLayout";
 import NotFoundComponent from "@CoreBundle/components/NotFoundComponent";
 import BackendApiContext from "@HoyoverseBundle/components/BackendApiContext";
@@ -19,12 +19,12 @@ export default function App() {
                 <Route path="/" element={<Navigate to="/hoyoverse"/>}/>
                 <Route path="/hoyoverse" element={
                     <MainLayout>
-                        <HoyoverseAccountsPage/>
+                        <AccountsPage/>
                     </MainLayout>
                 }/>
                 <Route path="/hoyoverse/accounts/:accountId/profiles/:gameProfileId/diary" element={
                     <MainLayout>
-                        <HoyoverseGameProfileDiaryPage/>
+                        <DiaryPage/>
                     </MainLayout>
                 }/>
                 <Route path="*" element={

@@ -1,11 +1,11 @@
 import { UserOutlined, SyncOutlined, DeleteOutlined, GiftOutlined, WarningOutlined, ReloadOutlined } from "@ant-design/icons";
 import { Card, Space, Button, Popconfirm, Typography, Row, Col, Empty, Tag, Tooltip } from "antd";
-import GameProfileCard from "@HoyoverseBundle/components/game-profile/HoyoverseGameProfileCard";
+import GameProfileCard from "@HoyoverseBundle/components/game-profile/GameProfileCard";
 import React from "react";
 
 const { Text } = Typography;
 
-export default function HoyoverseAccountCard({
+export default function AccountCard({
                                                  account,
                                                  isSyncing,
                                                  onSync,

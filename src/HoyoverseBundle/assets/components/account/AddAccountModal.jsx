@@ -2,7 +2,7 @@ import { CheckCircleOutlined, CloseCircleOutlined, KeyOutlined } from "@ant-desi
 import { Modal, Form, Input, Space, Button, Descriptions, Tag, Alert } from "antd";
 import React, { useMemo } from "react";
 
-export default function HoyoverseAddAccountModal({ open, onCancel, onSubmit, loading }) {
+export default function AddAccountModal({ open, onCancel, onSubmit, loading }) {
     const [form] = Form.useForm();
     const rawCookie = Form.useWatch("cookie", form);
 

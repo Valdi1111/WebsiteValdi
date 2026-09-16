@@ -1,11 +1,11 @@
-import { Card, Avatar, Tag, Tooltip, Typography, Space } from "antd";
 import { SettingOutlined, LinkOutlined, WarningOutlined, AreaChartOutlined } from "@ant-design/icons";
+import { Card, Avatar, Tag, Tooltip, Typography, Space } from "antd";
 import { useNavigate } from "react-router";
 import React from "react";
 
 const { Text } = Typography;
 
-export default function HoyoverseGameProfileCard({ profile, accountId, accountCanRedeemCodes, onOpenSettings }) {
+export default function GameProfileCard({ profile, accountId, accountCanRedeemCodes, onOpenSettings }) {
     const navigate = useNavigate();
 
     // The diary feature is supported only if the profile defines sync_diary

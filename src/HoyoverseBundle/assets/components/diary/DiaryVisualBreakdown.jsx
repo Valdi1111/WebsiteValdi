@@ -1,8 +1,9 @@
-import { Row, Col, Card, Space, Typography, Progress, Empty } from "antd";
+import { Row, Col, Card, Space, Typography, Progress, Empty, Grid } from "antd";
 import { PieChartOutlined, BarChartOutlined } from "@ant-design/icons";
 import React, { useState, useMemo } from "react";
 
 const { Text } = Typography;
+const { useBreakpoint } = Grid;
 
 export default function DiaryVisualBreakdown({
                                                  summary,
@@ -11,6 +12,9 @@ export default function DiaryVisualBreakdown({
                                                  onToggleActionFilter,
                                                  onToggleDateFilter,
                                              }) {
+    const screens = useBreakpoint();
+    const isMobile = !screens.sm;
+
     const [hoveredAction, setHoveredAction] = useState(null);
     const [hoveredDate, setHoveredDate] = useState(null);
 
@@ -19,10 +23,21 @@ export default function DiaryVisualBreakdown({
         return Math.max(...summary.daily_timeline.map((d) => d.amount), 1);
     }, [summary?.daily_timeline]);
 
+    const cardStyles = {
+        header: {
+            height: "auto",
+            padding: isMobile ? "12px 12px" : "16px 20px",
+        },
+        body: {
+            padding: isMobile ? "12px 8px" : "20px 24px",
+        },
+    };
+
     return (
         <Row gutter={[16, 16]}>
             <Col xs={24} lg={10}>
                 <Card
+                    styles={cardStyles}
                     title={
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <Space><PieChartOutlined /><span>Earnings by Source</span></Space>
@@ -87,6 +102,7 @@ export default function DiaryVisualBreakdown({
 
             <Col xs={24} lg={14}>
                 <Card
+                    styles={cardStyles}
                     title={
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <Space><BarChartOutlined /><span>Daily Progression</span></Space>

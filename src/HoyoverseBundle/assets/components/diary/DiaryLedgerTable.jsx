@@ -1,9 +1,10 @@
-import { Card, Space, Tag, Select, DatePicker, Button, Table, Typography } from "antd";
+import { Card, Space, Tag, Select, DatePicker, Button, Table, Typography, Grid } from "antd";
 import { CloseCircleOutlined } from "@ant-design/icons";
 import React, { useMemo } from "react";
 import dayjs from "dayjs";
 
 const { Text } = Typography;
+const { useBreakpoint } = Grid;
 
 export default function DiaryLedgerTable({
                                              items,
@@ -21,6 +22,8 @@ export default function DiaryLedgerTable({
                                              onResetFilters,
                                              onTableChange,
                                          }) {
+    const screens = useBreakpoint();
+    const isMobile = !screens.sm;
     const hasActiveFilters = Boolean(selectedAction || selectedDate);
 
     const actionOptions = useMemo(() => {
@@ -33,16 +36,28 @@ export default function DiaryLedgerTable({
             title: "Date & Time",
             dataIndex: "recorded_at",
             key: "recorded_at",
-            width: 200,
+            width: isMobile ? 120 : 180,
+            render: (text) => (
+                <span style={{ fontSize: isMobile ? 12 : 14, whiteSpace: "normal" }}>
+                    {text}
+                </span>
+            ),
         },
         {
             title: "Source / Action",
             dataIndex: "action_name",
             key: "action_name",
+            ellipsis: true,
             render: (text) => (
                 <Tag
                     color={selectedAction === text ? "processing" : "blue"}
-                    style={{ cursor: "pointer" }}
+                    style={{
+                        cursor: "pointer",
+                        maxWidth: "100%",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                    }}
                     onClick={() => onFilterActionChange(selectedAction === text ? null : text)}
                 >
                     {text || "Unknown Action"}
@@ -54,8 +69,9 @@ export default function DiaryLedgerTable({
             dataIndex: "amount",
             key: "amount",
             align: "right",
+            width: isMobile ? 80 : 100,
             render: (amount) => (
-                <Text strong style={{ color: amount >= 0 ? "#52c41a" : "#f5222d" }}>
+                <Text strong style={{ color: amount >= 0 ? "#52c41a" : "#f5222d", whiteSpace: "nowrap" }}>
                     {amount >= 0 ? `+${amount.toLocaleString()}` : amount.toLocaleString()}
                 </Text>
             ),
@@ -64,59 +80,81 @@ export default function DiaryLedgerTable({
 
     return (
         <Card
+            styles={{
+                header: {
+                    height: "auto",
+                    padding: isMobile ? "12px 12px" : "16px 20px",
+                },
+                body: {
+                    padding: isMobile ? "12px 8px" : "20px 24px",
+                },
+            }}
             title={
-                <Space size={12} wrap>
-                    <span>Acquisition Ledger (Raw Logs)</span>
-                    {hasActiveFilters ? (
-                        <Tag color="cyan">
-                            Filtered: +{filteredAmount.toLocaleString()} / +{currentTotal.toLocaleString()} (
-                            {currentTotal > 0 ? Math.round((filteredAmount / currentTotal) * 100) : 0}%)
-                        </Tag>
-                    ) : (
-                        <Tag color="blue">
-                            Total: +{currentTotal.toLocaleString()}
-                        </Tag>
-                    )}
-                </Space>
-            }
-            extra={
-                <Space wrap size="middle">
-                    <Select
-                        allowClear
-                        placeholder="Filter by Source..."
-                        style={{ width: 200 }}
-                        value={selectedAction}
-                        options={actionOptions}
-                        onChange={(val) => onFilterActionChange(val || null)}
-                    />
+                <div
+                    style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: 12,
+                        width: "100%",
+                    }}
+                >
+                    {/* Header Title & Badges */}
+                    <Space size={8} wrap style={{ flex: "1 1 auto" }}>
+                        <span style={{ fontWeight: 600 }}>Acquisition Ledger</span>
+                        {hasActiveFilters ? (
+                            <Tag color="cyan">
+                                Filtered: +{filteredAmount.toLocaleString()} / +{currentTotal.toLocaleString()} (
+                                {currentTotal > 0 ? Math.round((filteredAmount / currentTotal) * 100) : 0}%)
+                            </Tag>
+                        ) : (
+                            <Tag color="blue">
+                                Total: +{currentTotal.toLocaleString()}
+                            </Tag>
+                        )}
+                    </Space>
 
-                    <DatePicker
-                        allowClear
-                        placeholder="Filter by Date"
-                        value={selectedDate ? dayjs(selectedDate) : null}
-                        onChange={(date, dateString) => onFilterDateChange(dateString || null)}
-                    />
+                    {/* Filter controls wrapped inside the title block to prevent horizontal overflow */}
+                    <Space wrap size="small" style={{ flex: isMobile ? "1 1 100%" : "0 0 auto" }}>
+                        <Select
+                            allowClear
+                            placeholder="Filter by Source..."
+                            style={{ width: isMobile ? "100%" : 180, minWidth: 140 }}
+                            value={selectedAction}
+                            options={actionOptions}
+                            onChange={(val) => onFilterActionChange(val || null)}
+                        />
 
-                    {hasActiveFilters && (
-                        <Button icon={<CloseCircleOutlined />} onClick={onResetFilters}>
-                            Reset Filters
-                        </Button>
-                    )}
-                </Space>
+                        <DatePicker
+                            allowClear
+                            placeholder="Filter by Date"
+                            style={{ width: isMobile ? "100%" : 150 }}
+                            value={selectedDate ? dayjs(selectedDate) : null}
+                            onChange={(date, dateString) => onFilterDateChange(dateString || null)}
+                        />
+
+                        {hasActiveFilters && (
+                            <Button icon={<CloseCircleOutlined />} onClick={onResetFilters}>
+                                Reset
+                            </Button>
+                        )}
+                    </Space>
+                </div>
             }
         >
             {hasActiveFilters && (
-                <div style={{ marginBottom: 16 }}>
-                    <Space size={8} wrap>
-                        <Text type="secondary" style={{ fontSize: 12 }}>Active Filters:</Text>
+                <div style={{ marginBottom: 12 }}>
+                    <Space size={6} wrap>
+                        <Text type="secondary" style={{ fontSize: 12 }}>Active:</Text>
                         {selectedAction && (
                             <Tag closable color="blue" onClose={() => onFilterActionChange(null)}>
-                                Source: {selectedAction}
+                                {selectedAction}
                             </Tag>
                         )}
                         {selectedDate && (
                             <Tag closable color="green" onClose={() => onFilterDateChange(null)}>
-                                Date: {selectedDate}
+                                {selectedDate}
                             </Tag>
                         )}
                     </Space>
@@ -130,13 +168,16 @@ export default function DiaryLedgerTable({
                 dataSource={items}
                 loading={loading}
                 onChange={onTableChange}
+                scroll={{ x: isMobile ? 380 : undefined }}
                 pagination={{
                     current: page,
                     pageSize: pageSize,
                     total: total,
-                    showSizeChanger: true,
+                    responsive: true,
+                    simple: isMobile,
+                    showSizeChanger: !isMobile,
                     pageSizeOptions: [10, 15, 25, 50, 100],
-                    showTotal: (totalCount, range) => `${range[0]}-${range[1]} of ${totalCount} entries`,
+                    showTotal: isMobile ? undefined : (totalCount, range) => `${range[0]}-${range[1]} of ${totalCount} entries`,
                     scrollToFirstRowOnChange: false,
                 }}
             />

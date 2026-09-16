@@ -4,12 +4,16 @@ import AccountCard from "@HoyoverseBundle/components/account/AccountCard";
 
 import { useBackendApi } from "@HoyoverseBundle/components/BackendApiContext";
 import React, { useState, useEffect, useCallback } from "react";
-import { Button, Typography, Space, Empty, Spin } from "antd";
+import { Button, Typography, Space, Empty, Spin, Grid } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 
 const { Title, Text } = Typography;
+const { useBreakpoint } = Grid;
 
 export default function AccountsPage() {
+    const screens = useBreakpoint();
+    const isMobile = !screens.sm;
+
     const [accounts, setAccounts] = useState([]);
     const [loading, setLoading] = useState(false);
     const [syncingAccountId, setSyncingAccountId] = useState(null);
@@ -84,11 +88,29 @@ export default function AccountsPage() {
     };
 
     return (
-        <div style={{ flex: 1, padding: 24, overflowY: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-                <div>
-                    <Title level={3} style={{ margin: 0 }}>HoYoverse Accounts</Title>
-                    <Text type="secondary">
+        <div
+            style={{
+                flex: 1,
+                padding: isMobile ? "12px 10px" : 24,
+                overflowY: "auto",
+                boxSizing: "border-box",
+            }}
+        >
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: isMobile ? "stretch" : "flex-start",
+                    flexDirection: isMobile ? "column" : "row",
+                    gap: isMobile ? 12 : 16,
+                    marginBottom: isMobile ? 16 : 24,
+                }}
+            >
+                <div style={{ maxWidth: 600 }}>
+                    <Title level={isMobile ? 4 : 3} style={{ margin: 0 }}>
+                        HoYoverse Accounts
+                    </Title>
+                    <Text type="secondary" style={{ fontSize: isMobile ? 12 : 13 }}>
                         Manage your HoYoverse credentials, sync linked game profiles, and configure automation settings
                     </Text>
                 </div>
@@ -96,6 +118,7 @@ export default function AccountsPage() {
                     type="primary"
                     icon={<PlusOutlined />}
                     onClick={() => setIsAddModalOpen(true)}
+                    style={{ alignSelf: isMobile ? "flex-start" : "auto" }}
                 >
                     Add Account
                 </Button>
@@ -108,7 +131,7 @@ export default function AccountsPage() {
             ) : accounts.length === 0 ? (
                 <Empty description="No HoYoverse accounts found" />
             ) : (
-                <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+                <Space orientation="vertical" size={isMobile ? "middle" : "large"} style={{ width: "100%" }}>
                     {accounts.map((acc) => (
                         <AccountCard
                             key={acc.id}

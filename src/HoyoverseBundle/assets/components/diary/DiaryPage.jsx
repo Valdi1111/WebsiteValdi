@@ -3,14 +3,18 @@ import DiaryVisualBreakdown from "@HoyoverseBundle/components/diary/DiaryVisualB
 import DiaryLedgerTable from "@HoyoverseBundle/components/diary/DiaryLedgerTable";
 
 import { useBackendApi } from "@HoyoverseBundle/components/BackendApiContext";
-import { Typography, Space, Button, Breadcrumb, Select, Spin, Empty } from "antd";
+import { Typography, Space, Button, Breadcrumb, Select, Spin, Empty, Grid } from "antd";
 import { ArrowLeftOutlined, CalendarOutlined } from "@ant-design/icons";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
 
 const { Title, Text } = Typography;
+const { useBreakpoint } = Grid;
 
 export default function DiaryPage() {
+    const screens = useBreakpoint();
+    const isMobile = !screens.sm;
+
     const { accountId, gameProfileId } = useParams();
     const navigate = useNavigate();
     const api = useBackendApi();
@@ -66,7 +70,7 @@ export default function DiaryPage() {
             .finally(() => setLoadingSummary(false));
     }, [api, accountId, gameProfileId, selectedPeriod, selectedCurrency]);
 
-    // Fetch ledger entries preservando la posizione di scroll
+    // Fetch ledger entries preserving scroll container position
     const fetchEntries = useCallback((targetPage, targetPageSize, targetAction, targetDate) => {
         if (!selectedPeriod || !selectedCurrency) return;
 
@@ -141,7 +145,7 @@ export default function DiaryPage() {
 
     if (!meta || !meta.periods || meta.periods.length === 0) {
         return (
-            <div style={{ display: "flex", flexDirection: "column", height: "100%", width: "100%", padding: 24, boxSizing: "border-box" }}>
+            <div style={{ display: "flex", flexDirection: "column", height: "100%", width: "100%", padding: isMobile ? 14 : 24, boxSizing: "border-box" }}>
                 <div>
                     <Button icon={<ArrowLeftOutlined />} onClick={() => navigate("/hoyoverse")}>
                         Back to Accounts
@@ -158,9 +162,16 @@ export default function DiaryPage() {
 
     return (
         <div style={{ display: "flex", flexDirection: "column", height: "100%", width: "100%", overflow: "hidden" }}>
-            <div style={{ padding: "20px 24px 16px 24px", borderBottom: "1px solid rgba(5, 5, 5, 0.06)", flexShrink: 0 }}>
+            {/* Header section with responsive layout and padding */}
+            <div
+                style={{
+                    padding: isMobile ? "12px 14px" : "20px 24px 16px 24px",
+                    borderBottom: "1px solid rgba(5, 5, 5, 0.06)",
+                    flexShrink: 0,
+                }}
+            >
                 <Breadcrumb
-                    style={{ marginBottom: 12 }}
+                    style={{ marginBottom: isMobile ? 8 : 12 }}
                     items={[
                         { title: <a onClick={() => navigate("/hoyoverse")}>HoYoverse</a> },
                         { title: `Account #${accountId}` },
@@ -169,42 +180,73 @@ export default function DiaryPage() {
                     ]}
                 />
 
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+                <div
+                    style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: isMobile ? 12 : 16,
+                    }}
+                >
                     <div>
-                        <Title level={3} style={{ margin: 0 }}>Resource Diary</Title>
-                        <Text type="secondary">
+                        <Title level={isMobile ? 4 : 3} style={{ margin: 0 }}>Resource Diary</Title>
+                        <Text type="secondary" style={{ fontSize: isMobile ? 12 : 14 }}>
                             {meta.profile.nickname} - UID: {meta.profile.game_uid}
                         </Text>
                     </div>
 
-                    <Space wrap size="middle">
+                    {/* Controls container: spans full width on mobile on a single line */}
+                    <div
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            width: isMobile ? "100%" : "auto",
+                            flexWrap: "nowrap",
+                        }}
+                    >
                         <Select
-                            style={{ width: 140 }}
+                            style={{ flex: isMobile ? 1 : undefined, width: isMobile ? "auto" : 140, minWidth: 0 }}
                             value={selectedPeriod}
                             onChange={setSelectedPeriod}
                             prefix={<CalendarOutlined />}
                             options={meta.periods.map((p) => ({ label: p, value: p }))}
                         />
                         <Select
-                            style={{ width: 170 }}
+                            style={{ flex: isMobile ? 1 : undefined, width: isMobile ? "auto" : 170, minWidth: 0 }}
                             value={selectedCurrency}
                             onChange={setSelectedCurrency}
                             options={meta.currencies.map((c) => ({ label: c.label, value: c.value }))}
                         />
-                        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate("/hoyoverse")}>
-                            Back
+                        <Button
+                            icon={<ArrowLeftOutlined />}
+                            onClick={() => navigate("/hoyoverse")}
+                            style={{ flexShrink: 0 }}
+                        >
+                            {!isMobile && "Back"}
                         </Button>
-                    </Space>
+                    </div>
                 </div>
             </div>
 
-            <div ref={scrollContainerRef} style={{ flex: 1, overflowY: "auto", padding: 24, width: "100%" }}>
+            {/* Scrollable body content with reduced margins on mobile */}
+            <div
+                ref={scrollContainerRef}
+                style={{
+                    flex: 1,
+                    overflowY: "auto",
+                    padding: isMobile ? "12px 10px" : 24,
+                    width: "100%",
+                    boxSizing: "border-box",
+                }}
+            >
                 {loadingSummary ? (
                     <div style={{ textAlign: "center", padding: 40 }}>
                         <Spin size="large" />
                     </div>
                 ) : summary ? (
-                    <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+                    <Space orientation="vertical" size={isMobile ? "middle" : "large"} style={{ width: "100%" }}>
                         <DiaryKpiCards summary={summary} isPrimaryGacha={isPrimaryGacha} />
 
                         <DiaryVisualBreakdown

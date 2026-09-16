@@ -141,14 +141,17 @@ export default function DiaryPage() {
 
     if (!meta || !meta.periods || meta.periods.length === 0) {
         return (
-            <div style={{ padding: 24 }}>
-                <Button icon={<ArrowLeftOutlined />} onClick={() => navigate("/hoyoverse")}>
-                    Back to Accounts
-                </Button>
-                <Empty
-                    style={{ marginTop: 60 }}
-                    description="No diary data recorded yet for this profile. Make sure 'Sync Diary Logs' is enabled in the profile settings."
-                />
+            <div style={{ display: "flex", flexDirection: "column", height: "100%", width: "100%", padding: 24, boxSizing: "border-box" }}>
+                <div>
+                    <Button icon={<ArrowLeftOutlined />} onClick={() => navigate("/hoyoverse")}>
+                        Back to Accounts
+                    </Button>
+                </div>
+                <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Empty
+                        description="No diary data recorded yet for this profile. Make sure 'Sync Diary Logs' is enabled in the profile settings."
+                    />
+                </div>
             </div>
         );
     }

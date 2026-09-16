@@ -14,6 +14,9 @@ import axios from "axios";
  * @property {(accountId: string|number) => Promise<axios.AxiosResponse<any>>} get
  * @property {(accountId: string|number, gameProfileId: string|number) => Promise<axios.AxiosResponse<any>>} getId
  * @property {(accountId: string|number, gameProfileId: string|number, data: Object) => Promise<axios.AxiosResponse<any>>} updateSettings
+ * @property {(accountId: string|number, gameProfileId: string|number) => Promise<axios.AxiosResponse<any>>} getDiaryMeta
+ * @property {(accountId: string|number, gameProfileId: string|number, params: { period: string, currency: string }) => Promise<axios.AxiosResponse<any>>} getDiarySummary
+ * @property {(accountId: string|number, gameProfileId: string|number, params: { period: string, currency: string, page?: number, limit?: number, filter?: string, date?: string }) => Promise<axios.AxiosResponse<any>>} getDiaryEntries
  */
 
 /**
@@ -43,6 +46,14 @@ export default function (apiUrl, { message }) {
     api._gameProfiles.get = async (id) => axiosInstance.get(`/accounts/${id}/gameProfiles`);
     api._gameProfiles.getId = async (accountId, gameProfileId) => axiosInstance.get(`/accounts/${accountId}/gameProfiles/${gameProfileId}`);
     api._gameProfiles.updateSettings = async (accountId, gameProfileId, data) => axiosInstance.patch(`/accounts/${accountId}/gameProfiles/${gameProfileId}/settings`, data);
+
+    // Diary routes
+    api._gameProfiles.getDiaryMeta = async (accountId, gameProfileId) =>
+        axiosInstance.get(`/accounts/${accountId}/gameProfiles/${gameProfileId}/diary/meta`);
+    api._gameProfiles.getDiarySummary = async (accountId, gameProfileId, params) =>
+        axiosInstance.get(`/accounts/${accountId}/gameProfiles/${gameProfileId}/diary/summary`, { params });
+    api._gameProfiles.getDiaryEntries = async (accountId, gameProfileId, params) =>
+        axiosInstance.get(`/accounts/${accountId}/gameProfiles/${gameProfileId}/diary/entries`, { params });
 
     return {
         ...api,

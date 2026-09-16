@@ -1,11 +1,22 @@
 import { Card, Avatar, Tag, Tooltip, Typography, Space } from "antd";
-import { SettingOutlined, LinkOutlined, WarningOutlined } from "@ant-design/icons";
+import { SettingOutlined, LinkOutlined, WarningOutlined, AreaChartOutlined } from "@ant-design/icons";
+import { useNavigate } from "react-router";
 import React from "react";
 
 const { Text } = Typography;
 
-export default function HoyoverseGameProfileCard({ profile, accountCanRedeemCodes, onOpenSettings }) {
+export default function HoyoverseGameProfileCard({ profile, accountId, accountCanRedeemCodes, onOpenSettings }) {
+    const navigate = useNavigate();
+
+    // The diary feature is supported only if the profile defines sync_diary
+    const supportsDiary = "sync_diary" in profile;
+
     const actions = [
+        supportsDiary ? (
+            <Tooltip title="View Resource Diary" key="diary">
+                <AreaChartOutlined onClick={() => navigate(`/hoyoverse/accounts/${accountId}/profiles/${profile.id}/diary`)} />
+            </Tooltip>
+        ) : null,
         <Tooltip title="Configure Settings" key="settings">
             <SettingOutlined onClick={() => onOpenSettings(profile.id)} />
         </Tooltip>,
@@ -78,7 +89,7 @@ export default function HoyoverseGameProfileCard({ profile, accountCanRedeemCode
                                     {"realm_currency_check" in profile && profile.realm_currency_check && (
                                         <Tag color="purple">Teapot</Tag>
                                     )}
-                                    {"sync_diary" in profile && profile.sync_diary && (
+                                    {supportsDiary && profile.sync_diary && (
                                         <Tag color="geekblue">Diary Sync</Tag>
                                     )}
                                 </>

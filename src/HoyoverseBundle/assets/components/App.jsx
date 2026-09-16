@@ -1,3 +1,5 @@
+import HoyoverseAccountsPage from "@HoyoverseBundle/components/account/HoyoverseAccountsPage";
+import HoyoverseGameProfileDiaryPage from "@HoyoverseBundle/components/diary/HoyoverseGameProfileDiaryPage";
 import MainLayout from "@HoyoverseBundle/components/MainLayout";
 import NotFoundComponent from "@CoreBundle/components/NotFoundComponent";
 import BackendApiContext from "@HoyoverseBundle/components/BackendApiContext";
@@ -6,11 +8,10 @@ import { API_URL, ROOT_URL } from "@HoyoverseBundle/constants";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 import { App as AntdApp } from "antd";
 import React from "react";
-import HoyoverseAccountsPage from "@HoyoverseBundle/components/account/HoyoverseAccountsPage";
 
 export default function App() {
     const app = AntdApp.useApp();
-    const api = React.useMemo(() => createBackendApi(API_URL, app), []);
+    const api = React.useMemo(() => createBackendApi(API_URL, app), [app]);
 
     return <BackendApiContext value={api}>
         <BrowserRouter basename={ROOT_URL}>
@@ -21,6 +22,11 @@ export default function App() {
                         <HoyoverseAccountsPage/>
                     </MainLayout>
                 }/>
+                <Route path="/hoyoverse/accounts/:accountId/profiles/:gameProfileId/diary" element={
+                    <MainLayout>
+                        <HoyoverseGameProfileDiaryPage/>
+                    </MainLayout>
+                }/>
                 <Route path="*" element={
                     <MainLayout>
                         <NotFoundComponent redirectPath="/hoyoverse" redirectText="Back Home"/>
@@ -29,5 +35,4 @@ export default function App() {
             </Routes>
         </BrowserRouter>
     </BackendApiContext>;
-
 }

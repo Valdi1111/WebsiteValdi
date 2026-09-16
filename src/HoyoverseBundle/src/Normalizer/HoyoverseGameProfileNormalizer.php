@@ -120,7 +120,16 @@ class HoyoverseGameProfileNormalizer implements NormalizerInterface, Denormalize
             throw new InvalidArgumentException(sprintf("The object must be an instance of '%s'.", HoyoverseGameProfile::class));
         }
 
-        foreach ($this->getIgnoredFields($data->getGameId()) as $field) {
+        $gameId = $data->getGameId();
+
+        // Scope the serializer metadata cache_key per gameId so profiles belonging to
+        // different games within the same collection do not share the same cached attributes.
+        if (isset($context['cache_key'])) {
+            $context['cache_key'] .= '-game-' . $gameId;
+        }
+
+        // Apply ignored fields dynamically based on the game's implemented interfaces
+        foreach ($this->getIgnoredFields($gameId) as $field) {
             $context[AbstractNormalizer::IGNORED_ATTRIBUTES][] = $field;
         }
 

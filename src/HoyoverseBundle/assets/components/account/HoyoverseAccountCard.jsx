@@ -86,6 +86,7 @@ export default function HoyoverseAccountCard({
                         <Col xs={24} sm={12} md={8} lg={6} key={profile.id}>
                             <GameProfileCard
                                 profile={profile}
+                                accountId={account.id}
                                 accountCanRedeemCodes={canRedeemCodes}
                                 onOpenSettings={(profileId) => onOpenProfileSettings(account.id, canRedeemCodes, profileId)}
                             />

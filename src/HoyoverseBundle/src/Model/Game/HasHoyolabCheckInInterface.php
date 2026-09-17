@@ -36,4 +36,8 @@ interface HasHoyolabCheckInInterface
      * @return AwardData[]
      */
     public function getAwardsData(RuntimeAccountData $account): array;
+
+    public function getCheckInSuccessMessage(): string;
+
+    public function getCheckInSignedMessage(): string;
 }

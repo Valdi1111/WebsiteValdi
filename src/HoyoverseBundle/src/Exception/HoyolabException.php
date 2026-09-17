@@ -9,9 +9,9 @@ class HoyolabException extends \RuntimeException
     private ?string $hoyolabMessage = null;
     private ?array $hoyolabBody = null;
 
-    public function __construct(string $message)
+    public function __construct(string $message = "", int $code = 0, ?\Throwable $previous = null)
     {
-        parent::__construct($message);
+        parent::__construct($message, $code, $previous);
     }
 
     public function getHoyolabStatusCode(): ?int
@@ -19,7 +19,7 @@ class HoyolabException extends \RuntimeException
         return $this->hoyolabStatusCode;
     }
 
-    public function setHoyolabStatusCode(?int $hoyolabStatusCode): HoyolabException
+    public function setHoyolabStatusCode(?int $hoyolabStatusCode): static
     {
         $this->hoyolabStatusCode = $hoyolabStatusCode;
         return $this;
@@ -30,7 +30,7 @@ class HoyolabException extends \RuntimeException
         return $this->hoyolabRetcode;
     }
 
-    public function setHoyolabRetcode(?int $hoyolabRetcode): HoyolabException
+    public function setHoyolabRetcode(?int $hoyolabRetcode): static
     {
         $this->hoyolabRetcode = $hoyolabRetcode;
         return $this;
@@ -41,7 +41,7 @@ class HoyolabException extends \RuntimeException
         return $this->hoyolabMessage;
     }
 
-    public function setHoyolabMessage(?string $hoyolabMessage): HoyolabException
+    public function setHoyolabMessage(?string $hoyolabMessage): static
     {
         $this->hoyolabMessage = $hoyolabMessage;
         return $this;
@@ -52,10 +52,9 @@ class HoyolabException extends \RuntimeException
         return $this->hoyolabBody;
     }
 
-    public function setHoyolabBody(?array $hoyolabBody): HoyolabException
+    public function setHoyolabBody(?array $hoyolabBody): static
     {
         $this->hoyolabBody = $hoyolabBody;
         return $this;
     }
-
 }

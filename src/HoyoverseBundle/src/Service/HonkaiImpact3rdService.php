@@ -68,12 +68,12 @@ class HonkaiImpact3rdService extends GameService implements HasCodeRedemptionInt
         return "https://sg-public-api.hoyolab.com/event/mani/sign";
     }
 
-    protected function getCheckInSuccessMessage(): string
+    public function getCheckInSuccessMessage(): string
     {
         return "You have successfully checked in today, Captain~";
     }
 
-    protected function getCheckInSignedMessage(): string
+    public function getCheckInSignedMessage(): string
     {
         return "You've already checked in today, Captain~";
     }

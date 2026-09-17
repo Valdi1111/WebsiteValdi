@@ -16,7 +16,6 @@ use App\HoyoverseBundle\Model\Game\GameService;
 use App\HoyoverseBundle\Model\Game\HasNotesInterface;
 use App\HoyoverseBundle\Model\Game\NotesTrait;
 use App\HoyoverseBundle\Model\Game\HasStaminaInterface;
-use App\HoyoverseBundle\Model\Game\StaminaTrait;
 use App\HoyoverseBundle\Model\Notes\GameNotesDailies;
 use App\HoyoverseBundle\Model\Notes\GameNotesExpeditions;
 use App\HoyoverseBundle\Model\Notes\GameNotesMetricCheckType;
@@ -37,7 +36,6 @@ class GenshinImpactService extends GameService implements HasNotesInterface, Has
     use NotesTrait;
     use DiaryTrait;
     use AutoCodeRedemptionTrait;
-    use StaminaTrait;
 
     public function __construct(
         LoggerInterface $hoyoverseGiLogger,
@@ -96,12 +94,12 @@ class GenshinImpactService extends GameService implements HasNotesInterface, Has
         return "https://sg-hk4e-api.hoyolab.com/event/sol/sign";
     }
 
-    protected function getCheckInSuccessMessage(): string
+    public function getCheckInSuccessMessage(): string
     {
         return "Congratulations, Traveler! You have successfully checked in today~";
     }
 
-    protected function getCheckInSignedMessage(): string
+    public function getCheckInSignedMessage(): string
     {
         return "Traveler, you've already checked in today~";
     }

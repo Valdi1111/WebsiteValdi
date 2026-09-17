@@ -17,8 +17,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
 use Symfony\Contracts\Service\ServiceCollectionInterface;
 
 class HoyolabManagerService
@@ -53,62 +51,23 @@ class HoyolabManagerService
      */
     public function getGameRoles(ParsedCookie $cookie): array
     {
-        try {
-            $response = $this->getHoyolabClient()->request(Request::METHOD_GET, $this->getUrlGameRoles(), [
-                'headers' => [
-                    'Cookie' => (string) $cookie,
-                ],
-            ]);
+        $body = $this->requestHoyolab(
+            method: Request::METHOD_GET,
+            url: $this->getUrlGameRoles(),
+            auth: $cookie,
+            query: [],
+            exceptionClass: RetrieveGameRolesException::class
+        );
 
-            $statusCode = $response->getStatusCode();
-            $body = $response->toArray(false);
-
-            if ($statusCode !== Response::HTTP_OK) {
-                $this->getLogger()->error("Failed to retrieve game roles", [
-                    'status' => $statusCode,
-                    'body' => $body,
-                ]);
-
-                throw new RetrieveGameRolesException("Failed to retrieve game roles")
-                    ->setHoyolabStatusCode($statusCode)
-                    ->setHoyolabBody($body);
-            }
-
-            $retcode = $body['retcode'] ?? null;
-            if ($retcode !== 0) {
-                $this->getLogger()->error("Game roles returned non-zero retcode", [
-                    'retcode' => $retcode,
-                    'message' => $body['message'] ?? null,
-                    'body' => $body,
-                ]);
-
-                throw new RetrieveGameRolesException("Game roles returned non-zero retcode")
-                    ->setHoyolabRetcode($retcode)
-                    ->setHoyolabMessage($body['message'] ?? null)
-                    ->setHoyolabBody($body);
-            }
-
-            $data = $body['data'] ?? [];
-            $list = $data['list'] ?? [];
-
-            if (empty($list)) {
-                $this->getLogger()->error("No game roles available", [
-                    'body' => $body,
-                ]);
-
-                throw new NoGameRolesException()
-                    ->setHoyolabBody($body);
-            }
-
-            return $this->getDenormalizer()->denormalize($list, UserGameRole::class . '[]');
-
-        } catch (ExceptionInterface $e) {
-            $this->getLogger()->error("Exception during game roles retrieval", [
-                'error' => $e->getMessage(),
-            ]);
-
-            throw new RetrieveGameRolesException("Exception during game roles retrieval: {$e->getMessage()}");
+        $list = $body['data']['list'] ?? [];
+        if (empty($list)) {
+            throw new NoGameRolesException()->setHoyolabBody($body);
         }
+
+        return $this->getDenormalizer()->denormalize(
+            $list,
+            UserGameRole::class . '[]'
+        );
     }
 
     public function updateCachedGameProfilesByGameRoles(HoyoverseAccount $account): HoyoverseAccount
@@ -152,65 +111,25 @@ class HoyolabManagerService
      */
     public function getGameRecords(ParsedCookie $cookie): array
     {
-        try {
-            $response = $this->getHoyolabClient()->request(Request::METHOD_GET, $this->getUrlGameRecords(), [
-                'query' => [
-                    'uid' => $cookie->getLtuidV2(),
-                ],
-                'headers' => [
-                    'Cookie' => (string) $cookie,
-                ],
-            ]);
+        $body = $this->requestHoyolab(
+            method: Request::METHOD_GET,
+            url: $this->getUrlGameRecords(),
+            auth: $cookie,
+            query: [
+                'uid' => $cookie->getLtuidV2(),
+            ],
+            exceptionClass: RetrieveGameRecordsException::class
+        );
 
-            $statusCode = $response->getStatusCode();
-            $body = $response->toArray(false);
-
-            if ($statusCode !== Response::HTTP_OK) {
-                $this->getLogger()->error("Failed to retrieve game records", [
-                    'status' => $statusCode,
-                    'body' => $body,
-                ]);
-
-                throw new RetrieveGameRecordsException("Failed to retrieve game records")
-                    ->setHoyolabStatusCode($statusCode)
-                    ->setHoyolabBody($body);
-            }
-
-            $retcode = $body['retcode'] ?? null;
-            if ($retcode !== 0) {
-                $this->getLogger()->error("Game records returned non-zero retcode", [
-                    'retcode' => $retcode,
-                    'message' => $body['message'] ?? null,
-                    'body' => $body,
-                ]);
-
-                throw new RetrieveGameRecordsException("Game records returned non-zero retcode")
-                    ->setHoyolabRetcode($retcode)
-                    ->setHoyolabMessage($body['message'] ?? null)
-                    ->setHoyolabBody($body);
-            }
-
-            $data = $body['data'] ?? [];
-            $list = $data['list'] ?? [];
-
-            if (empty($list)) {
-                $this->getLogger()->error("No game records available", [
-                    'body' => $body,
-                ]);
-
-                throw new NoGameRecordsException()
-                    ->setHoyolabBody($body);
-            }
-
-            return $this->getDenormalizer()->denormalize($list, GameRecord::class . '[]');
-
-        } catch (ExceptionInterface $e) {
-            $this->getLogger()->error("Exception during game records retrieval", [
-                'error' => $e->getMessage(),
-            ]);
-
-            throw new RetrieveGameRecordsException("Exception during game records retrieval: {$e->getMessage()}");
+        $list = $body['data']['list'] ?? [];
+        if (empty($list)) {
+            throw new NoGameRecordsException()->setHoyolabBody($body);
         }
+
+        return $this->getDenormalizer()->denormalize(
+            $list,
+            GameRecord::class . '[]'
+        );
     }
 
     public function updateCachedGameProfilesByGameRecords(HoyoverseAccount $account): HoyoverseAccount

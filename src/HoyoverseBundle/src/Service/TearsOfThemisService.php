@@ -68,12 +68,12 @@ class TearsOfThemisService extends GameService implements HasCodeRedemptionInter
         return "https://sg-public-api.hoyolab.com/event/luna/os/sign";
     }
 
-    protected function getCheckInSuccessMessage(): string
+    public function getCheckInSuccessMessage(): string
     {
         return "Successfully signed in";
     }
 
-    protected function getCheckInSignedMessage(): string
+    public function getCheckInSignedMessage(): string
     {
         return "Already signed in today";
     }

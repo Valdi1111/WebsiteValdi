@@ -15,7 +15,6 @@ use App\HoyoverseBundle\Model\Game\GameService;
 use App\HoyoverseBundle\Model\Game\HasNotesInterface;
 use App\HoyoverseBundle\Model\Game\NotesTrait;
 use App\HoyoverseBundle\Model\Game\HasStaminaInterface;
-use App\HoyoverseBundle\Model\Game\StaminaTrait;
 use App\HoyoverseBundle\Model\Notes\GameNotesDailies;
 use App\HoyoverseBundle\Model\Notes\GameNotesExpeditions;
 use App\HoyoverseBundle\Model\Notes\GameNotesMetricCheckType;
@@ -35,7 +34,6 @@ class HonkaiStarRailService extends GameService implements HasNotesInterface, Ha
     use NotesTrait;
     use DiaryTrait;
     use AutoCodeRedemptionTrait;
-    use StaminaTrait;
 
     public function __construct(
         LoggerInterface $hoyoverseHsrLogger,
@@ -94,12 +92,12 @@ class HonkaiStarRailService extends GameService implements HasNotesInterface, Ha
         return "https://sg-public-api.hoyolab.com/event/luna/os/sign";
     }
 
-    protected function getCheckInSuccessMessage(): string
+    public function getCheckInSuccessMessage(): string
     {
         return "You have successfully checked in today, Trailblazer~";
     }
 
-    protected function getCheckInSignedMessage(): string
+    public function getCheckInSignedMessage(): string
     {
         return "You've already checked in today, Trailblazer~";
     }

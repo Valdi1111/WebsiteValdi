@@ -2,12 +2,9 @@
 
 namespace App\HoyoverseBundle\Model\Game;
 
-use App\HoyoverseBundle\Exception\CodeRedeemFailedException;
 use App\HoyoverseBundle\Exception\RetrieveRedeemableCodesException;
 use App\HoyoverseBundle\Model\RedeemableCode;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\Service\Attribute\Required;
 
@@ -40,44 +37,24 @@ trait CodeRedemptionTrait
      */
     public function fetchRedeemableCodes(): array
     {
-        try {
-            $response = $this->getRedeemableCodesClient()->request(Request::METHOD_GET, $this->getUrlFetchRedeemableCodes());
+        $body = $this->executeRequest(
+            client: $this->getRedeemableCodesClient(),
+            method: Request::METHOD_GET,
+            url: $this->getUrlFetchRedeemableCodes(),
+            options: [],
+            exceptionClass: RetrieveRedeemableCodesException::class
+        );
 
-            $statusCode = $response->getStatusCode();
-            $body = $response->toArray(false);
-
-            if ($statusCode !== Response::HTTP_OK) {
-                $this->getLogger()->error("Failed to retrieve redeemable codes", [
-                    'status' => $statusCode,
-                    'body'   => $body,
-                ]);
-
-                throw new RetrieveRedeemableCodesException("Failed to retrieve redeemable codes")
-                    ->setHoyolabStatusCode($statusCode)
-                    ->setHoyolabBody($body);
-            }
-
-            $active = $body['active'] ?? null;
-            if (!is_array($active)) {
-                $this->getLogger()->error("Redeemable codes returned malformed data", [
-                    'status' => $statusCode,
-                    'body'   => $body,
-                ]);
-
-                throw new RetrieveRedeemableCodesException("Redeemable codes returned malformed data")
-                    ->setHoyolabStatusCode($statusCode)
-                    ->setHoyolabBody($body);
-            }
-
-            return $this->getDenormalizer()->denormalize($active, RedeemableCode::class . '[]');
-
-        } catch (ExceptionInterface $e) {
-            $this->getLogger()->error("Exception during redeemable codes retrieval", [
-                'error' => $e->getMessage(),
-            ]);
-
-            throw new CodeRedeemFailedException("Exception during redeemable codes retrieval: {$e->getMessage()}");
+        $active = $body['active'] ?? null;
+        if (!is_array($active)) {
+            throw new RetrieveRedeemableCodesException('Redeemable codes returned malformed data')
+                ->setHoyolabBody($body);
         }
+
+        return $this->getDenormalizer()->denormalize(
+            $active,
+            RedeemableCode::class . '[]'
+        );
     }
 
 }

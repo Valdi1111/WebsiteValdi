@@ -15,7 +15,6 @@ use App\HoyoverseBundle\Model\Game\GameService;
 use App\HoyoverseBundle\Model\Game\HasNotesInterface;
 use App\HoyoverseBundle\Model\Game\NotesTrait;
 use App\HoyoverseBundle\Model\Game\HasStaminaInterface;
-use App\HoyoverseBundle\Model\Game\StaminaTrait;
 use App\HoyoverseBundle\Model\Notes\GameNotesDailies;
 use App\HoyoverseBundle\Model\Notes\GameNotesProgressMetric;
 use App\HoyoverseBundle\Model\Notes\GameNotesStamina;
@@ -37,7 +36,6 @@ class ZenlessZoneZeroService extends GameService implements HasNotesInterface, H
     use NotesTrait;
     use DiaryTrait;
     use AutoCodeRedemptionTrait;
-    use StaminaTrait;
 
     public function __construct(
         LoggerInterface $hoyoverseZzzLogger,
@@ -96,12 +94,12 @@ class ZenlessZoneZeroService extends GameService implements HasNotesInterface, H
         return "https://sg-public-api.hoyolab.com/event/luna/zzz/os/sign";
     }
 
-    protected function getCheckInSuccessMessage(): string
+    public function getCheckInSuccessMessage(): string
     {
         return "Congratulations Proxy! You have successfully checked in today!~";
     }
 
-    protected function getCheckInSignedMessage(): string
+    public function getCheckInSignedMessage(): string
     {
         return "You have already checked in today, Proxy!~";
     }

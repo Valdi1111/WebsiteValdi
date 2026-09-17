@@ -83,7 +83,7 @@ class HoyoverseGameProfile
     private ?int $staminaThreshold = -1;
 
     #[ORM\Column(options: ["default" => "0"])]
-    private ?bool $expeditionCheck = false;
+    private ?bool $expeditionsCheck = false;
 
     #[ORM\Column(options: ["default" => "0"])]
     private ?bool $realmCurrencyCheck = false;
@@ -378,14 +378,14 @@ class HoyoverseGameProfile
         return $this;
     }
 
-    public function isExpeditionCheck(): ?bool
+    public function isExpeditionsCheck(): ?bool
     {
-        return $this->expeditionCheck;
+        return $this->expeditionsCheck;
     }
 
-    public function setExpeditionCheck(bool $expeditionCheck): static
+    public function setExpeditionsCheck(bool $expeditionsCheck): static
     {
-        $this->expeditionCheck = $expeditionCheck;
+        $this->expeditionsCheck = $expeditionsCheck;
 
         return $this;
     }

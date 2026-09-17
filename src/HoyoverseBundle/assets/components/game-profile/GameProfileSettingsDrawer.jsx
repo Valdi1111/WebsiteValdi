@@ -141,7 +141,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                 checkAndSet("sync_diary", false);
                 checkAndSet("stamina_check", false);
                 checkAndSet("stamina_threshold", -1);
-                checkAndSet("expedition_check", true);
+                checkAndSet("expeditions_check", true);
                 checkAndSet("realm_currency_check", false);
                 checkAndSet("realm_currency_threshold", -1);
                 checkAndSet("shop_status_check", false);
@@ -341,7 +341,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                         )}
 
                         {/* Stamina & Expeditions */}
-                        {hasAny("stamina_check", "stamina_threshold", "expedition_check") && (
+                        {hasAny("stamina_check", "stamina_threshold", "expeditions_check") && (
                             <>
                                 <Divider orientation="left">
                                     <strong>Stamina & Expeditions</strong>
@@ -360,9 +360,9 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                                         </Form.Item>
                                     </SettingRow>
                                 )}
-                                {supports("expedition_check") && (
+                                {supports("expeditions_check") && (
                                     <SettingRow label="Expeditions Check">
-                                        <Form.Item name="expedition_check" valuePropName="checked" noStyle>
+                                        <Form.Item name="expeditions_check" valuePropName="checked" noStyle>
                                             <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>

@@ -29,7 +29,7 @@ class HoyoverseGameProfileNormalizer implements NormalizerInterface, Denormalize
         HasHoyolabCheckInInterface::class => ['hoyolabCheckIn', 'hoyolabMissedCheckIn'],
         HasCodeRedemptionInterface::class => ['codeRedeem'],
         HasStaminaInterface::class => ['staminaCheck', 'staminaThreshold'],
-        HasExpeditionsInterface::class => ['expeditionCheck'],
+        HasExpeditionsInterface::class => ['expeditionsCheck'],
         HasRealmCurrencyInterface::class => ['realmCurrencyCheck', 'realmCurrencyThreshold'],
         HasShopStatusInterface::class => ['shopStatusCheck'],
         HasMimoInterface::class => ['mimoCheck', 'mimoRedeem', 'mimoRedeemDraw', 'mimoLottery', 'mimoReservePoints'],

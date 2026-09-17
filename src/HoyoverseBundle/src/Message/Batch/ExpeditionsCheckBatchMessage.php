@@ -14,6 +14,6 @@ class ExpeditionsCheckBatchMessage implements TaskMessageInterface, FeatureFlagM
 {
     public function getFeatureFlagField(): string
     {
-        return 'expeditionCheck';
+        return 'expeditionsCheck';
     }
 }

@@ -11,7 +11,7 @@ use App\HoyoverseBundle\Model\Game\HasExpeditionsInterface;
 use App\HoyoverseBundle\Model\Game\HasHilichurlInterface;
 use App\HoyoverseBundle\Model\Game\HasHoyolabCheckInInterface;
 use App\HoyoverseBundle\Model\Game\HasMimoInterface;
-use App\HoyoverseBundle\Model\Game\HasRealmInterface;
+use App\HoyoverseBundle\Model\Game\HasRealmCurrencyInterface;
 use App\HoyoverseBundle\Model\Game\HasShopStatusInterface;
 use App\HoyoverseBundle\Model\Game\HasStaminaInterface;
 use App\HoyoverseBundle\Model\Game\HasWeekliesInterface;
@@ -30,7 +30,7 @@ class HoyoverseGameProfileNormalizer implements NormalizerInterface, Denormalize
         HasCodeRedemptionInterface::class => ['codeRedeem'],
         HasStaminaInterface::class => ['staminaCheck', 'staminaThreshold'],
         HasExpeditionsInterface::class => ['expeditionCheck'],
-        HasRealmInterface::class => ['realmCurrencyCheck', 'realmCurrencyThreshold'],
+        HasRealmCurrencyInterface::class => ['realmCurrencyCheck', 'realmCurrencyThreshold'],
         HasShopStatusInterface::class => ['shopStatusCheck'],
         HasMimoInterface::class => ['mimoCheck', 'mimoRedeem', 'mimoRedeemDraw', 'mimoLottery', 'mimoReservePoints'],
         HasHilichurlInterface::class => ['hilichurlCheck', 'hilichurlRedeem'],

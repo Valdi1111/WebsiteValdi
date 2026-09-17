@@ -10,7 +10,7 @@ use App\HoyoverseBundle\Model\Game\HasDailiesInterface;
 use App\HoyoverseBundle\Model\Game\HasDiaryInterface;
 use App\HoyoverseBundle\Model\Game\DiaryTrait;
 use App\HoyoverseBundle\Model\Game\HasExpeditionsInterface;
-use App\HoyoverseBundle\Model\Game\HasRealmInterface;
+use App\HoyoverseBundle\Model\Game\HasRealmCurrencyInterface;
 use App\HoyoverseBundle\Model\Game\HasWeekliesInterface;
 use App\HoyoverseBundle\Model\Game\GameService;
 use App\HoyoverseBundle\Model\Game\HasNotesInterface;
@@ -31,7 +31,7 @@ use Psr\Log\LoggerInterface;
  * @implements HasNotesInterface<GenshinImpactNotes>
  * @implements HasDiaryInterface<GenshinImpactDiaryInfo, GenshinImpactDiaryItem>
  */
-class GenshinImpactService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasExpeditionsInterface, HasRealmInterface
+class GenshinImpactService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasExpeditionsInterface, HasRealmCurrencyInterface
 {
     use NotesTrait;
     use DiaryTrait;

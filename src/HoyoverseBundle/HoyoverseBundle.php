@@ -2,22 +2,22 @@
 
 namespace App\HoyoverseBundle;
 
-use App\HoyoverseBundle\Message\CodesRedeemMessage;
-use App\HoyoverseBundle\Message\EndgamesReminderMessage;
-use App\HoyoverseBundle\Message\HoyolabCheckInMessage;
-use App\HoyoverseBundle\Message\DailiesReminderMessage;
-use App\HoyoverseBundle\Message\ExpeditionCheckMessage;
-use App\HoyoverseBundle\Message\HilichurlTaskMessage;
-use App\HoyoverseBundle\Message\MimoTaskMessage;
-use App\HoyoverseBundle\Message\HoyolabMissedCheckInMessage;
-use App\HoyoverseBundle\Message\RealmCurrencyMessage;
+use App\HoyoverseBundle\Message\Batch\CodeRedeemBatchMessage;
+use App\HoyoverseBundle\Message\Batch\DailiesReminderBatchMessage;
+use App\HoyoverseBundle\Message\Batch\EndgamesReminderBatchMessage;
+use App\HoyoverseBundle\Message\Batch\ExpeditionsCheckBatchMessage;
+use App\HoyoverseBundle\Message\Batch\HilichurlCheckBatchMessage;
+use App\HoyoverseBundle\Message\Batch\HoyolabCheckInBatchMessage;
+use App\HoyoverseBundle\Message\Batch\HoyolabMissedCheckInBatchMessage;
+use App\HoyoverseBundle\Message\Batch\MimoCheckBatchMessage;
+use App\HoyoverseBundle\Message\Batch\RealmCurrencyCheckBatchMessage;
+use App\HoyoverseBundle\Message\Batch\ShopStatusCheckBatchMessage;
+use App\HoyoverseBundle\Message\Batch\StaminaCheckBatchMessage;
+use App\HoyoverseBundle\Message\Batch\SyncDiaryBatchMessage;
+use App\HoyoverseBundle\Message\Batch\WeekliesReminderBatchMessage;
 use App\HoyoverseBundle\Message\RegionalTaskMessageInterface;
-use App\HoyoverseBundle\Message\ShopStatusMessage;
-use App\HoyoverseBundle\Message\StaminaCheckMessage;
-use App\HoyoverseBundle\Message\SyncDiaryMessage;
 use App\HoyoverseBundle\Message\TaskMessageInterface;
 use App\HoyoverseBundle\Message\UpdateCookieMessage;
-use App\HoyoverseBundle\Message\WeekliesReminderMessage;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 use Symfony\Component\Config\Definition\Builder\NodeBuilder;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
@@ -140,22 +140,22 @@ class HoyoverseBundle extends AbstractBundle
                     ->children();
 
         // 1. Global tasks (regional = false)
-        $addCronNode($tasksNode, 'hoyolab_check_in', HoyolabCheckInMessage::class);
-        $addCronNode($tasksNode, 'hoyolab_missed_check_in', HoyolabMissedCheckInMessage::class);
-        $addCronNode($tasksNode, 'code_redeem', CodesRedeemMessage::class);
-        $addCronNode($tasksNode, 'stamina', StaminaCheckMessage::class);
-        $addCronNode($tasksNode, 'expedition', ExpeditionCheckMessage::class);
-        $addCronNode($tasksNode, 'realm_currency', RealmCurrencyMessage::class);
-        $addCronNode($tasksNode, 'shop_status', ShopStatusMessage::class);
-        $addCronNode($tasksNode, 'mimo', MimoTaskMessage::class, defaultJitter: 3);
-        $addCronNode($tasksNode, 'hilichurl', HilichurlTaskMessage::class, defaultJitter: 3);
-        $addCronNode($tasksNode, 'sync_diary', SyncDiaryMessage::class);
+        $addCronNode($tasksNode, 'hoyolab_check_in', HoyolabCheckInBatchMessage::class);
+        $addCronNode($tasksNode, 'hoyolab_missed_check_in', HoyolabMissedCheckInBatchMessage::class);
+        $addCronNode($tasksNode, 'code_redeem', CodeRedeemBatchMessage::class);
+        $addCronNode($tasksNode, 'stamina', StaminaCheckBatchMessage::class);
+        $addCronNode($tasksNode, 'expedition', ExpeditionsCheckBatchMessage::class);
+        $addCronNode($tasksNode, 'realm_currency', RealmCurrencyCheckBatchMessage::class);
+        $addCronNode($tasksNode, 'shop_status', ShopStatusCheckBatchMessage::class);
+        $addCronNode($tasksNode, 'mimo', MimoCheckBatchMessage::class, defaultJitter: 3);
+        $addCronNode($tasksNode, 'hilichurl', HilichurlCheckBatchMessage::class, defaultJitter: 3);
+        $addCronNode($tasksNode, 'sync_diary', SyncDiaryBatchMessage::class);
         $addCronNode($tasksNode, 'update_cookie', UpdateCookieMessage::class);
 
         // 2. Regional tasks (regional = true)
-        $addCronNode($tasksNode, 'dailies_reminder', DailiesReminderMessage::class, isRegional: true);
-        $addCronNode($tasksNode, 'weeklies_reminder', WeekliesReminderMessage::class, isRegional: true);
-        $addCronNode($tasksNode, 'endgames_reminder', EndgamesReminderMessage::class, isRegional: true);
+        $addCronNode($tasksNode, 'dailies_reminder', DailiesReminderBatchMessage::class, isRegional: true);
+        $addCronNode($tasksNode, 'weeklies_reminder', WeekliesReminderBatchMessage::class, isRegional: true);
+        $addCronNode($tasksNode, 'endgames_reminder', EndgamesReminderBatchMessage::class, isRegional: true);
 
         $tasksNode->end()->end()->end();
     }

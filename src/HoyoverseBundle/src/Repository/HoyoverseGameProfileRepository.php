@@ -4,6 +4,7 @@ namespace App\HoyoverseBundle\Repository;
 
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -20,6 +21,25 @@ class HoyoverseGameProfileRepository extends ServiceEntityRepository
      * @return HoyoverseGameProfile[]
      */
     public function findEligibleProfiles(?string $featureFlagField, ?int $gameId = null, ?string $timezone = null): array
+    {
+        return $this->qbEligibleProfiles($featureFlagField, $gameId, $timezone)
+            ->addSelect('a')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * @return array<array{id: int, gameId: int}>
+     */
+    public function findEligibleProfileIds(?string $featureFlagField, ?int $gameId = null, ?string $timezone = null): array
+    {
+        return $this->qbEligibleProfiles($featureFlagField, $gameId, $timezone)
+            ->select('p.id', 'p.gameId')
+            ->getQuery()
+            ->getResult();
+    }
+
+    protected function qbEligibleProfiles(?string $featureFlagField, ?int $gameId = null, ?string $timezone = null): QueryBuilder
     {
         $qb = $this->createQueryBuilder('p')
             ->innerJoin('p.account', 'a')
@@ -42,6 +62,6 @@ class HoyoverseGameProfileRepository extends ServiceEntityRepository
                 ->setParameter('timezone', $timezone);
         }
 
-        return $qb->getQuery()->getResult();
+        return $qb;
     }
 }

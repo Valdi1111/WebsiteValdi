@@ -1,20 +1,33 @@
 framework:
     messenger:
         transports:
-            # https://symfony.com/doc/current/messenger.html#transport-configuration
+            # Standard scheduled tasks (Stamina, Notes, Check-ins, Dailies)
             hoyoverse:
                 dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
                 options:
                     queue_name: hoyoverse
+                retry_strategy:
+                    max_retries: 3
+                    delay: 10000    # Initial backoff: 10s -> 20s -> 40s
+                    multiplier: 2
+                    max_delay: 60000
+            # Promotional code redemptions: conservative delay to avoid anti-bot/captcha triggers
             hoyoverse_redeem:
                 dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
                 options:
                     queue_name: hoyoverse_redeem
+                retry_strategy:
+                    max_retries: 2  # Limit attempts to prevent account risk flagging
+                    delay: 20000    # Initial backoff: 20s -> 40s
+                    multiplier: 2
+                    max_delay: 60000
+            # Heavy historical diary synchronization
             hoyoverse_diary:
                 dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
                 options:
                     queue_name: hoyoverse_diary
                 retry_strategy:
                     max_retries: 3
-                    delay: 60000
+                    delay: 60000    # Initial backoff: 1 minute
                     multiplier: 2
+                    max_delay: 300000

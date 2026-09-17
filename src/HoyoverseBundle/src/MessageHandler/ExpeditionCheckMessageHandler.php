@@ -6,7 +6,6 @@ use App\HoyoverseBundle\Message\ExpeditionCheckMessage;
 use App\HoyoverseBundle\Message\TaskMessageInterface;
 use App\HoyoverseBundle\Model\Game\HasExpeditionsInterface;
 use App\HoyoverseBundle\Model\Game\GameInterface;
-use App\HoyoverseBundle\Model\Notes\HasExpeditionsNotes;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -32,12 +31,7 @@ class ExpeditionCheckMessageHandler extends AbstractTaskMessageHandler
             return;
         }
 
-        $notes = $gameService->getNotes($accountData);
-        if (!$notes instanceof HasExpeditionsNotes) {
-            return;
-        }
-
-        $expeditions = $notes->getExpeditionsData();
+        $expeditions = $gameService->getExpeditionsData($accountData);
         if (!$expeditions->allDone()) {
             return;
         }

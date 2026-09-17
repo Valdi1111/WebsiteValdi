@@ -161,95 +161,107 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  * }
  * @psalm-type HoyoverseConfig = array{
  *     domain_name?: scalar|Param|null, // Default: null
+ *     timezones?: array{
+ *         SEA?: string|Param, // Default: "Asia/Shanghai"
+ *         EU?: string|Param, // Default: "Europe/Paris"
+ *         NA?: string|Param, // Default: "America/New_York"
+ *     },
  *     tasks?: array{
  *         hoyolab_check_in?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\HoyolabCheckInMessage"
- *             cron?: scalar|Param|null, // Default: null
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\HoyolabCheckInMessage"
+ *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null
  *         },
  *         hoyolab_missed_check_in?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\HoyolabMissedCheckInMessage"
- *             cron?: scalar|Param|null, // Default: null
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\HoyolabMissedCheckInMessage"
+ *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null
  *         },
  *         code_redeem?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\CodesRedeemMessage"
- *             cron?: scalar|Param|null, // Default: null
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\CodesRedeemMessage"
+ *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null
  *         },
  *         stamina?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\StaminaCheckMessage"
- *             cron?: scalar|Param|null, // Default: null
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\StaminaCheckMessage"
+ *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null
  *         },
  *         expedition?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\ExpeditionCheckMessage"
- *             cron?: scalar|Param|null, // Default: null
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\ExpeditionCheckMessage"
+ *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null
  *         },
  *         realm_currency?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\RealmCurrencyMessage"
- *             cron?: scalar|Param|null, // Default: null
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\RealmCurrencyMessage"
+ *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null
  *         },
  *         shop_status?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\ShopStatusMessage"
- *             cron?: scalar|Param|null, // Default: null
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\ShopStatusMessage"
+ *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null
  *         },
  *         mimo?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\MimoTaskMessage"
- *             cron?: scalar|Param|null, // Default: null
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\MimoTaskMessage"
+ *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: 3
  *         },
  *         hilichurl?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\HilichurlTaskMessage"
- *             cron?: scalar|Param|null, // Default: null
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\HilichurlTaskMessage"
+ *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: 3
  *         },
  *         sync_diary?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\SyncDiaryMessage"
- *             cron?: scalar|Param|null, // Default: null
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\SyncDiaryMessage"
+ *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null
  *         },
  *         update_cookie?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\UpdateCookieMessage"
- *             cron?: scalar|Param|null, // Default: null
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\UpdateCookieMessage"
+ *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null
  *         },
  *         dailies_reminder?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\DailiesReminderMessage"
- *             cron?: scalar|Param|null, // Default: null
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\DailiesReminderMessage"
+ *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: true
  *             jitter?: int|Param, // Default: null
  *         },
  *         weeklies_reminder?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: scalar|Param|null, // Default: "App\\HoyoverseBundle\\Message\\WeekliesReminderMessage"
- *             cron?: scalar|Param|null, // Default: null
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\WeekliesReminderMessage"
+ *             cron?: string|Param, // Default: null
+ *             regional?: bool|Param, // Default: true
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *         endgames_reminder?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\EndgamesReminderMessage"
+ *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: true
  *             jitter?: int|Param, // Default: null
  *         },

@@ -5,7 +5,7 @@ namespace App\HoyoverseBundle\Model\Notes;
 use Symfony\Component\Serializer\Attribute\SerializedName;
 use Symfony\Component\Serializer\Attribute\SerializedPath;
 
-class GenshinImpactNotes implements GameNotes, HasStaminaNotes, HasDailiesNotes, HasWeekliesNotes, HasExpeditionsNotes, HasRealmNotes
+class GenshinImpactNotes implements GameNotes
 {
     // =========================================================================
     // Stamina (Resin)
@@ -294,57 +294,5 @@ class GenshinImpactNotes implements GameNotes, HasStaminaNotes, HasDailiesNotes,
     {
         $this->transformerReached = $transformerReached;
         return $this;
-    }
-
-    public function getStaminaData(): GameNotesStamina
-    {
-        return new GameNotesStamina()
-            ->setCurrentStamina($this->getCurrentResin())
-            ->setMaxStamina($this->getMaxResin())
-            ->setStaminaRecoverTime($this->getResinRecoveryTime());
-    }
-
-    public function getDailiesData(): GameNotesDailies
-    {
-        return new GameNotesDailies()
-            ->addDaily(
-                new GameNotesProgressMetric()
-                    ->setName("Daily Tasks")
-                    ->setCurrentValue($this->getFinishedTaskNum())
-                    ->setMaxValue($this->getTotalTaskNum())
-            );
-    }
-
-    public function getWeekliesData(): GameNotesWeeklies
-    {
-        return new GameNotesWeeklies()
-            ->addWeekly(
-                new GameNotesProgressMetric()
-                    ->setName("Resin Discounts")
-                    ->setCurrentValue($this->getRemainResinDiscountNum())
-                    ->setMaxValue($this->getResinDiscountNumLimit())
-                    ->setCheckType(GameNotesMetricCheckType::CURRENT_EQUALS_ZERO)
-            );
-    }
-
-    public function getExpeditionsData(): GameNotesExpeditions
-    {
-        $expeditions = new GameNotesExpeditions();
-        foreach ($this->getExpeditions() as $expedition) {
-            $expeditions->addExpedition(
-                $expedition->getAvatarSideIcon(),
-                strtolower($expedition->getStatus() ?? ""),
-                $expedition->getRemainedTime()
-            );
-        }
-        return $expeditions;
-    }
-
-    public function getRealmData(): GameNotesRealm
-    {
-        return new GameNotesRealm()
-            ->setCurrentCoin($this->getCurrentHomeCoin())
-            ->setMaxCoin($this->getMaxHomeCoin())
-            ->setCoinRecoverTime($this->getHomeCoinRecoveryTime());
     }
 }

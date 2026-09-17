@@ -6,8 +6,6 @@ use App\HoyoverseBundle\Message\TaskMessageInterface;
 use App\HoyoverseBundle\Message\WeekliesReminderMessage;
 use App\HoyoverseBundle\Model\Game\HasWeekliesInterface;
 use App\HoyoverseBundle\Model\Game\GameInterface;
-use App\HoyoverseBundle\Model\Notes\GameNotesProgressMetric;
-use App\HoyoverseBundle\Model\Notes\HasWeekliesNotes;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -33,12 +31,7 @@ class WeekliesReminderMessageHandler extends AbstractTaskMessageHandler
             return;
         }
 
-        $notes = $gameService->getNotes($accountData);
-        if (!$notes instanceof HasWeekliesNotes) {
-            return;
-        }
-
-        $weeklies = $notes->getWeekliesData();
+        $weeklies = $gameService->getWeekliesData($accountData);
         if ($weeklies->allDone()) {
             return;
         }

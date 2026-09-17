@@ -69,7 +69,7 @@ class GameNotesStateMetric implements GameNotesMetricInterface
         if ($currentValue instanceof LabeledInterface) {
             return $currentValue->getLabel();
         }
-        return $currentValue->value;
+        return $currentValue?->value;
     }
 
 }

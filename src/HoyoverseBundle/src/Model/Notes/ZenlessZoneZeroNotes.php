@@ -5,7 +5,7 @@ namespace App\HoyoverseBundle\Model\Notes;
 use Symfony\Component\Serializer\Attribute\SerializedName;
 use Symfony\Component\Serializer\Attribute\SerializedPath;
 
-class ZenlessZoneZeroNotes implements GameNotes, HasStaminaNotes, HasDailiesNotes, HasWeekliesNotes, HasShopStatusNotes
+class ZenlessZoneZeroNotes implements GameNotes
 {
     // =========================================================================
     // Stamina (Battery Charge / Energy)
@@ -263,55 +263,5 @@ class ZenlessZoneZeroNotes implements GameNotes, HasStaminaNotes, HasDailiesNote
     {
         $this->cafeState = $cafeState;
         return $this;
-    }
-
-    public function getStaminaData(): GameNotesStamina
-    {
-        return new GameNotesStamina()
-            ->setCurrentStamina($this->getCurrentEnergy())
-            ->setMaxStamina($this->getMaxEnergy())
-            ->setStaminaRecoverTime($this->getEnergyRestore());
-    }
-
-    public function getDailiesData(): GameNotesDailies
-    {
-        return new GameNotesDailies()
-            ->addDaily(
-                new GameNotesProgressMetric()
-                    ->setName("Engagement Points")
-                    ->setCurrentValue($this->getCurrentVitality())
-                    ->setMaxValue($this->getMaxVitality())
-            )
-            ->addDaily(
-                new GameNotesStateMetric()
-                    ->setName("Scratch Card")
-                    ->setCurrentValue($this->getCardSign())
-                    ->setTargetValue(ZenlessZoneZeroCardSign::DONE)
-            )
-            ->addDaily(
-                new GameNotesStateMetric()
-                    ->setName("Coff Cafe")
-                    ->setCurrentValue($this->getCafeState())
-                    ->setTargetValue(ZenlessZoneZeroCafe::DONE)
-            );
-    }
-
-    public function getWeekliesData(): GameNotesWeeklies
-    {
-        return new GameNotesWeeklies()
-            ->addWeekly(
-                new GameNotesProgressMetric()
-                    ->setName("Bounty Commissions")
-                    ->setCurrentValue($this->getBountyCommissionNum())
-                    ->setMaxValue($this->getBountyCommissionTotal())
-                    ->setUnlocked($this->isBountyCommissionUnlock())
-            )
-            ->addWeekly(
-                new GameNotesProgressMetric()
-                    ->setName("Ridu Weekly Points")
-                    ->setCurrentValue($this->getWeeklyTaskCurPoint())
-                    ->setMaxValue($this->getWeeklyTaskMaxPoint())
-                    ->setUnlocked($this->isWeeklyTaskUnlock())
-            );
     }
 }

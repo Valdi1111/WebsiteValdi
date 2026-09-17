@@ -16,9 +16,20 @@ use App\HoyoverseBundle\Model\Game\HasNotesInterface;
 use App\HoyoverseBundle\Model\Game\NotesTrait;
 use App\HoyoverseBundle\Model\Game\HasStaminaInterface;
 use App\HoyoverseBundle\Model\Game\StaminaTrait;
+use App\HoyoverseBundle\Model\Notes\GameNotesDailies;
+use App\HoyoverseBundle\Model\Notes\GameNotesExpeditions;
+use App\HoyoverseBundle\Model\Notes\GameNotesMetricCheckType;
+use App\HoyoverseBundle\Model\Notes\GameNotesProgressMetric;
+use App\HoyoverseBundle\Model\Notes\GameNotesRealm;
+use App\HoyoverseBundle\Model\Notes\GameNotesStamina;
+use App\HoyoverseBundle\Model\Notes\GameNotesWeeklies;
 use App\HoyoverseBundle\Model\Notes\GenshinImpactNotes;
+use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Psr\Log\LoggerInterface;
 
+/**
+ * @implements HasNotesInterface<GenshinImpactNotes>
+ */
 class GenshinImpactService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasExpeditionsInterface, HasRealmInterface
 {
     use NotesTrait;
@@ -161,5 +172,62 @@ class GenshinImpactService extends GameService implements HasNotesInterface, Has
     public function getMaxStamina(): int
     {
         return 200;
+    }
+
+    public function getStaminaData(RuntimeAccountData $account): GameNotesStamina
+    {
+        $notes = $this->getNotes($account);
+        return new GameNotesStamina()
+            ->setCurrentStamina($notes->getCurrentResin())
+            ->setMaxStamina($notes->getMaxResin())
+            ->setStaminaRecoverTime($notes->getResinRecoveryTime());
+    }
+
+    public function getDailiesData(RuntimeAccountData $account): GameNotesDailies
+    {
+        $notes = $this->getNotes($account);
+        return new GameNotesDailies()
+            ->addDaily(
+                new GameNotesProgressMetric()
+                    ->setName("Daily Tasks")
+                    ->setCurrentValue($notes->getFinishedTaskNum())
+                    ->setMaxValue($notes->getTotalTaskNum())
+            );
+    }
+
+    public function getWeekliesData(RuntimeAccountData $account): GameNotesWeeklies
+    {
+        $notes = $this->getNotes($account);
+        return new GameNotesWeeklies()
+            ->addWeekly(
+                new GameNotesProgressMetric()
+                    ->setName("Resin Discounts")
+                    ->setCurrentValue($notes->getRemainResinDiscountNum())
+                    ->setMaxValue($notes->getResinDiscountNumLimit())
+                    ->setCheckType(GameNotesMetricCheckType::CURRENT_EQUALS_ZERO)
+            );
+    }
+
+    public function getExpeditionsData(RuntimeAccountData $account): GameNotesExpeditions
+    {
+        $notes = $this->getNotes($account);
+        $expeditions = new GameNotesExpeditions();
+        foreach ($notes->getExpeditions() as $expedition) {
+            $expeditions->addExpedition(
+                $expedition->getAvatarSideIcon(),
+                strtolower($expedition->getStatus() ?? ""),
+                $expedition->getRemainedTime()
+            );
+        }
+        return $expeditions;
+    }
+
+    public function getRealmData(RuntimeAccountData $account): GameNotesRealm
+    {
+        $notes = $this->getNotes($account);
+        return new GameNotesRealm()
+            ->setCurrentCoin($notes->getCurrentHomeCoin())
+            ->setMaxCoin($notes->getMaxHomeCoin())
+            ->setCoinRecoverTime($notes->getHomeCoinRecoveryTime());
     }
 }

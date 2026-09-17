@@ -6,7 +6,6 @@ use App\HoyoverseBundle\Message\ShopStatusMessage;
 use App\HoyoverseBundle\Message\TaskMessageInterface;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasShopStatusInterface;
-use App\HoyoverseBundle\Model\Notes\HasShopStatusNotes;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -32,12 +31,7 @@ class ShopStatusMessageHandler extends AbstractTaskMessageHandler
             return;
         }
 
-        $notes = $gameService->getNotes($accountData);
-        if (!$notes instanceof HasShopStatusNotes) {
-            return;
-        }
-
-        $shopStatus = $notes->getVhsSaleState();
+        $shopStatus = $gameService->getShopStatusData($accountData);
         if (!$shopStatus->isDone()) {
             return;
         }

@@ -8,6 +8,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Index(name: 'IDX_hoyoverse_game_profile_id_period_currency', columns: ['hoyoverse_game_profile_id', 'period', 'currency'])]
+#[ORM\Index(name: 'FK_hoyoverse_diary_entry_hoyoverse_game_profile', columns: ['hoyoverse_game_profile_id'])]
 #[ORM\Table(name: 'hoyoverse_diary_entry')]
 #[ORM\Entity(repositoryClass: HoyoverseDiaryEntryRepository::class)]
 class HoyoverseDiaryEntry

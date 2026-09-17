@@ -2,6 +2,7 @@
 
 namespace App\HoyoverseBundle\Scheduler;
 
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\Messenger\Message\RedispatchMessage;
 use Symfony\Component\Scheduler\Attribute\AsSchedule;
@@ -12,13 +13,10 @@ use Symfony\Component\Scheduler\ScheduleProviderInterface;
 #[AsSchedule('hoyoverse')]
 class ScheduleProvider implements ScheduleProviderInterface
 {
-    private const array REGIONS = [
-        'SEA' => 'Asia/Shanghai',
-        'EU'  => 'Europe/Paris',
-        'NA'  => 'America/New_York',
-    ];
 
     public function __construct(
+        #[Autowire(param: 'hoyoverse.timezones')]
+        private readonly array $timezones,
         private readonly ParameterBagInterface $params
     )
     {
@@ -40,7 +38,7 @@ class ScheduleProvider implements ScheduleProviderInterface
 
             if ($taskConfig['regional']) {
                 // Regional task: one cron for each Timezone target
-                foreach (self::REGIONS as $regionKey => $timeZoneString) {
+                foreach ($this->timezones as $regionKey => $timeZoneString) {
                     $schedule->add(
                         RecurringMessage::cron(
                             $cronExpression,

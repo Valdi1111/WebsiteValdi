@@ -15,9 +15,19 @@ use App\HoyoverseBundle\Model\Game\HasNotesInterface;
 use App\HoyoverseBundle\Model\Game\NotesTrait;
 use App\HoyoverseBundle\Model\Game\HasStaminaInterface;
 use App\HoyoverseBundle\Model\Game\StaminaTrait;
+use App\HoyoverseBundle\Model\Notes\GameNotesDailies;
+use App\HoyoverseBundle\Model\Notes\GameNotesExpeditions;
+use App\HoyoverseBundle\Model\Notes\GameNotesMetricCheckType;
+use App\HoyoverseBundle\Model\Notes\GameNotesProgressMetric;
+use App\HoyoverseBundle\Model\Notes\GameNotesStamina;
+use App\HoyoverseBundle\Model\Notes\GameNotesWeeklies;
 use App\HoyoverseBundle\Model\Notes\HonkaiStarRailNotes;
+use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Psr\Log\LoggerInterface;
 
+/**
+ * @implements HasNotesInterface<HonkaiStarRailNotes>
+ */
 class HonkaiStarRailService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasExpeditionsInterface
 {
     use NotesTrait;
@@ -160,5 +170,59 @@ class HonkaiStarRailService extends GameService implements HasNotesInterface, Ha
     public function getMaxStamina(): int
     {
         return 300;
+    }
+
+    public function getStaminaData(RuntimeAccountData $account): GameNotesStamina
+    {
+        $notes = $this->getNotes($account);
+        return new GameNotesStamina()
+            ->setCurrentStamina($notes->getCurrentStamina())
+            ->setMaxStamina($notes->getMaxStamina())
+            ->setStaminaRecoverTime($notes->getStaminaRecoverTime());
+    }
+
+    public function getDailiesData(RuntimeAccountData $account): GameNotesDailies
+    {
+        $notes = $this->getNotes($account);
+        return new GameNotesDailies()
+            ->addDaily(
+                new GameNotesProgressMetric()
+                    ->setName("Activity Points")
+                    ->setCurrentValue($notes->getCurrentTrainScore())
+                    ->setMaxValue($notes->getMaxTrainScore())
+            );
+    }
+
+    public function getWeekliesData(RuntimeAccountData $account): GameNotesWeeklies
+    {
+        $notes = $this->getNotes($account);
+        return new GameNotesWeeklies()
+            ->addWeekly(
+                new GameNotesProgressMetric()
+                    ->setName("Weekly Bosses")
+                    ->setCurrentValue($notes->getWeeklyCocoonCnt())
+                    ->setMaxValue($notes->getWeeklyCocoonLimit())
+                    ->setCheckType(GameNotesMetricCheckType::CURRENT_EQUALS_ZERO)
+            )
+            ->addWeekly(
+                new GameNotesProgressMetric()
+                    ->setName("Period Points")
+                    ->setCurrentValue($notes->getPeriodScore())
+                    ->setMaxValue($notes->getPeriodMaxScore())
+            );
+    }
+
+    public function getExpeditionsData(RuntimeAccountData $account): GameNotesExpeditions
+    {
+        $notes = $this->getNotes($account);
+        $expeditions = new GameNotesExpeditions();
+        foreach ($notes->getExpeditions() as $expedition) {
+            $expeditions->addExpedition(
+                $expedition->getAvatars(),
+                strtolower($expedition->getStatus() ?? ""),
+                $expedition->getRemainingTime()
+            );
+        }
+        return $expeditions;
     }
 }

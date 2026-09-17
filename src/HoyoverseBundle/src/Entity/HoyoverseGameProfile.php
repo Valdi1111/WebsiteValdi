@@ -122,6 +122,9 @@ class HoyoverseGameProfile
     private ?bool $weekliesCheck = false;
 
     #[ORM\Column(options: ["default" => "0"])]
+    private ?bool $endgamesCheck = false;
+
+    #[ORM\Column(options: ["default" => "0"])]
     private ?bool $syncDiary = false;
 
     #[ORM\Column]
@@ -528,6 +531,17 @@ class HoyoverseGameProfile
     {
         $this->weekliesCheck = $weekliesCheck;
 
+        return $this;
+    }
+
+    public function isEndgamesCheck(): ?bool
+    {
+        return $this->endgamesCheck;
+    }
+
+    public function setEndgamesCheck(?bool $endgamesCheck): static
+    {
+        $this->endgamesCheck = $endgamesCheck;
         return $this;
     }
 

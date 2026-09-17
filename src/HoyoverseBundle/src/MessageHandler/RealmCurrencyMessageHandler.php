@@ -6,7 +6,6 @@ use App\HoyoverseBundle\Message\RealmCurrencyMessage;
 use App\HoyoverseBundle\Message\TaskMessageInterface;
 use App\HoyoverseBundle\Model\Game\HasRealmInterface;
 use App\HoyoverseBundle\Model\Game\GameInterface;
-use App\HoyoverseBundle\Model\Notes\HasRealmNotes;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -32,12 +31,7 @@ class RealmCurrencyMessageHandler extends AbstractTaskMessageHandler
             return;
         }
 
-        $notes = $gameService->getNotes($accountData);
-        if (!$notes instanceof HasRealmNotes) {
-            return;
-        }
-
-        $realm = $notes->getRealmData();
+        $realm = $gameService->getRealmData($accountData);
         if (!$realm->isWithinThreshold($accountData)) {
             return;
         }

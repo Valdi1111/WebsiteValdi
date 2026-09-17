@@ -4,7 +4,7 @@ namespace App\HoyoverseBundle\Model\Notes;
 
 use Symfony\Component\Serializer\Attribute\SerializedName;
 
-class HonkaiStarRailNotes implements GameNotes, HasStaminaNotes, HasDailiesNotes, HasWeekliesNotes, HasExpeditionsNotes
+class HonkaiStarRailNotes implements GameNotes
 {
     // =========================================================================
     // Stamina (Trailblaze Power & Reserve)
@@ -373,55 +373,5 @@ class HonkaiStarRailNotes implements GameNotes, HasStaminaNotes, HasDailiesNotes
     {
         $this->currentTs = $currentTs;
         return $this;
-    }
-
-    public function getStaminaData(): GameNotesStamina
-    {
-        return new GameNotesStamina()
-            ->setCurrentStamina($this->getCurrentStamina())
-            ->setMaxStamina($this->getMaxStamina())
-            ->setStaminaRecoverTime($this->getStaminaRecoverTime());
-    }
-
-    public function getDailiesData(): GameNotesDailies
-    {
-        return new GameNotesDailies()
-            ->addDaily(
-                new GameNotesProgressMetric()
-                    ->setName("Activity Points")
-                    ->setCurrentValue($this->getCurrentTrainScore())
-                    ->setMaxValue($this->getMaxTrainScore())
-            );
-    }
-
-    public function getWeekliesData(): GameNotesWeeklies
-    {
-        return new GameNotesWeeklies()
-            ->addWeekly(
-                new GameNotesProgressMetric()
-                    ->setName("Weekly Bosses")
-                    ->setCurrentValue($this->getWeeklyCocoonCnt())
-                    ->setMaxValue($this->getWeeklyCocoonLimit())
-                    ->setCheckType(GameNotesMetricCheckType::CURRENT_EQUALS_ZERO)
-            )
-            ->addWeekly(
-                new GameNotesProgressMetric()
-                    ->setName("Period Points")
-                    ->setCurrentValue($this->getPeriodScore())
-                    ->setMaxValue($this->getPeriodMaxScore())
-            );
-    }
-
-    public function getExpeditionsData(): GameNotesExpeditions
-    {
-        $expeditions = new GameNotesExpeditions();
-        foreach ($this->getExpeditions() as $expedition) {
-            $expeditions->addExpedition(
-                $expedition->getAvatars(),
-                strtolower($expedition->getStatus() ?? ""),
-                $expedition->getRemainingTime()
-            );
-        }
-        return $expeditions;
     }
 }

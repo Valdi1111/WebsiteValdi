@@ -15,9 +15,21 @@ use App\HoyoverseBundle\Model\Game\HasNotesInterface;
 use App\HoyoverseBundle\Model\Game\NotesTrait;
 use App\HoyoverseBundle\Model\Game\HasStaminaInterface;
 use App\HoyoverseBundle\Model\Game\StaminaTrait;
+use App\HoyoverseBundle\Model\Notes\GameNotesDailies;
+use App\HoyoverseBundle\Model\Notes\GameNotesProgressMetric;
+use App\HoyoverseBundle\Model\Notes\GameNotesStamina;
+use App\HoyoverseBundle\Model\Notes\GameNotesStateMetric;
+use App\HoyoverseBundle\Model\Notes\GameNotesWeeklies;
+use App\HoyoverseBundle\Model\Notes\ZenlessZoneZeroCafe;
+use App\HoyoverseBundle\Model\Notes\ZenlessZoneZeroCardSign;
 use App\HoyoverseBundle\Model\Notes\ZenlessZoneZeroNotes;
+use App\HoyoverseBundle\Model\Notes\ZenlessZoneZeroVhsSale;
+use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Psr\Log\LoggerInterface;
 
+/**
+ * @implements HasNotesInterface<ZenlessZoneZeroNotes>
+ */
 class ZenlessZoneZeroService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasShopStatusInterface
 {
     use NotesTrait;
@@ -160,5 +172,67 @@ class ZenlessZoneZeroService extends GameService implements HasNotesInterface, H
     public function getMaxStamina(): int
     {
         return 300;
+    }
+
+    public function getStaminaData(RuntimeAccountData $account): GameNotesStamina
+    {
+        $notes = $this->getNotes($account);
+        return new GameNotesStamina()
+            ->setCurrentStamina($notes->getCurrentEnergy())
+            ->setMaxStamina($notes->getMaxEnergy())
+            ->setStaminaRecoverTime($notes->getEnergyRestore());
+    }
+
+    public function getDailiesData(RuntimeAccountData $account): GameNotesDailies
+    {
+        $notes = $this->getNotes($account);
+        return new GameNotesDailies()
+            ->addDaily(
+                new GameNotesProgressMetric()
+                    ->setName("Engagement Points")
+                    ->setCurrentValue($notes->getCurrentVitality())
+                    ->setMaxValue($notes->getMaxVitality())
+            )
+            ->addDaily(
+                new GameNotesStateMetric()
+                    ->setName("Scratch Card")
+                    ->setCurrentValue($notes->getCardSign())
+                    ->setTargetValue(ZenlessZoneZeroCardSign::DONE)
+            )
+            ->addDaily(
+                new GameNotesStateMetric()
+                    ->setName("Coff Cafe")
+                    ->setCurrentValue($notes->getCafeState())
+                    ->setTargetValue(ZenlessZoneZeroCafe::DONE)
+            );
+    }
+
+    public function getWeekliesData(RuntimeAccountData $account): GameNotesWeeklies
+    {
+        $notes = $this->getNotes($account);
+        return new GameNotesWeeklies()
+            ->addWeekly(
+                new GameNotesProgressMetric()
+                    ->setName("Bounty Commissions")
+                    ->setCurrentValue($notes->getBountyCommissionNum())
+                    ->setMaxValue($notes->getBountyCommissionTotal())
+                    ->setUnlocked($notes->isBountyCommissionUnlock())
+            )
+            ->addWeekly(
+                new GameNotesProgressMetric()
+                    ->setName("Ridu Weekly Points")
+                    ->setCurrentValue($notes->getWeeklyTaskCurPoint())
+                    ->setMaxValue($notes->getWeeklyTaskMaxPoint())
+                    ->setUnlocked($notes->isWeeklyTaskUnlock())
+            );
+    }
+
+    public function getShopStatusData(RuntimeAccountData $account): GameNotesStateMetric
+    {
+        $notes = $this->getNotes($account);
+        return new GameNotesStateMetric()
+            ->setName("Shop Status")
+            ->setCurrentValue($notes->getVhsSaleState())
+            ->setTargetValue(ZenlessZoneZeroVhsSale::DONE);
     }
 }

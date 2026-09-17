@@ -3,6 +3,7 @@
 namespace App\HoyoverseBundle;
 
 use App\HoyoverseBundle\Message\CodesRedeemMessage;
+use App\HoyoverseBundle\Message\EndgamesReminderMessage;
 use App\HoyoverseBundle\Message\HoyolabCheckInMessage;
 use App\HoyoverseBundle\Message\DailiesReminderMessage;
 use App\HoyoverseBundle\Message\ExpeditionCheckMessage;
@@ -18,6 +19,7 @@ use App\HoyoverseBundle\Message\TaskMessageInterface;
 use App\HoyoverseBundle\Message\UpdateCookieMessage;
 use App\HoyoverseBundle\Message\WeekliesReminderMessage;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
+use Symfony\Component\Config\Definition\Builder\NodeBuilder;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -41,6 +43,11 @@ class HoyoverseBundle extends AbstractBundle
     {
         $configurator->import('./config/services.yaml');
         $configurator->parameters()->set('hoyoverse.domain_name', $config['domain_name']);
+
+        $configurator->parameters()->set('hoyoverse.timezones', $config['timezones']);
+        $configurator->parameters()->set('hoyoverse.timezone.SEA', $config['timezones']['SEA']);
+        $configurator->parameters()->set('hoyoverse.timezone.EU', $config['timezones']['EU']);
+        $configurator->parameters()->set('hoyoverse.timezone.NA', $config['timezones']['NA']);
 
         $hoyoverseTasks = $config['tasks'] ?? [];
 
@@ -89,57 +96,68 @@ class HoyoverseBundle extends AbstractBundle
 
     public function configure(DefinitionConfigurator $definition): void
     {
+        /**
+         * @param NodeBuilder<ArrayNodeDefinition> $tasksNode
+         * @param string $nodeName
+         * @param string $defaultClass
+         * @param bool $isRegional
+         * @param int|null $defaultJitter
+         * @return mixed
+         */
         $addCronNode = function (
-            ArrayNodeDefinition $node,
+            NodeBuilder $tasksNode,
+            string $nodeName,
             string $defaultClass,
             bool $isRegional = false,
             ?int $defaultJitter = null
         ) {
-            $child = $node
-                ->addDefaultsIfNotSet()
-                ->children()
-                ->booleanNode('enabled')->defaultTrue()->end()
-                ->scalarNode('message_class')->cannotBeEmpty()->defaultValue($defaultClass)->end()
-                ->scalarNode('cron')->cannotBeEmpty()->defaultNull()->end()
-                ->booleanNode('regional')->defaultValue($isRegional)->end();
-
-            $jitterNode = $child->integerNode('jitter')->min(0);
-            if ($defaultJitter !== null) {
-                $jitterNode->defaultValue($defaultJitter);
-            } else {
-                $jitterNode->defaultNull();
-            }
-            $jitterNode->end();
-
-            return $child->end();
+            return $tasksNode
+                ->arrayNode($nodeName)
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->booleanNode('enabled')->defaultTrue()->end()
+                        ->stringNode('message_class')->cannotBeEmpty()->defaultValue($defaultClass)->end()
+                        ->stringNode('cron')->cannotBeEmpty()->defaultNull()->end()
+                        ->booleanNode('regional')->defaultValue($isRegional)->end()
+                        ->integerNode('jitter')->min(0)->defaultValue($defaultJitter)->end()
+                    ->end()
+                ->end();
         };
 
-        $rootNode = $definition->rootNode();
-        $hoyoverseNode = $rootNode
+        $tasksNode = $definition->rootNode()
             ->children()
-            ->scalarNode('domain_name')->defaultNull()->end()
-            ->arrayNode('tasks')
-            ->addDefaultsIfNotSet()
-            ->children();
+                ->scalarNode('domain_name')->defaultNull()->end()
+                ->arrayNode('timezones')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->stringNode('SEA')->cannotBeEmpty()->defaultValue('Asia/Shanghai')->end()
+                        ->stringNode('EU')->cannotBeEmpty()->defaultValue('Europe/Paris')->end()
+                        ->stringNode('NA')->cannotBeEmpty()->defaultValue('America/New_York')->end()
+                    ->end()
+                ->end()
+                ->arrayNode('tasks')
+                    ->addDefaultsIfNotSet()
+                    ->children();
 
         // 1. Global tasks (regional = false)
-        $addCronNode($hoyoverseNode->arrayNode('hoyolab_check_in'), HoyolabCheckInMessage::class);
-        $addCronNode($hoyoverseNode->arrayNode('hoyolab_missed_check_in'), HoyolabMissedCheckInMessage::class);
-        $addCronNode($hoyoverseNode->arrayNode('code_redeem'), CodesRedeemMessage::class);
-        $addCronNode($hoyoverseNode->arrayNode('stamina'), StaminaCheckMessage::class);
-        $addCronNode($hoyoverseNode->arrayNode('expedition'), ExpeditionCheckMessage::class);
-        $addCronNode($hoyoverseNode->arrayNode('realm_currency'), RealmCurrencyMessage::class);
-        $addCronNode($hoyoverseNode->arrayNode('shop_status'), ShopStatusMessage::class);
-        $addCronNode($hoyoverseNode->arrayNode('mimo'), MimoTaskMessage::class, defaultJitter: 3);
-        $addCronNode($hoyoverseNode->arrayNode('hilichurl'), HilichurlTaskMessage::class, defaultJitter: 3);
-        $addCronNode($hoyoverseNode->arrayNode('sync_diary'), SyncDiaryMessage::class);
-        $addCronNode($hoyoverseNode->arrayNode('update_cookie'), UpdateCookieMessage::class);
+        $addCronNode($tasksNode, 'hoyolab_check_in', HoyolabCheckInMessage::class);
+        $addCronNode($tasksNode, 'hoyolab_missed_check_in', HoyolabMissedCheckInMessage::class);
+        $addCronNode($tasksNode, 'code_redeem', CodesRedeemMessage::class);
+        $addCronNode($tasksNode, 'stamina', StaminaCheckMessage::class);
+        $addCronNode($tasksNode, 'expedition', ExpeditionCheckMessage::class);
+        $addCronNode($tasksNode, 'realm_currency', RealmCurrencyMessage::class);
+        $addCronNode($tasksNode, 'shop_status', ShopStatusMessage::class);
+        $addCronNode($tasksNode, 'mimo', MimoTaskMessage::class, defaultJitter: 3);
+        $addCronNode($tasksNode, 'hilichurl', HilichurlTaskMessage::class, defaultJitter: 3);
+        $addCronNode($tasksNode, 'sync_diary', SyncDiaryMessage::class);
+        $addCronNode($tasksNode, 'update_cookie', UpdateCookieMessage::class);
 
         // 2. Regional tasks (regional = true)
-        $addCronNode($hoyoverseNode->arrayNode('dailies_reminder'), DailiesReminderMessage::class, isRegional: true);
-        $addCronNode($hoyoverseNode->arrayNode('weeklies_reminder'), WeekliesReminderMessage::class, isRegional: true);
+        $addCronNode($tasksNode, 'dailies_reminder', DailiesReminderMessage::class, isRegional: true);
+        $addCronNode($tasksNode, 'weeklies_reminder', WeekliesReminderMessage::class, isRegional: true);
+        $addCronNode($tasksNode, 'endgames_reminder', EndgamesReminderMessage::class, isRegional: true);
 
-        $hoyoverseNode->end()->end()->end();
+        $tasksNode->end()->end()->end();
     }
 
 }

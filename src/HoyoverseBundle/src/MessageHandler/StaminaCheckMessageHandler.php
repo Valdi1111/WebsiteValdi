@@ -6,7 +6,6 @@ use App\HoyoverseBundle\Message\StaminaCheckMessage;
 use App\HoyoverseBundle\Message\TaskMessageInterface;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasStaminaInterface;
-use App\HoyoverseBundle\Model\Notes\HasStaminaNotes;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -32,12 +31,7 @@ class StaminaCheckMessageHandler extends AbstractTaskMessageHandler
             return;
         }
 
-        $notes = $gameService->getNotes($accountData);
-        if (!$notes instanceof HasStaminaNotes) {
-            return;
-        }
-
-        $stamina = $notes->getStaminaData();
+        $stamina = $gameService->getStaminaData($accountData);
         if (!$stamina->isWithinThreshold($accountData)) {
             return;
         }

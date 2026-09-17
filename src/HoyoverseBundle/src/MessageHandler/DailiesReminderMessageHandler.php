@@ -6,7 +6,6 @@ use App\HoyoverseBundle\Message\DailiesReminderMessage;
 use App\HoyoverseBundle\Message\TaskMessageInterface;
 use App\HoyoverseBundle\Model\Game\HasDailiesInterface;
 use App\HoyoverseBundle\Model\Game\GameInterface;
-use App\HoyoverseBundle\Model\Notes\HasDailiesNotes;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -32,12 +31,7 @@ class DailiesReminderMessageHandler extends AbstractTaskMessageHandler
             return;
         }
 
-        $notes = $gameService->getNotes($accountData);
-        if (!$notes instanceof HasDailiesNotes) {
-            return;
-        }
-
-        $dailies = $notes->getDailiesData();
+        $dailies = $gameService->getDailiesData($accountData);
         if ($dailies->allDone()) {
             return;
         }

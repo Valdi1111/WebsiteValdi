@@ -5,6 +5,7 @@ namespace App\HoyoverseBundle\Model\Game;
 use App\HoyoverseBundle\Entity\HoyoverseDiaryEntry;
 use App\HoyoverseBundle\Exception\RetrieveDiaryDataException;
 use App\HoyoverseBundle\Model\Diary\GameDiaryCurrency;
+use App\HoyoverseBundle\Model\Diary\GameDiaryInfoInterface;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -17,7 +18,7 @@ use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
 trait DiaryTrait
 {
 
-    public function getDiaryInfo(RuntimeAccountData $account, string $month): array
+    public function getDiaryInfo(RuntimeAccountData $account, string $month): GameDiaryInfoInterface
     {
         try {
             $response = $this->getHoyolabClient()->request(Request::METHOD_GET, $this->getUrlDiaryInfo(), [
@@ -62,8 +63,7 @@ trait DiaryTrait
 
             $data = $body['data'] ?? [];
 
-            // TODO
-//            return $this->getDenormalizer()->denormalize($game, GameRecordCard::class);
+            return $this->getDenormalizer()->denormalize($data, $this->getDiaryInfoClass());
 
         } catch (ExceptionInterface $e) {
             $this->getLogger()->error("Exception during diary retrieval", [
@@ -108,10 +108,6 @@ trait DiaryTrait
 
             $retcode = $body['retcode'] ?? null;
             if ($retcode !== 0) {
-                if ($retcode === -501000 /*&& retry count < max retries*/) { // TODO why?
-                    // sleep retry delay
-                    // retry
-                }
                 $this->getLogger()->error("Diary returned non-zero retcode", [
                     'retcode' => $retcode,
                     'message' => $body['message'] ?? null,

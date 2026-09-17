@@ -10,7 +10,7 @@ use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 use function Symfony\Component\String\u;
 
 #[Map(target: HoyoverseDiaryEntry::class)]
-class ZenlessZoneZeroDiaryItem
+class ZenlessZoneZeroDiaryItem implements GameDiaryItemInterface
 {
     #[SerializedName('id')]
     private ?string $id = null;

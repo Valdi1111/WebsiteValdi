@@ -15,13 +15,7 @@ interface GameInterface
 
     public static function getGameId(): int;
 
-    public function getPlatform(): string;
-
-    public function getFullName(): string;
-
     public function getGameName(): string;
-
-    public function getGameShortName(): string;
 
     public function getAuthor(): string;
 

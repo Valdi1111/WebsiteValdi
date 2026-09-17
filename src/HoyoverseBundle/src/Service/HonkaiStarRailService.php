@@ -2,6 +2,7 @@
 
 namespace App\HoyoverseBundle\Service;
 
+use App\HoyoverseBundle\Model\Diary\HonkaiStarRailDiaryInfo;
 use App\HoyoverseBundle\Model\Diary\HonkaiStarRailDiaryItem;
 use App\HoyoverseBundle\Model\Game\AutoCodeRedemptionTrait;
 use App\HoyoverseBundle\Model\Game\HasAutoCodeRedemptionInterface;
@@ -27,6 +28,7 @@ use Psr\Log\LoggerInterface;
 
 /**
  * @implements HasNotesInterface<HonkaiStarRailNotes>
+ * @implements HasDiaryInterface<HonkaiStarRailDiaryInfo, HonkaiStarRailDiaryItem>
  */
 class HonkaiStarRailService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasExpeditionsInterface
 {
@@ -57,24 +59,9 @@ class HonkaiStarRailService extends GameService implements HasNotesInterface, Ha
         return 6;
     }
 
-    public function getPlatform(): string
-    {
-        return "starrail";
-    }
-
-    public function getFullName(): string
-    {
-        return "StarRail";
-    }
-
     public function getGameName(): string
     {
         return "Honkai: Star Rail";
-    }
-
-    public function getGameShortName(): string
-    {
-        return "HSR";
     }
 
     public function getAuthor(): string
@@ -135,6 +122,11 @@ class HonkaiStarRailService extends GameService implements HasNotesInterface, Ha
     public function getUrlDiaryDetail(): string
     {
         return "https://sg-public-api.hoyolab.com/event/srledger/month_detail";
+    }
+
+    public function getDiaryInfoClass(): string
+    {
+        return HonkaiStarRailDiaryInfo::class;
     }
 
     public function getDiaryItemClass(): string

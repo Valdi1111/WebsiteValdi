@@ -1,5 +1,9 @@
 hoyoverse:
     domain_name: 'hoyoverse.%domain_name%'
+    timezones:
+        SEA: 'Asia/Shanghai'
+        EU: 'Europe/Paris'
+        NA: 'America/New_York'
     tasks:
         hoyolab_check_in:
             cron: '0 20 * * *'
@@ -21,11 +25,13 @@ hoyoverse:
         hilichurl:
             cron: '0 11 * * *'
             jitter: 3
-        dailies_reminder:
-            cron: '0 21 * * *'
-        weeklies_reminder:
-            cron: '0 21 * * 0'
         sync_diary:
             cron: '0 0 2 * *'
         update_cookie:
             cron: '0 */4 * * *'
+        dailies_reminder:
+            cron: '0 21 * * *'
+        weeklies_reminder:
+            cron: '0 21 * * 0'
+        endgames_reminder:
+            cron: '0 15 * * *'

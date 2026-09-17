@@ -6,6 +6,7 @@ use App\HoyoverseBundle\Exception\CodeRedeemFailedException;
 use App\HoyoverseBundle\Model\RedeemableCode;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
 
 /**
@@ -36,7 +37,7 @@ trait AutoCodeRedemptionTrait
             $statusCode = $response->getStatusCode();
             $body = $response->toArray(false);
 
-            if ($statusCode !== 200) {
+            if ($statusCode !== Response::HTTP_OK) {
                 $this->getLogger()->error("Failed to redeem code", [
                     'status' => $statusCode,
                     'body'   => $body,

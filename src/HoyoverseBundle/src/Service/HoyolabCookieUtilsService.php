@@ -6,6 +6,7 @@ use App\HoyoverseBundle\Exception\ConfigurationException;
 use App\HoyoverseBundle\Model\ParsedCookie;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
@@ -155,7 +156,7 @@ class HoyolabCookieUtilsService
                 ],
             ]);
 
-            if ($response->getStatusCode() !== 200) {
+            if ($response->getStatusCode() !== Response::HTTP_OK) {
                 $this->getLogger()->error('HoYoAuth: HTTP request failed', [
                     'statusCode' => $response->getStatusCode(),
                     'ltuid'      => $cookie->getLtuidV2(),

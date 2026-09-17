@@ -2,6 +2,7 @@
 
 namespace App\HoyoverseBundle\Service;
 
+use App\HoyoverseBundle\Model\Diary\ZenlessZoneZeroDiaryInfo;
 use App\HoyoverseBundle\Model\Diary\ZenlessZoneZeroDiaryItem;
 use App\HoyoverseBundle\Model\Game\AutoCodeRedemptionTrait;
 use App\HoyoverseBundle\Model\Game\HasAutoCodeRedemptionInterface;
@@ -29,6 +30,7 @@ use Psr\Log\LoggerInterface;
 
 /**
  * @implements HasNotesInterface<ZenlessZoneZeroNotes>
+ * @implements HasDiaryInterface<ZenlessZoneZeroDiaryInfo, ZenlessZoneZeroDiaryItem>
  */
 class ZenlessZoneZeroService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasShopStatusInterface
 {
@@ -59,24 +61,9 @@ class ZenlessZoneZeroService extends GameService implements HasNotesInterface, H
         return 8;
     }
 
-    public function getPlatform(): string
-    {
-        return "nap";
-    }
-
-    public function getFullName(): string
-    {
-        return "ZenlessZoneZero";
-    }
-
     public function getGameName(): string
     {
         return "Zenless Zone Zero";
-    }
-
-    public function getGameShortName(): string
-    {
-        return "ZZZ";
     }
 
     public function getAuthor(): string
@@ -137,6 +124,11 @@ class ZenlessZoneZeroService extends GameService implements HasNotesInterface, H
     public function getUrlDiaryDetail(): string
     {
         return "https://sg-act-public-api.hoyolab.com/event/nap_ledger/month_detail";
+    }
+
+    public function getDiaryInfoClass(): string
+    {
+        return ZenlessZoneZeroDiaryInfo::class;
     }
 
     public function getDiaryItemClass(): string

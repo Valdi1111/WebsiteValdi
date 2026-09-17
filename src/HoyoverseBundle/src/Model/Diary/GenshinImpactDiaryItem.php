@@ -9,7 +9,7 @@ use Symfony\Component\Serializer\Attribute\SerializedName;
 use Symfony\Component\Serializer\Normalizer\DateTimeNormalizer;
 
 #[Map(target: HoyoverseDiaryEntry::class)]
-class GenshinImpactDiaryItem
+class GenshinImpactDiaryItem implements GameDiaryItemInterface
 {
     #[Map(target: 'actionKey')]
     #[SerializedName('action_id')]

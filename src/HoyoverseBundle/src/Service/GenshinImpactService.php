@@ -2,6 +2,7 @@
 
 namespace App\HoyoverseBundle\Service;
 
+use App\HoyoverseBundle\Model\Diary\GenshinImpactDiaryInfo;
 use App\HoyoverseBundle\Model\Diary\GenshinImpactDiaryItem;
 use App\HoyoverseBundle\Model\Game\AutoCodeRedemptionTrait;
 use App\HoyoverseBundle\Model\Game\HasAutoCodeRedemptionInterface;
@@ -29,6 +30,7 @@ use Psr\Log\LoggerInterface;
 
 /**
  * @implements HasNotesInterface<GenshinImpactNotes>
+ * @implements HasDiaryInterface<GenshinImpactDiaryInfo, GenshinImpactDiaryItem>
  */
 class GenshinImpactService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasExpeditionsInterface, HasRealmInterface
 {
@@ -59,24 +61,9 @@ class GenshinImpactService extends GameService implements HasNotesInterface, Has
         return 2;
     }
 
-    public function getPlatform(): string
-    {
-        return "genshin";
-    }
-
-    public function getFullName(): string
-    {
-        return "GenshinImpact";
-    }
-
     public function getGameName(): string
     {
         return "Genshin Impact";
-    }
-
-    public function getGameShortName(): string
-    {
-        return "GI";
     }
 
     public function getAuthor(): string
@@ -137,6 +124,11 @@ class GenshinImpactService extends GameService implements HasNotesInterface, Has
     public function getUrlDiaryDetail(): string
     {
         return "https://sg-hk4e-api.hoyolab.com/event/ysledgeros/month_detail";
+    }
+
+    public function getDiaryInfoClass(): string
+    {
+        return GenshinImpactDiaryInfo::class;
     }
 
     public function getDiaryItemClass(): string

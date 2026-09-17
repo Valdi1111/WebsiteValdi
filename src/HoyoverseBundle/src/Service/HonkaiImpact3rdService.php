@@ -33,24 +33,9 @@ class HonkaiImpact3rdService extends GameService implements HasCodeRedemptionInt
         return 1;
     }
 
-    public function getPlatform(): string
-    {
-        return "honkai";
-    }
-
-    public function getFullName(): string
-    {
-        return "HonkaiImpact";
-    }
-
     public function getGameName(): string
     {
         return "Honkai Impact 3rd";
-    }
-
-    public function getGameShortName(): string
-    {
-        return "HI3";
     }
 
     public function getAuthor(): string

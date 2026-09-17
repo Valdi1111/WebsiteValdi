@@ -33,24 +33,9 @@ class TearsOfThemisService extends GameService implements HasCodeRedemptionInter
         return 0;
     }
 
-    public function getPlatform(): string
-    {
-        return "tot";
-    }
-
-    public function getFullName(): string
-    {
-        return "TearsOfThemis";
-    }
-
     public function getGameName(): string
     {
         return "Tears of Themis";
-    }
-
-    public function getGameShortName(): string
-    {
-        return "ToT";
     }
 
     public function getAuthor(): string

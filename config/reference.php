@@ -169,70 +169,70 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     tasks?: array{
  *         hoyolab_check_in?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\HoyolabCheckInMessage"
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\Batch\\HoyolabCheckInBatchMessage"
  *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null
  *         },
  *         hoyolab_missed_check_in?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\HoyolabMissedCheckInMessage"
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\Batch\\HoyolabMissedCheckInBatchMessage"
  *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null
  *         },
  *         code_redeem?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\CodesRedeemMessage"
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\Batch\\CodeRedeemBatchMessage"
  *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null
  *         },
  *         stamina?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\StaminaCheckMessage"
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\Batch\\StaminaCheckBatchMessage"
  *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null
  *         },
  *         expedition?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\ExpeditionCheckMessage"
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\Batch\\ExpeditionsCheckBatchMessage"
  *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null
  *         },
  *         realm_currency?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\RealmCurrencyMessage"
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\Batch\\RealmCurrencyCheckBatchMessage"
  *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null
  *         },
  *         shop_status?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\ShopStatusMessage"
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\Batch\\ShopStatusCheckBatchMessage"
  *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null
  *         },
  *         mimo?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\MimoTaskMessage"
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\Batch\\MimoCheckBatchMessage"
  *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: 3
  *         },
  *         hilichurl?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\HilichurlTaskMessage"
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\Batch\\HilichurlCheckBatchMessage"
  *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: 3
  *         },
  *         sync_diary?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\SyncDiaryMessage"
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\Batch\\SyncDiaryBatchMessage"
  *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null
@@ -246,21 +246,21 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         },
  *         dailies_reminder?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\DailiesReminderMessage"
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\Batch\\DailiesReminderBatchMessage"
  *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: true
  *             jitter?: int|Param, // Default: null
  *         },
  *         weeklies_reminder?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\WeekliesReminderMessage"
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\Batch\\WeekliesReminderBatchMessage"
  *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: true
  *             jitter?: int|Param, // Default: null
  *         },
  *         endgames_reminder?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\EndgamesReminderMessage"
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\Batch\\EndgamesReminderBatchMessage"
  *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: true
  *             jitter?: int|Param, // Default: null

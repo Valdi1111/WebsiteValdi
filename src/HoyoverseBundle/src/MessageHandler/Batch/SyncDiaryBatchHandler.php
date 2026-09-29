@@ -56,8 +56,8 @@ class SyncDiaryBatchHandler extends AbstractBatchTaskMessageHandler
         // Reset state across long-running worker iterations
         $this->serviceDelays = [];
 
-        // Pin the reference date safely to the previous month
-        $this->targetDate = new \DateTimeImmutable('first day of last month');
+        // Resolve target date from the message parameters or fall back to previous month
+        $this->targetDate = $message->resolveTargetDate();
 
         // Execute task traversal
         $this->dispatchBatch($message);

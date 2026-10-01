@@ -2,7 +2,7 @@ import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerC
 import { Button, Flex, Input, Segmented } from "antd";
 import {
     AppstoreOutlined,
-    ArrowLeftOutlined,
+    ArrowUpOutlined,
     BarsOutlined,
     EyeInvisibleOutlined,
     EyeOutlined,
@@ -62,6 +62,18 @@ export default function FileManagerToolbar() {
         }
     };
 
+    // Traverse tree to find if the previously selected folder still exists in the newly fetched tree
+    const findFolderInTree = (nodes, id) => {
+        for (let node of nodes) {
+            if (node.id === id) return node;
+            if (node.children?.length) {
+                const found = findFolderInTree(node.children, id);
+                if (found) return found;
+            }
+        }
+        return null;
+    };
+
     const isTreeActive = isMobile ? treeDrawerOpen : showTree;
 
     return (
@@ -76,7 +88,8 @@ export default function FileManagerToolbar() {
 
                 {/* Parent directory navigation */}
                 <Button
-                    icon={<ArrowLeftOutlined />}
+                    icon={<ArrowUpOutlined />}
+                    title={"Go to parent folder"}
                     disabled={selectedFolder?.id === "/"}
                     onClick={() => {
                         const parent = getParentNode(selectedFolder, folders);
@@ -89,9 +102,15 @@ export default function FileManagerToolbar() {
                 {/* Reset clipboard and reload all entries */}
                 <Button
                     icon={<ReloadOutlined />}
+                    title={"Refresh"}
                     onClick={() => {
                         setClipboard(null);
-                        reloadFolders().then(t => setSelectedFolder(t[0]));
+                        reloadFolders().then(freshTree => {
+                            // Keep the current folder if it still exists, otherwise fallback to Root
+                            const currentId = selectedFolder?.id;
+                            const targetFolder = currentId ? findFolderInTree(freshTree, currentId) : null;
+                            setSelectedFolder(targetFolder || freshTree[0]);
+                        });
                         reloadFiles().then(() => setSelectedFile(null));
                     }}
                 />

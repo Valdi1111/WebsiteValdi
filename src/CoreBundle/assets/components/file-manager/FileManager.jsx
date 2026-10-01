@@ -4,19 +4,24 @@ import FilePreview from "@CoreBundle/components/file-manager/preview/FilePreview
 import FoldersTree from "@CoreBundle/components/file-manager/folders/FoldersTree";
 import FilesTable from "@CoreBundle/components/file-manager/files/FilesTable";
 import FileManagerToolbar from "@CoreBundle/components/file-manager/FileManagerToolbar";
-import { Layout, Splitter, App } from "antd";
+import { Layout, Splitter, Drawer, Grid, App } from "antd";
 import React from "react";
 
-// TODO andranno modificati i vari useEffect, useMemo etc al cambio di api
+const { useBreakpoint } = Grid;
+
+/**
+ * Root File Manager component.
+ * Manages global file system states, collapsible desktop panels, and responsive mobile drawers.
+ */
 export default function FileManager({ apiUrl }) {
     const [info, setInfo] = React.useState(null);
-    // File preview
     const [showPreview, setShowPreview] = React.useState(false);
-    // Selected folder, file, clipboard
     const [selectedFolder, setSelectedFolder] = React.useState(null);
     const [selectedFile, setSelectedFile] = React.useState(null);
     const [clipboard, setClipboard] = React.useState(null);
-    // Folders tree data
+    const [treeDrawerOpen, setTreeDrawerOpen] = React.useState(false);
+    const [showTree, setShowTree] = React.useState(true); // Controls desktop directory tree collapse state
+
     const [folders, setFolders] = React.useState([{
         id: "/",
         key: "/",
@@ -24,14 +29,17 @@ export default function FileManager({ apiUrl }) {
         children: [],
         isLeaf: false,
     }]);
-    // Files table data
     const [files, setFiles] = React.useState([]);
     const [filesLoading, setFilesLoading] = React.useState(false);
-    const app = App.useApp();
 
-    /** @type {FileManagerAPI} */
+    const screens = useBreakpoint();
+    // Screen widths below md (768px) are treated as mobile devices
+    const isMobile = !screens.md;
+
+    const app = App.useApp();
     const api = React.useMemo(() => createFileManagerApi(apiUrl, app), [apiUrl]);
 
+    // Fetch and synchronize root folder structure
     const reloadFolders = React.useCallback(() => {
         return api
             .withErrorHandling()
@@ -49,73 +57,132 @@ export default function FileManager({ apiUrl }) {
             });
     }, [api]);
 
+    // Fetch files belonging to the active directory
     const reloadFiles = React.useCallback(() => {
         setFiles([]);
-        if (!selectedFolder) {
-            return Promise.resolve(null);
-        }
+        if (!selectedFolder) return Promise.resolve(null);
         setFilesLoading(true);
         return api
             .withErrorHandling()
             .fmFiles(selectedFolder.id)
-            .then(res => {
-                setFiles(res.data);
-            })
+            .then(res => setFiles(res.data))
             .finally(() => setFilesLoading(false));
     }, [api, selectedFolder?.id]);
 
+    // Initialize root directory and storage statistics on mount
     React.useEffect(() => {
         setClipboard(null);
         reloadFolders().then(t => setSelectedFolder(t[0]));
-        api
-            .withErrorHandling()
-            .fmInfo()
-            .then(res => setInfo(res.data));
+        api.withErrorHandling().fmInfo().then(res => setInfo(res.data));
     }, [api]);
 
+    // Refresh directory content when selection changes
     React.useEffect(() => {
         reloadFiles().then(() => setSelectedFile(null));
     }, [selectedFolder?.id]);
 
-    return <FileManagerContext value={{
-        // TODO sfruttare l'info, mostrare la pienezza del disco e usare i flag per abilitare o no certe impostazioni
-        info, setInfo,
-        selectedFolder, setSelectedFolder,
-        selectedFile, setSelectedFile,
-        clipboard, setClipboard,
-        folders, reloadFolders,
-        files, reloadFiles, filesLoading,
-        api,
-    }}>
-        <Layout>
-            <FileManagerToolbar showPreview={showPreview} setShowPreview={setShowPreview}/>
-            <Layout.Content style={{ display: 'flex', maxHeight: '100%' }}>
-                <Splitter style={{ height: '100%' }}>
-                    <Splitter.Panel
-                        style={{ overflow: 'auto', height: '100%' }}
-                        collapsible
-                        defaultSize="20%"
-                        min="20%"
-                        max="30%"
-                    >
-                        <FoldersTree/>
-                    </Splitter.Panel>
-                    <Splitter.Panel
-                        style={{ overflow: 'auto', height: '100%' }}
-                    >
-                        <FilesTable/>
-                    </Splitter.Panel>
-                    {showPreview && <Splitter.Panel
-                        style={{ overflow: 'auto', height: '100%' }}
-                        defaultSize="25%"
-                        min="20%"
-                        max="30%"
-                    >
-                        <FilePreview/>
-                    </Splitter.Panel>}
-                </Splitter>
-            </Layout.Content>
-        </Layout>
-    </FileManagerContext>;
+    // Update selected folder and automatically dismiss the mobile navigation drawer
+    const handleSelectFolder = (folder) => {
+        setSelectedFolder(folder);
+        if (isMobile) {
+            setTreeDrawerOpen(false);
+        }
+    };
 
+    return (
+        <FileManagerContext value={{
+            // TODO sfruttare l'info, mostrare la pienezza del disco e usare i flag per abilitare o no certe impostazioni
+            info, setInfo,
+            selectedFolder, setSelectedFolder: handleSelectFolder,
+            selectedFile, setSelectedFile,
+            clipboard, setClipboard,
+            folders, reloadFolders,
+            files, reloadFiles, filesLoading,
+            treeDrawerOpen, setTreeDrawerOpen,
+            showTree, setShowTree,
+            showPreview, setShowPreview,
+            isMobile,
+            api,
+        }}>
+            {/* Full-height container without document-level scrollbars */}
+            <Layout style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ flexShrink: 0 }}>
+                    <FileManagerToolbar />
+                </div>
+
+                <Layout.Content style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex' }}>
+                    {isMobile ? (
+                        <>
+                            {/* Mobile layout: Primary table view */}
+                            <div style={{ flex: 1, height: '100%', width: '100%', overflow: 'hidden' }}>
+                                <FilesTable />
+                            </div>
+
+                            {/* Mobile directory navigation drawer */}
+                            <Drawer
+                                title="Folders"
+                                placement="left"
+                                size="100%"
+                                onClose={() => setTreeDrawerOpen(false)}
+                                open={treeDrawerOpen}
+                                styles={{ body: { padding: 0, height: '100%', overflow: 'hidden' } }}
+                            >
+                                <FoldersTree />
+                            </Drawer>
+
+                            {/* Mobile bottom preview drawer */}
+                            <Drawer
+                                placement="bottom"
+                                size="80%"
+                                open={showPreview}
+                                onClose={() => setShowPreview(false)}
+                                closable={true}
+                                title={null}
+                                styles={{
+                                    header: { display: 'none' }, // Header is delegated to FilePreview component
+                                    body: { padding: 0, height: '100%', overflow: 'hidden' }
+                                }}
+                            >
+                                <FilePreview />
+                            </Drawer>
+                        </>
+                    ) : (
+                        /* Desktop layout: Multi-panel resizable Splitter */
+                        <Splitter style={{ height: '100%', width: '100%' }}>
+                            {/* Folders tree panel: rendered only when showTree is true */}
+                            {showTree && (
+                                <Splitter.Panel
+                                    style={{ height: '100%', overflow: 'hidden' }}
+                                    defaultSize="20%"
+                                    min="200px"
+                                    max="350px"
+                                >
+                                    <FoldersTree />
+                                </Splitter.Panel>
+                            )}
+
+                            {/* Files table main pane */}
+                            <Splitter.Panel
+                                style={{ height: '100%', overflow: 'hidden', minWidth: 0 }}
+                            >
+                                <FilesTable />
+                            </Splitter.Panel>
+
+                            {/* Right-hand file preview panel */}
+                            {showPreview && (
+                                <Splitter.Panel
+                                    style={{ height: '100%', overflow: 'auto' }}
+                                    defaultSize="25%"
+                                    min="200px"
+                                    max="350px"
+                                >
+                                    <FilePreview />
+                                </Splitter.Panel>
+                            )}
+                        </Splitter>
+                    )}
+                </Layout.Content>
+            </Layout>
+        </FileManagerContext>
+    );
 }

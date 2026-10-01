@@ -17,6 +17,12 @@ import React from "react";
  * @property {Array.<Object>} [files]
  * @property {() => Promise<axios.AxiosResponse<any>>} [reloadFiles]
  * @property {boolean} [filesLoading]
+ * @property {boolean} [treeDrawerOpen]
+ * @property {(data: boolean) => void} [setTreeDrawerOpen]
+ * @property {boolean} [showTree]
+ * @property {(data: boolean | ((prev: boolean) => boolean)) => void} [setShowTree]
+ * @property {boolean} [showPreview]
+ * @property {(data: boolean) => void} [setShowPreview]
  */
 
 /**

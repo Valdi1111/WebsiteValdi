@@ -2,12 +2,12 @@
     cursor: pointer;
 }
 
-/*
-.fm-table-title-td > span {
-    display: block;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+/* Color cells (including fixed ones like actions) using the theme token */
+.fm-table-row-selected > td {
+    background-color: var(--fm-selected-bg) !important;
 }
-*/
+
+/* Hover state on the already selected row */
+.fm-table-row-selected:hover > td {
+    background-color: var(--fm-selected-hover-bg) !important;
+}

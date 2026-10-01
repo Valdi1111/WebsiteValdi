@@ -4,40 +4,50 @@ import { Button, Flex, Input, Popover } from "antd";
 import { FilterOutlined } from "@ant-design/icons";
 import React from "react";
 
+/**
+ * Top control bar for the folder tree. Provides directory creation triggers
+ * and recursive folder name filtering.
+ */
 export default function FoldersTreeToolbar({ expandedIds, setExpandedIds, searchText, setSearchText }) {
     const { folders } = useFileManager();
 
+    // Recursively traverse folder hierarchy to locate matches and expand parent nodes
     const onSearch = React.useCallback((value, e, info) => {
         setSearchText(value);
         if (!value) {
             setExpandedIds(["/"]);
             return;
         }
+
         const nodesToExpand = new Set();
         function traverse(node, parentIds = []) {
             const currentIds = [...parentIds, node.id];
-            // Add note to list if the title contains the searched string
+            // Include node path if title matches filter query
             if (node.title.toLowerCase().includes(value.toLowerCase())) {
                 currentIds.forEach(id => nodesToExpand.add(id));
             }
-            // Search in children if present
+            // Traverse child directories if available
             if (node.children && node.children.length > 0) {
                 node.children.forEach(child => traverse(child, currentIds));
             }
         }
-        // Start traversing from tree root
+
         folders.forEach(node => traverse(node));
-        // Convert set to array
         setExpandedIds(Array.from(nodesToExpand));
-    }, [folders]);
+    }, [folders, setSearchText, setExpandedIds]);
 
-    return <Flex gap="small" style={{ paddingBottom: 8, paddingLeft: 8, paddingRight: 8 }}>
-        <FoldersTreeAddNew/>
-        <Popover placement="left" arrow content={
-            <Input.Search placeholder="Search folders" onSearch={onSearch} allowClear/>
-        }>
-            <Button style={{ paddingLeft: 8, paddingRight: 8 }} icon={<FilterOutlined/>}/>
-        </Popover>
-    </Flex>;
-
+    return (
+        <Flex gap="small" style={{ paddingTop: 7, paddingBottom: 8, paddingLeft: 8, paddingRight: 8 }}>
+            <FoldersTreeAddNew/>
+            <Popover
+                placement="left"
+                arrow
+                content={
+                    <Input.Search placeholder="Search folders" onSearch={onSearch} allowClear/>
+                }
+            >
+                <Button style={{ paddingLeft: 8, paddingRight: 8 }} icon={<FilterOutlined/>}/>
+            </Popover>
+        </Flex>
+    );
 }

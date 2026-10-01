@@ -6,12 +6,19 @@ import {
     DownloadOutlined,
     EditOutlined,
     ExclamationCircleFilled,
+    EyeOutlined,
+    FolderOpenOutlined,
+    LinkOutlined,
     ScissorOutlined,
     SnippetsOutlined
 } from "@ant-design/icons";
 import React from "react";
 
-export default function FilesTableRowDropdown({ children, row }) {
+/**
+ * Context menu and action dropdown wrapper for file manager table rows.
+ * Supports both right-click context menus on desktop and tap-triggered popups on mobile.
+ */
+export default function FilesTableRowDropdown({ children, row, trigger = ['contextMenu'] }) {
     const [visibleRename, setVisibleRename] = React.useState(false);
     const [confirmLoadingRename, setConfirmLoadingRename] = React.useState(false);
     const [formRename] = Form.useForm();
@@ -20,13 +27,30 @@ export default function FilesTableRowDropdown({ children, row }) {
     const {
         api,
         selectedFolder,
+        setSelectedFolder,
         setSelectedFile,
         reloadFolders,
         reloadFiles,
         clipboard,
-        setClipboard
+        setClipboard,
+        setShowPreview
     } = useFileManager();
 
+    // Directly opens a file in a new tab or enters into the folder
+    const openItem = React.useCallback(() => {
+        if (!row) return;
+        if (row.type === 'folder') {
+            setSelectedFolder(row);
+            return;
+        }
+        const link = document.createElement('a');
+        link.href = api.fmDirectUrl(row.id);
+        link.target = '_blank';
+        link.click();
+        link.remove();
+    }, [row, api, setSelectedFolder]);
+
+    // Build context menu options dynamically based on item type (file vs folder)
     const items = React.useMemo(() => {
         const pasteItem = {
             key: 'paste',
@@ -36,22 +60,41 @@ export default function FilesTableRowDropdown({ children, row }) {
             onClick: () => onPaste(),
             disabled: !clipboard,
         };
-        if (!row) {
-            return [pasteItem];
-        }
+        if (!row) return [pasteItem];
+
         const out = [];
+
+        // 1. Primary navigation action (Navigate into folder or open direct file URL)
+        out.push({
+            key: 'open',
+            label: row.type === 'folder' ? 'Open folder' : 'Open file',
+            icon: row.type === 'folder' ? <FolderOpenOutlined /> : <LinkOutlined />,
+            onClick: openItem,
+        });
+
+        // 2. File-specific actions (Preview, Download, Clipboard)
         if (row.type !== 'folder') {
+            out.push({
+                key: 'preview',
+                label: 'Preview',
+                icon: <EyeOutlined />,
+                onClick: () => {
+                    setSelectedFile(row);
+                    setShowPreview?.(true);
+                }
+            });
+
+            out.push({
+                key: 'download',
+                label: 'Download',
+                icon: <DownloadOutlined/>,
+                extra: 'Ctrl+D',
+                onClick: () => onDownload(),
+            });
+
+            out.push({ type: 'divider' });
+
             out.push(
-                {
-                    key: 'download',
-                    label: 'Download',
-                    icon: <DownloadOutlined/>,
-                    extra: 'Ctrl+D',
-                    onClick: () => onDownload(),
-                },
-                {
-                    type: 'divider',
-                },
                 {
                     key: 'copy',
                     label: 'Copy',
@@ -67,11 +110,11 @@ export default function FilesTableRowDropdown({ children, row }) {
                     onClick: () => onCut(),
                 },
                 pasteItem,
-                {
-                    type: 'divider',
-                },
+                { type: 'divider' }
             );
         }
+
+        // 3. Common destructive and mutation actions (Rename, Delete)
         out.push(
             {
                 key: 'rename',
@@ -89,28 +132,24 @@ export default function FilesTableRowDropdown({ children, row }) {
             },
         );
         return out;
-    }, [row]);
+    }, [row, clipboard, openItem, setSelectedFile, setShowPreview]);
 
     const onDownload = React.useCallback(() => {
-        if (!row) {
-            return;
-        }
+        if (!row) return;
         console.debug("Downloading", row.id);
         api
             .withErrorHandling()
             .fmDownload(row.id);
-    }, [row]);
+    }, [row, api]);
 
     const onCopy = React.useCallback(() => {
-        if (!row) {
-            return;
-        }
+        if (!row) return;
         console.debug("Copying", row.id);
         setClipboard({
             action: 'copy',
             item: row,
         });
-    }, [row]);
+    }, [row, setClipboard]);
 
     const handleCopy = React.useCallback(id => {
         api
@@ -125,18 +164,16 @@ export default function FilesTableRowDropdown({ children, row }) {
                 reloadFiles().then(() => setSelectedFile(res.data));
                 setVisibleRename(false);
             });
-    }, [selectedFolder?.id]);
+    }, [api, selectedFolder?.id, setClipboard, reloadFiles, setSelectedFile]);
 
     const onCut = React.useCallback(() => {
-        if (!row) {
-            return;
-        }
+        if (!row) return;
         console.debug("Cutting", row.id);
         setClipboard({
             action: 'cut',
             item: row,
         });
-    }, [row]);
+    }, [row, setClipboard]);
 
     const handleMove = React.useCallback(id => {
         api
@@ -151,12 +188,10 @@ export default function FilesTableRowDropdown({ children, row }) {
                 reloadFiles().then(() => setSelectedFile(res.data));
                 setVisibleRename(false);
             });
-    }, [selectedFolder?.id]);
+    }, [api, selectedFolder?.id, setClipboard, reloadFiles, setSelectedFile]);
 
     const onPaste = React.useCallback(() => {
-        if (!clipboard) {
-            return;
-        }
+        if (!clipboard) return;
         console.debug("Pasting", clipboard);
         if (clipboard.action === 'copy') {
             handleCopy(clipboard.item.id);
@@ -164,29 +199,24 @@ export default function FilesTableRowDropdown({ children, row }) {
         if (clipboard.action === 'cut') {
             handleMove(clipboard.item.id);
         }
-    }, [clipboard]);
+    }, [clipboard, handleCopy, handleMove]);
 
     const onRename = React.useCallback(() => {
-        if (!row) {
-            return;
-        }
+        if (!row) return;
         console.debug("Renaming", row.id);
         formRename.setFieldValue("name", row.title);
         setVisibleRename(true);
-
-    }, [row]);
+    }, [row, formRename]);
 
     const handleRename = React.useCallback((data) => {
-        if (!row) {
-            return;
-        }
+        if (!row) return;
         const backendFunction = row.type === 'folder' ? 'fmRenameFolder' : 'fmRenameFile';
         setConfirmLoadingRename(true);
         api
             .withLoadingMessage({
                 key: 'file-rename-loader',
-                loadingContent: 'Renaming file...',
-                successContent: 'File renamed successfully',
+                loadingContent: 'Renaming...',
+                successContent: 'Renamed successfully',
             })
             [backendFunction](row.id, data.name)
             .then(res => {
@@ -201,25 +231,25 @@ export default function FilesTableRowDropdown({ children, row }) {
             .finally(() => {
                 setConfirmLoadingRename(false);
             });
-    }, [row]);
+    }, [row, api, reloadFolders, reloadFiles, setSelectedFile]);
 
     const onDelete = React.useCallback(() => {
-        if (!row) {
-            return;
-        }
+        if (!row) return;
         console.debug("Delete", row.id);
-        const backendFunction = row?.type === 'folder' ? 'fmDeleteFolder' : 'fmDeleteFile';
+        const backendFunction = row.type === 'folder' ? 'fmDeleteFolder' : 'fmDeleteFile';
+        const itemType = row.type === 'folder' ? 'folder' : 'file';
+
         modal.confirm({
             icon: <ExclamationCircleFilled/>,
-            title: 'Are you sure you want to delete this files?',
+            title: `Are you sure you want to delete this ${itemType}?`,
             content: <ul>
                 <li>{row.title}</li>
             </ul>,
             onOk: () => api
                 .withLoadingMessage({
                     key: 'file-delete-loader',
-                    loadingContent: 'Deleting files...',
-                    successContent: 'Files deleted successfully',
+                    loadingContent: `Deleting ${itemType}...`,
+                    successContent: `${row.type === 'folder' ? 'Folder' : 'File'} deleted successfully`,
                 })
                 [backendFunction](row.id)
                 .then(res => {
@@ -231,42 +261,38 @@ export default function FilesTableRowDropdown({ children, row }) {
                     }
                 }),
         });
-    }, [row]);
+    }, [row, modal, api, reloadFolders, reloadFiles, setSelectedFile]);
 
     return <>
+        {/* Rename Modal */}
         <Modal
             open={visibleRename}
             title={<span>Enter a new name</span>}
             onCancel={() => setVisibleRename(false)}
             destroyOnHidden
-            okButtonProps={{
-                autoFocus: true,
-                htmlType: 'submit',
-            }}
+            okButtonProps={{ autoFocus: true, htmlType: 'submit' }}
             confirmLoading={confirmLoadingRename}
-            modalRender={(dom) =>
+            modalRender={(dom) => (
                 <Form
                     form={formRename}
                     layout="vertical"
                     name="file_rename_modal"
                     clearOnDestroy={true}
-                    onFinish={(data) => handleRename(data)}>
+                    onFinish={(data) => handleRename(data)}
+                >
                     {dom}
                 </Form>
-            }
+            )}
         >
-            <Form.Item name="name" rules={[
-                {
-                    required: true,
-                    message: 'Please input the file name!',
-                },
-            ]}>
+            <Form.Item name="name" rules={[{ required: true, message: 'Please input the name!' }]}>
                 <Input/>
             </Form.Item>
         </Modal>
+
+        {/* Action Dropdown Menu */}
         <Dropdown
             menu={{ items }}
-            trigger={['contextMenu']}
+            trigger={trigger}
             destroyOnHidden
         >
             {children}

@@ -7,6 +7,10 @@ import { FileAddOutlined, FolderAddOutlined, UploadOutlined } from "@ant-design/
 import { Button, Dropdown } from "antd";
 import React from "react";
 
+/**
+ * Dropdown trigger for creating new items or uploading files/folders
+ * into the currently selected directory.
+ */
 export default function FoldersTreeAddNew() {
     const [addFileModal, setAddFileModal] = React.useState(false);
     const [addFolderModal, setAddFolderModal] = React.useState(false);
@@ -45,26 +49,28 @@ export default function FoldersTreeAddNew() {
         },
     ];
 
-    let components = <></>;
+    return (
+        <>
+            {/* Modal dialogs mounted conditionally when a destination folder is active */}
+            {selectedFolder && (
+                <>
+                    <AddFileModal visible={addFileModal} setVisible={setAddFileModal}/>
+                    <AddFolderModal visible={addFolderModal} setVisible={setAddFolderModal}/>
+                    <UploadFileModal visible={uploadFileModal} setVisible={setUploadFileModal}/>
+                    <UploadFolderModal visible={uploadFolderModal} setVisible={setUploadFolderModal}/>
+                </>
+            )}
 
-    if (selectedFolder) {
-        components = <>
-            <AddFileModal visible={addFileModal} setVisible={setAddFileModal}/>
-            <AddFolderModal visible={addFolderModal} setVisible={setAddFolderModal}/>
-            <UploadFileModal visible={uploadFileModal} setVisible={setUploadFileModal}/>
-            <UploadFolderModal visible={uploadFolderModal} setVisible={setUploadFolderModal}/>
-        </>;
-    }
-
-    return <>
-        {components}
-        <Dropdown
-            disabled={selectedFolder == null}
-            placement="bottom"
-            menu={{ items }}
-            arrow={{ pointAtCenter: true }}
-        >
-            <Button style={{ flex: 1 }} disabled={selectedFolder == null}>Add New</Button>
-        </Dropdown>
-    </>;
+            <Dropdown
+                disabled={selectedFolder == null}
+                placement="bottom"
+                menu={{ items }}
+                arrow={{ pointAtCenter: true }}
+            >
+                <Button style={{ flex: 1 }} disabled={selectedFolder == null}>
+                    Add New
+                </Button>
+            </Dropdown>
+        </>
+    );
 }

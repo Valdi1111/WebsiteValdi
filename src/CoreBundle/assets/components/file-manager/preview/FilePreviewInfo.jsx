@@ -4,6 +4,9 @@ import { InfoCircleOutlined } from "@ant-design/icons";
 import { Descriptions, Divider } from "antd";
 import React from "react";
 
+/**
+ * Displays basic filesystem attributes including MIME type, file extension, size, and date.
+ */
 export default function FilePreviewInfo() {
     const { selectedFile } = useFileManager();
 
@@ -15,6 +18,7 @@ export default function FilePreviewInfo() {
                 children: selectedFile.type,
             }
         ];
+
         if (selectedFile.type !== 'folder') {
             out.push(
                 {
@@ -29,22 +33,25 @@ export default function FilePreviewInfo() {
                 }
             );
         }
+
         out.push({
             key: 'date',
             label: 'Date',
             children: formatDateTimeFromTimestamp(selectedFile.date),
         });
+
         return out;
-    }, [selectedFile.id]);
+    }, [selectedFile]);
 
-    return <>
-        <Divider size="small"/>
-        <Descriptions
-            title={<><InfoCircleOutlined/> <span>Information</span></>}
-            items={information}
-            column={2}
-            styles={{ title: { textAlign: 'center' } }}
-        />
-    </>;
-
+    return (
+        <>
+            <Divider size="small"/>
+            <Descriptions
+                title={<><InfoCircleOutlined/> <span>Information</span></>}
+                items={information}
+                column={2}
+                styles={{ title: { textAlign: 'center' } }}
+            />
+        </>
+    );
 }

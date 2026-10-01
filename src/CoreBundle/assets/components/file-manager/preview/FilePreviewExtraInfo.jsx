@@ -4,15 +4,21 @@ import { Descriptions, Divider, Tag } from "antd";
 import React from "react";
 import { isArray } from "chart.js/helpers";
 
+/**
+ * Asynchronously loads and renders extended metadata (e.g., EXIF, audio tags, video codec data)
+ * if enabled and supported for the current file type.
+ */
 export default function FilePreviewExtraInfo() {
     const [extra, setExtra] = React.useState([]);
     const { api, info, selectedFile } = useFileManager();
 
     React.useEffect(() => {
         setExtra([]);
+        // Verify that server feature flags support metadata for this file type
         if (!info || !info.features.meta[selectedFile.type]) {
-            return
+            return;
         }
+
         api
             .withErrorHandling()
             .fmMeta(selectedFile.id)
@@ -20,7 +26,7 @@ export default function FilePreviewExtraInfo() {
                 setExtra(res.data.map(item => {
                     let children = item.value;
                     if (isArray(item.value)) {
-                        children = <>{item.value.map((item) => <Tag key={item}>{item}</Tag>)}</>;
+                        children = <>{item.value.map((val) => <Tag key={val}>{val}</Tag>)}</>;
                     }
                     return {
                         key: item.label,
@@ -29,20 +35,21 @@ export default function FilePreviewExtraInfo() {
                     };
                 }));
             });
-    }, [selectedFile.id, info]);
+    }, [selectedFile.id, selectedFile.type, info, api]);
 
     if (!extra.length) {
         return <></>;
     }
 
-    return <>
-        <Divider size="small"/>
-        <Descriptions
-            title={<><MoreOutlined/> <span>Extra info</span></>}
-            items={extra}
-            column={2}
-            styles={{ title: { textAlign: 'center' } }}
-        />
-    </>;
-
+    return (
+        <>
+            <Divider size="small"/>
+            <Descriptions
+                title={<><MoreOutlined/> <span>Extra info</span></>}
+                items={extra}
+                column={2}
+                styles={{ title: { textAlign: 'center' } }}
+            />
+        </>
+    );
 }

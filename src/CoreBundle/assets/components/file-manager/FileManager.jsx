@@ -148,8 +148,11 @@ export default function FileManager({ apiUrl }) {
                         </>
                     ) : (
                         /* Desktop layout: Multi-panel resizable Splitter */
-                        <Splitter style={{ height: '100%', width: '100%' }}>
-                            {/* Folders tree panel: rendered only when showTree is true */}
+                        <Splitter
+                            key={`splitter-${showTree ? 'tree' : 'no-tree'}-${showPreview ? 'preview' : 'no-preview'}`}
+                            style={{ height: '100%', width: '100%' }}
+                        >
+                            {/* Folders tree panel */}
                             {showTree && (
                                 <Splitter.Panel
                                     style={{ height: '100%', overflow: 'hidden' }}

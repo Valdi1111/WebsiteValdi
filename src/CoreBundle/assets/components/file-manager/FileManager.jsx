@@ -152,7 +152,7 @@ export default function FileManager({ apiUrl }) {
                             key={`splitter-${showTree ? 'tree' : 'no-tree'}-${showPreview ? 'preview' : 'no-preview'}`}
                             style={{ height: '100%', width: '100%' }}
                         >
-                            {/* Folders tree panel */}
+                            {/* Folders tree panel: rendered only when showTree is true */}
                             {showTree && (
                                 <Splitter.Panel
                                     style={{ height: '100%', overflow: 'hidden' }}
@@ -171,7 +171,7 @@ export default function FileManager({ apiUrl }) {
                                 <FilesTable />
                             </Splitter.Panel>
 
-                            {/* Right-hand file preview panel */}
+                            {/* Right-hand file preview panel: rendered only when showPreview is true */}
                             {showPreview && (
                                 <Splitter.Panel
                                     style={{ height: '100%', overflow: 'auto' }}

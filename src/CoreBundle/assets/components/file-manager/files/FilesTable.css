@@ -1,5 +1,8 @@
 .fm-table-tr {
     cursor: pointer;
+    /* Disable text selection */
+    user-select: none;
+    -webkit-user-select: none; /* Safari and WebKit mobile */
 }
 
 /* Color cells (including fixed ones like actions) using the theme token */

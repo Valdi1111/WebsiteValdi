@@ -16,7 +16,7 @@ use Doctrine\Persistence\ManagerRegistry;
  * @method Credential[]    findAll()
  * @method Credential[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
  */
-class CredentialRepositoryInterface extends ServiceEntityRepository implements TableRepositoryInterface
+class CredentialRepository extends ServiceEntityRepository implements TableRepositoryInterface
 {
     use TableRepositoryTrait;
 

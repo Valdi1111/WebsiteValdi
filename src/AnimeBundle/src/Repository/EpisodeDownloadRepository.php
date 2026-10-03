@@ -16,7 +16,7 @@ use Doctrine\Persistence\ManagerRegistry;
  * @method EpisodeDownload[]    findAll()
  * @method EpisodeDownload[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
  */
-class EpisodeDownloadRepositoryInterface extends ServiceEntityRepository implements TableRepositoryInterface
+class EpisodeDownloadRepository extends ServiceEntityRepository implements TableRepositoryInterface
 {
     use TableRepositoryTrait;
 

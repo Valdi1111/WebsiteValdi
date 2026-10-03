@@ -19,7 +19,7 @@ export default function FoldersTreeInfo() {
     }
 
     return (
-        <Flex vertical gap="small" style={{ padding: 8 }}>
+        <Flex vertical gap="small" style={{ paddingTop: 8, paddingBottom: 8 }}>
             <Progress percent={percent} showInfo={false}/>
             <span>{formatBytes(info.stats.used)} of {formatBytes(info.stats.total)} used</span>
         </Flex>

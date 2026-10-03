@@ -2,10 +2,10 @@
 
 namespace App\PasswordsBundle\Controller;
 
-use App\CoreBundle\Model\Table;
+use App\CoreBundle\Model\TableConfiguration;
 use App\CoreBundle\Model\TableParameters;
 use App\PasswordsBundle\Entity\Credential;
-use App\PasswordsBundle\Repository\CredentialRepositoryInterface;
+use App\PasswordsBundle\Repository\CredentialRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -29,23 +29,29 @@ class ApiController extends AbstractController
     }
 
     #[Route('/credentials/table', name: 'credentials_table', methods: ['GET'])]
-    public function apiCredentialsTable(CredentialRepositoryInterface $credentialRepo, #[MapQueryString] TableParameters $params): Response
-    {
-        $table = new Table($credentialRepo, $params);
-        $table->getDefaultParameters()
-            ->setSorterField('name')
-            ->setSorterOrder('ascend');
-        $table->addColumn('ID', 'id')
-            ->setHidden(true)
-            ->setFixedLeft();
-        $table->addColumn('Name', 'name')
-            ->setSorter(true)
-            ->setSortDirections(['ascend', 'descend']);
-        $table->addColumn('Tags', 'tags')
-            ->setValueFormat("tags");
-        $table->addColumn('Type', 'type')
-            ->setHidden(true);
-        return $this->json($table);
+    public function apiCredentialsTable(
+        CredentialRepository              $credentialRepo,
+        #[MapQueryString] TableParameters $params
+    ): Response {
+        $config = new TableConfiguration(
+            rootEntityClass: Credential::class,
+            rootAlias: 'e',
+            fieldMappings: [
+                'id'   => 'e.id',
+                'name' => 'e.name',
+                'tags' => 'e.tags',
+            ],
+            hydrateObjects: true,
+            rowTransformer: function (array $row, Credential $entity): array {
+                $row['type'] = $entity->getType();
+                return $row;
+            }
+        );
+
+        return $this->json([
+            'rows'  => $credentialRepo->getTableRows($params, $config),
+            'count' => $credentialRepo->getTableCount($params, $config),
+        ]);
     }
 
     #[IsGranted('ROLE_ADMIN_PASSWORDS')]

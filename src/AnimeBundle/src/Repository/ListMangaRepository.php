@@ -16,7 +16,7 @@ use Doctrine\Persistence\ManagerRegistry;
  * @method ListManga[]    findAll()
  * @method ListManga[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
  */
-class ListMangaRepositoryInterface extends ServiceEntityRepository implements TableRepositoryInterface
+class ListMangaRepository extends ServiceEntityRepository implements TableRepositoryInterface
 {
     use TableRepositoryTrait;
 

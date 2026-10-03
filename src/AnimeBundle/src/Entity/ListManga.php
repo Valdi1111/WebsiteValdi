@@ -5,11 +5,11 @@ namespace App\AnimeBundle\Entity;
 use App\AnimeBundle\Model\ListMangaStatus;
 use App\AnimeBundle\Model\ListMangaType;
 use App\AnimeBundle\Model\Nsfw;
-use App\AnimeBundle\Repository\ListMangaRepositoryInterface;
+use App\AnimeBundle\Repository\ListMangaRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Table(name: 'list_manga')]
-#[ORM\Entity(repositoryClass: ListMangaRepositoryInterface::class)]
+#[ORM\Entity(repositoryClass: ListMangaRepository::class)]
 class ListManga
 {
     #[ORM\Id]
@@ -130,19 +130,6 @@ class ListManga
     {
         $this->status = $status;
 
-        return $this;
-    }
-
-    public function deserializeMal($data): static
-    {
-        $this->setId($data['node']['id'])
-            ->setTitle($data['node']['title'])
-            ->setTitleEn($data['node']['alternative_titles']['en'])
-            ->setNsfw(Nsfw::tryFrom($data['node']['nsfw']))
-            ->setMediaType(ListMangaType::tryFrom($data['node']['media_type']) ?: ListMangaType::unknown)
-            ->setNumVolumes($data['node']['num_volumes'])
-            ->setNumChapters($data['node']['num_chapters'])
-            ->setStatus(ListMangaStatus::tryFrom($data['list_status']['status']));
         return $this;
     }
 

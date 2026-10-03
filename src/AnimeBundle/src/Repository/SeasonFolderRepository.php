@@ -16,7 +16,7 @@ use Doctrine\Persistence\ManagerRegistry;
  * @method SeasonFolder[]    findAll()
  * @method SeasonFolder[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
  */
-class SeasonFolderRepositoryInterface extends ServiceEntityRepository implements TableRepositoryInterface
+class SeasonFolderRepository extends ServiceEntityRepository implements TableRepositoryInterface
 {
     use TableRepositoryTrait;
 

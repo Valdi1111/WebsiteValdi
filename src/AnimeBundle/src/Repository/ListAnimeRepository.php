@@ -16,7 +16,7 @@ use Doctrine\Persistence\ManagerRegistry;
  * @method ListAnime[]    findAll()
  * @method ListAnime[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
  */
-class ListAnimeRepositoryInterface extends ServiceEntityRepository implements TableRepositoryInterface
+class ListAnimeRepository extends ServiceEntityRepository implements TableRepositoryInterface
 {
     use TableRepositoryTrait;
 

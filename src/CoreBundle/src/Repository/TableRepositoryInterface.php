@@ -2,14 +2,15 @@
 
 namespace App\CoreBundle\Repository;
 
-use App\CoreBundle\Model\Table;
-use Doctrine\ORM\QueryBuilder;
+use App\CoreBundle\Model\TableConfiguration;
+use App\CoreBundle\Model\TableParameters;
 
+/**
+ * Contract for repositories capable of executing paginated and filtered table queries.
+ */
 interface TableRepositoryInterface
 {
+    public function getTableCount(TableParameters $params, TableConfiguration $config): int;
 
-    public function qbTableResultCount(Table $table): QueryBuilder;
-
-    public function qbTableResultRows(Table $table): QueryBuilder;
-
+    public function getTableRows(TableParameters $params, TableConfiguration $config): array;
 }

@@ -38,7 +38,7 @@ export default function FilePreview() {
     }
 
     return (
-        <Flex style={{ paddingLeft: 16, paddingRight: 16, height: '100%', overflowY: 'auto' }} vertical>
+        <Flex style={{ height: '100%', overflowY: 'auto' }} vertical>
             {/* Header bar: Close button on the far left, file title, and right-aligned actions */}
             <Flex justify="space-between" align="center" gap="small" style={{ width: '100%', paddingTop: 8 }}>
                 <Flex align="center" gap="small" style={{ minWidth: 0, flex: 1 }}>

@@ -13,4 +13,5 @@ enum ListAnimeType: string
     case ona = 'ona';
     case music = 'music';
     case pv = 'pv';
+    case cm = 'cm';
 }

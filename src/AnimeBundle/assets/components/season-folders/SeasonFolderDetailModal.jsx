@@ -21,7 +21,7 @@ export default function SeasonFolderDetailModal({ open, setOpen, selectedId, typ
         setLoading(true);
         api
             .withErrorHandling()
-            .seasonsFolder()
+            .seasonFolders()
             .getId(selectedId)
             .then(res => {
                 setData(res.data);
@@ -43,7 +43,7 @@ export default function SeasonFolderDetailModal({ open, setOpen, selectedId, typ
                     loadingContent: 'Deleting season folder...',
                     successContent: 'Season folder deleted successfully',
                 })
-                .seasonsFolder()
+                .seasonFolders()
                 .delete(selectedId)
                 .then(res => {
                     setOpen(false);

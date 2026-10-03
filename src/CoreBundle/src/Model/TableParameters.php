@@ -29,9 +29,6 @@ class TableParameters
     #[SerializedName('filters')]
     private array $filters = [];
 
-    #[SerializedName('initializing')]
-    private bool $initializing = false;
-
     public function getPageSize(): int
     {
         return $this->pageSize;
@@ -97,16 +94,4 @@ class TableParameters
         $this->filters = $filters;
         return $this;
     }
-
-    public function isInitializing(): bool
-    {
-        return $this->initializing;
-    }
-
-    public function setInitializing(bool $initializing): static
-    {
-        $this->initializing = $initializing;
-        return $this;
-    }
-
 }

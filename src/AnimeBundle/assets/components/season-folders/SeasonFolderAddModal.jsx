@@ -33,7 +33,7 @@ export default function SeasonFolderAddModal({ open, setOpen }) {
         setDownloadedLoading(true);
         api
             .withErrorHandling()
-            .seasonsFolder()
+            .seasonFolders()
             .getDownloads(malId)
             .then(
                 res => {
@@ -54,7 +54,7 @@ export default function SeasonFolderAddModal({ open, setOpen }) {
                 loadingContent: 'Adding season folder...',
                 successContent: 'Season folder added successfully',
             })
-            .seasonsFolder()
+            .seasonFolders()
             .add(data)
             .then(res => {
                 setOpen(false);

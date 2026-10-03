@@ -37,7 +37,7 @@ export default function FoldersTreeToolbar({ expandedIds, setExpandedIds, search
     }, [folders, setSearchText, setExpandedIds]);
 
     return (
-        <Flex gap="small" style={{ paddingTop: 7, paddingBottom: 8, paddingLeft: 8, paddingRight: 8 }}>
+        <Flex gap="small" style={{ paddingTop: 7, paddingBottom: 8 }}>
             <FoldersTreeAddNew/>
             <Popover
                 placement="left"

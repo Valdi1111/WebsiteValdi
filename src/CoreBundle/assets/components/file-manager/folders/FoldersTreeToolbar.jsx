@@ -1,53 +1,40 @@
 import FoldersTreeAddNew from "@CoreBundle/components/file-manager/folders/FoldersTreeAddNew";
-import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerContext";
-import { Button, Flex, Input, Popover } from "antd";
-import { FilterOutlined } from "@ant-design/icons";
+import { Flex, Input } from "antd";
+import { SearchOutlined } from "@ant-design/icons";
 import React from "react";
 
 /**
- * Top control bar for the folder tree. Provides directory creation triggers
- * and recursive folder name filtering.
+ * Top control bar for the folder tree. Provides a prominent search input
+ * and a compact action trigger for folder creation.
  */
-export default function FoldersTreeToolbar({ expandedIds, setExpandedIds, searchText, setSearchText }) {
-    const { folders } = useFileManager();
-
-    // Recursively traverse folder hierarchy to locate matches and expand parent nodes
-    const onSearch = React.useCallback((value, e, info) => {
-        setSearchText(value);
-        if (!value) {
+export default function FoldersTreeToolbar({ searchText, setSearchText, setExpandedIds }) {
+    // Handle real-time query updates and clear behavior
+    const handleChange = React.useCallback((e) => {
+        const val = e.target.value;
+        setSearchText(val);
+        // Reset to root expansion when search is cleared
+        if (!val && setExpandedIds) {
             setExpandedIds(["/"]);
-            return;
         }
-
-        const nodesToExpand = new Set();
-        function traverse(node, parentIds = []) {
-            const currentIds = [...parentIds, node.id];
-            // Include node path if title matches filter query
-            if (node.title.toLowerCase().includes(value.toLowerCase())) {
-                currentIds.forEach(id => nodesToExpand.add(id));
-            }
-            // Traverse child directories if available
-            if (node.children && node.children.length > 0) {
-                node.children.forEach(child => traverse(child, currentIds));
-            }
-        }
-
-        folders.forEach(node => traverse(node));
-        setExpandedIds(Array.from(nodesToExpand));
-    }, [folders, setSearchText, setExpandedIds]);
+    }, [setSearchText, setExpandedIds]);
 
     return (
-        <Flex gap="small" style={{ paddingTop: 7, paddingBottom: 8 }}>
-            <FoldersTreeAddNew/>
-            <Popover
-                placement="left"
-                arrow
-                content={
-                    <Input.Search placeholder="Search folders" onSearch={onSearch} allowClear/>
-                }
-            >
-                <Button style={{ paddingLeft: 8, paddingRight: 8 }} icon={<FilterOutlined/>}/>
-            </Popover>
+        <Flex gap="small" align="center" style={{ paddingTop: 7, paddingBottom: 8 }}>
+            {/* Expanded search input that takes the available width */}
+            <Input
+                placeholder="Search folders..."
+                prefix={<SearchOutlined style={{ color: "rgba(0, 0, 0, 0.45)" }} />}
+                value={searchText}
+                onChange={handleChange}
+                allowClear
+                size="middle"
+                style={{ flex: 1 }}
+            />
+
+            {/* Compact creation trigger with Add text and plus icon */}
+            <div style={{ flexShrink: 0 }}>
+                <FoldersTreeAddNew />
+            </div>
         </Flex>
     );
 }

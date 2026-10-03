@@ -3,7 +3,7 @@ import UploadFileModal from "@CoreBundle/components/file-manager/add/UploadFileM
 import AddFolderModal from "@CoreBundle/components/file-manager/add/AddFolderModal";
 import AddFileModal from "@CoreBundle/components/file-manager/add/AddFileModal";
 import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerContext";
-import { FileAddOutlined, FolderAddOutlined, UploadOutlined } from "@ant-design/icons";
+import { FileAddOutlined, FolderAddOutlined, PlusOutlined, UploadOutlined } from "@ant-design/icons";
 import { Button, Dropdown } from "antd";
 import React from "react";
 
@@ -63,12 +63,16 @@ export default function FoldersTreeAddNew() {
 
             <Dropdown
                 disabled={selectedFolder == null}
-                placement="bottom"
+                placement="bottomRight"
                 menu={{ items }}
                 arrow={{ pointAtCenter: true }}
             >
-                <Button style={{ flex: 1 }} disabled={selectedFolder == null}>
-                    Add New
+                {/* Compact action trigger with plus icon and shortened text */}
+                <Button
+                    icon={<PlusOutlined />}
+                    disabled={selectedFolder == null}
+                >
+                    Add
                 </Button>
             </Dropdown>
         </>

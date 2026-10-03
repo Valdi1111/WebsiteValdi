@@ -10,6 +10,45 @@ import React from "react";
  * Directory navigation tree component.
  * Handles folder selection, search highlighting, expansion, and context menu actions.
  */
+
+// Recursively filter tree nodes, preserving ancestors only if they match or contain matching descendants
+function filterTreeNodes(nodes, query) {
+    if (!query) return nodes;
+
+    const lowerQuery = query.toLowerCase();
+
+    return nodes.reduce((acc, node) => {
+        const titleStr = (node.title || "").toString().toLowerCase();
+        const matchesCurrent = titleStr.includes(lowerQuery);
+
+        const filteredChildren = node.children
+            ? filterTreeNodes(node.children, query)
+            : [];
+
+        // Keep the node if it matches directly or has any matching descendants
+        if (matchesCurrent || filteredChildren.length > 0) {
+            acc.push({
+                ...node,
+                children: filteredChildren.length > 0 ? filteredChildren : node.children,
+            });
+        }
+
+        return acc;
+    }, []);
+}
+
+// Collect all node IDs to automatically expand matching branches during search
+function getAllKeys(nodes) {
+    let keys = [];
+    nodes.forEach((node) => {
+        keys.push(node.id);
+        if (node.children) {
+            keys = keys.concat(getAllKeys(node.children));
+        }
+    });
+    return keys;
+}
+
 export default function FoldersTree() {
     const [expandedIds, setExpandedIds] = React.useState(["/"]);
     const [searchText, setSearchText] = React.useState("");
@@ -18,6 +57,18 @@ export default function FoldersTree() {
 
     const { folders, selectedFolder, setSelectedFolder, setSelectedFile } = useFileManager();
     const { token: { controlItemBgActiveHover } } = antdTheme.useToken();
+
+    // Filtered tree structure based on current search query to exclude non-matching siblings
+    const filteredFolders = React.useMemo(() => {
+        return filterTreeNodes(folders || [], searchText);
+    }, [folders, searchText]);
+
+    // Automatically expand all visible matching nodes when searching
+    React.useEffect(() => {
+        if (searchText) {
+            setExpandedIds(getAllKeys(filteredFolders));
+        }
+    }, [searchText, filteredFolders]);
 
     // Filter nodes matching search text that are expanded
     const filterTreeNode = React.useCallback(({ id }) => {
@@ -81,7 +132,7 @@ export default function FoldersTree() {
                 />
                 <Tree
                     fieldNames={{ key: 'id' }}
-                    treeData={folders}
+                    treeData={filteredFolders}
                     filterTreeNode={filterTreeNode}
                     onExpand={newExpandedIds => setExpandedIds(newExpandedIds)}
                     expandedKeys={expandedIds}

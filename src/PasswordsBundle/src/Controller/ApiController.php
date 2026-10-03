@@ -51,6 +51,7 @@ class ApiController extends AbstractController
         return $this->json([
             'rows'  => $credentialRepo->getTableRows($params, $config),
             'count' => $credentialRepo->getTableCount($params, $config),
+            'total_count' => $credentialRepo->getTableUnfilteredCount($config),
         ]);
     }
 

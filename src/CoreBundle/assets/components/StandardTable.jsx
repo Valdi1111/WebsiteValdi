@@ -48,7 +48,7 @@ function getRuleDescription(rule, colType) {
 
 /**
  * Standard table component supporting controlled filtering, dynamic column visibility,
- * mobile responsive typography, and unified filter icons.
+ * mobile responsive typography, unified filter icons, and diary-styled count badges.
  */
 export default function StandardTable({
                                           columns: initialColumns = [],
@@ -65,7 +65,8 @@ export default function StandardTable({
     const isMobile = !screens.sm;
 
     const [data, setData] = useState([]);
-    const [total, setTotal] = useState(0);
+    const [total, setTotal] = useState(0); // Current filtered count
+    const [unfilteredTotal, setUnfilteredTotal] = useState(0); // Global table total
     const [loading, setLoading] = useState(false);
 
     const [pagination, setPagination] = useState({ current: 1, pageSize: 10 });
@@ -102,7 +103,9 @@ export default function StandardTable({
                 sorter: sort?.field ? { field: sort.field, order: sort.order } : undefined,
             });
             setData(res.data.rows || []);
-            setTotal(res.data.count || 0);
+            setTotal(res.data.count ?? 0);
+            // Fall back to count if backend does not yet return total_count
+            setUnfilteredTotal(res.data.total_count ?? res.data.count ?? 0);
         } finally {
             setLoading(false);
         }
@@ -178,6 +181,7 @@ export default function StandardTable({
      * - Injects controlled `sortOrder` so default and dynamic sorters light up table arrows properly.
      * - Prevents column header text letter-wrapping on mobile using `whiteSpace: "nowrap"`.
      * - Unifies filter icons across custom types and native enums with `<FilterFilled />`.
+     * - Unifies single and multi-value tags rendering with support for hash-based random colors and maps.
      */
     const processedColumns = useMemo(() => {
         return initialColumns
@@ -367,13 +371,16 @@ export default function StandardTable({
         </Flex>
     );
 
+    // Compute filtering percentage
+    const filterPercent = unfilteredTotal > 0 ? Math.round((total / unfilteredTotal) * 100) : 0;
+
     return (
         <Card
             styles={{
                 header: {
                     height: "auto",
                     padding: isMobile ? "12px 14px" : "16px 20px",
-                    whiteSpace: "normal", // Overrides AntD Card native nowrap to allow subtitle text-wrapping
+                    whiteSpace: "normal",
                 },
                 body: {
                     padding: isMobile ? "12px 8px" : "16px 20px",
@@ -388,17 +395,31 @@ export default function StandardTable({
                     gap={12}
                     style={{ width: "100%", whiteSpace: "normal" }}
                 >
-                    {/* Header title & subtitle container; minWidth: 0 permits flex items to break lines properly */}
+                    {/* Title, Subtitle, and Counts Badges */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        {title && (
-                            typeof title === "string" ? (
-                                <Text strong style={{ fontSize: isMobile ? 15 : 16, display: "block" }}>
-                                    {title}
-                                </Text>
+                        <Space size={8} wrap align="center">
+                            {title && (
+                                typeof title === "string" ? (
+                                    <Text strong style={{ fontSize: isMobile ? 15 : 16 }}>
+                                        {title}
+                                    </Text>
+                                ) : (
+                                    title
+                                )
+                            )}
+
+                            {/* Count badges */}
+                            {hasActiveFilters ? (
+                                <Tag color="cyan">
+                                    Filtered: {total.toLocaleString()} / {unfilteredTotal.toLocaleString()} ({filterPercent}%)
+                                </Tag>
                             ) : (
-                                title
-                            )
-                        )}
+                                <Tag color="blue">
+                                    Total: {unfilteredTotal.toLocaleString()}
+                                </Tag>
+                            )}
+                        </Space>
+
                         {subtitle && (
                             <div style={{ marginTop: 2 }}>
                                 <Text

@@ -15,6 +15,18 @@ use Doctrine\ORM\QueryBuilder;
  */
 trait TableRepositoryTrait
 {
+    public function getTableUnfilteredCount(TableConfiguration $config): int
+    {
+        $alias = $config->getRootAlias();
+        $qb = $this->createQueryBuilder($alias);
+
+        $this->applyConfiguredJoins($qb, $config);
+
+        return (int) $qb->select("COUNT(DISTINCT $alias.id)")
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     public function getTableCount(TableParameters $params, TableConfiguration $config): int
     {
         $alias = $config->getRootAlias();

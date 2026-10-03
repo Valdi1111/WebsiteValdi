@@ -114,7 +114,7 @@ export default function FileManager({ apiUrl }) {
                     {isMobile ? (
                         <>
                             {/* Mobile layout: Primary table view */}
-                            <div style={{ flex: 1, height: '100%', width: '100%', overflow: 'hidden' }}>
+                            <div style={{ flex: 1, paddingLeft: 8, paddingRight: 8, height: '100%', width: '100%', overflow: 'hidden' }}>
                                 <FilesTable />
                             </div>
 

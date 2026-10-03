@@ -65,8 +65,8 @@ class ApiController extends AbstractController
 
     #[Route('/season-folders/table', name: 'season_folders_table', methods: ['GET'])]
     public function apiSeasonFoldersTable(
-        SeasonFolderRepository            $repo,
-        ListAnimeRepository               $animeRepo,
+        SeasonFolderRepository            $foldersRepo,
+        ListAnimeRepository               $listRepo,
         #[MapQueryString] TableParameters $params
     ): Response {
         $config = new TableConfiguration(
@@ -77,17 +77,18 @@ class ApiController extends AbstractController
                 'folder' => 'e.folder',
             ],
             hydrateObjects: true,
-            rowTransformer: function (array $row, SeasonFolder $entity) use ($animeRepo): array {
+            rowTransformer: function (array $row, SeasonFolder $entity) use ($listRepo): array {
                 // TODO da rendere una join column, in modo che si possa ordinare e filtrare da frontend
-                $anime = $animeRepo->find($entity->getId());
+                $anime = $listRepo->find($entity->getId());
                 $row['title'] = $anime?->getTitle();
                 return $row;
             }
         );
 
         return $this->json([
-            'rows'  => $repo->getTableRows($params, $config),
-            'count' => $repo->getTableCount($params, $config),
+            'rows'  => $foldersRepo->getTableRows($params, $config),
+            'count' => $foldersRepo->getTableCount($params, $config),
+            'total_count' => $foldersRepo->getTableUnfilteredCount($config),
         ]);
     }
 
@@ -171,6 +172,7 @@ class ApiController extends AbstractController
         return $this->json([
             'rows'  => $listRepo->getTableRows($params, $config),
             'count' => $listRepo->getTableCount($params, $config),
+            'total_count' => $listRepo->getTableUnfilteredCount($config),
         ]);
     }
 
@@ -211,6 +213,7 @@ class ApiController extends AbstractController
         return $this->json([
             'rows'  => $listRepo->getTableRows($params, $config),
             'count' => $listRepo->getTableCount($params, $config),
+            'total_count' => $listRepo->getTableUnfilteredCount($config),
         ]);
     }
 
@@ -251,6 +254,7 @@ class ApiController extends AbstractController
         return $this->json([
             'rows'  => $episodeRepo->getTableRows($params, $config),
             'count' => $episodeRepo->getTableCount($params, $config),
+            'total_count' => $episodeRepo->getTableUnfilteredCount($config),
         ]);
     }
 

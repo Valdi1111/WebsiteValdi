@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Button, Grid, Space, Dropdown } from "antd";
 import { PlusOutlined, EditOutlined, DeleteOutlined, DownOutlined } from "@ant-design/icons";
-import StandardTable from "@CoreBundle/components/StandardTable";
+import StandardTable from "@CoreBundle/components/standard-table/StandardTable";
 import CredentialDetailModal from "@PasswordsBundle/components/credentials/CredentialDetailModal";
 import { useBackendApi } from "@PasswordsBundle/components/BackendApiContext";
 

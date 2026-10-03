@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Button, Grid } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
-import StandardTable from "@CoreBundle/components/StandardTable";
+import StandardTable from "@CoreBundle/components/standard-table/StandardTable";
 import SeasonFolderAddModal from "@AnimeBundle/components/season-folders/SeasonFolderAddModal";
 import SeasonFolderDetailModal from "@AnimeBundle/components/season-folders/SeasonFolderDetailModal";
 import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";

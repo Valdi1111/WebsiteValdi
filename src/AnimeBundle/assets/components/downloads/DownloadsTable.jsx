@@ -7,7 +7,7 @@ import {
     PlusOutlined,
     SyncOutlined
 } from "@ant-design/icons";
-import StandardTable from "@CoreBundle/components/StandardTable";
+import StandardTable from "@CoreBundle/components/standard-table/StandardTable";
 import DownloadAddModal from "@AnimeBundle/components/downloads/DownloadAddModal";
 import DownloadDetailModal from "@AnimeBundle/components/downloads/DownloadDetailModal";
 import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";

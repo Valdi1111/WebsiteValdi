@@ -7,7 +7,7 @@ import {
     ExclamationCircleOutlined,
     SyncOutlined
 } from "@ant-design/icons";
-import StandardTable from "@CoreBundle/components/StandardTable";
+import StandardTable from "@CoreBundle/components/standard-table/StandardTable";
 import ListMangaDetailModal from "@AnimeBundle/components/list-manga/ListMangaDetailModal";
 import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
 

@@ -23,7 +23,7 @@ export default function FoldersTreeToolbar({ searchText, setSearchText, setExpan
             {/* Expanded search input that takes the available width */}
             <Input
                 placeholder="Search folders..."
-                prefix={<SearchOutlined style={{ color: "rgba(0, 0, 0, 0.45)" }} />}
+                prefix={<SearchOutlined />}
                 value={searchText}
                 onChange={handleChange}
                 allowClear

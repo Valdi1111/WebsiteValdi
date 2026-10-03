@@ -7,6 +7,7 @@ use App\BooksBundle\Repository\BookRepository;
 use App\CoreBundle\Entity\User;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Schema\DefaultExpression\CurrentTimestamp;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\ORM\Mapping\OneToMany;
@@ -30,7 +31,7 @@ class Book
     #[ORM\Column(length: 255)]
     private ?string $url = null;
 
-    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, insertable: false, updatable: false, options: ["default" => "CURRENT_TIMESTAMP"])]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, insertable: false, updatable: false, options: ["default" => new CurrentTimestamp()])]
     private ?\DateTimeInterface $created = null;
 
     #[ORM\ManyToOne(targetEntity: Shelf::class, inversedBy: 'books')]

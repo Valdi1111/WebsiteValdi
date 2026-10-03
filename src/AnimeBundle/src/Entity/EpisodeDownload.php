@@ -4,6 +4,7 @@ namespace App\AnimeBundle\Entity;
 
 use App\AnimeBundle\Model\EpisodeDownloadState;
 use App\AnimeBundle\Repository\EpisodeDownloadRepository;
+use Doctrine\DBAL\Schema\DefaultExpression\CurrentTimestamp;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -38,7 +39,7 @@ class EpisodeDownload
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $file = null;
 
-    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, insertable: false, updatable: false, options: ["default" => "CURRENT_TIMESTAMP"])]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, insertable: false, updatable: false, options: ["default" => new CurrentTimestamp()])]
     private ?\DateTimeInterface $created = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]

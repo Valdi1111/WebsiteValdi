@@ -5,6 +5,7 @@ namespace App\HoyoverseBundle\Entity;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use Doctrine\DBAL\Schema\DefaultExpression\CurrentTimestamp;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Ignore;
@@ -130,7 +131,7 @@ class HoyoverseGameProfile
     #[ORM\Column]
     private array $notificationPlatforms = [];
 
-    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, insertable: false, updatable: false, options: ["default" => "CURRENT_TIMESTAMP"])]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, insertable: false, updatable: false, options: ["default" => new CurrentTimestamp()])]
     private ?\DateTimeInterface $addedAt = null;
 
     /**

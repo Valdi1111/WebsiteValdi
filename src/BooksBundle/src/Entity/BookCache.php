@@ -13,7 +13,7 @@ class BookCache
 {
     #[ORM\Id]
     #[ORM\OneToOne(targetEntity: Book::class, inversedBy: 'bookCache')]
-    #[ORM\JoinColumn(name: 'book_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+    #[ORM\JoinColumn(name: 'book_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
     private ?Book $book = null;
 
     #[ORM\Column(options: ["default" => "0"])]

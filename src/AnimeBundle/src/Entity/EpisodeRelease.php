@@ -3,6 +3,7 @@
 namespace App\AnimeBundle\Entity;
 
 use App\AnimeBundle\Repository\EpisodeReleaseRepository;
+use Doctrine\DBAL\Schema\DefaultExpression\CurrentTimestamp;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -21,7 +22,7 @@ class EpisodeRelease
     #[ORM\Column(length: 255)]
     private ?string $episodeUrl = null;
 
-    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, insertable: false, updatable: false, options: ["default" => "CURRENT_TIMESTAMP"])]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, insertable: false, updatable: false, options: ["default" => new CurrentTimestamp()])]
     private ?\DateTimeInterface $created = null;
     #[ORM\Column(length: 255)]
     private ?string $serviceName = null;

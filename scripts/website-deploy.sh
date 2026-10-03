@@ -1,7 +1,7 @@
 #!/bin/bash
 
-set -e  # stop se qualcosa fallisce
-umask 022
+set -eo pipefail  # stop se un comando o una pipe fallisce
+umask 002
 
 echo "=============================="
 echo "START DEPLOY"
@@ -30,10 +30,9 @@ php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migratio
 
 echo "5) Clear and warmup cache"
 php bin/console cache:clear --env=prod
-php bin/console cache:warmup --env=prod
 
 echo "6) Install Symfony assets"
-php bin/console assets:install --no-interaction
+php bin/console assets:install public --no-interaction
 
 echo "7) Install Node dependencies (frontend)"
 npm ci
@@ -43,7 +42,7 @@ npm run build
 
 echo "9) Install Node dependencies (node-services)"
 cd node-services
-npm ci --production
+npm ci --omit=dev
 npx playwright install chromium
 cd ..
 

@@ -3,6 +3,7 @@
 namespace App\AnimeBundle\Entity;
 
 use App\AnimeBundle\Repository\SeasonFolderRepository;
+use Doctrine\DBAL\Schema\DefaultExpression\CurrentTimestamp;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -20,7 +21,7 @@ class SeasonFolder
     #[ORM\Column(options: ["default" => 0])]
     private ?int $episodeOffset = 0;
 
-    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, insertable: false, updatable: false, options: ["default" => "CURRENT_TIMESTAMP"])]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, insertable: false, updatable: false, options: ["default" => new CurrentTimestamp()])]
     private ?\DateTimeInterface $created = null;
 
     public function __construct()

@@ -13,7 +13,7 @@ class BookMetadata
 {
     #[ORM\Id]
     #[ORM\OneToOne(targetEntity: Book::class, inversedBy: 'bookMetadata')]
-    #[ORM\JoinColumn(name: 'book_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+    #[ORM\JoinColumn(name: 'book_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
     private ?Book $book = null;
 
     #[ORM\Column(length: 255, nullable: true)]

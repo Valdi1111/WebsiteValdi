@@ -4,6 +4,7 @@ namespace App\BooksBundle\Entity;
 
 use App\BooksBundle\Repository\BookProgressRepository;
 use App\CoreBundle\Entity\User;
+use Doctrine\DBAL\Schema\DefaultExpression\CurrentTimestamp;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Groups;
@@ -17,12 +18,12 @@ class BookProgress
 {
     #[ORM\Id]
     #[ORM\ManyToOne(targetEntity: Book::class, inversedBy: 'bookProgresses')]
-    #[ORM\JoinColumn(name: 'book_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+    #[ORM\JoinColumn(name: 'book_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
     private ?Book $book = null;
 
     #[ORM\Id]
     #[ORM\ManyToOne(targetEntity: User::class)]
-    #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
+    #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
     private ?User $user = null;
 
     #[ORM\Column(length: 255, nullable: true)]
@@ -31,7 +32,7 @@ class BookProgress
     #[ORM\Column(options: ["default" => "0"])]
     private int $page = 0;
 
-    #[ORM\Column(type: Types::DATETIME_MUTABLE, options: ["default" => "CURRENT_TIMESTAMP"])]
+    #[ORM\Column(type: Types::DATETIME_MUTABLE, options: ["default" => new CurrentTimestamp()])]
     private \DateTimeInterface $lastRead;
 
     public function __construct()

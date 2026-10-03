@@ -26,29 +26,85 @@ const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
 /**
+ * Resolves a raw filter value into its human-readable display label.
+ * Checks col.filters and col.tagCatalog / col.tagColorMap / col.valueEnum before falling back to formatted string.
+ *
+ * @param {any} val Raw filter scalar value (e.g. "plan_to_watch")
+ * @param {Object} [col] Column configuration object
+ * @returns {string} Human-friendly label (e.g. "Plan To Watch")
+ */
+function resolveHumanLabel(val, col) {
+    if (!col) return String(val);
+
+    // 1. Look up in col.tagCatalog or col.tagColorMap / col.valueEnum
+    const catalog = col.tagCatalog || col.tagColorMap || col.valueEnum;
+    if (catalog && catalog[val]) {
+        const item = catalog[val];
+        if (typeof item === "object" && (item.text || item.label)) {
+            return String(item.text || item.label);
+        }
+    }
+
+    // 2. Look up in col.filters (standard enum filter array: [{ text, value }])
+    if (Array.isArray(col.filters)) {
+        const found = col.filters.find((f) => String(f.value) === String(val));
+        if (found) {
+            const rawText = found.originalText ?? found.text;
+            if (typeof rawText === "string" || typeof rawText === "number") {
+                return String(rawText);
+            }
+            if (React.isValidElement(rawText)) {
+                return rawText.props?.children || String(val);
+            }
+        }
+    }
+
+    // 3. Fallback: replace underscores with spaces and capitalize words
+    if (typeof val === "string") {
+        return val.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+
+    return String(val);
+}
+
+/**
  * Returns a readable text summary of an active filter rule for badge/ribbon tags.
  *
  * @param {Object} rule Condition object containing { operator, value }
- * @param {string} colType The column's filterType ('text', 'number', 'date')
+ * @param {Object} [col] The column configuration object
  * @returns {string} Human-friendly string description
  */
-function getRuleDescription(rule, colType) {
+function getRuleDescription(rule, col) {
     if (rule.operator === "empty") return "is empty";
     if (rule.operator === "notEmpty") return "is not empty";
 
-    const catalog = FILTER_OPERATORS[colType] || [];
+    // Handle 'in' operator used by standard AntD checkbox dropdowns (Enums & Tags)
+    if (rule.operator === "in") {
+        const rawItems = Array.isArray(rule.value) ? rule.value : [rule.value];
+        const labels = rawItems.map((v) => resolveHumanLabel(v, col));
+
+        if (labels.length <= 2) {
+            return labels.join(", ");
+        }
+        return `${labels.slice(0, 2).join(", ")} +${labels.length - 2}`;
+    }
+
+    const catalog = FILTER_OPERATORS[col?.filterType] || [];
     const opItem = catalog.find((o) => o.value === rule.operator);
     const opLabel = opItem ? opItem.label : rule.operator;
 
     if (Array.isArray(rule.value)) {
-        return `${opLabel} [${rule.value.join(" - ")}]`;
+        const formattedRange = rule.value.map((v) => resolveHumanLabel(v, col));
+        return `${opLabel} [${formattedRange.join(" - ")}]`;
     }
-    return `${opLabel} "${rule.value}"`;
+
+    return `${opLabel} "${resolveHumanLabel(rule.value, col)}"`;
 }
 
 /**
  * Standard table component supporting controlled filtering, dynamic column visibility,
- * mobile responsive typography, unified filter icons, and diary-styled count badges.
+ * mobile responsive typography, unified filter icons, diary-styled count badges,
+ * and customizable tag variants with icons in both cells and filter menus.
  */
 export default function StandardTable({
                                           columns: initialColumns = [],
@@ -181,15 +237,100 @@ export default function StandardTable({
      * - Injects controlled `sortOrder` so default and dynamic sorters light up table arrows properly.
      * - Prevents column header text letter-wrapping on mobile using `whiteSpace: "nowrap"`.
      * - Unifies filter icons across custom types and native enums with `<FilterFilled />`.
-     * - Unifies single and multi-value tags rendering with support for hash-based random colors and maps.
+     * - Unifies tag formatting supporting Ant Design's native variant prop and explicit icon support.
      */
     const processedColumns = useMemo(() => {
+        const ANTD_TAG_COLORS = [
+            "blue", "purple", "cyan", "green", "magenta",
+            "pink", "red", "orange", "yellow", "volcano", "geekblue", "gold"
+        ];
+
+        const resolveColorByHash = (str) => {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            return ANTD_TAG_COLORS[Math.abs(hash) % ANTD_TAG_COLORS.length];
+        };
+
         return initialColumns
             .filter((col) => columnVisibility[col.dataIndex] === true)
             .map((col) => {
                 // Explicitly clear any initial `hidden: true` prop so Ant Design does not suppress rendering
                 let processed = { ...col, hidden: false };
                 const activeColFilters = filters[col.dataIndex];
+
+                const catalog = col.tagCatalog || col.tagColorMap || col.valueEnum || {};
+                const defaultVariant = col.variant || col.tagVariant;
+
+                // Helper to resolve tag properties (text, color, icon, variant) for a given value
+                const resolveTagProps = (valKey, customFallbackText = null) => {
+                    const mapped = catalog[valKey];
+                    let text = customFallbackText;
+                    let color = null;
+                    let icon = null;
+                    let variant = defaultVariant;
+
+                    if (typeof mapped === "object" && mapped !== null) {
+                        text = mapped.text ?? mapped.label ?? text;
+                        color = mapped.color ?? null;
+                        icon = mapped.icon ?? null;
+                        if (mapped.variant) variant = mapped.variant;
+                    } else if (typeof mapped === "string") {
+                        color = mapped;
+                    }
+
+                    // Look up human-readable label in col.filters if text was not resolved from catalog
+                    if (!text && Array.isArray(col.filters)) {
+                        const filterMatch = col.filters.find((f) => String(f.value) === String(valKey));
+                        if (filterMatch) {
+                            text = typeof filterMatch.text === "string" ? filterMatch.text : null;
+                        }
+                    }
+
+                    if (!text) {
+                        text = valKey;
+                    }
+
+                    if (!color) {
+                        if (col.tagColor) {
+                            color = col.tagColor;
+                        } else if (col.tagRandomColor) {
+                            color = resolveColorByHash(valKey);
+                        } else {
+                            color = "default";
+                        }
+                    }
+
+                    return { text, color, icon, variant };
+                };
+
+                // Only generate tags in filter options when filterType is explicitly "tags"
+                if (col.filterType === "tags") {
+                    const rawList = col.filters || Object.entries(catalog).map(([key, item]) => ({
+                        value: item?.value ?? key,
+                        text: typeof item === "object" ? (item?.text ?? item?.label ?? key) : key,
+                    }));
+
+                    processed.filters = rawList.map((f) => {
+                        const originalLabel = typeof f.text === "string" ? f.text : String(f.value);
+                        const tagProps = resolveTagProps(f.value, originalLabel);
+                        return {
+                            ...f,
+                            originalText: originalLabel,
+                            text: (
+                                <Tag
+                                    color={tagProps.color}
+                                    icon={tagProps.icon}
+                                    variant={tagProps.variant}
+                                    style={{ marginInlineEnd: 0 }}
+                                >
+                                    {tagProps.text}
+                                </Tag>
+                            ),
+                        };
+                    });
+                }
 
                 // Fully controlled sortOrder for Ant Design
                 if (col.sorter) {
@@ -199,7 +340,7 @@ export default function StandardTable({
                 // Fully controlled filteredValue mapping for Ant Design
                 if (["text", "number", "date"].includes(col.filterType)) {
                     processed.filteredValue = activeColFilters && activeColFilters.length > 0 ? [activeColFilters] : null;
-                } else if (col.filters) {
+                } else if (processed.filters) {
                     const inRule = activeColFilters?.find((r) => r.operator === "in");
                     processed.filteredValue = inRule && Array.isArray(inRule.value) ? inRule.value : null;
                 }
@@ -222,7 +363,7 @@ export default function StandardTable({
                                 }}
                             >
                                 {activeColFilters.length === 1
-                                    ? getRuleDescription(activeColFilters[0], col.filterType)
+                                    ? getRuleDescription(activeColFilters[0], col)
                                     : `${activeColFilters.length} rules`}
                             </Tag>
                         )}
@@ -264,72 +405,24 @@ export default function StandardTable({
 
                             if (!Array.isArray(items) || items.length === 0) return "-";
 
-                            // Ant Design preset color list for hash generation
-                            const ANTD_TAG_COLORS = [
-                                "blue", "purple", "cyan", "green", "magenta",
-                                "pink", "red", "orange", "yellow", "volcano", "geekblue", "gold"
-                            ];
-
-                            const resolveColorByHash = (str) => {
-                                let hash = 0;
-                                for (let i = 0; i < str.length; i++) {
-                                    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-                                }
-                                return ANTD_TAG_COLORS[Math.abs(hash) % ANTD_TAG_COLORS.length];
-                            };
-
                             // 2. Resolve label and color for each item
-                            const colorMap = col.tagColorMap || col.valueEnum || {};
-
                             const normalizedTags = items
                                 .map((item) => {
                                     if (item === null || item === undefined || item === "") return null;
 
                                     // If item is already an object { text, color }
                                     if (typeof item === "object") {
-                                        return {
-                                            text: item.text ?? item.label ?? JSON.stringify(item),
-                                            color: item.color || col.tagColor || (col.randomColor ? resolveColorByHash(String(item.text)) : "default"),
-                                        };
+                                        const text = item.text ?? item.label ?? JSON.stringify(item);
+                                        const color = item.color || col.tagColor || (col.tagRandomColor ? resolveColorByHash(String(text)) : "default");
+                                        const icon = item.icon || null;
+                                        const variant = item.variant || defaultVariant;
+                                        return { text, color, icon, variant };
                                     }
 
                                     const valKey = typeof item === "string" ? item.trim() : String(item);
                                     if (!valKey) return null;
 
-                                    // Look up in colorMap / valueEnum
-                                    const mapped = colorMap[valKey];
-                                    let text = valKey;
-                                    let color = null;
-
-                                    if (typeof mapped === "object" && mapped !== null) {
-                                        text = mapped.text ?? mapped.label ?? valKey;
-                                        color = mapped.color ?? null;
-                                    } else if (typeof mapped === "string") {
-                                        color = mapped;
-                                    }
-
-                                    // Check col.filters for human-readable labels if no text found in colorMap
-                                    if (text === valKey && Array.isArray(col.filters)) {
-                                        const filterMatch = col.filters.find((f) => String(f.value) === valKey);
-                                        if (filterMatch) text = filterMatch.text;
-                                    }
-
-                                    // Color resolution order:
-                                    // 1. colorMap / valueEnum
-                                    // 2. col.tagColor (static color for all tags in this column)
-                                    // 3. col.randomColor (deterministic hash)
-                                    // 4. "default"
-                                    if (!color) {
-                                        if (col.tagColor) {
-                                            color = col.tagColor;
-                                        } else if (col.randomColor) {
-                                            color = resolveColorByHash(valKey);
-                                        } else {
-                                            color = "default";
-                                        }
-                                    }
-
-                                    return { text, color };
+                                    return resolveTagProps(valKey);
                                 })
                                 .filter(Boolean);
 
@@ -338,7 +431,13 @@ export default function StandardTable({
                             return (
                                 <Space size={[6, 6]} wrap>
                                     {normalizedTags.map((tag, idx) => (
-                                        <Tag key={`${tag.text}_${idx}`} color={tag.color} style={{ marginInlineEnd: 0 }}>
+                                        <Tag
+                                            key={`${tag.text}_${idx}`}
+                                            color={tag.color}
+                                            icon={tag.icon}
+                                            variant={tag.variant}
+                                            style={{ marginInlineEnd: 0 }}
+                                        >
                                             {tag.text}
                                         </Tag>
                                     ))}
@@ -476,7 +575,7 @@ export default function StandardTable({
                                     closable
                                     onClose={() => handleRemoveCondition(field, idx)}
                                 >
-                                    <strong>{colTitle}</strong>: {getRuleDescription(rule, colDef?.filterType)}
+                                    <strong>{colTitle}</strong>: {getRuleDescription(rule, colDef)}
                                 </Tag>
                             ));
                         })}

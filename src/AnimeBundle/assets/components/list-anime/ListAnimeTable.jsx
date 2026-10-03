@@ -1,6 +1,12 @@
 import React, { useState } from "react";
-import { App, Button, Grid, Tag } from "antd";
-import { CloudSyncOutlined } from "@ant-design/icons";
+import { App, Button, Grid } from "antd";
+import {
+    CheckCircleOutlined, ClockCircleOutlined,
+    CloseCircleOutlined,
+    CloudSyncOutlined,
+    ExclamationCircleOutlined,
+    SyncOutlined
+} from "@ant-design/icons";
 import StandardTable from "@CoreBundle/components/StandardTable";
 import ListAnimeDetailModal from "@AnimeBundle/components/list-anime/ListAnimeDetailModal";
 import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
@@ -8,40 +14,40 @@ import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
 const { useBreakpoint } = Grid;
 
 /**
- * Filter options mapped from ListAnimeStatus enum
+ * Unified catalog for anime consumption progress statuses (tags & filters)
  */
-const ANIME_STATUS_FILTERS = [
-    { text: "Watching", value: "watching" },
-    { text: "Completed", value: "completed" },
-    { text: "On Hold", value: "on_hold" },
-    { text: "Dropped", value: "dropped" },
-    { text: "Plan To Watch", value: "plan_to_watch" },
-];
+const STATUS_CATALOG = {
+    watching: { text: "Watching", color: "processing", icon: <SyncOutlined spin /> },
+    completed: { text: "Completed", color: "success", icon: <CheckCircleOutlined /> },
+    on_hold: { text: "On Hold", color: "warning", icon: <ExclamationCircleOutlined /> },
+    dropped: { text: "Dropped", color: "error", icon: <CloseCircleOutlined /> },
+    plan_to_watch: { text: "Plan To Watch", color: "default", icon: <ClockCircleOutlined /> },
+};
 
 /**
- * Filter options mapped from Nsfw enum
+ * Catalog for nsfw
  */
-const NSFW_FILTERS = [
-    { text: "White (SFW)", value: "white" },
-    { text: "Gray (Questionable)", value: "gray" },
-    { text: "Black (NSFW)", value: "black" },
-];
+const NSFW_CATALOG = {
+    white: { text: "White (SFW)", color: "green" },
+    gray: { text: "Gray (Questionable)", color: "orange" },
+    black: { text: "Black (NSFW)", color: "red" },
+};
 
 /**
- * Filter options mapped from ListAnimeType enum
+ * Catalog for anime media types
  */
-const MEDIA_TYPE_FILTERS = [
-    { text: "TV", value: "tv" },
-    { text: "OVA", value: "ova" },
-    { text: "Movie", value: "movie" },
-    { text: "Special", value: "special" },
-    { text: "ONA", value: "ona" },
-    { text: "Music", value: "music" },
-    { text: "CM", value: "cm" },
-    { text: "PV", value: "pv" },
-    { text: "TV Special", value: "tv_special" },
-    { text: "Unknown", value: "unknown" },
-];
+const MEDIA_TYPE_CATALOG = {
+    tv: { text: "TV" },
+    ova: { text: "OVA" },
+    movie: { text: "Movie" },
+    special: { text: "Special" },
+    ona: { text: "ONA" },
+    music: { text: "Music" },
+    cm: { text: "CM" },
+    pv: { text: "PV" },
+    tv_special: { text: "TV Special" },
+    unknown: { text: "Unknown" },
+};
 
 export default function ListAnimeTable() {
     const screens = useBreakpoint();
@@ -83,24 +89,23 @@ export default function ListAnimeTable() {
             title: "Type",
             dataIndex: "media_type",
             valueType: "tags",
+            filterType: "tags",
             tagColor: "cyan",
-            filters: MEDIA_TYPE_FILTERS,
+            tagCatalog: MEDIA_TYPE_CATALOG,
         },
         {
             title: "Status",
             dataIndex: "status",
-            filters: ANIME_STATUS_FILTERS,
+            valueType: "tags",
+            filterType: "tags",
+            tagCatalog: STATUS_CATALOG,
         },
         {
             title: "NSFW",
             dataIndex: "nsfw",
             valueType: "tags",
-            tagColorMap: {
-                white: "green",
-                gray: "orange",
-                black: "red",
-            },
-            filters: NSFW_FILTERS,
+            filterType: "tags",
+            tagCatalog: NSFW_CATALOG,
             hidden: true,
         },
     ];

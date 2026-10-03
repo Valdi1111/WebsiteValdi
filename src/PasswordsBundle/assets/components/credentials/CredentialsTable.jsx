@@ -35,7 +35,7 @@ export default function CredentialsTable() {
             dataIndex: "tags",
             valueType: "tags",
             filterType: "text",
-            randomColor: true,
+            tagRandomColor: true,
         },
         {
             title: "Type",

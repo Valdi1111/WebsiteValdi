@@ -1,6 +1,12 @@
 import React, { useState } from "react";
-import { Button, Grid, Tag } from "antd";
-import { PlusOutlined } from "@ant-design/icons";
+import { Button, Grid } from "antd";
+import {
+    CheckCircleOutlined,
+    ClockCircleOutlined,
+    CloseCircleOutlined,
+    PlusOutlined,
+    SyncOutlined
+} from "@ant-design/icons";
 import StandardTable from "@CoreBundle/components/StandardTable";
 import DownloadAddModal from "@AnimeBundle/components/downloads/DownloadAddModal";
 import DownloadDetailModal from "@AnimeBundle/components/downloads/DownloadDetailModal";
@@ -9,15 +15,15 @@ import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
 const { useBreakpoint } = Grid;
 
 /**
- * Filter options mapped from EpisodeDownloadState enum
+ * Unified catalog for episode download queue states (tags & filters)
  */
-const DOWNLOAD_STATE_FILTERS = [
-    { text: "Created", value: "created" },
-    { text: "Downloading", value: "downloading" },
-    { text: "Completed", value: "completed" },
-    { text: "Error Starting", value: "error_starting" },
-    { text: "Error Downloading", value: "error_downloading" },
-];
+const STATUS_CATALOG = {
+    created: { text: "Created", color: "default", icon: <ClockCircleOutlined /> },
+    downloading: { text: "Downloading", color: "processing", icon: <SyncOutlined spin /> },
+    completed: { text: "Completed", color: "success", icon: <CheckCircleOutlined /> },
+    error_starting: { text: "Error Starting", color: "error", icon: <CloseCircleOutlined /> },
+    error_downloading: { text: "Error Downloading", color: "error", icon: <CloseCircleOutlined /> },
+};
 
 export default function DownloadsTable() {
     const screens = useBreakpoint();
@@ -59,14 +65,8 @@ export default function DownloadsTable() {
             title: "State",
             dataIndex: "state",
             valueType: "tags",
-            tagColorMap: {
-                created: { text: "Created", color: "default" },
-                downloading: { text: "Downloading", color: "processing" },
-                completed: { text: "Completed", color: "success" },
-                error_starting: { text: "Error Starting", color: "error" },
-                error_downloading: { text: "Error Downloading", color: "error" },
-            },
-            filters: DOWNLOAD_STATE_FILTERS,
+            filterType: "tags",
+            tagColorMap: STATUS_CATALOG,
         },
         {
             title: "MAL ID",

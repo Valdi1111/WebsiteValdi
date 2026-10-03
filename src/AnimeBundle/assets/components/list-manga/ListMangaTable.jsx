@@ -1,6 +1,12 @@
 import React, { useState } from "react";
 import { App, Button, Grid } from "antd";
-import { CloudSyncOutlined } from "@ant-design/icons";
+import {
+    CheckCircleOutlined, ClockCircleOutlined,
+    CloseCircleOutlined,
+    CloudSyncOutlined,
+    ExclamationCircleOutlined,
+    SyncOutlined
+} from "@ant-design/icons";
 import StandardTable from "@CoreBundle/components/StandardTable";
 import ListMangaDetailModal from "@AnimeBundle/components/list-manga/ListMangaDetailModal";
 import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
@@ -8,39 +14,39 @@ import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
 const { useBreakpoint } = Grid;
 
 /**
- * Filter options mapped from ListMangaStatus enum
+ * Unified catalog for manga reading progress statuses (tags & filters)
  */
-const MANGA_STATUS_FILTERS = [
-    { text: "Reading", value: "reading" },
-    { text: "Completed", value: "completed" },
-    { text: "On Hold", value: "on_hold" },
-    { text: "Dropped", value: "dropped" },
-    { text: "Plan To Read", value: "plan_to_read" },
-];
+const STATUS_CATALOG = {
+    reading: { text: "Reading", color: "processing", icon: <SyncOutlined spin /> },
+    completed: { text: "Completed", color: "success", icon: <CheckCircleOutlined /> },
+    on_hold: { text: "On Hold", color: "warning", icon: <ExclamationCircleOutlined /> },
+    dropped: { text: "Dropped", color: "error", icon: <CloseCircleOutlined /> },
+    plan_to_read: { text: "Plan To Read", color: "default", icon: <ClockCircleOutlined /> },
+};
 
 /**
- * Filter options mapped from Nsfw enum
+ * Catalog for nsfw
  */
-const NSFW_FILTERS = [
-    { text: "White (SFW)", value: "white" },
-    { text: "Gray (Questionable)", value: "gray" },
-    { text: "Black (NSFW)", value: "black" },
-];
+const NSFW_CATALOG = {
+    white: { text: "White (SFW)", color: "green" },
+    gray: { text: "Gray (Questionable)", color: "orange" },
+    black: { text: "Black (NSFW)", color: "red" },
+};
 
 /**
- * Filter options mapped from ListMangaType enum
+ * Catalog for manga media types
  */
-const MEDIA_TYPE_FILTERS = [
-    { text: "Manga", value: "manga" },
-    { text: "One-shot", value: "one_shot" },
-    { text: "Doujinshi", value: "doujinshi" },
-    { text: "Light Novel", value: "light_novel" },
-    { text: "Novel", value: "novel" },
-    { text: "Manhwa", value: "manhwa" },
-    { text: "Manhua", value: "manhua" },
-    { text: "OEL", value: "oel" },
-    { text: "Unknown", value: "unknown" },
-];
+const MEDIA_TYPE_CATALOG = {
+    manga: { text: "Manga" },
+    one_shot: { text: "One-shot" },
+    doujinshi: { text: "Doujinshi" },
+    light_novel: { text: "Light Novel" },
+    novel: { text: "Novel" },
+    manhwa: { text: "Manhwa" },
+    manhua: { text: "Manhua" },
+    oel: { text: "OEL" },
+    unknown: { text: "Unknown" },
+};
 
 export default function ListMangaTable() {
     const screens = useBreakpoint();
@@ -88,24 +94,23 @@ export default function ListMangaTable() {
             title: "Type",
             dataIndex: "media_type",
             valueType: "tags",
+            filterType: "tags",
             tagColor: "cyan",
-            filters: MEDIA_TYPE_FILTERS,
+            tagCatalog: MEDIA_TYPE_CATALOG,
         },
         {
             title: "Status",
             dataIndex: "status",
-            filters: MANGA_STATUS_FILTERS,
+            valueType: "tags",
+            filterType: "tags",
+            tagCatalog: STATUS_CATALOG,
         },
         {
             title: "NSFW",
             dataIndex: "nsfw",
             valueType: "tags",
-            tagColorMap: {
-                white: "green",
-                gray: "black",
-                black: "red",
-            },
-            filters: NSFW_FILTERS,
+            filterType: "tags",
+            tagCatalog: NSFW_CATALOG,
             hidden: true,
         },
     ];

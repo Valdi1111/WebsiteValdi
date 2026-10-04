@@ -15,7 +15,9 @@ use Exception;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\BrowserKit\HttpBrowser;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -23,25 +25,32 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-#[AsAlias('animeworld.anime.downloader')]
-#[AsAlias('App\AnimeBundle\Service\AnimeDownloaderInterface $animeWorldDownloader')]
+#[AsAlias('anime.downloader.' . self::SERVICE_NAME)]
+#[AsAlias(AnimeDownloaderInterface::class, target: self::SERVICE_NAME)]
+#[AutoconfigureTag(name: 'anime.downloader', attributes: ['key' => self::SERVICE_NAME])]
 readonly class AnimeWorldService implements AnimeDownloaderInterface
 {
+    public const string SERVICE_NAME = "animeworld";
+
     const string URL_REGEX = "/^\/play\/(?<animeLink>.+?)\.(?<animeIdentifier>[^\/]+)\/(?<episodeToken>[^\/]+)$/";
+
     private HttpBrowser $httpBrowser;
 
     public function __construct(
         private EntityManagerInterface $entityManager,
-        private HttpClientInterface    $animeAnimeworldClient,
+        #[Target('anime.animeworld.client')]
+        private HttpClientInterface    $httpClient,
+        #[Target('node_services.client')]
         private HttpClientInterface    $nodeServicesClient,
         private MessageBusInterface    $bus,
-        private LoggerInterface        $animeEpisodeDownloaderLogger,
+        #[Target('anime.episode_downloader')]
+        private LoggerInterface        $logger,
         #[Autowire(param: 'anime.temp_folder')]
         private string                 $tempFolder,
         #[Autowire(param: 'anime.animeworld.url')]
         private string                 $websiteUrl)
     {
-        $this->httpBrowser = new HttpBrowser($this->animeAnimeworldClient);
+        $this->httpBrowser = new HttpBrowser($this->httpClient);
     }
 
     /**
@@ -161,7 +170,7 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
         try {
             $crawler = $this->fetchPage();
         } catch (SiteUnavailableException $e) {
-            $this->animeEpisodeDownloaderLogger->warning("Skipping AnimeWorld episode check: {message}", [
+            $this->logger->warning("Skipping AnimeWorld episode check: {message}", [
                 'message' => $e->getMessage(),
                 'service' => self::getServiceName(),
             ]);
@@ -271,6 +280,6 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
      */
     public static function getServiceName(): string
     {
-        return 'animeworld';
+        return self::SERVICE_NAME;
     }
 }

@@ -4,6 +4,7 @@ namespace App\HoyoverseBundle\Model\Game;
 
 use App\HoyoverseBundle\Exception\RetrieveRedeemableCodesException;
 use App\HoyoverseBundle\Model\RedeemableCode;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\Service\Attribute\Required;
@@ -22,9 +23,12 @@ trait CodeRedemptionTrait
     }
 
     #[Required]
-    public function setRedeemableCodesClient(HttpClientInterface $hoyoverseRedeemableCodesClient): void
+    public function setRedeemableCodesClient(
+        #[Target('hoyoverse.redeemable_codes.client')]
+        HttpClientInterface $httpClient
+    ): void
     {
-        $this->redeemableCodesClient = $hoyoverseRedeemableCodesClient;
+        $this->redeemableCodesClient = $httpClient;
     }
 
     public function getCodeRedemptionManualReason(): string

@@ -5,6 +5,7 @@ namespace App\HoyoverseBundle\Service;
 use App\HoyoverseBundle\Model\Diary\ZenlessZoneZeroDiaryInfo;
 use App\HoyoverseBundle\Model\Diary\ZenlessZoneZeroDiaryItem;
 use App\HoyoverseBundle\Model\Game\AutoCodeRedemptionTrait;
+use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasAutoCodeRedemptionInterface;
 use App\HoyoverseBundle\Model\Game\HasDailiesInterface;
 use App\HoyoverseBundle\Model\Game\HasDiaryInterface;
@@ -26,37 +27,48 @@ use App\HoyoverseBundle\Model\Notes\ZenlessZoneZeroNotes;
 use App\HoyoverseBundle\Model\Notes\ZenlessZoneZeroVhsSale;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 
 /**
  * @implements HasNotesInterface<ZenlessZoneZeroNotes>
  * @implements HasDiaryInterface<ZenlessZoneZeroDiaryInfo, ZenlessZoneZeroDiaryItem>
  */
+#[AsAlias(GameInterface::class, target: self::TYPE)]
+#[AutoconfigureTag(name: 'hoyoverse.game.id', attributes: ['key' => self::GAME_ID])]
+#[AutoconfigureTag(name: 'hoyoverse.game.biz', attributes: ['key' => self::GAME_BIZ])]
 class ZenlessZoneZeroService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasShopStatusInterface
 {
     use NotesTrait;
     use DiaryTrait;
     use AutoCodeRedemptionTrait;
 
+    public const string TYPE = "zenless-zone-zero";
+    public const string GAME_BIZ = "nap_global";
+    public const int GAME_ID = 8;
+
     public function __construct(
-        LoggerInterface $hoyoverseZzzLogger,
+        #[Target('hoyoverse.zzz')]
+        LoggerInterface $logger,
     )
     {
-        parent::__construct($hoyoverseZzzLogger);
+        parent::__construct($logger);
     }
 
     public static function getType(): string
     {
-        return "zenless-zone-zero";
+        return self::TYPE;
     }
 
     public static function getGameBiz(): string
     {
-        return "nap_global";
+        return self::GAME_BIZ;
     }
 
     public static function getGameId(): int
     {
-        return 8;
+        return self::GAME_ID;
     }
 
     public function getGameName(): string

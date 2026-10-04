@@ -5,6 +5,7 @@ namespace App\CoreBundle\Service;
 use App\CoreBundle\Entity\RoleHierarchy;
 use App\CoreBundle\Repository\RoleRepository;
 use Symfony\Component\DependencyInjection\Attribute\AsDecorator;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\Security\Core\Role\RoleHierarchyInterface;
 use Symfony\Contracts\Cache\CacheInterface;
 
@@ -16,9 +17,11 @@ class DatabaseRoleHierarchy implements RoleHierarchyInterface
 
     public function __construct(
         private readonly RoleRepository $roleRepo,
-        CacheInterface                  $cacheSecurityHierarchy
-    ) {
-        $this->map = $cacheSecurityHierarchy->get("roles", [$this, 'buildRoleMap']);
+        #[Target('core.security_hierarchy.cache')]
+        CacheInterface                  $cache
+    )
+    {
+        $this->map = $cache->get("roles", [$this, 'buildRoleMap']);
     }
 
     public function getReachableRoleNames(array $roles): array

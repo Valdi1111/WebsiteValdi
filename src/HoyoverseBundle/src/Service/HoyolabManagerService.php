@@ -16,6 +16,7 @@ use App\HoyoverseBundle\Model\UserGameRole;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Contracts\Service\ServiceCollectionInterface;
 
@@ -24,17 +25,18 @@ class HoyolabManagerService
     use HoyolabTrait;
 
     /**
-     * @param LoggerInterface $hoyoverseLogger
+     * @param LoggerInterface $logger
      * @param EntityManagerInterface $entityManager
      * @param ServiceCollectionInterface<GameInterface> $locatorByGameBiz
      * @param ServiceCollectionInterface<GameInterface> $locatorByGameId
      */
     public function __construct(
-        private readonly LoggerInterface              $hoyoverseLogger,
+        #[Target('hoyoverse')]
+        private readonly LoggerInterface              $logger,
         private readonly EntityManagerInterface       $entityManager,
-        #[AutowireLocator(services: 'hoyoverse.game', defaultIndexMethod: 'getGameBiz')]
+        #[AutowireLocator(services: 'hoyoverse.game.biz', indexAttribute: 'key')]
         protected readonly ServiceCollectionInterface $locatorByGameBiz,
-        #[AutowireLocator(services: 'hoyoverse.game', defaultIndexMethod: 'getGameId')]
+        #[AutowireLocator(services: 'hoyoverse.game.id', indexAttribute: 'key')]
         protected readonly ServiceCollectionInterface $locatorByGameId,
     )
     {

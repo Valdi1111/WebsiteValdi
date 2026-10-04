@@ -9,6 +9,7 @@ use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasAutoCodeRedemptionInterface;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Psr\Cache\CacheItemPoolInterface;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Contracts\Service\Attribute\Required;
 
@@ -20,17 +21,20 @@ class CodeRedeemProfileHandler extends AbstractProfileTaskMessageHandler
 {
     private const float RATE_LIMIT_SECONDS = 6.0;
 
-    private ?CacheItemPoolInterface $redemptionHistoryCache = null;
+    private ?CacheItemPoolInterface $cache = null;
 
     public function getCache(): CacheItemPoolInterface
     {
-        return $this->redemptionHistoryCache;
+        return $this->cache;
     }
 
     #[Required]
-    public function setCache(CacheItemPoolInterface $hoyoverseRedemptionHistoryCache): void
+    public function setCache(
+        #[Target('hoyoverse.redemption_history.cache')]
+        CacheItemPoolInterface $cache
+    ): void
     {
-        $this->redemptionHistoryCache = $hoyoverseRedemptionHistoryCache;
+        $this->cache = $cache;
     }
 
     public function __invoke(CodeRedeemProfileMessage $message): void

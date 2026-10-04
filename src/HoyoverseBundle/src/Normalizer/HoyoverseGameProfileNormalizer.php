@@ -53,7 +53,7 @@ class HoyoverseGameProfileNormalizer implements NormalizerInterface, Denormalize
     public function __construct(
         #[Autowire(service: 'serializer.normalizer.object')]
         private readonly NormalizerInterface&DenormalizerInterface $objectNormalizer,
-        #[AutowireLocator(services: 'hoyoverse.game', defaultIndexMethod: 'getGameId')]
+        #[AutowireLocator(services: 'hoyoverse.game.id', indexAttribute: 'key')]
         protected readonly ServiceCollectionInterface $locatorByGameId,
     ) {
     }

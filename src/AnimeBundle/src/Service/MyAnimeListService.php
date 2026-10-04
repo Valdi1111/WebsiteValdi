@@ -9,6 +9,7 @@ use App\AnimeBundle\Model\MalListAnime;
 use App\AnimeBundle\Model\MalListManga;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\ObjectMapper\ObjectMapperInterface;
@@ -22,9 +23,11 @@ readonly class MyAnimeListService
     const int LIMIT = 1000;
 
     public function __construct(
-        private LoggerInterface        $animeCacheLogger,
+        #[Target('anime.cache')]
+        private LoggerInterface        $logger,
         private EntityManagerInterface $entityManager,
-        private HttpClientInterface    $animeMyanimelistClient,
+        #[Target('anime.myanimelist.client')]
+        private HttpClientInterface    $httpClient,
         private DenormalizerInterface  $denormalizer,
         private ObjectMapperInterface  $objectMapper
     )
@@ -42,12 +45,12 @@ readonly class MyAnimeListService
      */
     private function refreshCache(string $type, array $fields, string $denormalizeClass, string $class): array
     {
-        $this->animeCacheLogger->info("Refreshing $type cache...");
+        $this->logger->info("Refreshing $type cache...");
         $denormalizedList = [];
         try {
             $next = sprintf(self::FETCH_URL, self::USER, $type, self::LIMIT, implode(',', $fields));
             while ($next) {
-                $response = $this->animeMyanimelistClient->request(Request::METHOD_GET, $next);
+                $response = $this->httpClient->request(Request::METHOD_GET, $next);
                 if ($response->getStatusCode() !== Response::HTTP_OK) {
                     throw new \RuntimeException("Error fetching list from MyAnimeList. (Http code {$response->getStatusCode()})");
                 }
@@ -73,7 +76,7 @@ readonly class MyAnimeListService
             $cacheList[] = $cacheItem;
         }
         $this->entityManager->flush();
-        $this->animeCacheLogger->info("Successfully refreshed $type cache! (found (" . count($cacheList) . ") entries)");
+        $this->logger->info("Successfully refreshed $type cache! (found (" . count($cacheList) . ") entries)");
         return $cacheList;
     }
 

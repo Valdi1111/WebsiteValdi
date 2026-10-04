@@ -13,6 +13,7 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\ErrorHandler\Error\UndefinedMethodError;
 
 /**
@@ -25,8 +26,10 @@ class AnimeAwSocketListener extends Command
     private ?Client $client;
 
     public function __construct(
-        private readonly LoggerInterface          $animeAwHandlerLogger,
-        private readonly AnimeDownloaderInterface $animeWorldDownloader,
+        #[Target('anime.aw_handler')]
+        private readonly LoggerInterface          $logger,
+        #[Target('animeworld')]
+        private readonly AnimeDownloaderInterface $downloader,
         #[Autowire(param: 'anime.animeworld.api_url')]
         private readonly string                   $awApiUrl,
         #[Autowire(param: 'anime.animeworld.client_id')]
@@ -50,10 +53,10 @@ class AnimeAwSocketListener extends Command
                 try {
                     $this->{"handle" . str_replace('_', '', ucwords($packet->event, "_"))}($packet->data);
                 } catch (UndefinedMethodError $e) {
-                    $this->animeAwHandlerLogger->error($e->getMessage());
+                    $this->logger->error($e->getMessage());
                 }
             } catch (Exception $e) {
-                $this->animeAwHandlerLogger->error("Error while parsing data from socket.io", ['exception' => $e]);
+                $this->logger->error("Error while parsing data from socket.io", ['exception' => $e]);
                 sleep(3);
                 $this->destroyClient();
                 $this->createClient();
@@ -67,7 +70,7 @@ class AnimeAwSocketListener extends Command
     {
         $this->client = Client::create($this->awApiUrl, [
             'client' => Client::CLIENT_4X,
-            'logger' => $this->animeAwHandlerLogger,
+            'logger' => $this->logger,
             'transport' => 'websocket',
         ]);
         $this->client->connect();
@@ -87,7 +90,7 @@ class AnimeAwSocketListener extends Command
 
     protected function handleAuthorized(array $data): void
     {
-        $this->animeAwHandlerLogger->info("Successfully connected", [
+        $this->logger->info("Successfully connected", [
             'id' => $data['auth']['id'],
             'usersId' => $data['auth']['usersId'],
             'scopes' => $data['auth']['scopes'],
@@ -143,7 +146,7 @@ class AnimeAwSocketListener extends Command
      */
     protected function handleEventEpisode(array $data): void
     {
-        $this->animeAwHandlerLogger->info("Received EventEpisode", [
+        $this->logger->info("Received EventEpisode", [
             'id' => $data['anime']['id'],
             'title' => $data['anime']['title'],
             'episode' => $data['episode']['link'],
@@ -154,18 +157,18 @@ class AnimeAwSocketListener extends Command
         $downloadReq = new EpisodeDownloadRequest()
             ->setUrl($data['episode']['link']);
         try {
-            $episodes = $this->animeWorldDownloader->createEpisodeDownloads($downloadReq);
+            $episodes = $this->downloader->createEpisodeDownloads($downloadReq);
             if (!count($episodes)) {
-                $this->animeAwHandlerLogger->error("No episode found!", ['episode' => $data['episode']]);
+                $this->logger->error("No episode found!", ['episode' => $data['episode']]);
                 return;
             }
-            $this->animeAwHandlerLogger->info("Added episode!", [
+            $this->logger->info("Added episode!", [
                 'file' => $episodes[0]->getFile(),
                 'episode' => $episodes[0]->getEpisode(),
                 'malId' => $episodes[0]->getMalId()]
             );
         } catch (CacheAnimeNotFoundException $e) {
-            $this->animeAwHandlerLogger->warning($e->getMessage());
+            $this->logger->warning($e->getMessage());
         }
     }
 

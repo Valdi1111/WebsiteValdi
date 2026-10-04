@@ -37,7 +37,7 @@ class ApiGameProfilesController extends AbstractController
         private readonly EntityManagerInterface $entityManager,
         private readonly HoyoverseAccountRepository $accountRepo,
         private readonly RequestStack $requestStack,
-        #[AutowireLocator(services: 'hoyoverse.game', defaultIndexMethod: 'getGameId')]
+        #[AutowireLocator(services: 'hoyoverse.game.id', indexAttribute: 'key')]
         private readonly ServiceLocator $locatorByGameId
     ) {
         $req = $this->requestStack->getCurrentRequest();

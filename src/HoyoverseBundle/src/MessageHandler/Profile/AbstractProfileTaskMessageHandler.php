@@ -12,6 +12,7 @@ use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Contracts\Service\ServiceCollectionInterface;
 
 /**
@@ -22,9 +23,10 @@ abstract class AbstractProfileTaskMessageHandler
     public function __construct(
         protected readonly HoyoverseGameProfileRepository $gameProfileRepository,
         protected readonly HoyolabCookieUtilsService      $cookieUtils,
-        #[AutowireLocator(services: 'hoyoverse.game', defaultIndexMethod: 'getGameId')]
+        #[AutowireLocator(services: 'hoyoverse.game.id', indexAttribute: 'key')]
         protected readonly ServiceCollectionInterface     $locatorByGameId,
-        protected readonly LoggerInterface                $hoyoverseLogger,
+        #[Target('hoyoverse')]
+        protected readonly LoggerInterface                $logger,
         protected readonly UnifiedNotificationService     $notificationService,
     ) {}
 
@@ -46,7 +48,7 @@ abstract class AbstractProfileTaskMessageHandler
         $gameProfile = $this->gameProfileRepository->find($profileId);
 
         if (!$gameProfile) {
-            $this->hoyoverseLogger->warning(sprintf(
+            $this->logger->warning(sprintf(
                 '[%s] Game profile ID %d not found. Skipping.',
                 static::class,
                 $profileId
@@ -55,7 +57,7 @@ abstract class AbstractProfileTaskMessageHandler
         }
 
         if (!$this->locatorByGameId->has($gameProfile->getGameId())) {
-            $this->hoyoverseLogger->warning(sprintf(
+            $this->logger->warning(sprintf(
                 '[%s] No game service for game_id "%d" (Profile ID: %d). Skipping.',
                 static::class,
                 $gameProfile->getGameId(),
@@ -88,7 +90,7 @@ abstract class AbstractProfileTaskMessageHandler
                 $context['hoyolab_status']  = $e->getHoyolabStatusCode();
             }
 
-            $this->hoyoverseLogger->error(sprintf(
+            $this->logger->error(sprintf(
                 'Error in [%s] for profile ID %d: %s',
                 static::class,
                 $profileId,

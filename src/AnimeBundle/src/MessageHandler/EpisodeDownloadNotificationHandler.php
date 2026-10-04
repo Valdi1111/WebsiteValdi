@@ -8,6 +8,7 @@ use App\AnimeBundle\Model\EpisodeDownloadState;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use YoutubeDl\Options;
 use YoutubeDl\YoutubeDl;
@@ -17,12 +18,13 @@ readonly class EpisodeDownloadNotificationHandler
 {
 
     public function __construct(
-        private LoggerInterface                                   $animeEpisodeDownloaderLogger,
-        private EntityManagerInterface                            $entityManager,
+        #[Target('anime.episode_downloader')]
+        private LoggerInterface        $logger,
+        private EntityManagerInterface $entityManager,
         #[Autowire(param: 'anime.youtube_dl.bin_path')]
-        private string $youtubeDlBinPath,
+        private string                 $youtubeDlBinPath,
         #[Autowire(param: 'anime.base_folder')]
-        private string $baseFolder)
+        private string                 $baseFolder)
     {
     }
 
@@ -32,10 +34,10 @@ readonly class EpisodeDownloadNotificationHandler
             ->getRepository(EpisodeDownload::class)
             ->find($message->getId());
         if (!$episode) {
-            $this->animeEpisodeDownloaderLogger->info("No episode found in queue");
+            $this->logger->info("No episode found in queue");
             return;
         }
-        $this->animeEpisodeDownloaderLogger->info("Found episode in queue", ['id' => $episode->getId()]);
+        $this->logger->info("Found episode in queue", ['id' => $episode->getId()]);
         $yt = new YoutubeDl();
         if ($this->youtubeDlBinPath) {
             $yt->setBinPath($this->youtubeDlBinPath);
@@ -54,7 +56,7 @@ readonly class EpisodeDownloadNotificationHandler
             if ($totalTime !== null) {
                 $context["Downloaded in"] = $totalTime;
             }
-            $this->animeEpisodeDownloaderLogger->info("Downloading $progressTarget", $context);
+            $this->logger->info("Downloading $progressTarget", $context);
         });
         $episode->setState(EpisodeDownloadState::downloading)->setStarted(new \DateTime());
         $this->entityManager->flush();
@@ -71,11 +73,11 @@ readonly class EpisodeDownloadNotificationHandler
         foreach ($collection->getVideos() as $video) {
             if ($video->getError() !== null) {
                 $episode->setState(EpisodeDownloadState::error_downloading);
-                $this->animeEpisodeDownloaderLogger->error("Error downloading video: {$video->getError()}");
+                $this->logger->error("Error downloading video: {$video->getError()}");
                 continue;
             } else {
                 $episode->setState(EpisodeDownloadState::completed)->setCompleted(new \DateTime());
-                $this->animeEpisodeDownloaderLogger->info("Downloaded video: {$video->getTitle()}", $video->toArray());
+                $this->logger->info("Downloaded video: {$video->getTitle()}", $video->toArray());
             }
             $this->entityManager->flush();
         }

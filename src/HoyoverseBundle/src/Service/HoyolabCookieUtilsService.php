@@ -5,6 +5,7 @@ namespace App\HoyoverseBundle\Service;
 use App\HoyoverseBundle\Exception\ConfigurationException;
 use App\HoyoverseBundle\Model\ParsedCookie;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
@@ -32,8 +33,9 @@ class HoyolabCookieUtilsService
     private const string APP_LOGIN_SALT = 'IZPgfb0dRPtBeLuFkdDznSZ6f4wWt6y2';
 
     public function __construct(
-        private readonly HttpClientInterface $httpClient,
-        private readonly LoggerInterface $hoyoverseLogger,
+        private readonly HttpClientInterface   $httpClient,
+        #[Target('hoyoverse')]
+        private readonly LoggerInterface       $logger,
         private readonly DenormalizerInterface $denormalizer
     ) {
     }
@@ -43,7 +45,7 @@ class HoyolabCookieUtilsService
      */
     public function getLogger(): LoggerInterface
     {
-        return $this->hoyoverseLogger;
+        return $this->logger;
     }
 
     /**

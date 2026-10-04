@@ -44,7 +44,7 @@ class SyncDiaryBatchHandler extends AbstractBatchTaskMessageHandler
 
     #[Required]
     public function setLocatorByGameId(
-        #[AutowireLocator(services: 'hoyoverse.game', defaultIndexMethod: 'getGameId')]
+        #[AutowireLocator(services: 'hoyoverse.game.id', indexAttribute: 'key')]
         ServiceCollectionInterface $locatorByGameId
     ): void
     {
@@ -66,7 +66,7 @@ class SyncDiaryBatchHandler extends AbstractBatchTaskMessageHandler
     protected function createProfileMessages(int $gameProfileId, int $gameId): iterable
     {
         if (!$this->locatorByGameId->has($gameId)) {
-            $this->hoyoverseLogger->warning(sprintf(
+            $this->logger->warning(sprintf(
                 '[%s] No game service for game_id "%d" (Profile ID: %d). Skipping.',
                 static::class,
                 $gameId,

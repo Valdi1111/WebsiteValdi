@@ -11,27 +11,33 @@ use Doctrine\ORM\EntityManagerInterface;
 use Exception;
 use Symfony\Component\BrowserKit\HttpBrowser;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-#[AsAlias('animeunity.anime.downloader')]
-#[AsAlias('App\AnimeBundle\Service\AnimeDownloaderInterface $animeUnityDownloader')]
+#[AsAlias('anime.downloader.' . self::SERVICE_NAME)]
+#[AsAlias(AnimeDownloaderInterface::class, target: self::SERVICE_NAME)]
+#[AutoconfigureTag(name: 'anime.downloader', attributes: ['key' => self::SERVICE_NAME])]
 readonly class AnimeUnityService implements AnimeDownloaderInterface
 {
+    public const string SERVICE_NAME = "animeunity";
+
     private HttpBrowser $httpBrowser;
 
     public function __construct(
         private EntityManagerInterface $entityManager,
-        private HttpClientInterface    $animeAnimeunityClient,
+        #[Target('anime.animeunity.client')]
+        private HttpClientInterface    $httpClient,
         #[Autowire(param: 'anime.temp_folder')]
         private string                 $tempFolder,
         #[Autowire(param: 'anime.animeunity.url')]
         private string                 $websiteUrl)
     {
-        $this->httpBrowser = new HttpBrowser($this->animeAnimeunityClient);
+        $this->httpBrowser = new HttpBrowser($this->httpClient);
     }
 
     /**
@@ -217,6 +223,6 @@ readonly class AnimeUnityService implements AnimeDownloaderInterface
      */
     public static function getServiceName(): string
     {
-        return 'animeunity';
+        return self::SERVICE_NAME;
     }
 }

@@ -4,6 +4,7 @@ namespace App\CoreBundle\Service;
 
 use App\CoreBundle\Entity\RolePermission;
 use App\CoreBundle\Repository\RoleRepository;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\Security\Core\Role\RoleHierarchyInterface;
 use Symfony\Contracts\Cache\CacheInterface;
 
@@ -15,9 +16,11 @@ class DatabasePermissionHierarchy implements PermissionHierarchyInterface
     public function __construct(
         private readonly RoleHierarchyInterface $roleHierarchy,
         private readonly RoleRepository         $roleRepo,
-        CacheInterface                          $cacheSecurityHierarchy
-    ) {
-        $this->map = $cacheSecurityHierarchy->get("permissions", [$this, 'buildPermissionMap']);
+        #[Target('core.security_hierarchy.cache')]
+        CacheInterface                          $cache
+    )
+    {
+        $this->map = $cache->get("permissions", [$this, 'buildPermissionMap']);
     }
 
     public function getReachablePermissionNames(array $roles): array

@@ -5,6 +5,7 @@ namespace App\HoyoverseBundle\Service;
 use App\HoyoverseBundle\Model\Diary\HonkaiStarRailDiaryInfo;
 use App\HoyoverseBundle\Model\Diary\HonkaiStarRailDiaryItem;
 use App\HoyoverseBundle\Model\Game\AutoCodeRedemptionTrait;
+use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasAutoCodeRedemptionInterface;
 use App\HoyoverseBundle\Model\Game\HasDailiesInterface;
 use App\HoyoverseBundle\Model\Game\HasDiaryInterface;
@@ -24,18 +25,29 @@ use App\HoyoverseBundle\Model\Notes\GameNotesWeeklies;
 use App\HoyoverseBundle\Model\Notes\HonkaiStarRailNotes;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 
 /**
  * @implements HasNotesInterface<HonkaiStarRailNotes>
  * @implements HasDiaryInterface<HonkaiStarRailDiaryInfo, HonkaiStarRailDiaryItem>
  */
+#[AsAlias(GameInterface::class, target: self::TYPE)]
+#[AutoconfigureTag(name: 'hoyoverse.game.id', attributes: ['key' => self::GAME_ID])]
+#[AutoconfigureTag(name: 'hoyoverse.game.biz', attributes: ['key' => self::GAME_BIZ])]
 class HonkaiStarRailService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasExpeditionsInterface
 {
     use NotesTrait;
     use DiaryTrait;
     use AutoCodeRedemptionTrait;
 
+    public const string TYPE = "honkai-star-rail";
+    public const string GAME_BIZ = "hkrpg_global";
+    public const int GAME_ID = 6;
+
     public function __construct(
+        #[Target('hoyoverse.hsr')]
         LoggerInterface $hoyoverseHsrLogger,
     )
     {
@@ -44,17 +56,17 @@ class HonkaiStarRailService extends GameService implements HasNotesInterface, Ha
 
     public static function getType(): string
     {
-        return "honkai-star-rail";
+        return self::TYPE;
     }
 
     public static function getGameBiz(): string
     {
-        return "hkrpg_global";
+        return self::GAME_BIZ;
     }
 
     public static function getGameId(): int
     {
-        return 6;
+        return self::GAME_ID;
     }
 
     public function getGameName(): string

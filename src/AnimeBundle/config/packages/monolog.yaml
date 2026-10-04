@@ -1,8 +1,8 @@
 monolog:
     channels:
-        - anime_cache
-        - anime_aw_handler
-        - anime_episode_downloader
+        - anime.cache
+        - anime.aw_handler
+        - anime.episode_downloader
 
 when@prod:
     monolog:
@@ -11,14 +11,14 @@ when@prod:
                 type: stream
                 path: '%kernel.logs_dir%/anime-cache.log'
                 level: debug
-                channels: ['anime_cache']
+                channels: ['anime.cache']
             anime_aw_handler_file:
                 type: stream
                 path: '%kernel.logs_dir%/anime-aw-handler.log'
                 level: debug
-                channels: ['anime_aw_handler']
+                channels: ['anime.aw_handler']
             anime_episode_downloader_file:
                 type: stream
                 path: '%kernel.logs_dir%/anime-episode-downloader.log'
                 level: debug
-                channels: ['anime_episode_downloader']
+                channels: ['anime.episode_downloader']

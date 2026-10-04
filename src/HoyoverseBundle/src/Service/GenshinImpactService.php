@@ -5,6 +5,7 @@ namespace App\HoyoverseBundle\Service;
 use App\HoyoverseBundle\Model\Diary\GenshinImpactDiaryInfo;
 use App\HoyoverseBundle\Model\Diary\GenshinImpactDiaryItem;
 use App\HoyoverseBundle\Model\Game\AutoCodeRedemptionTrait;
+use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasAutoCodeRedemptionInterface;
 use App\HoyoverseBundle\Model\Game\HasDailiesInterface;
 use App\HoyoverseBundle\Model\Game\HasDiaryInterface;
@@ -26,37 +27,48 @@ use App\HoyoverseBundle\Model\Notes\GameNotesWeeklies;
 use App\HoyoverseBundle\Model\Notes\GenshinImpactNotes;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 
 /**
  * @implements HasNotesInterface<GenshinImpactNotes>
  * @implements HasDiaryInterface<GenshinImpactDiaryInfo, GenshinImpactDiaryItem>
  */
+#[AsAlias(GameInterface::class, target: self::TYPE)]
+#[AutoconfigureTag(name: 'hoyoverse.game.id', attributes: ['key' => self::GAME_ID])]
+#[AutoconfigureTag(name: 'hoyoverse.game.biz', attributes: ['key' => self::GAME_BIZ])]
 class GenshinImpactService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasExpeditionsInterface, HasRealmCurrencyInterface
 {
     use NotesTrait;
     use DiaryTrait;
     use AutoCodeRedemptionTrait;
 
+    public const string TYPE = "genshin-impact";
+    public const string GAME_BIZ = "hk4e_global";
+    public const int GAME_ID = 2;
+
     public function __construct(
-        LoggerInterface $hoyoverseGiLogger,
+        #[Target('hoyoverse.gi')]
+        LoggerInterface $logger,
     )
     {
-        parent::__construct($hoyoverseGiLogger);
+        parent::__construct($logger);
     }
 
     public static function getType(): string
     {
-        return "genshin-impact";
+        return self::TYPE;
     }
 
     public static function getGameBiz(): string
     {
-        return "hk4e_global";
+        return self::GAME_BIZ;
     }
 
     public static function getGameId(): int
     {
-        return 2;
+        return self::GAME_ID;
     }
 
     public function getGameName(): string

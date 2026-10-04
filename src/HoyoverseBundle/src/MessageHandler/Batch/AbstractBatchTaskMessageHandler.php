@@ -8,6 +8,7 @@ use App\HoyoverseBundle\Message\RegionalTaskMessageInterface;
 use App\HoyoverseBundle\Message\TaskMessageInterface;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
 
@@ -20,7 +21,8 @@ abstract class AbstractBatchTaskMessageHandler
     public function __construct(
         protected readonly HoyoverseGameProfileRepository $gameProfileRepository,
         protected readonly MessageBusInterface            $messageBus,
-        protected readonly LoggerInterface                $hoyoverseLogger,
+        #[Target('hoyoverse')]
+        protected readonly LoggerInterface                $logger,
     )
     {
     }
@@ -45,7 +47,7 @@ abstract class AbstractBatchTaskMessageHandler
 
         $gameProfiles = $this->gameProfileRepository->findEligibleProfileIds($featureField, timezone: $timezone);
 
-        $this->hoyoverseLogger->info(sprintf(
+        $this->logger->info(sprintf(
             'Batch [%s]: dispatching tasks for %d eligible profiles%s.',
             static::class,
             count($gameProfiles),
@@ -63,7 +65,7 @@ abstract class AbstractBatchTaskMessageHandler
             }
         }
 
-        $this->hoyoverseLogger->info(sprintf(
+        $this->logger->info(sprintf(
             'Batch [%s] completed. Dispatched %d individual messages.',
             static::class,
             $dispatchedCount

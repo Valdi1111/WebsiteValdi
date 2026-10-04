@@ -36,7 +36,7 @@ class Library
 
     /** @var Collection<int, Shelf> */
     #[OneToMany(targetEntity: Shelf::class, mappedBy: 'library', indexBy: 'shelf_id')]
-    #[ORM\OrderBy(['name' => 'ASC'])]
+    #[ORM\OrderBy(['name' => \SortDirection::Ascending])]
     private Collection $shelves;
 
     private ?Filesystem $filesystem = null;

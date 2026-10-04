@@ -2,8 +2,10 @@
 
 namespace App\HoyoverseBundle\Model\Game;
 
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
+#[AutoconfigureTag('hoyoverse.game.redeemable')]
 interface HasCodeRedemptionInterface
 {
     public function getRedeemableCodesClient(): ?HttpClientInterface;

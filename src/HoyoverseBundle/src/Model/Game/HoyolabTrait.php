@@ -8,6 +8,7 @@ use App\HoyoverseBundle\Model\RuntimeAccountData;
 use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
 use App\HoyoverseBundle\Service\HoyolabUtilsService;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\ObjectMapper\ObjectMapperInterface;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
@@ -24,14 +25,15 @@ trait HoyolabTrait
     private ?ObjectMapperInterface $objectMapper = null;
 
     public function __construct(
-        private readonly LoggerInterface $hoyoverseLogger
+        #[Target('hoyoverse')]
+        private readonly LoggerInterface $logger
     )
     {
     }
 
     public function getLogger(): LoggerInterface
     {
-        return $this->hoyoverseLogger;
+        return $this->logger;
     }
 
     public function getHoyolabClient(): ?HttpClientInterface
@@ -40,9 +42,12 @@ trait HoyolabTrait
     }
 
     #[Required]
-    public function setHoyolabClient(HttpClientInterface $hoyoverseHoyolabClient): void
+    public function setHoyolabClient(
+        #[Target('hoyoverse.hoyolab.client')]
+        HttpClientInterface $httpClient
+    ): void
     {
-        $this->hoyolabClient = $hoyoverseHoyolabClient;
+        $this->hoyolabClient = $httpClient;
     }
 
     public function getCookieUtils(): ?HoyolabCookieUtilsService

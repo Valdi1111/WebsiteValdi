@@ -3,34 +3,46 @@
 namespace App\HoyoverseBundle\Service;
 
 use App\HoyoverseBundle\Model\Game\CodeRedemptionTrait;
+use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\GameService;
 use App\HoyoverseBundle\Model\Game\HasCodeRedemptionInterface;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AsAlias;
+use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 
+#[AsAlias(GameInterface::class, target: self::TYPE)]
+#[AutoconfigureTag(name: 'hoyoverse.game.id', attributes: ['key' => self::GAME_ID])]
+#[AutoconfigureTag(name: 'hoyoverse.game.biz', attributes: ['key' => self::GAME_BIZ])]
 class TearsOfThemisService extends GameService implements HasCodeRedemptionInterface
 {
     use CodeRedemptionTrait;
 
+    public const string TYPE = "tear-of-themis";
+    public const string GAME_BIZ = "nxx_global";
+    public const int GAME_ID = 0;
+
     public function __construct(
-        LoggerInterface $hoyoverseTotLogger,
+        #[Target('hoyoverse.tot')]
+        LoggerInterface $logger,
     )
     {
-        parent::__construct($hoyoverseTotLogger);
+        parent::__construct($logger);
     }
 
     public static function getType(): string
     {
-        return "tear-of-themis";
+        return self::TYPE;
     }
 
     public static function getGameBiz(): string
     {
-        return "nxx_global";
+        return self::GAME_BIZ;
     }
 
     public static function getGameId(): int
     {
-        return 0;
+        return self::GAME_ID;
     }
 
     public function getGameName(): string

@@ -16,7 +16,7 @@ readonly class AnimeDownloaderLocator implements ServiceCollectionInterface
      * @param ServiceCollectionInterface<AnimeDownloaderInterface> $locator
      */
     public function __construct(
-        #[AutowireLocator(services: 'anime.downloader', defaultIndexMethod: 'getServiceName')]
+        #[AutowireLocator(services: 'anime.downloader', indexAttribute: 'key')]
         private ServiceCollectionInterface $locator,
         private ParameterBagInterface      $parameterBag,
     )

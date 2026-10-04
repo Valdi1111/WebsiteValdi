@@ -39,7 +39,7 @@ class Shelf
      * @var Collection<int, Book>
      */
     #[ORM\OneToMany(targetEntity: Book::class, mappedBy: 'shelf', indexBy: 'book_id')]
-    #[ORM\OrderBy(['url' => 'ASC'])]
+    #[ORM\OrderBy(['url' => \SortDirection::Ascending])]
     private Collection $books;
 
     public function __construct()

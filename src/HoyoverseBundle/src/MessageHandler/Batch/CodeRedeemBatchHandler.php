@@ -15,6 +15,7 @@ use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Contracts\Service\ServiceCollectionInterface;
@@ -30,15 +31,17 @@ class CodeRedeemBatchHandler
     /**
      * @param HoyoverseGameProfileRepository $gameProfileRepository
      * @param ServiceCollectionInterface<GameInterface&HasCodeRedemptionInterface> $locator
-     * @param LoggerInterface $hoyoverseLogger
+     * @param LoggerInterface $logger
      */
     public function __construct(
         private readonly HoyoverseGameProfileRepository $gameProfileRepository,
         #[AutowireLocator(services: 'hoyoverse.game.redeemable')]
         private readonly ServiceCollectionInterface     $locator,
-        private readonly LoggerInterface                $hoyoverseLogger,
+        #[Target('hoyoverse')]
+        private readonly LoggerInterface                $logger,
         private readonly UnifiedNotificationService     $notificationService,
-        private readonly CacheItemPoolInterface         $hoyoverseRedemptionHistoryCache,
+        #[Target('hoyoverse.redemption_history.cache')]
+        private readonly CacheItemPoolInterface         $cache,
         private readonly MessageBusInterface            $bus,
     )
     {
@@ -46,12 +49,12 @@ class CodeRedeemBatchHandler
 
     public function getLogger(): LoggerInterface
     {
-        return $this->hoyoverseLogger;
+        return $this->logger;
     }
 
     public function getCache(): CacheItemPoolInterface
     {
-        return $this->hoyoverseRedemptionHistoryCache;
+        return $this->cache;
     }
 
     public function __invoke(CodeRedeemBatchMessage $message): void

@@ -1,5 +1,5 @@
-const Encore = require('@symfony/webpack-encore');
-const path = require('path');
+import Encore from '@symfony/webpack-encore';
+import path from 'path';
 
 // Manually configure the runtime environment if not already configured yet by the "encore" command.
 // It's useful when you use tools that rely on webpack.config.js file.
@@ -9,13 +9,13 @@ if (!Encore.isRuntimeEnvironmentConfigured()) {
 
 Encore
     .addAliases({
-        '@App': path.resolve(__dirname, 'assets/'),
-        '@CoreBundle': path.resolve(__dirname, 'src/CoreBundle/assets/'),
-        '@AnimeBundle': path.resolve(__dirname, 'src/AnimeBundle/assets/'),
-        '@BooksBundle': path.resolve(__dirname, 'src/BooksBundle/assets/'),
-        '@HoyoverseBundle': path.resolve(__dirname, 'src/HoyoverseBundle/assets/'),
-        '@PasswordsBundle': path.resolve(__dirname, 'src/PasswordsBundle/assets/'),
-        '@VideosBundle': path.resolve(__dirname, 'src/VideosBundle/assets/'),
+        '@App': path.resolve(import.meta.dirname, 'assets/'),
+        '@CoreBundle': path.resolve(import.meta.dirname, 'src/CoreBundle/assets/'),
+        '@AnimeBundle': path.resolve(import.meta.dirname, 'src/AnimeBundle/assets/'),
+        '@BooksBundle': path.resolve(import.meta.dirname, 'src/BooksBundle/assets/'),
+        '@HoyoverseBundle': path.resolve(import.meta.dirname, 'src/HoyoverseBundle/assets/'),
+        '@PasswordsBundle': path.resolve(import.meta.dirname, 'src/PasswordsBundle/assets/'),
+        '@VideosBundle': path.resolve(import.meta.dirname, 'src/VideosBundle/assets/'),
     })
     // directory where compiled assets will be stored
     .setOutputPath('public/build/')
@@ -25,12 +25,12 @@ Encore
     //.setManifestKeyPrefix('build/')
 
     .copyFiles([
-        {from: path.resolve(__dirname, 'src/AnimeBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
-        {from: path.resolve(__dirname, 'src/BooksBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
-        {from: path.resolve(__dirname, 'src/CoreBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
-        {from: path.resolve(__dirname, 'src/HoyoverseBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
-        {from: path.resolve(__dirname, 'src/PasswordsBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
-        {from: path.resolve(__dirname, 'src/VideosBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
+        {from: path.resolve(import.meta.dirname, 'src/AnimeBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
+        {from: path.resolve(import.meta.dirname, 'src/BooksBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
+        {from: path.resolve(import.meta.dirname, 'src/CoreBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
+        {from: path.resolve(import.meta.dirname, 'src/HoyoverseBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
+        {from: path.resolve(import.meta.dirname, 'src/PasswordsBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
+        {from: path.resolve(import.meta.dirname, 'src/VideosBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
     ])
 
     /*
@@ -45,7 +45,7 @@ Encore
     .addEntry('hoyoverse', '@HoyoverseBundle/app.js')
     .addEntry('passwords', '@PasswordsBundle/app.js')
     .addEntry('videos', '@VideosBundle/app.js')
-    //.addEntry('books', './assets/app.js')
+    //.addEntry('app', './assets/app.js')
 
     // When enabled, Webpack "splits" your files into smaller pieces for greater optimization.
     .splitEntryChunks()
@@ -73,15 +73,17 @@ Encore
     // enables hashed filenames (e.g. app.abc123.css)
     .enableVersioning(Encore.isProduction())
 
-    // configure Babel
-    // .configureBabel((config) => {
-    //     config.plugins.push('@babel/a-babel-plugin');
+    // Configure JS and CSS minimizers
+    // .configureJsMinimizerPlugin((options, MinimizerPlugin) => {
+    //     options.minify = MinimizerPlugin.esbuildMinify
+    // })
+    // .configureCssMinimizerPlugin((options, MinimizerPlugin) => {
+    //     options.minify = MinimizerPlugin.lightningCssMinify;
     // })
 
-    // enables and configure @babel/preset-env polyfills
-    .configureBabelPresetEnv((config) => {
-        config.useBuiltIns = 'usage';
-        config.corejs = '3.49';
+    // configure Babel
+    .configureBabel((config) => {
+        config.plugins.push(['polyfill-corejs3', { method: 'usage-global', version: '3.49' }]);
     })
 
     // enables Sass/SCSS support
@@ -101,4 +103,4 @@ Encore
     //.autoProvidejQuery()
 ;
 
-module.exports = Encore.getWebpackConfig();
+export default await Encore.getWebpackConfig();

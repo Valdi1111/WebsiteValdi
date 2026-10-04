@@ -1,9 +1,9 @@
 {
     "devDependencies": {
         "@ant-design/icons": "^6.1.1",
-        "@babel/core": "^7.29.0",
-        "@babel/preset-env": "^7.29.2",
-        "@babel/preset-react": "^7.28.5",
+        "@babel/core": "^8.0.0",
+        "@babel/preset-env": "^8.0.0",
+        "@babel/preset-react": "^8.0.0",
         "@fortawesome/fontawesome-free": "^7.2.0",
         "@fortawesome/fontawesome-svg-core": "^7.2.0",
         "@fortawesome/free-regular-svg-icons": "^7.2.0",
@@ -13,9 +13,10 @@
         "@hotwired/turbo": "^7.1.0 || ^8.0",
         "@popperjs/core": "^2.11.8",
         "@symfony/stimulus-bridge": "^3.2.0 || ^4.0.0",
-        "@symfony/webpack-encore": "^6.0.0",
+        "@symfony/webpack-encore": "^7.0.0",
         "antd": "^6.3.6",
         "axios": "^1.15.0",
+        "babel-plugin-polyfill-corejs3": "^1.0.0",
         "bootstrap": "^5.3.8",
         "chart.js": "^4.5.1",
         "core-js": "^3.49.0",
@@ -36,12 +37,13 @@
         "sass": "^1.99.0",
         "sass-loader": "^16.0.7",
         "swr": "^2.4.1",
-        "webpack": "^5.106.2",
-        "webpack-cli": "^6.0.1",
-        "webpack-notifier": "^1.15.0"
+        "webpack": "^5.82",
+        "webpack-cli": "^7.0.0",
+        "webpack-notifier": "^1.17.0"
     },
     "license": "UNLICENSED",
     "private": true,
+    "type": "module",
     "scripts": {
         "dev-server": "encore dev-server",
         "dev": "encore dev",

@@ -6,7 +6,7 @@
  */
 // bootstrap
 import "@CoreBundle/scss/global.scss";
-import "bootstrap/dist/js/bootstrap";
+import 'bootstrap';
 
 // start the Stimulus application
 import '@App/app';

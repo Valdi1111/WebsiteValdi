@@ -1,4 +1,3 @@
-import ImageViewModal from "@BooksBundle/components/books/modals/ImageViewModal";
 import BookSettingsContext from "@BooksBundle/components/books/BookSettingsContext";
 import SpinComponent from "@CoreBundle/components/SpinComponent";
 import {
@@ -52,7 +51,6 @@ export default function BookLayout({ children }) {
     return <BookSettingsContext value={{ settings, setSettings, setSetting }}>
         <Layout style={{ height: '100vh' }}>
             <SpinComponent loading={loading} size="large">
-                <ImageViewModal/>
                 {children}
             </SpinComponent>
         </Layout>

@@ -1,120 +1,120 @@
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCopy, faDownload, faRotateLeft, faRotateRight } from "@fortawesome/free-solid-svg-icons";
-import React from "react";
+import React from 'react';
+import { Image, App } from 'antd';
+import { CopyOutlined, DownloadOutlined } from '@ant-design/icons';
 
-export default function ImageViewModal() {
-    const [title, setTitle] = React.useState('Image from book');
-    const [rotation, setRotation] = React.useState(0);
-    const img = React.useRef();
-    const input = React.useRef();
-    const label = React.useRef();
-    const modal = React.useRef();
+export default function ImageViewModal({ open, src, alt, onClose }) {
+    const { message } = App.useApp();
 
-    React.useEffect(() => {
-        modal.current.addEventListener("show.bs.modal", (e) => {
-            const target = e.relatedTarget;
-            if (target.tagName.toLowerCase() === 'img') {
-                setTitle(target.alt || 'Image from book');
-                img.current.alt = target.alt;
-                img.current.src = target.src;
+    // Prevent rendering when no image source is provided
+    if (!src) {
+        return null;
+    }
+
+    // Copy original image data to clipboard
+    const handleCopy = async () => {
+        try {
+            const response = await fetch(src);
+            const blob = await response.blob();
+
+            // Direct Clipboard API copy for supported PNG format
+            if (blob.type === 'image/png') {
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            } else {
+                // Canvas fallback to ensure PNG data for JPEG/WebP formats
+                const img = new window.Image();
+                img.crossOrigin = 'anonymous';
+                img.src = src;
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                });
+
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+
+                await new Promise((resolve) => {
+                    canvas.toBlob(async (pngBlob) => {
+                        await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+                        resolve();
+                    }, 'image/png');
+                });
             }
-            if (target.tagName.toLowerCase() === 'image') {
-                img.current.src = target.getAttribute('xlink:href');
-            }
-        });
-        modal.current.addEventListener("hidden.bs.modal", (e) => {
-            setTitle('Image from book');
-            setRotation(0);
-            input.current.value = 100;
-            widthChange(input.current);
-            img.current.alt = '';
-            img.current.src = '';
-        });
-    }, []);
 
-    React.useEffect(() => {
-        img.current.style.transform = `rotate(${rotation}deg)`;
-    }, [rotation]);
-
-    function rotate(degree) {
-        setRotation(rotation + degree);
-    }
-
-    async function copy() {
-        console.debug("Copying image to clipboard...");
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = img.current.naturalWidth
-        canvas.height = img.current.naturalHeight
-        ctx.drawImage(img.current, 0, 0);
-        canvas.toBlob(async blob => {
-            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-        }, 'image/png', 1);
-    }
-
-    async function download() {
-        console.debug("Downloading image...");
-        const res = await fetch(img.current.src);
-        const blob = await res.blob();
-        const element = document.createElement('a');
-        element.href = URL.createObjectURL(blob);
-        element.download = img.current.alt || 'image';
-        element.click();
-        console.debug("Image downloaded successfully!");
-    }
-
-    function widthChange(e) {
-        img.current.style.width = e.value + '%';
-        label.current.innerHTML = e.value + '%';
-    }
-
-    function wheelChange(e) {
-        if (e.deltaY < 0) {
-            e.target.stepUp();
+            message.success('Image copied to clipboard');
+        } catch (err) {
+            console.error('Failed to copy image to clipboard', err);
+            message.error('Failed to copy image to clipboard');
         }
-        if (e.deltaY > 0) {
-            e.target.stepDown();
-        }
-        widthChange(e.target);
-    }
+    };
 
-    return <div className="modal fade" id="image-view-modal" tabIndex={-1} aria-hidden={true}
-         aria-labelledby="image-view-modal-label" ref={modal}>
-        <div className="modal-dialog modal-fullscreen">
-            <div className="modal-content">
-                <div className="modal-header">
-                    <h5 className="modal-title text-truncate flex-grow-1" id="image-view-modal-label">
-                        {title}
-                    </h5>
-                    <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"/>
-                </div>
-                <div className="modal-body p-0">
-                    <img ref={img} alt="" src="" width="100%"/>
-                </div>
-                <div className="modal-footer">
-                    <button className="btn btn-icon btn-outline-secondary" onClick={copy}>
-                        <FontAwesomeIcon icon={faCopy} width={16} height={16}/>
-                    </button>
-                    <button className="btn btn-icon btn-outline-secondary" onClick={download}>
-                        <FontAwesomeIcon icon={faDownload} width={16} height={16}/>
-                    </button>
-                    <div className="d-flex flex-row">
-                        <input ref={input} type="range" id="image-width" className="form-range flex-grow-1"
-                               min={10} max={300} step={10} defaultValue={100} onChange={e => widthChange(e.target)}
-                               onWheel={wheelChange}/>
-                        <label ref={label} htmlFor="image-width" className="form-label text-center small mb-0 ps-2">
-                            100%
-                        </label>
-                    </div>
-                    <button className="btn btn-icon btn-outline-secondary" onClick={e => rotate(-90)}>
-                        <FontAwesomeIcon icon={faRotateLeft} width={16} height={16}/>
-                    </button>
-                    <button className="btn btn-icon btn-outline-secondary" onClick={e => rotate(+90)}>
-                        <FontAwesomeIcon icon={faRotateRight} width={16} height={16}/>
-                    </button>
-                </div>
-            </div>
+    // Download image file to user system
+    const handleDownload = async () => {
+        try {
+            const response = await fetch(src);
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = (alt && alt.trim() !== '') ? `${alt.replace(/\s+/g, '_')}` : 'book_image';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            link.remove();
+        } catch (err) {
+            console.error('Failed to download image', err);
+            message.error('Failed to download image');
+        }
+    };
+
+    return (
+        <div style={{ display: 'none' }}>
+            <Image
+                src={src}
+                alt={alt || 'Image from book'}
+                preview={{
+                    open: open,
+                    onOpenChange: (isOpen) => {
+                        if (!isOpen) {
+                            onClose();
+                        }
+                    },
+                    // Inject custom buttons directly inside the actions toolbar container
+                    actionsRender: (originalNode) => {
+                        const customButtons = [
+                            <button
+                                key="copy"
+                                type="button"
+                                className="ant-image-preview-actions-action ant-image-preview-actions-action-copy"
+                                aria-label="copy"
+                                onClick={handleCopy}
+                            >
+                                <CopyOutlined />
+                            </button>,
+                            <button
+                                key="download"
+                                type="button"
+                                className="ant-image-preview-actions-action ant-image-preview-actions-action-download"
+                                aria-label="download"
+                                onClick={handleDownload}
+                            >
+                                <DownloadOutlined />
+                            </button>
+                        ];
+
+                        // Clone the original actions div and append the buttons inside its children
+                        if (React.isValidElement(originalNode)) {
+                            const originalChildren = React.Children.toArray(originalNode.props.children);
+                            return React.cloneElement(originalNode, {}, ...originalChildren, ...customButtons);
+                        }
+
+                        return originalNode;
+                    },
+                }}
+            />
         </div>
-    </div>;
-
+    );
 }

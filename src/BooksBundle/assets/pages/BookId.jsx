@@ -17,6 +17,7 @@ import {
     UPDATE_LAST_READ
 } from "@BooksBundle/components/books/BookConstants";
 import { theme as antdTheme } from "antd";
+import ImageViewModal from "@BooksBundle/components/books/modals/ImageViewModal.jsx";
 
 export default function BookId() {
     const { token: { colorBgElevated, colorText, colorLink, colorLinkHover } } = antdTheme.useToken();
@@ -38,6 +39,8 @@ export default function BookId() {
     const [section, setSection] = React.useState(null);
     const [location, setLocation] = React.useState(null);
     const [percentage, setPercentage] = React.useState(null);
+    // Image modal
+    const [imageModal, setImageModal] = React.useState({ open: false, src: '', alt: '' });
 
     const api = useBackendApi();
     const { bookId } = useParams();
@@ -125,11 +128,21 @@ export default function BookId() {
         rendition.on('relocated', updatePage);
         rendition.on('keydown', onKeyDown);
         // Open image view modal when clicking on img or image tag
-        rendition.on('click', async e => {
-            // TODO convertire a Image di antd
-            if (e.target.tagName.toLowerCase() === 'img' || e.target.tagName.toLowerCase() === 'image') {
-                const { default: Modal } = await import("bootstrap/js/dist/modal");
-                new Modal(document.getElementById('image-view-modal')).show(e.target);
+        rendition.on('click', e => {
+            const target = e.target;
+            const tag = target.tagName ? target.tagName.toLowerCase() : '';
+            if (tag === 'img') {
+                setImageModal({
+                    open: true,
+                    src: target.src,
+                    alt: target.alt || 'Image from book'
+                });
+            } else if (tag === 'image') {
+                setImageModal({
+                    open: true,
+                    src: target.getAttribute('xlink:href') || target.getAttribute('href'),
+                    alt: 'Image from book'
+                });
             }
         });
         // Turn page on mouse wheel
@@ -338,22 +351,30 @@ export default function BookId() {
         book.current.rendition.next();
     }, []);
 
-    return <BookContext value={{
-        title, setTitle,
-        navigation, setNavigation,
-        chapter, setChapter,
-        section, setSection,
-        location, setLocation,
-        percentage, setPercentage,
-        navigateTo, search,
-        prev, next,
-        contentsDrawerOpen, setContentsDrawerOpen,
-        settingsDrawerOpen, setSettingsDrawerOpen,
-    }}>
-        <title>{title}</title>
-        <BookHeader/>
-        <BookBody loading={loading}/>
-        <BookFooter/>
-    </BookContext>;
+    return (
+        <BookContext value={{
+            title, setTitle,
+            navigation, setNavigation,
+            chapter, setChapter,
+            section, setSection,
+            location, setLocation,
+            percentage, setPercentage,
+            navigateTo, search,
+            prev, next,
+            contentsDrawerOpen, setContentsDrawerOpen,
+            settingsDrawerOpen, setSettingsDrawerOpen,
+        }}>
+            <title>{title}</title>
+            <BookHeader/>
+            <BookBody loading={loading}/>
+            <BookFooter/>
+            <ImageViewModal
+                open={imageModal.open}
+                src={imageModal.src}
+                alt={imageModal.alt}
+                onClose={() => setImageModal({ open: false, src: '', alt: '' })}
+            />
+        </BookContext>
+    );
 
 }

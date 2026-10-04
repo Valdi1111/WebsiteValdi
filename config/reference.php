@@ -1876,10 +1876,6 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         directory_visibility?: scalar|Param|null,
  *     }>,
  * }
- * @psalm-type StimulusConfig = array{
- *     controller_paths?: list<scalar|Param|null>,
- *     controllers_json?: scalar|Param|null, // Default: "%kernel.project_dir%/assets/controllers.json"
- * }
  * @psalm-type ConfigType = array{
  *     imports?: ImportsConfig,
  *     parameters?: ParametersConfig,
@@ -1900,7 +1896,6 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     webpack_encore?: WebpackEncoreConfig,
  *     twig_extra?: TwigExtraConfig,
  *     oneup_flysystem?: OneupFlysystemConfig,
- *     stimulus?: StimulusConfig,
  *     "when@dev"?: array{
  *         imports?: ImportsConfig,
  *         parameters?: ParametersConfig,
@@ -1924,7 +1919,6 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         webpack_encore?: WebpackEncoreConfig,
  *         twig_extra?: TwigExtraConfig,
  *         oneup_flysystem?: OneupFlysystemConfig,
- *         stimulus?: StimulusConfig,
  *     },
  *     "when@prod"?: array{
  *         imports?: ImportsConfig,
@@ -1946,7 +1940,6 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         webpack_encore?: WebpackEncoreConfig,
  *         twig_extra?: TwigExtraConfig,
  *         oneup_flysystem?: OneupFlysystemConfig,
- *         stimulus?: StimulusConfig,
  *     },
  *     "when@test"?: array{
  *         imports?: ImportsConfig,
@@ -1969,7 +1962,6 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         webpack_encore?: WebpackEncoreConfig,
  *         twig_extra?: TwigExtraConfig,
  *         oneup_flysystem?: OneupFlysystemConfig,
- *         stimulus?: StimulusConfig,
  *     },
  *     ...<string, ExtensionType|array{ // extra keys must follow the when@%env% pattern or match an extension alias
  *         imports?: ImportsConfig,

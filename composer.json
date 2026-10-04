@@ -53,7 +53,6 @@
         "symfony/scheduler": "8.1.*",
         "symfony/security-bundle": "8.1.*",
         "symfony/serializer": "8.1.*",
-        "symfony/stimulus-bundle": "^3.0",
         "symfony/string": "8.1.*",
         "symfony/telegram-notifier": "8.1.*",
         "symfony/translation": "8.1.*",

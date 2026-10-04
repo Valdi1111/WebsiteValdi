@@ -2,9 +2,7 @@
 
 namespace App\CoreBundle\Controller;
 
-use App\CoreBundle\Form\LoginType;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
@@ -13,14 +11,13 @@ class SecurityController extends AbstractController
 {
 
     #[Route('/login', name: 'login', priority: 1000)]
-    public function login(AuthenticationUtils $authenticationUtils, FormFactoryInterface $formFactory): Response
+    public function login(AuthenticationUtils $authenticationUtils): Response
     {
         return $this->render('@Core/security/login.html.twig', [
             // last username entered by the user
             'last_username' => $authenticationUtils->getLastUsername(),
             // get the login error if there is one
             'error' => $authenticationUtils->getLastAuthenticationError(),
-            'loginForm' => $formFactory->createNamed('', LoginType::class),
         ]);
     }
 

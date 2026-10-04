@@ -7,10 +7,3 @@
 // bootstrap
 import "@CoreBundle/scss/global.scss";
 import 'bootstrap';
-
-// start the Stimulus application
-import '@App/app';
-
-// import { registerReactControllerComponents } from "@symfony/ux-react";
-//
-// registerReactControllerComponents(require.context('@CoreBundle/components/', true, /\.(j|t)sx?$/));

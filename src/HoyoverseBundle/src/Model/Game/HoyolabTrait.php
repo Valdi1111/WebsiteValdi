@@ -9,6 +9,7 @@ use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
 use App\HoyoverseBundle\Service\HoyolabUtilsService;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Target;
+use Symfony\Component\HttpClient\Exception\JsonException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\ObjectMapper\ObjectMapperInterface;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
@@ -152,6 +153,16 @@ trait HoyolabTrait
             }
 
             return $body;
+
+        } catch (JsonException $e) {
+            $rawContent = isset($response) ? $response->getContent(false) : null;
+
+            $this->getLogger()->error("Malformed JSON received from API: {$e->getMessage()}", array_merge($logContext, [
+                'exception'   => $e,
+                'raw_content' => $rawContent,
+            ]));
+
+            throw (new $exceptionClass("Malformed JSON response: {$e->getMessage()}", 0, $e));
 
         } catch (HttpClientExceptionInterface $e) {
             $this->getLogger()->error("Network exception during API request: {$e->getMessage()}", array_merge($logContext, [

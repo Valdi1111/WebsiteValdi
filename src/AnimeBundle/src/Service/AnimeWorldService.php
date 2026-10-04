@@ -7,10 +7,12 @@ use App\AnimeBundle\Entity\EpisodeRelease;
 use App\AnimeBundle\Entity\ListAnime;
 use App\AnimeBundle\Entity\SeasonFolder;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
+use App\AnimeBundle\Exception\SiteUnavailableException;
 use App\AnimeBundle\Message\EpisodeDownloadNotification;
 use App\AnimeBundle\Model\EpisodeDownloadRequest;
 use Doctrine\ORM\EntityManagerInterface;
 use Exception;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\BrowserKit\HttpBrowser;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -18,6 +20,7 @@ use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 #[AsAlias('animeworld.anime.downloader')]
@@ -32,6 +35,7 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
         private HttpClientInterface    $animeAnimeworldClient,
         private HttpClientInterface    $nodeServicesClient,
         private MessageBusInterface    $bus,
+        private LoggerInterface        $animeEpisodeDownloaderLogger,
         #[Autowire(param: 'anime.temp_folder')]
         private string                 $tempFolder,
         #[Autowire(param: 'anime.animeworld.url')]
@@ -47,9 +51,18 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
      */
     private function fetchPage(string $url = ""): Crawler
     {
-        $crawler = $this->httpBrowser->request(Request::METHOD_GET, $this->getWebsiteUrl() . $url);
-        $response = $this->httpBrowser->getResponse();
-//        if ($response->getStatusCode() === Response::HTTP_ACCEPTED) {
+        try {
+            $crawler = $this->httpBrowser->request(Request::METHOD_GET, $this->getWebsiteUrl() . $url);
+            $response = $this->httpBrowser->getResponse();
+        } catch (TransportExceptionInterface | \Throwable $e) {
+            // Gestisce errori di rete, timeout o mancata risoluzione DNS
+            throw new SiteUnavailableException(sprintf("Network/DNS error while contacting AnimeWorld: %s", $e->getMessage()),
+                0,
+                $e
+            );
+        }
+        $statusCode = $response->getStatusCode();
+//        if ($statusCode === Response::HTTP_ACCEPTED) {
 //            if (!preg_match('/(SecurityAW-[^=]+)=([^;]+)/', $response->getContent(), $matches)) {
 //                throw new Exception("Error fetching page from AnimeWorld. Cookie SecurityAW-XX not found.");
 //            }
@@ -57,8 +70,14 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
 //            $crawler = $this->httpBrowser->request(Request::METHOD_GET', $this->getWebsiteUrl() . $url);
 //            $response = $this->httpBrowser->getResponse();
 //        }
-        if ($response->getStatusCode() !== Response::HTTP_OK) {
-            throw new Exception("Error fetching page from AnimeWorld. Http code = " . $response->getStatusCode());
+        if ($statusCode >= 500) {
+            throw new SiteUnavailableException(
+                sprintf("AnimeWorld is currently unavailable (Cloudflare/Server HTTP %d)", $statusCode),
+                $statusCode
+            );
+        }
+        if ($statusCode !== Response::HTTP_OK) {
+            throw new Exception("Error fetching page from AnimeWorld. Http code = " . $statusCode);
         }
         return $crawler;
     }
@@ -139,7 +158,15 @@ readonly class AnimeWorldService implements AnimeDownloaderInterface
      */
     public function checkNewEpisodes(): array
     {
-        $crawler = $this->fetchPage();
+        try {
+            $crawler = $this->fetchPage();
+        } catch (SiteUnavailableException $e) {
+            $this->animeEpisodeDownloaderLogger->warning("Skipping AnimeWorld episode check: {message}", [
+                'message' => $e->getMessage(),
+                'service' => self::getServiceName(),
+            ]);
+            return [];
+        }
         $urlPaths = $crawler
             ->filter("#main .widget-body .content[data-name='sub'] .film-list > .item > .inner > a.name")
             ->each(fn($node, $i) => $node->attr("href"));

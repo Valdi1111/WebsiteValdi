@@ -5,24 +5,25 @@
         <title>{% block title %}Welcome!{% endblock %}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <link rel="icon" href={% block favicon %}{% include 'favicon.html.twig' %}{% endblock %}>
+        {% block head %}{% endblock %}
+
         {% block stylesheets %}
-            <style>
-                div.webix_view.webix_fmanager_preview img {
-                    object-fit: contain;
-                }
-                div.webix_dataview_item.tiles div.webix_fmanager_card_preview.file img {
-                    object-fit: contain;
-                }
-            </style>
             {{ encore_entry_link_tags('core') }}
         {% endblock %}
+
         {% block javascripts %}
             <script>
                 const MERCURE_HUB_URL = '{{ mercure_hub_url }}';
             </script>
             {{ encore_entry_script_tags('core') }}
         {% endblock %}
-        {% block head %}{% endblock %}
+
+        {% set frankenphp_hot_reload = app.request.server.get('FRANKENPHP_HOT_RELOAD') %}
+        {% if frankenphp_hot_reload %}
+            <meta name="frankenphp-hot-reload:url" content="{{ frankenphp_hot_reload }}">
+            <script src="https://cdn.jsdelivr.net/npm/idiomorph"></script>
+            <script src="https://cdn.jsdelivr.net/npm/frankenphp-hot-reload/+esm" type="module"></script>
+        {% endif %}
     </head>
     <body>
         {% block body %}{% endblock %}

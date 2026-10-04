@@ -33,3 +33,4 @@ yarn-error.log
 /compose.override.yaml
 /.idea/
 /node-services/node_modules/
+.aider*

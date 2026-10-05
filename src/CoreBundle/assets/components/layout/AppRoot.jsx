@@ -12,11 +12,6 @@ export default function AppRoot({ children }) {
             return;
         }
         localStorage.setItem(THEME, theme);
-        const elems = document.getElementsByTagName('html')
-        if (!elems || !elems.length) {
-            return;
-        }
-        elems[0].setAttribute('data-bs-theme', theme);
     }, [theme]);
 
     return <ThemeContext value={[theme, setTheme]}>

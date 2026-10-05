@@ -1,0 +1,19 @@
+/**
+ * Tree
+ */
+
+.ant-tree-treenode {
+    width: 100%;
+}
+
+.ant-tree-node-content-wrapper {
+    min-width: 0;
+}
+
+.ant-tree-title {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

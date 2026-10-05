@@ -1,0 +1,12 @@
+/**
+ * Modal
+ */
+
+.ant-modal .ant-upload-wrapper > .ant-upload-list {
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+.ant-modal .ant-upload-wrapper > .ant-upload.ant-upload-drag {
+    margin-bottom: 12px;
+}

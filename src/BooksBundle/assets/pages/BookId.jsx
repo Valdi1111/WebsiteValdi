@@ -8,7 +8,7 @@ import { useBackendApi } from "@BooksBundle/components/BackendApiContext";
 import { useParams } from "react-router";
 import { Book, EpubCFI } from "epubjs";
 import React from "react";
-import "@BooksBundle/scss/iframe.css";
+import "@BooksBundle/styles/iframe.css";
 import {
     FONT, FONTS, FONT_SIZE,
     SPACING, MARGINS, WIDTH,

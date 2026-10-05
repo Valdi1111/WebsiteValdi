@@ -8,14 +8,14 @@
         {% block head %}{% endblock %}
 
         {% block stylesheets %}
-            {{ encore_entry_link_tags('core') }}
+            {{ encore_entry_link_tags('app') }}
         {% endblock %}
 
         {% block javascripts %}
             <script>
                 const MERCURE_HUB_URL = '{{ mercure_hub_url }}';
             </script>
-            {{ encore_entry_script_tags('core') }}
+            {{ encore_entry_script_tags('app') }}
         {% endblock %}
 
         {% set frankenphp_hot_reload = app.request.server.get('FRANKENPHP_HOT_RELOAD') %}

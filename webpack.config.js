@@ -46,7 +46,7 @@ Encore
     .addEntry('hoyoverse', '@HoyoverseBundle/app.js')
     .addEntry('passwords', '@PasswordsBundle/app.js')
     .addEntry('videos', '@VideosBundle/app.js')
-    //.addEntry('app', './assets/app.js')
+    .addEntry('app', '@App/app.js')
 
     // When enabled, Webpack "splits" your files into smaller pieces for greater optimization.
     .splitEntryChunks()
@@ -88,7 +88,7 @@ Encore
     })
 
     // enables Sass/SCSS support
-    .enableSassLoader()
+    //.enableSassLoader()
 
     // uncomment if you use TypeScript
     //.enableTypeScriptLoader()

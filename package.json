@@ -11,7 +11,7 @@
         "@fortawesome/react-fontawesome": "^3.3.0",
         "@symfony/webpack-encore": "^7.0.0",
         "antd": "^6.3.6",
-        "axios": "^1.15.0",
+        "axios": "^1.20.0",
         "babel-plugin-polyfill-corejs3": "^1.0.0",
         "chart.js": "^4.5.1",
         "core-js": "^3.49.0",

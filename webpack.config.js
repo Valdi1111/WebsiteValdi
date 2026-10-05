@@ -94,7 +94,10 @@ Encore
     //.enableTypeScriptLoader()
 
     // uncomment if you use React
-    .enableReactPreset()
+    .enableReactPreset((options) => {
+        options.runtime = 'automatic';
+        options.development = !Encore.isProduction();
+    })
 
     // uncomment to get integrity="..." attributes on your script & link tags
     // requires WebpackEncoreBundle 1.4 or higher

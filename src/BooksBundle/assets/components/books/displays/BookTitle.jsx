@@ -5,7 +5,9 @@ import React from "react";
 export default function BookTitle() {
     const { title } = useBook();
 
-    return <Typography.Text id="book-title" ellipsis={{ tooltip: true }}>
-        {title}
-    </Typography.Text>;
+    return (
+        <Typography.Text id="book-title" ellipsis={{ tooltip: true }}>
+            {title}
+        </Typography.Text>
+    );
 }

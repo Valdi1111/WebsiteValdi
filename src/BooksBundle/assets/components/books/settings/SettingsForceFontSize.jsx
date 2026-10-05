@@ -6,8 +6,12 @@ import React from "react";
 export default function SettingsForceFontSize() {
     const { settings, setSetting } = useBookSettings();
 
-    return <Checkbox
-        onChange={e => setSetting(FORCE_FONT_SIZE, e.target.checked ? "true" : "false")}
-        checked={settings[FORCE_FONT_SIZE] === "true"}
-    >Force font size</Checkbox>;
+    return (
+        <Checkbox
+            onChange={e => setSetting(FORCE_FONT_SIZE, e.target.checked ? "true" : "false")}
+            checked={settings[FORCE_FONT_SIZE] === "true"}
+        >
+            Force font size
+        </Checkbox>
+    );
 }

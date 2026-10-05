@@ -6,15 +6,17 @@ import React from "react";
 export default function SettingsMargins() {
     const { settings, setSetting } = useBookSettings();
 
-    return <Flex justify="space-between" align="center">
-        <Typography.Text>Margins</Typography.Text>
-        <InputNumber
-            style={{ width: 160 }}
-            onChange={val => setSetting(MARGINS, val)}
-            value={settings[MARGINS]}
-            mode="spinner"
-            step={20}
-            min={0}
-        />
-    </Flex>
+    return (
+        <Flex justify="space-between" align="center">
+            <Typography.Text>Margins</Typography.Text>
+            <InputNumber
+                style={{ width: 160 }}
+                onChange={val => setSetting(MARGINS, val)}
+                value={settings[MARGINS]}
+                mode="spinner"
+                step={20}
+                min={0}
+            />
+        </Flex>
+    );
 }

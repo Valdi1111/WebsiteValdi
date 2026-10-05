@@ -7,7 +7,7 @@ import React from "react";
 import "./BookFooter.css";
 
 export default function BookFooter() {
-    const { token: { colorBgContainer } } = antdTheme.useToken();
+    const { token: { colorBgContainer, colorBorderSecondary } } = antdTheme.useToken();
     const { prev, next } = useBook();
 
     return <Layout.Footer id="book-footer" style={{
@@ -18,6 +18,7 @@ export default function BookFooter() {
         padding: 10,
         height: 'auto',
         background: colorBgContainer,
+        borderTop: `1px solid ${colorBorderSecondary}`,
     }}>
         <Button color="default" variant="filled" icon={<LeftOutlined/>} onClick={prev} style={{ flexShrink: 0 }}/>
         <div id="book-footer-left-text" style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>

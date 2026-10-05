@@ -15,39 +15,48 @@ export default function ContentToc() {
         }
         navigateTo(e.node.href);
         setContentsDrawerOpen(false);
-    }, [navigateTo]);
+    }, [navigateTo, setContentsDrawerOpen]);
 
     const chapters = React.useMemo(() => {
-        function transformChapters(c) {
-            return c.map(i => ({ ...i, selectable: !!i.href, subitems: transformChapters(i.subitems) }))
+        function transformChapters(c = []) {
+            if (!Array.isArray(c)) {
+                return [];
+            }
+            return c.map(i => ({
+                ...i,
+                key: i.id || i.href || Math.random().toString(),
+                selectable: !!i.href,
+                children: transformChapters(i.subitems || []),
+            }));
         }
         return transformChapters(navigation);
     }, [navigation]);
 
-    return <ConfigProvider
-        theme={{
-            components: {
-                Tree: {
-                    titleHeight: 32,
-                },
-            },
-        }}
-    >
-        <Tree
-            showLine={true}
-            selectedKeys={[chapter?.id]}
-            onSelect={onSelect}
-            treeData={chapters}
-            fieldNames={{ title: 'label', key: 'id' }}
-            defaultExpandAll={true}
-            blockNode
-            styles={{
-                root: {
-                    backgroundColor: colorBgElevated,
-                    paddingRight: 16,
+    return (
+        <ConfigProvider
+            theme={{
+                components: {
+                    Tree: {
+                        titleHeight: 32,
+                    },
                 },
             }}
-        />
-    </ConfigProvider>;
-
+        >
+            <Tree
+                showLine={true}
+                selectedKeys={chapter?.id ? [chapter.id] : []}
+                onSelect={onSelect}
+                treeData={chapters}
+                fieldNames={{ title: 'label', key: 'key', children: 'children' }}
+                defaultExpandAll={true}
+                blockNode
+                styles={{
+                    root: {
+                        backgroundColor: colorBgElevated,
+                        paddingRight: 16,
+                    },
+                }}
+            />
+        </ConfigProvider>
+    );
 }

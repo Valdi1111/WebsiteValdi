@@ -5,7 +5,7 @@ import { Layout, theme as antdTheme } from "antd";
 import React from "react";
 
 export default function BookHeader() {
-    const { token: { colorBgContainer } } = antdTheme.useToken();
+    const { token: { colorBgContainer, colorBorderSecondary } } = antdTheme.useToken();
 
     return <Layout.Header id="book-header" style={{
         display: 'flex',
@@ -15,6 +15,7 @@ export default function BookHeader() {
         padding: 10,
         height: 'auto',
         background: colorBgContainer,
+        borderBottom: `1px solid ${colorBorderSecondary}`,
     }}>
         <BookContents/>
         <BookTitle/>

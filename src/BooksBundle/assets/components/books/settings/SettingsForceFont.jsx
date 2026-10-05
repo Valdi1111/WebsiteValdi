@@ -6,8 +6,12 @@ import React from "react";
 export default function SettingsForceFont() {
     const { settings, setSetting } = useBookSettings();
 
-    return <Checkbox
-        onChange={e => setSetting(FORCE_FONT, e.target.checked ? "true" : "false")}
-        checked={settings[FORCE_FONT] === "true"}
-    >Force font</Checkbox>;
+    return (
+        <Checkbox
+            onChange={e => setSetting(FORCE_FONT, e.target.checked ? "true" : "false")}
+            checked={settings[FORCE_FONT] === "true"}
+        >
+            Force font
+        </Checkbox>
+    );
 }

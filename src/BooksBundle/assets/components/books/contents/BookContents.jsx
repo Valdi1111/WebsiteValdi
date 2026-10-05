@@ -38,43 +38,44 @@ const items = [
 export default function BookContents() {
     const { contentsDrawerOpen, setContentsDrawerOpen } = useBook();
 
-    return <>
-        <Button
-            style={{ flexShrink: 0 }}
-            color="default"
-            variant="filled"
-            icon={<MenuOutlined/>}
-            onClick={() => setContentsDrawerOpen(current => !current)}
-        />
-        <Drawer
-            title="Contents"
-            placement="left"
-            onClose={() => setContentsDrawerOpen(false)}
-            open={contentsDrawerOpen}
-            key="book-contents-drawer"
-            styles={{
-                body: {
-                    height: '100%',
-                    padding: 0,
-                },
-            }}
-        >
-            <Tabs
-                id="book-contents-drawer-tabs"
-                defaultActiveKey="toc"
-                items={items}
-                centered={true}
+    return (
+        <>
+            <Button
+                style={{ flexShrink: 0 }}
+                color="default"
+                variant="filled"
+                icon={<MenuOutlined/>}
+                onClick={() => setContentsDrawerOpen(current => !current)}
+            />
+            <Drawer
+                title="Contents"
+                placement="left"
+                onClose={() => setContentsDrawerOpen(false)}
+                open={contentsDrawerOpen}
+                key="book-contents-drawer"
                 styles={{
-                    root: {
-                        flex: 1,
-                        minHeight: 0,
-                    },
-                    item: {
-                        margin: '0 8px',
+                    body: {
+                        height: '100%',
+                        padding: 0,
                     },
                 }}
-            />
-        </Drawer>
-    </>;
-
+            >
+                <Tabs
+                    id="book-contents-drawer-tabs"
+                    defaultActiveKey="toc"
+                    items={items}
+                    centered={true}
+                    styles={{
+                        root: {
+                            flex: 1,
+                            minHeight: 0,
+                        },
+                        item: {
+                            margin: '0 8px',
+                        },
+                    }}
+                />
+            </Drawer>
+        </>
+    );
 }

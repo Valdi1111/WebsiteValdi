@@ -10,11 +10,14 @@ const options = Object
 export default function SettingsLayout() {
     const { settings, setSetting } = useBookSettings();
 
-    return <Radio.Group
-        style={{ width: 160 }}
-        onChange={val => setSetting(LAYOUT, val[0])}
-        value={settings[LAYOUT]}
-        options={options}
-        vertical
-    />;
+    return (
+        <Radio.Group
+            style={{ width: 160 }}
+            // Ant Design Radio.Group provides an event object with target.value
+            onChange={e => setSetting(LAYOUT, e.target.value)}
+            value={settings[LAYOUT]}
+            options={options}
+            vertical
+        />
+    );
 }

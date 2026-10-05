@@ -83,6 +83,7 @@ export default function FoldersTree() {
         return <Highlighter
             highlightStyle={{
                 backgroundColor: controlItemBgActiveHover,
+                color: 'inherit',
                 borderRadius: '5px',
                 padding: '2px 0',
             }}

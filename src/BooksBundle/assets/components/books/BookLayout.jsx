@@ -1,7 +1,7 @@
 import BookSettingsContext from "@BooksBundle/components/books/BookSettingsContext";
 import SpinComponent from "@CoreBundle/components/SpinComponent";
 import {
-    FONT, FONTS, FONT_SIZE,
+    FORCE_TEXT_COLOR, FONT, FONTS, FONT_SIZE,
     SPACING, MARGINS, WIDTH,
     FORCE_FONT, FORCE_FONT_SIZE, JUSTIFY,
     LAYOUT, LAYOUTS, UPDATE_LAST_READ
@@ -16,6 +16,7 @@ export default function BookLayout({ children }) {
     // Load settings or set default values
     React.useEffect(() => {
         const s = {};
+        loadSettingOrSave(s, FORCE_TEXT_COLOR, true);
         loadSettingOrSave(s, FONT, Object.keys(FONTS)[0]);
         loadSettingOrSave(s, FONT_SIZE, 19);
         loadSettingOrSave(s, FORCE_FONT, true);

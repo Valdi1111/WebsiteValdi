@@ -10,15 +10,17 @@ const options = Object
 export default function SettingsFont() {
     const { settings, setSetting } = useBookSettings();
 
-    return <Flex justify="space-between" align="center">
-        <Typography.Text>Font</Typography.Text>
-        <Select
-            style={{ width: 160 }}
-            onChange={val => setSetting(FONT, val)}
-            value={settings[FONT]}
-            options={options}
-            optionRender={option => <span style={{ fontFamily: option.value }}>{option.label}</span>}
-            showSearch
-        />
-    </Flex>
+    return (
+        <Flex justify="space-between" align="center">
+            <Typography.Text>Font</Typography.Text>
+            <Select
+                style={{ width: 160 }}
+                onChange={val => setSetting(FONT, val)}
+                value={settings[FONT]}
+                options={options}
+                optionRender={option => <span style={{ fontFamily: option.value }}>{option.label}</span>}
+                showSearch
+            />
+        </Flex>
+    );
 }

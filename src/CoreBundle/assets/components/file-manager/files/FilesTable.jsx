@@ -78,6 +78,7 @@ export default function FilesTable() {
             <Highlighter
                 highlightStyle={{
                     backgroundColor: controlItemBgActiveHover,
+                    color: 'inherit',
                     borderRadius: '5px',
                     padding: '2px 0',
                 }}
@@ -118,6 +119,7 @@ export default function FilesTable() {
                     <Highlighter
                         highlightStyle={{
                             backgroundColor: controlItemBgActiveHover,
+                            color: 'inherit',
                             borderRadius: '5px',
                             padding: '2px 0',
                         }}

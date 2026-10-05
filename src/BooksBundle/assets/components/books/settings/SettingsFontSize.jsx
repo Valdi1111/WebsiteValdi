@@ -8,14 +8,16 @@ const options = FONT_SIZES.map(i => ({ value: i, label: i }));
 export default function SettingsFontSize() {
     const { settings, setSetting } = useBookSettings();
 
-    return <Flex justify="space-between" align="center">
-        <Typography.Text>Font size</Typography.Text>
-        <Select
-            style={{ width: 160 }}
-            onChange={val => setSetting(FONT_SIZE, val)}
-            value={settings[FONT_SIZE]}
-            options={options}
-            optionRender={option => <span style={{ fontSize: option.value }}>{option.label}</span>}
-        />
-    </Flex>
+    return (
+        <Flex justify="space-between" align="center">
+            <Typography.Text>Font size</Typography.Text>
+            <Select
+                style={{ width: 160 }}
+                onChange={val => setSetting(FONT_SIZE, val)}
+                value={settings[FONT_SIZE]}
+                options={options}
+                optionRender={option => <span style={{ fontSize: option.value }}>{option.label}</span>}
+            />
+        </Flex>
+    );
 }

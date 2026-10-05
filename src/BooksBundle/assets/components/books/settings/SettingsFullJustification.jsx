@@ -6,8 +6,12 @@ import React from "react";
 export default function SettingsFullJustification() {
     const { settings, setSetting } = useBookSettings();
 
-    return <Checkbox
-        onChange={e => setSetting(JUSTIFY, e.target.checked ? "true" : "false")}
-        checked={settings[JUSTIFY] === "true"}
-    >Force font</Checkbox>;
+    return (
+        <Checkbox
+            onChange={e => setSetting(JUSTIFY, e.target.checked ? "true" : "false")}
+            checked={settings[JUSTIFY] === "true"}
+        >
+            Justify text
+        </Checkbox>
+    );
 }

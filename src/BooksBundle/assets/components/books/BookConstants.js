@@ -1,4 +1,5 @@
 // Settings constants
+export const FORCE_TEXT_COLOR = 'force-text-color';
 export const FONT = 'font';
 export const FORCE_FONT = 'force-font';
 export const SPACING = 'spacing';

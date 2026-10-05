@@ -48,7 +48,7 @@ class GameNotesStamina
     public function isWithinThreshold(RuntimeAccountData $accountData): bool
     {
         if ($accountData->getGameProfile()->getStaminaThreshold() < 0) {
-            return false;
+            return $this->isFull();
         }
         return $this->getCurrentStamina() >= $accountData->getGameProfile()->getStaminaThreshold();
     }

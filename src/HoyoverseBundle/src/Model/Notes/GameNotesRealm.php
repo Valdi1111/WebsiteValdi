@@ -48,7 +48,7 @@ class GameNotesRealm
     public function isWithinThreshold(RuntimeAccountData $accountData): bool
     {
         if ($accountData->getGameProfile()->getRealmCurrencyThreshold() < 0) {
-            return false;
+            return $this->isFull();
         }
         return $this->getCurrentCoin() >= $accountData->getGameProfile()->getRealmCurrencyThreshold();
     }

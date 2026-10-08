@@ -1,6 +1,8 @@
+import CodeEditorModal from "@CoreBundle/components/file-manager/editor/CodeEditorModal"; // Adjust path as needed
 import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerContext";
 import { App, Dropdown, Form, Input, Modal } from "antd";
 import {
+    CodeOutlined,
     CopyOutlined,
     DeleteOutlined,
     DownloadOutlined,
@@ -20,6 +22,7 @@ import React from "react";
  */
 export default function FilesTableRowDropdown({ children, row, trigger = ['contextMenu'] }) {
     const [visibleRename, setVisibleRename] = React.useState(false);
+    const [visibleEditor, setVisibleEditor] = React.useState(false);
     const [confirmLoadingRename, setConfirmLoadingRename] = React.useState(false);
     const [formRename] = Form.useForm();
     const { modal } = App.useApp();
@@ -72,8 +75,17 @@ export default function FilesTableRowDropdown({ children, row, trigger = ['conte
             onClick: openItem,
         });
 
-        // 2. File-specific actions (Preview, Download, Clipboard)
+        // 2. File-specific actions (Code Edit, Preview, Download, Clipboard)
         if (row.type !== 'folder') {
+            if (row.type === 'code') {
+                out.push({
+                    key: 'edit',
+                    label: 'Edit',
+                    icon: <CodeOutlined />,
+                    onClick: () => setVisibleEditor(true),
+                });
+            }
+
             out.push({
                 key: 'preview',
                 label: 'Preview',
@@ -264,6 +276,15 @@ export default function FilesTableRowDropdown({ children, row, trigger = ['conte
     }, [row, modal, api, reloadFolders, reloadFiles, setSelectedFile]);
 
     return <>
+        {/* Code Editor Modal (only for code files) */}
+        {row?.type === 'code' && (
+            <CodeEditorModal
+                visible={visibleEditor}
+                setVisible={setVisibleEditor}
+                file={row}
+            />
+        )}
+
         {/* Rename Modal */}
         <Modal
             open={visibleRename}

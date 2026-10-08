@@ -30,6 +30,8 @@ import axios from "axios";
  * @property {(id: string|number, download?: boolean) => string} fmUploadUrl
  * @property {(size?: string, type?: string, name?: string) => string} fmIconUrl
  * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} fmDownload
+ * @property {(id: string|number) => Promise<axios.AxiosResponse<string>>} fmTextGet
+ * @property {(id: string|number, content: string) => Promise<axios.AxiosResponse<any>>} fmTextPost
  *
  * @property {() => FileManagerAPI} [withErrorHandling]
  * @property {(messageData: MessageData) => FileManagerAPI} [withLoadingMessage]
@@ -75,6 +77,8 @@ export default function (apiUrl, { message }) {
             link.remove();
         },
     );
+    api.fmTextGet = async (id) => axiosInstance.get(`/text`, { params: { id }, responseType: 'text' });
+    api.fmTextPost = async (id, content) => axiosInstance.post(`/text`, { id, content });
 
     return {
         ...api,

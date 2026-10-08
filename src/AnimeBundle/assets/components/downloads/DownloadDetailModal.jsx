@@ -1,13 +1,12 @@
 import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
+import ExternalTitleLink from "@AnimeBundle/components/ExternalTitleLink";
 import { formatDateTimeFromIso } from "@CoreBundle/format-utils";
 import { App, Button, Descriptions, Modal, Space } from "antd";
 import { DownloadOutlined, ExclamationCircleFilled } from "@ant-design/icons";
-import { Link } from "react-router";
 import React from "react";
 
 export default function DownloadDetailModal({ open, setOpen, selectedId }) {
     const [loading, setLoading] = React.useState(true);
-
     const { modal } = App.useApp();
     const [data, setData] = React.useState(null);
     const api = useBackendApi();
@@ -17,7 +16,7 @@ export default function DownloadDetailModal({ open, setOpen, selectedId }) {
             return;
         }
         modal.confirm({
-            icon: <ExclamationCircleFilled/>,
+            icon: <ExclamationCircleFilled />,
             title: 'Are you sure you want to retry this download?',
             content: data.download.file,
             onOk: () => api
@@ -29,7 +28,7 @@ export default function DownloadDetailModal({ open, setOpen, selectedId }) {
                 .downloads()
                 .retry(data.download.id),
         });
-    }, [data]);
+    }, [data, api, modal]);
 
     const afterOpenChange = React.useCallback(opened => {
         if (!opened) {
@@ -45,8 +44,9 @@ export default function DownloadDetailModal({ open, setOpen, selectedId }) {
             .then(res => {
                 setData(res.data);
                 setLoading(false);
-            });
-    }, [selectedId]);
+            })
+            .catch(() => setLoading(false));
+    }, [selectedId, api]);
 
     const items = React.useMemo(() => {
         if (!data) {
@@ -110,39 +110,51 @@ export default function DownloadDetailModal({ open, setOpen, selectedId }) {
             {
                 key: 10,
                 label: 'MyAnimeList',
-                children: <Link to={data.myanimelist?.url} target="_blank">
-                    {data.myanimelist?.title}
-                </Link>,
+                children: (
+                    <ExternalTitleLink
+                        id={data.download.mal_id}
+                        url={`https://myanimelist.net/anime/${data.download.mal_id}`}
+                        fetchTitle={data.download.mal_id ? () => api.myAnimeList().animeTitle(data.download.mal_id) : null}
+                    />
+                ),
                 span: 5,
             },
             {
                 key: 11,
                 label: 'AniList',
-                children: <Link to={data.anilist?.url} target="_blank">
-                    {data.anilist?.title}
-                </Link>,
+                children: (
+                    <ExternalTitleLink
+                        id={data.download.al_id}
+                        url={`https://anilist.co/anime/${data.download.al_id}`}
+                        fetchTitle={data.download.al_id ? () => api.aniList().animeTitle(data.download.al_id) : null}
+                    />
+                ),
                 span: 5,
             },
         ];
-    }, [data]);
+    }, [data, api]);
 
-    return <Modal
-        title={<Space>
-            <span>Download details</span>
-            <Button
-                type="primary"
-                onClick={onRetryOpen}
-                icon={<DownloadOutlined/>}
-                size="small"/>
-        </Space>}
-        footer={null}
-        loading={loading}
-        open={open}
-        afterOpenChange={afterOpenChange}
-        onCancel={() => setOpen(false)}
-        destroyOnHidden
-    >
-        <Descriptions column={10} layout={'vertical'} items={items}/>
-    </Modal>;
-
+    return (
+        <Modal
+            title={
+                <Space>
+                    <span>Download details</span>
+                    <Button
+                        type="primary"
+                        onClick={onRetryOpen}
+                        icon={<DownloadOutlined />}
+                        size="small"
+                    />
+                </Space>
+            }
+            footer={null}
+            loading={loading}
+            open={open}
+            afterOpenChange={afterOpenChange}
+            onCancel={() => setOpen(false)}
+            destroyOnHidden
+        >
+            <Descriptions column={10} layout="vertical" items={items} />
+        </Modal>
+    );
 }

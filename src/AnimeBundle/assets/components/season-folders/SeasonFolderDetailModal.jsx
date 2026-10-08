@@ -1,15 +1,15 @@
 import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
+import ExternalTitleLink from "@AnimeBundle/components/ExternalTitleLink";
 import { DeleteOutlined, ExclamationCircleFilled } from "@ant-design/icons";
 import { App, Button, Descriptions, Modal, Space, Tooltip } from "antd";
 import { formatDateTimeFromIso } from "@CoreBundle/format-utils";
-import { Link } from "react-router";
 import React from "react";
 
 export default function SeasonFolderDetailModal({ open, setOpen, selectedId, type }) {
     const [loading, setLoading] = React.useState(true);
     const [data, setData] = React.useState(null);
 
-    const { modal } = App.useApp()
+    const { modal } = App.useApp();
     const api = useBackendApi();
 
     const afterOpenChange = React.useCallback(opened => {
@@ -26,15 +26,16 @@ export default function SeasonFolderDetailModal({ open, setOpen, selectedId, typ
             .then(res => {
                 setData(res.data);
                 setLoading(false);
-            });
-    }, [selectedId]);
+            })
+            .catch(() => setLoading(false));
+    }, [selectedId, api]);
 
     const onDeleteOpen = React.useCallback(() => {
         if (!data) {
             return;
         }
         modal.confirm({
-            icon: <ExclamationCircleFilled/>,
+            icon: <ExclamationCircleFilled />,
             title: 'Are you sure you want to delete this season folder?',
             content: data.folder,
             onOk: () => api
@@ -45,11 +46,9 @@ export default function SeasonFolderDetailModal({ open, setOpen, selectedId, typ
                 })
                 .seasonFolders()
                 .delete(selectedId)
-                .then(res => {
-                    setOpen(false);
-                }),
+                .then(() => setOpen(false)),
         });
-    }, [data]);
+    }, [data, api, modal, selectedId, setOpen]);
 
     const items = React.useMemo(() => {
         if (!data) {
@@ -58,10 +57,14 @@ export default function SeasonFolderDetailModal({ open, setOpen, selectedId, typ
         return [
             {
                 key: 1,
-                label: 'MyAnimeList ID',
-                children: <Link to={`https://myanimelist.net/anime/${data.id}`} target="_blank">
-                    {data.id}
-                </Link>,
+                label: 'MyAnimeList',
+                children: (
+                    <ExternalTitleLink
+                        id={data.id}
+                        url={`https://myanimelist.net/anime/${data.id}`}
+                        fetchTitle={() => api.myAnimeList().animeTitle(data.id)}
+                    />
+                ),
                 span: 2,
             },
             {
@@ -77,25 +80,32 @@ export default function SeasonFolderDetailModal({ open, setOpen, selectedId, typ
                 span: 4,
             },
         ];
-    }, [data]);
+    }, [data, api]);
 
-    return <Modal
-        title={<Space>
-            <span>Season details</span>
-            <Tooltip title={'Delete season folder'}>
-                <Button shape="circle" color="danger" variant="outlined" icon={<DeleteOutlined/>}
-                        onClick={() => onDeleteOpen()}
-                />
-            </Tooltip>
-        </Space>}
-        footer={null}
-        loading={loading}
-        open={open}
-        afterOpenChange={afterOpenChange}
-        onCancel={() => setOpen(false)}
-        destroyOnHidden
-    >
-        <Descriptions column={4} layout="vertical" items={items}/>
-    </Modal>;
-
+    return (
+        <Modal
+            title={
+                <Space>
+                    <span>Season details</span>
+                    <Tooltip title="Delete season folder">
+                        <Button
+                            shape="circle"
+                            color="danger"
+                            variant="outlined"
+                            icon={<DeleteOutlined />}
+                            onClick={() => onDeleteOpen()}
+                        />
+                    </Tooltip>
+                </Space>
+            }
+            footer={null}
+            loading={loading}
+            open={open}
+            afterOpenChange={afterOpenChange}
+            onCancel={() => setOpen(false)}
+            destroyOnHidden
+        >
+            <Descriptions column={4} layout="vertical" items={items} />
+        </Modal>
+    );
 }

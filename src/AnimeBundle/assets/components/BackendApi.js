@@ -2,6 +2,18 @@ import { createProxy, withErrorHandling, withLoadingMessage } from "@CoreBundle/
 import axios from "axios";
 
 /**
+ * @typedef {Object} MyAnimeListAPI
+ * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} animeTitle
+ * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} mangaTitle
+ */
+
+/**
+ * @typedef {Object} AniListAPI
+ * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} animeTitle
+ * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} mangaTitle
+ */
+
+/**
  * @typedef {Object} DownloadsAPI
  * @property {(params: Object) => Promise<axios.AxiosResponse<any>>} table
  * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} getId
@@ -36,6 +48,8 @@ import axios from "axios";
  * @typedef {Object} AnimeBundleAPI
  * @property {() => string} [fmUrl]
  * @property {(id: string) => string} [fmDirectUrl]
+ * @property {() => MyAnimeListAPI} [myAnimeList]
+ * @property {() => AniListAPI} [aniList]
  * @property {() => DownloadsAPI} [downloads]
  * @property {() => ListAnimeAPI} [listAnime]
  * @property {() => ListMangaAPI} [listManga]
@@ -56,6 +70,14 @@ export default function (apiUrl, { message }) {
 
     api.fmUrl = () => axiosInstance.getUri({ url: `/files` });
     api.fmDirectUrl = (id) => axiosInstance.getUri({ url: `/files/direct`, params: { id } });
+
+    api._myAnimeList = {};
+    api._myAnimeList.animeTitle = async (id) => axiosInstance.get(`/myanimelist/anime-title/${id}`);
+    api._myAnimeList.mangaTitle = async (id) => axiosInstance.get(`/myanimelist/manga-title/${id}`);
+
+    api._aniList = {};
+    api._aniList.animeTitle = async (id) => axiosInstance.get(`/anilist/anime-title/${id}`);
+    api._aniList.mangaTitle = async (id) => axiosInstance.get(`/anilist/manga-title/${id}`);
 
     api._downloads = {};
     api._downloads.table = async (params) => axiosInstance.get(`/downloads/table`, { params });
@@ -82,6 +104,8 @@ export default function (apiUrl, { message }) {
 
     return {
         ...api,
+        myAnimeList: () => api._myAnimeList,
+        aniList: () => api._aniList,
         downloads: () => api._downloads,
         listAnime: () => api._listAnime,
         listManga: () => api._listManga,

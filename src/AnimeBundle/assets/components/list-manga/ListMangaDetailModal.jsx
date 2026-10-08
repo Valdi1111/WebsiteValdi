@@ -1,6 +1,6 @@
 import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
+import ExternalTitleLink from "@AnimeBundle/components/ExternalTitleLink";
 import { Descriptions, Modal } from "antd";
-import { Link } from "react-router";
 import React from "react";
 
 export default function ListMangaDetailModal({ open, setOpen, selectedId }) {
@@ -22,8 +22,9 @@ export default function ListMangaDetailModal({ open, setOpen, selectedId }) {
             .then(res => {
                 setData(res.data);
                 setLoading(false);
-            });
-    }, [selectedId]);
+            })
+            .catch(() => setLoading(false));
+    }, [selectedId, api]);
 
     const items = React.useMemo(() => {
         if (!data) {
@@ -32,10 +33,14 @@ export default function ListMangaDetailModal({ open, setOpen, selectedId }) {
         return [
             {
                 key: 1,
-                label: 'MyAnimeList ID',
-                children: <Link to={`https://myanimelist.net/manga/${data.id}`} target="_blank">
-                    {data.id}
-                </Link>,
+                label: 'MyAnimeList',
+                children: (
+                    <ExternalTitleLink
+                        id={data.id}
+                        url={`https://myanimelist.net/manga/${data.id}`}
+                        fetchTitle={() => api.myAnimeList().mangaTitle(data.id)}
+                    />
+                ),
                 span: 2,
             },
             {
@@ -83,18 +88,19 @@ export default function ListMangaDetailModal({ open, setOpen, selectedId }) {
                 hidden: true,
             },
         ];
-    }, [data]);
+    }, [data, api]);
 
-    return <Modal
-        title={<span>Manga details</span>}
-        footer={null}
-        loading={loading}
-        open={open}
-        afterOpenChange={afterOpenChange}
-        onCancel={() => setOpen(false)}
-        destroyOnHidden
-    >
-        <Descriptions column={4} layout={'vertical'} items={items}/>
-    </Modal>;
-
+    return (
+        <Modal
+            title={<span>Manga details</span>}
+            footer={null}
+            loading={loading}
+            open={open}
+            afterOpenChange={afterOpenChange}
+            onCancel={() => setOpen(false)}
+            destroyOnHidden
+        >
+            <Descriptions column={4} layout="vertical" items={items} />
+        </Modal>
+    );
 }

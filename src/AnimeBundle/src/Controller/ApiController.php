@@ -281,18 +281,58 @@ class ApiController extends AbstractController
     }
 
     #[Route('/downloads/{download}', name: 'downloads_id', requirements: ['download' => '\d+'], methods: ['GET'])]
-    public function apiDownloadsId(#[MapEntity(message: "Download not found.")] EpisodeDownload $download, HttpClientInterface $client): Response
+    public function apiDownloadsId(#[MapEntity(message: "Download not found.")] EpisodeDownload $download): Response
     {
         $res = ["download" => $download];
-        if ($download->getMalId()) {
-            $res["myanimelist"]["url"] = "https://myanimelist.net/anime/{$download->getMalId()}";
-            $res["myanimelist"]["title"] = $this->getOgTitle($client, $res["myanimelist"]["url"]);
-        }
-        if ($download->getAlId()) {
-            $res["anilist"]["url"] = "https://anilist.co/anime/{$download->getAlId()}";
-            $res["anilist"]["title"] = $this->getOgTitle($client, $res["anilist"]["url"]);
-        }
         return $this->json($res);
+    }
+
+    #[Route('/myanimelist/anime-title/{id}', name: 'myanimelist_anime_title', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function apiMyAnimeListAnimeTitle(int $id, HttpClientInterface $client): Response
+    {
+        $url = "https://myanimelist.net/anime/{$id}";
+
+        return $this->json([
+            'id' => $id,
+            'url' => $url,
+            'title' => $this->getOgTitle($client, $url),
+        ]);
+    }
+
+    #[Route('/myanimelist/manga-title/{id}', name: 'myanimelist_manga_title', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function apiMyAnimeListMangaTitle(int $id, HttpClientInterface $client): Response
+    {
+        $url = "https://myanimelist.net/manga/{$id}";
+
+        return $this->json([
+            'id' => $id,
+            'url' => $url,
+            'title' => $this->getOgTitle($client, $url),
+        ]);
+    }
+
+    #[Route('/anilist/anime-title/{id}', name: 'anilist_anime_title', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function apiAniListAnimeTitle(int $id, HttpClientInterface $client): Response
+    {
+        $url = "https://anilist.co/anime/{$id}";
+
+        return $this->json([
+            'id' => $id,
+            'url' => $url,
+            'title' => $this->getOgTitle($client, $url),
+        ]);
+    }
+
+    #[Route('/anilist/manga-title/{id}', name: 'anilist_manga_title', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function apiAniListMangaTitle(int $id, HttpClientInterface $client): Response
+    {
+        $url = "https://anilist.co/manga/{$id}";
+
+        return $this->json([
+            'id' => $id,
+            'url' => $url,
+            'title' => $this->getOgTitle($client, $url),
+        ]);
     }
 
     private function getOgTitle(HttpClientInterface $client, string $url): ?string

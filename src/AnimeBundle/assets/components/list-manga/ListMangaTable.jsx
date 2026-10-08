@@ -7,9 +7,9 @@ import {
     ExclamationCircleOutlined,
     SyncOutlined
 } from "@ant-design/icons";
-import StandardTable from "@CoreBundle/components/standard-table/StandardTable";
 import ListMangaDetailModal from "@AnimeBundle/components/list-manga/ListMangaDetailModal";
 import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
+import RemoteTable from "@CoreBundle/components/standard-table/RemoteTable.jsx";
 
 const { useBreakpoint } = Grid;
 
@@ -144,7 +144,7 @@ export default function ListMangaTable() {
                 selectedId={selectedId}
             />
 
-            <StandardTable
+            <RemoteTable
                 title="Manga Library"
                 subtitle="Browse, filter, and track synced manga chapters and publication states"
                 columns={columns}

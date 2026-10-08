@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { Button, Grid } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
-import StandardTable from "@CoreBundle/components/standard-table/StandardTable";
 import SeasonFolderAddModal from "@AnimeBundle/components/season-folders/SeasonFolderAddModal";
 import SeasonFolderDetailModal from "@AnimeBundle/components/season-folders/SeasonFolderDetailModal";
 import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
+import RemoteTable from "@CoreBundle/components/standard-table/RemoteTable.jsx";
 
 const { useBreakpoint } = Grid;
 
@@ -54,7 +54,7 @@ export default function SeasonFoldersTable() {
                 selectedId={selectedId}
             />
 
-            <StandardTable
+            <RemoteTable
                 title="Season Folders"
                 subtitle="Local filesystem directory mappings for automated series organizing"
                 columns={columns}

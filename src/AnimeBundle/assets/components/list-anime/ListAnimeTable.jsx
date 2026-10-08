@@ -7,9 +7,9 @@ import {
     ExclamationCircleOutlined,
     SyncOutlined
 } from "@ant-design/icons";
-import StandardTable from "@CoreBundle/components/standard-table/StandardTable";
 import ListAnimeDetailModal from "@AnimeBundle/components/list-anime/ListAnimeDetailModal";
 import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
+import RemoteTable from "@CoreBundle/components/standard-table/RemoteTable.jsx";
 
 const { useBreakpoint } = Grid;
 
@@ -139,7 +139,7 @@ export default function ListAnimeTable() {
                 selectedId={selectedId}
             />
 
-            <StandardTable
+            <RemoteTable
                 title="Anime Library"
                 subtitle="Browse, filter, and track synced anime episodes and publication states"
                 columns={columns}

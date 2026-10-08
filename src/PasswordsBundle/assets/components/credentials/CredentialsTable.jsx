@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { Button, Grid, Space, Dropdown } from "antd";
 import { PlusOutlined, EditOutlined, DeleteOutlined, DownOutlined } from "@ant-design/icons";
-import StandardTable from "@CoreBundle/components/standard-table/StandardTable";
 import CredentialDetailModal from "@PasswordsBundle/components/credentials/CredentialDetailModal";
 import { useBackendApi } from "@PasswordsBundle/components/BackendApiContext";
+import RemoteTable from "@CoreBundle/components/standard-table/RemoteTable.jsx";
 
 const { useBreakpoint } = Grid;
 
@@ -115,7 +115,7 @@ export default function CredentialsTable() {
                 setOpen={setModalOpen}
             />
 
-            <StandardTable
+            <RemoteTable
                 title="Credentials Vault"
                 subtitle="Manage saved passwords, website credentials, and device authentication keys"
                 columns={columns}

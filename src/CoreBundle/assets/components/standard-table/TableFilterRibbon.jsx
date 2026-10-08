@@ -22,7 +22,7 @@ export default function TableFilterRibbon({
                                               onRemoveCondition,
                                               onClearAll,
                                               onEditCondition,
-                                              style = null
+                                              style = {}
                                           }) {
     const hasActiveFilters = Object.keys(filters).length > 0;
     if (!hasActiveFilters) return null;

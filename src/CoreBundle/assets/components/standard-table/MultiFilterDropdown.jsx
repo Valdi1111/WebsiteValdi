@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Button, Select, Input, InputNumber, DatePicker, Space, Flex, Divider, Tooltip } from "antd";
+import { Button, Select, Input, InputNumber, DatePicker, Space, Flex, Divider, Tooltip, theme } from "antd";
 import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
-import { getAvailableOperators } from "./filterCatalog";
+import { getAvailableOperators } from "@CoreBundle/components/standard-table/filterCatalog";
 
 const { RangePicker } = DatePicker;
 
@@ -15,15 +15,20 @@ const { RangePicker } = DatePicker;
  * @param {Function} props.confirm Ant Design confirmation callback to trigger table reload
  * @param {Function} props.clearFilters Ant Design filter reset callback
  * @param {Function} props.close Ant Design dropdown close callback
+ * @param {boolean} [props.isMobile] Whether the component is rendered inside a mobile Drawer
  */
 export default function MultiFilterDropdown({
                                                 col,
-                                                selectedKeys,
+                                                selectedKeys = [],
                                                 setSelectedKeys,
                                                 confirm,
                                                 clearFilters,
                                                 close,
+                                                isMobile = false,
                                             }) {
+    // Access Ant Design design tokens for consistent border and background colors
+    const { token } = theme.useToken();
+
     // Resolve available operators according to column filterType and optional whitelist
     const availableOperators = getAvailableOperators(col.filterType, col.filterOperators);
     const defaultOperator = availableOperators[0]?.value || "exact";
@@ -100,13 +105,20 @@ export default function MultiFilterDropdown({
             // When all conditions are emptied, trigger a full reset and close dropdown
             if (clearFilters) {
                 clearFilters({ confirm: true, closeDropdown: true });
-            } else {
+            } else if (setSelectedKeys) {
                 setSelectedKeys([]);
-                confirm({ closeDropdown: true });
+                if (confirm) confirm({ closeDropdown: true });
             }
         } else {
-            setSelectedKeys([validRules]);
-            confirm({ closeDropdown: true });
+            if (setSelectedKeys) {
+                setSelectedKeys([validRules]);
+            }
+            if (confirm) {
+                confirm({ closeDropdown: true });
+            }
+        }
+        if (close) {
+            close();
         }
     };
 
@@ -115,106 +127,135 @@ export default function MultiFilterDropdown({
         setRules([createBlankRule()]);
         if (clearFilters) {
             clearFilters({ confirm: true, closeDropdown: true });
-        } else {
+        } else if (setSelectedKeys) {
             setSelectedKeys([]);
-            confirm({ closeDropdown: true });
+            if (confirm) confirm({ closeDropdown: true });
+        }
+        if (close) {
+            close();
         }
     };
 
     return (
-        <div style={{ padding: 12, minWidth: 300 }} onKeyDown={(e) => e.stopPropagation()}>
+        <div style={{ padding: isMobile ? 0 : 12, minWidth: isMobile ? "100%" : 320 }} onKeyDown={(e) => e.stopPropagation()}>
             <Flex vertical gap="small">
-                {rules.map((rule, idx) => (
-                    <Flex key={idx} gap="small" align="center">
-                        <Select
-                            size="small"
-                            style={{ width: 120 }}
-                            value={rule.operator}
-                            onChange={(op) => updateRule(idx, { operator: op, value: null, valMax: null })}
-                            options={availableOperators}
-                        />
+                {/* Scrollable rules list container bounded to a maximum height */}
+                <div
+                    style={{
+                        maxHeight: isMobile ? "50vh" : 260,
+                        overflowY: "auto",
+                        overflowX: "hidden",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
+                        paddingRight: 4,
+                    }}
+                >
+                    {rules.map((rule, idx) => (
+                        <div
+                            key={idx}
+                            style={{
+                                background: token.colorFillAlter || "#fafafa",
+                                border: `1px solid ${token.colorBorderSecondary || "#f0f0f0"}`,
+                                borderRadius: token.borderRadiusLG || 8,
+                                padding: "8px 10px",
+                                position: "relative",
+                            }}
+                        >
+                            {/* Single horizontal row containing Operator, Value inputs, and Delete button */}
+                            <Flex gap="small" align="center" style={{ width: "100%", flexWrap: "nowrap" }}>
+                                <Select
+                                    size={isMobile ? "middle" : "small"}
+                                    style={{ width: isMobile ? 120 : 120, flexShrink: 0 }}
+                                    value={rule.operator}
+                                    onChange={(op) => updateRule(idx, { operator: op, value: null, valMax: null })}
+                                    options={availableOperators}
+                                />
 
-                        {/* Render specialized input based on column filterType */}
-                        {!["empty", "notEmpty"].includes(rule.operator) && (
-                            <>
-                                {col.filterType === "number" && (
-                                    rule.operator === "between" ? (
-                                        <Space size={2}>
-                                            <InputNumber
-                                                size="small"
-                                                placeholder="Min"
-                                                value={rule.value}
-                                                onChange={(v) => updateRule(idx, { value: v })}
-                                                style={{ width: 68 }}
+                                {/* Render specialized input based on column filterType */}
+                                {!["empty", "notEmpty"].includes(rule.operator) && (
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        {col.filterType === "number" && (
+                                            rule.operator === "between" ? (
+                                                <Space size={4} style={{ width: "100%", display: "flex" }}>
+                                                    <InputNumber
+                                                        size={isMobile ? "middle" : "small"}
+                                                        placeholder="Min"
+                                                        value={rule.value}
+                                                        onChange={(v) => updateRule(idx, { value: v })}
+                                                        style={{ width: "100%", minWidth: 0 }}
+                                                    />
+                                                    <InputNumber
+                                                        size={isMobile ? "middle" : "small"}
+                                                        placeholder="Max"
+                                                        value={rule.valMax}
+                                                        onChange={(v) => updateRule(idx, { valMax: v })}
+                                                        style={{ width: "100%", minWidth: 0 }}
+                                                    />
+                                                </Space>
+                                            ) : (
+                                                <InputNumber
+                                                    size={isMobile ? "middle" : "small"}
+                                                    placeholder="Value"
+                                                    value={rule.value}
+                                                    onChange={(v) => updateRule(idx, { value: v })}
+                                                    style={{ width: "100%" }}
+                                                />
+                                            )
+                                        )}
+
+                                        {col.filterType === "text" && (
+                                            <Input
+                                                size={isMobile ? "middle" : "small"}
+                                                placeholder="Value..."
+                                                value={rule.value || ""}
+                                                onChange={(e) => updateRule(idx, { value: e.target.value })}
+                                                onPressEnter={handleApply}
+                                                style={{ width: "100%" }}
                                             />
-                                            <InputNumber
-                                                size="small"
-                                                placeholder="Max"
-                                                value={rule.valMax}
-                                                onChange={(v) => updateRule(idx, { valMax: v })}
-                                                style={{ width: 68 }}
-                                            />
-                                        </Space>
-                                    ) : (
-                                        <InputNumber
-                                            size="small"
-                                            placeholder="Value"
-                                            value={rule.value}
-                                            onChange={(v) => updateRule(idx, { value: v })}
-                                            style={{ width: 120 }}
-                                        />
-                                    )
+                                        )}
+
+                                        {col.filterType === "date" && (
+                                            rule.operator === "dateRange" ? (
+                                                <RangePicker
+                                                    size={isMobile ? "middle" : "small"}
+                                                    onChange={(_, dateStrings) =>
+                                                        updateRule(idx, { value: dateStrings[0] ? dateStrings : null })
+                                                    }
+                                                    style={{ width: "100%" }}
+                                                />
+                                            ) : (
+                                                <DatePicker
+                                                    size={isMobile ? "middle" : "small"}
+                                                    onChange={(_, dateString) =>
+                                                        updateRule(idx, { value: dateString || null })
+                                                    }
+                                                    style={{ width: "100%" }}
+                                                />
+                                            )
+                                        )}
+                                    </div>
                                 )}
 
-                                {col.filterType === "text" && (
-                                    <Input
-                                        size="small"
-                                        placeholder="Value..."
-                                        value={rule.value || ""}
-                                        onChange={(e) => updateRule(idx, { value: e.target.value })}
-                                        onPressEnter={handleApply}
-                                        style={{ width: 130 }}
+                                {/* Delete or reset action button */}
+                                <Tooltip title={rules.length === 1 ? "Clear rule" : "Delete rule"}>
+                                    <Button
+                                        size={isMobile ? "middle" : "small"}
+                                        type="text"
+                                        danger
+                                        icon={<DeleteOutlined />}
+                                        onClick={() => handleRemoveOrResetRule(idx)}
+                                        style={{ flexShrink: 0 }}
                                     />
-                                )}
-
-                                {col.filterType === "date" && (
-                                    rule.operator === "dateRange" ? (
-                                        <RangePicker
-                                            size="small"
-                                            onChange={(_, dateStrings) =>
-                                                updateRule(idx, { value: dateStrings[0] ? dateStrings : null })
-                                            }
-                                            style={{ width: 190 }}
-                                        />
-                                    ) : (
-                                        <DatePicker
-                                            size="small"
-                                            onChange={(_, dateString) =>
-                                                updateRule(idx, { value: dateString || null })
-                                            }
-                                            style={{ width: 130 }}
-                                        />
-                                    )
-                                )}
-                            </>
-                        )}
-
-                        {/* Delete or reset action button */}
-                        <Tooltip title={rules.length === 1 ? "Clear rule" : "Delete rule"}>
-                            <Button
-                                size="small"
-                                type="text"
-                                danger
-                                icon={<DeleteOutlined />}
-                                onClick={() => handleRemoveOrResetRule(idx)}
-                            />
-                        </Tooltip>
-                    </Flex>
-                ))}
+                                </Tooltip>
+                            </Flex>
+                        </div>
+                    ))}
+                </div>
 
                 <Button
                     type="dashed"
-                    size="small"
+                    size={isMobile ? "middle" : "small"}
                     icon={<PlusOutlined />}
                     onClick={addRule}
                     style={{ width: "100%", marginTop: 4 }}
@@ -224,15 +265,15 @@ export default function MultiFilterDropdown({
 
                 <Divider style={{ margin: "8px 0" }} />
 
-                <Flex justify="space-between">
-                    <Button size="small" type="link" onClick={handleReset}>
+                <Flex justify="space-between" align="center">
+                    <Button size={isMobile ? "middle" : "small"} type="link" onClick={handleReset} style={{ paddingLeft: 0 }}>
                         Reset
                     </Button>
                     <Space>
-                        <Button size="small" onClick={() => close()}>
+                        <Button size={isMobile ? "middle" : "small"} onClick={() => close && close()}>
                             Close
                         </Button>
-                        <Button size="small" type="primary" onClick={handleApply}>
+                        <Button size={isMobile ? "middle" : "small"} type="primary" onClick={handleApply}>
                             Apply
                         </Button>
                     </Space>

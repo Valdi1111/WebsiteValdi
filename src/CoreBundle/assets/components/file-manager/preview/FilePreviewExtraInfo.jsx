@@ -1,6 +1,6 @@
 import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerContext";
 import { MoreOutlined } from "@ant-design/icons";
-import { Descriptions, Divider, Tag } from "antd";
+import { Descriptions, Tag } from "antd";
 import React from "react";
 import { isArray } from "chart.js/helpers";
 
@@ -42,14 +42,11 @@ export default function FilePreviewExtraInfo() {
     }
 
     return (
-        <>
-            <Divider size="small"/>
-            <Descriptions
-                title={<><MoreOutlined/> <span>Extra info</span></>}
-                items={extra}
-                column={2}
-                styles={{ title: { textAlign: 'center' } }}
-            />
-        </>
+        <Descriptions
+            title={<><MoreOutlined/> <span>Extra info</span></>}
+            items={extra}
+            column={2}
+            styles={{ title: { textAlign: 'center' }, root: {paddingLeft: 8, paddingRight: 8 } }}
+        />
     );
 }

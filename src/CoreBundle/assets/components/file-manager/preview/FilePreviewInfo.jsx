@@ -1,7 +1,7 @@
 import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerContext";
 import { formatBytes, formatDateTimeFromTimestamp } from "@CoreBundle/format-utils";
 import { InfoCircleOutlined } from "@ant-design/icons";
-import { Descriptions, Divider } from "antd";
+import { Descriptions } from "antd";
 import React from "react";
 
 /**
@@ -44,14 +44,11 @@ export default function FilePreviewInfo() {
     }, [selectedFile]);
 
     return (
-        <>
-            <Divider size="small"/>
-            <Descriptions
-                title={<><InfoCircleOutlined/> <span>Information</span></>}
-                items={information}
-                column={2}
-                styles={{ title: { textAlign: 'center' } }}
-            />
-        </>
+        <Descriptions
+            title={<><InfoCircleOutlined/> <span>Information</span></>}
+            items={information}
+            column={2}
+            styles={{ title: { textAlign: 'center' }, root: {paddingLeft: 8, paddingRight: 8 } }}
+        />
     );
 }

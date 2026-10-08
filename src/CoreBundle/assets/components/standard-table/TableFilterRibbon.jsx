@@ -41,7 +41,7 @@ export default function TableFilterRibbon({
                         <Tag
                             key={`${field}_${idx}`}
                             color="blue"
-                            closable
+                            closable={{ placement: 'end' }}
                             onClose={(e) => {
                                 // Prevent triggering the edit callback when removing the tag
                                 e.stopPropagation();

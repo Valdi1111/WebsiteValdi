@@ -50,6 +50,7 @@ export default function BookContents() {
             <Drawer
                 title="Contents"
                 placement="left"
+                closable={{ placement: 'end' }}
                 onClose={() => setContentsDrawerOpen(false)}
                 open={contentsDrawerOpen}
                 key="book-contents-drawer"

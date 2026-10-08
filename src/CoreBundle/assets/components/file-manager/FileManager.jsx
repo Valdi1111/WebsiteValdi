@@ -124,6 +124,8 @@ export default function FileManager({ apiUrl }) {
                                 placement="left"
                                 size="100%"
                                 onClose={() => setTreeDrawerOpen(false)}
+                                closable={{ placement: 'end' }}
+                                destroyOnHidden
                                 open={treeDrawerOpen}
                                 styles={{
                                     body: { paddingLeft: 8, paddingRight: 8, paddingTop: 0, paddingBottom: 8, height: '100%', overflow: 'hidden' }
@@ -138,7 +140,8 @@ export default function FileManager({ apiUrl }) {
                                 size="80%"
                                 open={showPreview}
                                 onClose={() => setShowPreview(false)}
-                                closable={true}
+                                closable={{ placement: 'end' }}
+                                destroyOnHidden
                                 title={null}
                                 styles={{
                                     header: { display: 'none' }, // Header is delegated to FilePreview component
@@ -176,7 +179,7 @@ export default function FileManager({ apiUrl }) {
                             {/* Right-hand file preview panel: rendered only when showPreview is true */}
                             {showPreview && (
                                 <Splitter.Panel
-                                    style={{ height: '100%', overflow: 'auto', paddingLeft: 8, paddingRight: 8 }}
+                                    style={{ height: '100%', overflow: 'hidden', paddingLeft: 8, paddingRight: 8 }}
                                     defaultSize="25%"
                                     min="200px"
                                     max="350px"

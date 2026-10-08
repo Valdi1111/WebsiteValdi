@@ -1,17 +1,19 @@
 import FilePreviewContent from "@CoreBundle/components/file-manager/preview/FilePreviewContent";
 import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerContext";
-import { Button, ConfigProvider, Divider, Flex, Image, Space, Typography } from "antd";
+import {Button, Card, ConfigProvider, Divider, Flex, Image, Space, Tooltip, Typography} from "antd";
 import { CloseOutlined, DownloadOutlined, LinkOutlined } from "@ant-design/icons";
 import React from "react";
 import FilePreviewInfo from "@CoreBundle/components/file-manager/preview/FilePreviewInfo";
 import FilePreviewExtraInfo from "@CoreBundle/components/file-manager/preview/FilePreviewExtraInfo";
 
+const { Text } = Typography;
+
 /**
- * Side pane (desktop) or bottom drawer (mobile) displaying file details,
+ * Side pane (desktop Card) or bottom drawer (mobile) displaying file details,
  * media viewer/player, and metadata.
  */
 export default function FilePreview() {
-    const { api, selectedFile, setShowPreview } = useFileManager();
+    const { api, selectedFile, setShowPreview, isMobile } = useFileManager();
 
     // Trigger direct file download / opening in a separate browser tab
     const onOpenFile = React.useCallback(() => {
@@ -25,69 +27,88 @@ export default function FilePreview() {
 
     // Fallback placeholder when no file is selected
     if (!selectedFile) {
-        return (
+        const placeholderContent = (
             <Flex
-                style={{ paddingLeft: 8, paddingRight: 8, height: '100%' }}
+                style={{ height: '100%', width: '100%' }}
                 justify="center"
                 align="center"
                 vertical
             >
-                <Image src={api.fmIconUrl()} alt="logo" style={{ maxWidth: '100%', maxHeight: '100%' }}/>
+                <Image src={api.fmIconUrl()} alt="logo" preview={false} style={{ maxWidth: 120, opacity: 0.4 }}/>
             </Flex>
+        );
+
+        if (isMobile) {
+            return placeholderContent;
+        }
+
+        return (
+            <Card
+                styles={{
+                    body: {
+                        padding: 16,
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    },
+                }}
+                style={{
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minHeight: 0,
+                    boxSizing: 'border-box',
+                }}
+            >
+                {placeholderContent}
+            </Card>
         );
     }
 
-    return (
-        <Flex style={{ height: '100%', overflowY: 'auto' }} vertical>
-            {/* Header bar: Close button on the far left, file title, and right-aligned actions */}
-            <Flex justify="space-between" align="center" gap="small" style={{ width: '100%', paddingTop: 8 }}>
-                <Flex align="center" gap="small" style={{ minWidth: 0, flex: 1 }}>
-                    {/* Close preview button available on both desktop and mobile */}
-                    <Button
-                        type="text"
-                        icon={<CloseOutlined />}
-                        title="Close preview"
-                        onClick={() => setShowPreview(false)}
-                        style={{ flexShrink: 0 }}
-                    />
-                    {/* File title with ellipsis truncation */}
-                    <Typography.Title level={4} style={{ marginBottom: 0, minWidth: 0 }} ellipsis>
-                        {selectedFile.title}
-                    </Typography.Title>
-                </Flex>
+    // Action buttons for open and download
+    const actionButtons = (
+        <Space size={4} style={{ flexShrink: 0 }}>
+            {selectedFile.type !== 'folder' && (
+                <>
+                    <Tooltip title="Open file">
+                        <Button
+                            type="text"
+                            icon={<LinkOutlined />}
+                            onClick={onOpenFile}
+                        />
+                    </Tooltip>
+                    <Tooltip title="Download">
+                        <Button
+                            type="text"
+                            icon={<DownloadOutlined />}
+                            onClick={() => {
+                                console.debug("Downloading", selectedFile.id);
+                                api
+                                    .withErrorHandling()
+                                    .fmDownload(selectedFile.id);
+                            }}
+                        />
+                    </Tooltip>
+                </>
+            )}
+            <Tooltip title="Close preview">
+                <Button
+                    type="text"
+                    icon={<CloseOutlined />}
+                    onClick={() => setShowPreview(false)}
+                />
+            </Tooltip>
+        </Space>
+    );
 
-                {/* Right-aligned action buttons */}
-                <Space size="small" style={{ flexShrink: 0 }}>
-                    {selectedFile.type !== 'folder' && (
-                        <>
-                            {/* Open file in new tab */}
-                            <Button
-                                type="text"
-                                icon={<LinkOutlined />}
-                                title="Open file"
-                                onClick={onOpenFile}
-                            />
-                            {/* Download file button */}
-                            <Button
-                                type="text"
-                                icon={<DownloadOutlined />}
-                                title="Download"
-                                onClick={() => {
-                                    console.debug("Downloading", selectedFile.id);
-                                    api
-                                        .withErrorHandling()
-                                        .fmDownload(selectedFile.id);
-                                }}
-                            />
-                        </>
-                    )}
-                </Space>
-            </Flex>
-
-            <Divider style={{ margin: '12px 0' }} />
-
+    // Inner scrollable body with media preview and descriptions
+    const bodyContent = (
+        <Flex vertical style={{ width: '100%' }}>
             {/* Dynamic media player or icon content preview */}
-            <FilePreviewContent />
+            <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                <FilePreviewContent />
+            </div>
 
             {/* File properties and extended metadata */}
             <ConfigProvider
@@ -100,9 +121,65 @@ export default function FilePreview() {
                     },
                 }}
             >
+                <Divider size="small"/>
                 <FilePreviewInfo />
+                <Divider size="small"/>
                 <FilePreviewExtraInfo />
             </ConfigProvider>
         </Flex>
+    );
+
+    // Mobile layout: Rendered directly inside the Drawer without Card wrapper
+    if (isMobile) {
+        return (
+            <Flex style={{ height: '100%', overflowY: 'auto' }} vertical>
+                <Flex justify="space-between" align="center" gap="small" style={{ width: '100%', paddingTop: 8 }}>
+                    <Text strong ellipsis style={{ fontSize: 16, flex: 1, minWidth: 0 }}>
+                        {selectedFile.title}
+                    </Text>
+                    {actionButtons}
+                </Flex>
+                <Divider size="small"/>
+                {bodyContent}
+            </Flex>
+        );
+    }
+
+    // Desktop layout: Card matching FoldersTree and FilesTable
+    return (
+        <Card
+            styles={{
+                header: {
+                    height: 'auto',
+                    padding: '14px 16px',
+                    whiteSpace: 'normal',
+                    flexShrink: 0,
+                },
+                body: {
+                    padding: 8,
+                    flex: 1,
+                    minHeight: 0,
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                },
+            }}
+            style={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                minHeight: 0,
+                boxSizing: 'border-box',
+            }}
+            title={
+                <Flex justify="space-between" align="center" gap="small" style={{ width: '100%' }}>
+                    <Text strong ellipsis style={{ fontSize: 15, flex: 1, minWidth: 0 }}>
+                        {selectedFile.title}
+                    </Text>
+                    {actionButtons}
+                </Flex>
+            }
+        >
+            {bodyContent}
+        </Card>
     );
 }

@@ -191,8 +191,10 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
             placement="right"
             size={540}
             open={open}
-            onClose={onClose}
             afterOpenChange={handleAfterOpenChange}
+            onClose={onClose}
+            closable={{ placement: 'end' }}
+            destroyOnHidden
             extra={
                 <Space>
                     <Button

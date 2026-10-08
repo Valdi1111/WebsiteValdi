@@ -35,7 +35,8 @@ export default function TableMobileFilterDrawer({
             placement="bottom"
             open={open}
             onClose={onClose}
-            destroyOnClose
+            closable={{ placement: 'end' }}
+            destroyOnHidden
             styles={{
                 wrapper: {
                     height: "auto",

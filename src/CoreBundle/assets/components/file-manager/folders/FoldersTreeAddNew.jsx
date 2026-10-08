@@ -4,7 +4,7 @@ import AddFolderModal from "@CoreBundle/components/file-manager/add/AddFolderMod
 import AddFileModal from "@CoreBundle/components/file-manager/add/AddFileModal";
 import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerContext";
 import { FileAddOutlined, FolderAddOutlined, PlusOutlined, UploadOutlined } from "@ant-design/icons";
-import { Button, Dropdown } from "antd";
+import { Button, Dropdown, Tooltip } from "antd";
 import React from "react";
 
 /**
@@ -67,13 +67,12 @@ export default function FoldersTreeAddNew() {
                 menu={{ items }}
                 arrow={{ pointAtCenter: true }}
             >
-                {/* Compact action trigger with plus icon and shortened text */}
-                <Button
-                    icon={<PlusOutlined />}
-                    disabled={selectedFolder == null}
-                >
-                    Add
-                </Button>
+                <Tooltip title="Add new file or folder">
+                    <Button
+                        icon={<PlusOutlined />}
+                        disabled={selectedFolder == null}
+                    />
+                </Tooltip>
             </Dropdown>
         </>
     );

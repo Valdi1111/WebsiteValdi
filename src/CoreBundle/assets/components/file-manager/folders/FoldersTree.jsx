@@ -185,6 +185,7 @@ export default function FoldersTree({ inDrawer = false }) {
                         setExpandedIds={setExpandedIds}
                         searchText={searchText}
                         setSearchText={setSearchText}
+                        style={{ paddingTop: 8, paddingBottom: 8 }}
                     />
                 </div>
                 {treeContent}
@@ -197,7 +198,7 @@ export default function FoldersTree({ inDrawer = false }) {
         <Card
             styles={{
                 header: {
-                    padding: "10px 14px",
+                    padding: "14px 16px",
                     height: "auto",
                     flexShrink: 0,
                 },

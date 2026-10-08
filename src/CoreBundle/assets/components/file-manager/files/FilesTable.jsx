@@ -2,8 +2,8 @@ import React from "react";
 import FilesTableRowDropdown from "@CoreBundle/components/file-manager/files/FilesTableRowDropdown";
 import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerContext";
 import { formatBytes, formatDateFromTimestamp } from "@CoreBundle/format-utils";
-import { FolderFilled, MoreOutlined } from "@ant-design/icons";
-import { Button, Flex, theme as antdTheme } from "antd";
+import { ArrowUpOutlined, FolderFilled, MoreOutlined } from "@ant-design/icons";
+import { Button, Flex, Tooltip, theme as antdTheme } from "antd";
 import LocalTable from "@CoreBundle/components/standard-table/LocalTable";
 import "./FilesTable.css";
 
@@ -13,12 +13,13 @@ import "./FilesTable.css";
  */
 export default function FilesTable() {
     const {
+        folders,
         files,
         filesLoading,
         selectedFolder,
+        setSelectedFolder,
         selectedFile,
         setSelectedFile,
-        setSelectedFolder,
         setShowPreview,
         isMobile,
         api,
@@ -27,6 +28,23 @@ export default function FilesTable() {
 
     // Retrieve active theme tokens (Light or Dark) for row highlighting
     const { token: { controlItemBgActive, controlItemBgActiveHover } } = antdTheme.useToken();
+
+    // Traverse directory tree upwards to locate the immediate parent folder
+    const getParentNode = React.useCallback((selected, treeData) => {
+        if (!selected || !treeData) return null;
+        for (let node of treeData) {
+            if (node.children) {
+                if (node.children.some((child) => child.id === selected.id)) {
+                    return node;
+                }
+                const parent = getParentNode(selected, node.children);
+                if (parent) {
+                    return parent;
+                }
+            }
+        }
+        return null;
+    }, []);
 
     const columns = [
         {
@@ -146,6 +164,22 @@ export default function FilesTable() {
 
     const folderTitle = selectedFolder?.title || "Files";
     const folderPath = selectedFolder?.id && selectedFolder.id !== "/" ? selectedFolder.id : "Root directory";
+    const isRoot = !selectedFolder || selectedFolder.id === "/";
+
+    const extraActions = (
+        <Tooltip title="Go to parent folder">
+            <Button
+                icon={<ArrowUpOutlined />}
+                disabled={isRoot}
+                onClick={() => {
+                    const parent = getParentNode(selectedFolder, folders);
+                    if (parent) {
+                        setSelectedFolder(parent);
+                    }
+                }}
+            />
+        </Tooltip>
+    );
 
     return (
         <div
@@ -170,13 +204,14 @@ export default function FilesTable() {
                 loading={filesLoading}
                 pagination={false}
                 fillHeight={true}
+                compactHeaderOnMobile={true}
                 styles={{
                     cardBodyStyle: { padding: 8 },
                     tableFilterRibbonStyle: { marginBottom: 8 },
                 }}
+                extraToolbarActions={extraActions}
                 sticky={true}
-                scroll={{ x: 600 }} // Enable horizontal scroll when viewport width is below 600px
-                // Highlight the currently selected row
+                scroll={{ x: 600 }}
                 onReload={reloadFiles}
                 rowClassName={(record) => (record.id === selectedFile?.id ? "fm-table-row-selected" : "")}
                 onRow={(record, rowIndex) => ({

@@ -43,7 +43,7 @@ export default function MultiFilterDropdown({
 
     // Derive initial rules array from selectedKeys, handling range inputs when operator is 'between'
     const getInitialRules = () => {
-        if (Array.isArray(selectedKeys[0]) && selectedKeys[0].length > 0) {
+        if (Array.isArray(selectedKeys) && Array.isArray(selectedKeys[0]) && selectedKeys[0].length > 0) {
             return selectedKeys[0].map((r) => {
                 if (r.operator === "between" && Array.isArray(r.value)) {
                     return { operator: r.operator, value: r.value[0], valMax: r.value[1] };
@@ -56,10 +56,10 @@ export default function MultiFilterDropdown({
 
     const [rules, setRules] = useState(getInitialRules);
 
-    // Synchronize local rule state when external filter keys change (e.g. from Clear All or tag removal)
+    // Synchronize local rule state when external filter keys change (e.g. from Clear All, tag removal, or outside reset)
     useEffect(() => {
         setRules(getInitialRules());
-    }, [JSON.stringify(selectedKeys[0])]);
+    }, [JSON.stringify(selectedKeys)]);
 
     // Focus and select text inside the target rule input whenever targetRuleFocus changes
     useEffect(() => {

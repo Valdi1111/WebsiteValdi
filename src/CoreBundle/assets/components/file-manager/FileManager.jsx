@@ -114,7 +114,7 @@ export default function FileManager({ apiUrl }) {
                     {isMobile ? (
                         <>
                             {/* Mobile layout: Primary table view */}
-                            <div style={{ flex: 1, paddingLeft: 8, paddingRight: 8, height: '100%', width: '100%', overflow: 'hidden' }}>
+                            <div style={{ flex: 1, paddingLeft: 8, paddingRight: 8, paddingBottom: 8, height: '100%', width: '100%', overflow: 'hidden' }}>
                                 <FilesTable />
                             </div>
 
@@ -152,12 +152,12 @@ export default function FileManager({ apiUrl }) {
                         /* Desktop layout: Multi-panel resizable Splitter */
                         <Splitter
                             key={`splitter-${showTree ? 'tree' : 'no-tree'}-${showPreview ? 'preview' : 'no-preview'}`}
-                            style={{ height: '100%', width: '100%' }}
+                            style={{ height: '100%', width: '100%', paddingBottom: 8 }}
                         >
                             {/* Folders tree panel: rendered only when showTree is true */}
                             {showTree && (
                                 <Splitter.Panel
-                                    style={{ height: '100%', overflow: 'hidden', paddingLeft: 8, paddingRight: 8, paddingBottom: 8 }}
+                                    style={{ height: '100%', overflow: 'hidden', paddingLeft: 8, paddingRight: 8 }}
                                     defaultSize="20%"
                                     min="200px"
                                     max="350px"
@@ -168,7 +168,7 @@ export default function FileManager({ apiUrl }) {
 
                             {/* Files table main pane */}
                             <Splitter.Panel
-                                style={{ height: '100%', overflow: 'hidden', paddingLeft: 8, paddingRight: 8, paddingBottom: 8, minWidth: 0 }}
+                                style={{ height: '100%', overflow: 'hidden', paddingLeft: 8, paddingRight: 8, minWidth: 0 }}
                             >
                                 <FilesTable />
                             </Splitter.Panel>

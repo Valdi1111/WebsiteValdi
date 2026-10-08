@@ -14,6 +14,7 @@ export default function RemoteTable({
                                         subtitle,
                                         extraToolbarActions = null,
                                         fillHeight = false,
+                                        compactHeaderOnMobile = false,
                                         onRow,
                                         components,
                                         rowClassName,
@@ -165,6 +166,7 @@ export default function RemoteTable({
             subtitle={subtitle}
             extraToolbarActions={extraToolbarActions}
             fillHeight={fillHeight}
+            compactHeaderOnMobile={compactHeaderOnMobile}
             onReload={() => loadData()}
             onChange={handleTableChange}
             onRemoveCondition={handleRemoveCondition}

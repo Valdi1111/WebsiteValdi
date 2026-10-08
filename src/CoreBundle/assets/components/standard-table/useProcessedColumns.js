@@ -4,7 +4,6 @@ import { FilterFilled } from "@ant-design/icons";
 import Highlighter from "react-highlight-words";
 import { formatDateFromIso, formatDateTimeFromIso } from "@CoreBundle/format-utils";
 import MultiFilterDropdown from "@CoreBundle/components/standard-table/MultiFilterDropdown";
-import { getRuleDescription } from "@CoreBundle/components/standard-table/tableFilterUtils";
 
 const ANTD_TAG_COLORS = [
     "blue", "purple", "cyan", "green", "magenta",
@@ -169,6 +168,7 @@ export default function useProcessedColumns({
                 if (!isMobile) {
                     const existingFilterDropdownProps = col.filterDropdownProps || {};
                     processed.filterDropdownProps = {
+                        destroyOnHidden: true,
                         ...existingFilterDropdownProps,
                         open: activeOpenColumn !== null ? activeOpenColumn === col.dataIndex : existingFilterDropdownProps.open,
                         onOpenChange: (visible) => {
@@ -178,12 +178,14 @@ export default function useProcessedColumns({
                     };
                 }
 
-                // Header title with active rules badge and nowrap constraint
+                // Header title with active rules badge showing the count of active rules
                 const originalTitle = col.title;
+                const activeCount = activeColFilters ? activeColFilters.length : 0;
+
                 processed.title = (
                     <Flex vertical gap={2} style={{ lineHeight: 1.2, whiteSpace: "nowrap" }}>
                         <span>{originalTitle}</span>
-                        {activeColFilters && activeColFilters.length > 0 && (
+                        {activeCount > 0 && (
                             <Tag
                                 color="blue"
                                 style={{
@@ -195,9 +197,7 @@ export default function useProcessedColumns({
                                     whiteSpace: "nowrap",
                                 }}
                             >
-                                {activeColFilters.length === 1
-                                    ? getRuleDescription(activeColFilters[0], col)
-                                    : `${activeColFilters.length} rules`}
+                                {activeCount === 1 ? "1 rule" : `${activeCount} rules`}
                             </Tag>
                         )}
                     </Flex>

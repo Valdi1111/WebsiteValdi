@@ -1,14 +1,12 @@
 import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerContext";
-import { Button, Flex, Input, Segmented } from "antd";
+import {Button, Flex, Input, Segmented, Tooltip} from "antd";
 import {
     AppstoreOutlined,
-    ArrowUpOutlined,
     BarsOutlined,
     EyeInvisibleOutlined,
     EyeOutlined,
     NodeCollapseOutlined,
     NodeExpandOutlined,
-    ReloadOutlined
 } from "@ant-design/icons";
 import React from "react";
 
@@ -19,29 +17,11 @@ export default function FileManagerToolbar() {
     const [loadingSearch, setLoadingSearch] = React.useState(false);
 
     const {
-        folders, reloadFolders, selectedFolder, setSelectedFolder,
-        reloadFiles, setSelectedFile, setClipboard,
         treeDrawerOpen, setTreeDrawerOpen,
         showTree, setShowTree,
         showPreview, setShowPreview,
         isMobile,
     } = useFileManager();
-
-    // Traverse directory tree upwards to locate the immediate parent folder
-    const getParentNode = React.useCallback((selected, treeData) => {
-        for (let node of treeData) {
-            if (node.children) {
-                if (node.children.some(child => child.id === selected.id)) {
-                    return node;
-                }
-                const parent = getParentNode(selected, node.children);
-                if (parent) {
-                    return parent;
-                }
-            }
-        }
-        return null;
-    }, []);
 
     function onSearch(value, e, info) {
         // TODO: Implement backend file search integration
@@ -62,77 +42,47 @@ export default function FileManagerToolbar() {
         }
     };
 
-    // Traverse tree to find if the previously selected folder still exists in the newly fetched tree
-    const findFolderInTree = (nodes, id) => {
-        for (let node of nodes) {
-            if (node.id === id) return node;
-            if (node.children?.length) {
-                const found = findFolderInTree(node.children, id);
-                if (found) return found;
-            }
-        }
-        return null;
-    };
-
     const isTreeActive = isMobile ? treeDrawerOpen : showTree;
 
     return (
-        <Flex style={{ width: "100%", padding: 8 }} justify="space-between" gap="small" wrap="wrap">
-            <Flex gap="small">
-                {/* Folder tree toggle button */}
+        <Flex
+            style={{ width: "100%", padding: 8 }}
+            justify="space-between"
+            align="center"
+            gap="small"
+            wrap="nowrap"
+        >
+            {/* Folder tree toggle button */}
+            <Tooltip title={isTreeActive ? "Collapse folder tree" : "Expand folder tree"}>
                 <Button
                     icon={isTreeActive ? <NodeCollapseOutlined /> : <NodeExpandOutlined />}
-                    title={isTreeActive ? "Collapse folder tree" : "Expand folder tree"}
                     onClick={handleToggleTree}
                 />
+            </Tooltip>
 
-                {/* Parent directory navigation */}
-                <Button
-                    icon={<ArrowUpOutlined />}
-                    title={"Go to parent folder"}
-                    disabled={selectedFolder?.id === "/"}
-                    onClick={() => {
-                        const parent = getParentNode(selectedFolder, folders);
-                        if (parent) {
-                            setSelectedFolder(parent);
-                        }
-                    }}
-                />
-
-                {/* Reset clipboard and reload all entries */}
-                <Button
-                    icon={<ReloadOutlined />}
-                    title={"Refresh"}
-                    onClick={() => {
-                        setClipboard(null);
-                        reloadFolders().then(freshTree => {
-                            // Keep the current folder if it still exists, otherwise fallback to Root
-                            const currentId = selectedFolder?.id;
-                            const targetFolder = currentId ? findFolderInTree(freshTree, currentId) : null;
-                            setSelectedFolder(targetFolder || freshTree[0]);
-                        });
-                        reloadFiles().then(() => setSelectedFile(null));
-                    }}
-                />
-            </Flex>
-
-            {/* Global file and folder search input */}
-            <div style={{ flex: 1, minWidth: isMobile ? '100%' : 180, order: isMobile ? 3 : 0 }}>
+            {/* Global file and folder search input: positioned inline between tree toggle and view switchers */}
+            <div style={{ flex: 1, minWidth: 0 }}>
                 <Input.Search placeholder="Search..." allowClear onSearch={onSearch} />
             </div>
 
-            <Flex gap="small">
-                {/* Preview pane toggle */}
-                <Button
-                    icon={showPreview ? <EyeOutlined /> : <EyeInvisibleOutlined />}
-                    onClick={togglePreview}
-                />
+            <Flex gap="small" align="center" style={{ flexShrink: 0 }}>
+                {/* Preview pane toggle: visible only on desktop */}
+                {!isMobile && (
+                    <Tooltip title={showPreview ? "Show file preview" : "Hide file preview"}>
+                        <Button
+                            icon={showPreview ? <EyeOutlined /> : <EyeInvisibleOutlined />}
+                            onClick={togglePreview}
+                        />
+                    </Tooltip>
+                )}
 
                 {/* Layout display switcher */}
-                <Segmented options={[
-                    { value: 'List', icon: <BarsOutlined/> },
-                    { value: 'Kanban', icon: <AppstoreOutlined/> },
-                ]}/>
+                <Segmented
+                    options={[
+                        { value: "List", icon: <BarsOutlined /> },
+                        { value: "Kanban", icon: <AppstoreOutlined /> },
+                    ]}
+                />
             </Flex>
         </Flex>
     );

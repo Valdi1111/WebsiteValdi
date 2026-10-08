@@ -12,8 +12,29 @@ function normalizeString(val) {
 }
 
 /**
+ * Parses and normalizes various date formats into a valid dayjs instance.
+ * Handles ISO strings, Unix timestamps in seconds (<= 10 digits), and milliseconds.
+ *
+ * @param {any} val
+ * @returns {dayjs.Dayjs|null}
+ */
+function parseDateValue(val) {
+    if (val === null || val === undefined || val === "") return null;
+
+    let d;
+    if (typeof val === "number") {
+        // Distinguish between seconds timestamp (standard Unix <= 10 digits) and milliseconds
+        d = val < 10000000000 ? dayjs(val * 1000) : dayjs(val);
+    } else {
+        d = dayjs(val);
+    }
+
+    return d.isValid() ? d : null;
+}
+
+/**
  * Evaluates whether a single rule matches the field value of a record.
- * Supports all operators declared in filterCatalog.js.
+ * Supports all operators declared in filterCatalog.js without requiring external dayjs plugins.
  *
  * @param {any} recordValue The raw value on the record
  * @param {Object} rule Filter rule object { operator, value, valMax }
@@ -54,7 +75,48 @@ export function evaluateFilterRule(recordValue, rule, col = {}) {
         return true;
     }
 
-    // 3. Text Operators
+    // 3. Date Operators (implemented using native dayjs methods without extra plugins)
+    if (filterType === "date" || col.valueType === "date" || col.valueType === "datetime") {
+        const recDate = parseDateValue(recordValue);
+        if (!recDate) return false;
+
+        const recTime = recDate.valueOf();
+
+        switch (operator) {
+            case "dateExact": {
+                const target = parseDateValue(value);
+                if (!target) return true;
+                return recDate.isSame(target, "day");
+            }
+            case "fromDate": {
+                const target = parseDateValue(value);
+                if (!target) return true;
+                // Greater than or equal to the start of the target day
+                return recTime >= target.startOf("day").valueOf();
+            }
+            case "toDate": {
+                const target = parseDateValue(value);
+                if (!target) return true;
+                // Less than or equal to the end of the target day
+                return recTime <= target.endOf("day").valueOf();
+            }
+            case "dateRange": {
+                if (Array.isArray(value) && value.length === 2 && value[0] && value[1]) {
+                    const from = parseDateValue(value[0]);
+                    const to = parseDateValue(value[1]);
+                    if (!from || !to) return true;
+                    const fromTime = from.startOf("day").valueOf();
+                    const toTime = to.endOf("day").valueOf();
+                    return recTime >= fromTime && recTime <= toTime;
+                }
+                return true;
+            }
+            default:
+                return true;
+        }
+    }
+
+    // 4. Text Operators
     if (filterType === "text" || typeof recordValue === "string") {
         const strVal = normalizeString(recordValue);
         const searchVal = normalizeString(value);
@@ -77,7 +139,7 @@ export function evaluateFilterRule(recordValue, rule, col = {}) {
         }
     }
 
-    // 4. Number Operators
+    // 5. Number Operators
     if (filterType === "number" || typeof recordValue === "number") {
         const numVal = Number(recordValue);
         if (Number.isNaN(numVal)) return false;
@@ -100,31 +162,6 @@ export function evaluateFilterRule(recordValue, rule, col = {}) {
                     const min = value[0] !== null && value[0] !== undefined ? Number(value[0]) : -Infinity;
                     const max = value[1] !== null && value[1] !== undefined ? Number(value[1]) : Infinity;
                     return numVal >= min && numVal <= max;
-                }
-                return true;
-            }
-            default:
-                return true;
-        }
-    }
-
-    // 5. Date Operators
-    if (filterType === "date" || col.valueType === "date" || col.valueType === "datetime") {
-        const recDate = dayjs(recordValue);
-        if (!recDate.isValid()) return false;
-
-        switch (operator) {
-            case "dateExact":
-                return recDate.isSame(dayjs(value), "day");
-            case "fromDate":
-                return recDate.isSameOrAfter ? recDate.isSameOrAfter(dayjs(value), "day") : recDate.isAfter(dayjs(value).startOf("day"));
-            case "toDate":
-                return recDate.isSameOrBefore ? recDate.isSameOrBefore(dayjs(value), "day") : recDate.isBefore(dayjs(value).endOf("day"));
-            case "dateRange": {
-                if (Array.isArray(value) && value.length === 2 && value[0] && value[1]) {
-                    const from = dayjs(value[0]).startOf("day");
-                    const to = dayjs(value[1]).endOf("day");
-                    return (recDate.isAfter(from) || recDate.isSame(from)) && (recDate.isBefore(to) || recDate.isSame(to));
                 }
                 return true;
             }

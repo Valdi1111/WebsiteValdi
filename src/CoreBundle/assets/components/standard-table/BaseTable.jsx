@@ -34,6 +34,7 @@ export default function BaseTable({
                                       onClearMobileFilters,
                                       // Whether the card should expand and lock to 100% height of the parent container
                                       fillHeight = false,
+                                      compactHeaderOnMobile = false,
                                       // Custom Ant Design Table passthrough props
                                       onRow,
                                       components,
@@ -117,7 +118,9 @@ export default function BaseTable({
             styles={{
                 header: {
                     height: "auto",
-                    padding: isMobile ? "12px 14px" : "14px 16px",
+                    padding: isMobile
+                        ? (compactHeaderOnMobile ? "8px 10px" : "12px 14px")
+                        : "14px 16px",
                     whiteSpace: "normal",
                     flexShrink: 0,
                     ...styles.cardHeaderStyle,
@@ -163,6 +166,7 @@ export default function BaseTable({
                     columns={initialColumns}
                     columnVisibility={columnVisibility}
                     onToggleColumnVisibility={handleToggleColumnVisibility}
+                    compactHeaderOnMobile={compactHeaderOnMobile}
                 />
             }
         >

@@ -69,7 +69,6 @@ export default function SeasonFolderAddModal({ open, setOpen }) {
         afterClose={() => setDownloaded([])}
         destroyOnHidden
         okButtonProps={{
-            autoFocus: true,
             htmlType: 'submit',
         }}
         confirmLoading={confirmLoading}
@@ -109,7 +108,7 @@ export default function SeasonFolderAddModal({ open, setOpen }) {
             { required: true, message: 'Please input season url.' },
             { pattern: MAL_ANIME_URL_PATTERN, message: 'Invalid season url.' }
         ]}>
-            <Input prefix={<GlobalOutlined/>} placeholder="https://myanimelist.net/anime/xxxxx"/>
+            <Input prefix={<GlobalOutlined/>} placeholder="https://myanimelist.net/anime/xxxxx" autoFocus/>
         </Form.Item>
         <Form.Item
             label="Folder"

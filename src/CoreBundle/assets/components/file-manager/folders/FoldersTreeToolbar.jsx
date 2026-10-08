@@ -19,7 +19,7 @@ export default function FoldersTreeToolbar({ searchText, setSearchText, setExpan
     }, [setSearchText, setExpandedIds]);
 
     return (
-        <Flex gap="small" align="center" style={{ paddingTop: 7, paddingBottom: 8 }}>
+        <Flex gap="small" align="center" style={{ paddingTop: 8, paddingBottom: 8 }}>
             {/* Expanded search input that takes the available width */}
             <Input
                 placeholder="Search folders..."

@@ -157,7 +157,7 @@ export default function FileManager({ apiUrl }) {
                             {/* Folders tree panel: rendered only when showTree is true */}
                             {showTree && (
                                 <Splitter.Panel
-                                    style={{ height: '100%', overflow: 'hidden', paddingLeft: 8, paddingRight: 8 }}
+                                    style={{ height: '100%', overflow: 'hidden', paddingLeft: 8, paddingRight: 8, paddingBottom: 8 }}
                                     defaultSize="20%"
                                     min="200px"
                                     max="350px"
@@ -168,7 +168,7 @@ export default function FileManager({ apiUrl }) {
 
                             {/* Files table main pane */}
                             <Splitter.Panel
-                                style={{ height: '100%', overflow: 'hidden', paddingLeft: 8, paddingRight: 8, minWidth: 0 }}
+                                style={{ height: '100%', overflow: 'hidden', paddingLeft: 8, paddingRight: 8, paddingBottom: 8, minWidth: 0 }}
                             >
                                 <FilesTable />
                             </Splitter.Panel>

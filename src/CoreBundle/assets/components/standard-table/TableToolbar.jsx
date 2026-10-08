@@ -64,21 +64,21 @@ export default function TableToolbar({
                 <Space size={8} wrap align="center">
                     {title && (
                         typeof title === "string" ? (
-                            <Text strong style={{ fontSize: isMobile ? 15 : 16 }}>
+                            <Text key="title-text" strong style={{ fontSize: isMobile ? 15 : 16 }}>
                                 {title}
                             </Text>
                         ) : (
-                            title
+                            <span key="title-custom">{title}</span>
                         )
                     )}
 
-                    {/* Count badges */}
+                    {/* Count badges with explicit key to prevent React key warning */}
                     {hasActiveFilters ? (
-                        <Tag color="cyan">
+                        <Tag key="badge-filtered" color="cyan">
                             Filtered: {total.toLocaleString()} / {unfilteredTotal.toLocaleString()} ({filterPercent}%)
                         </Tag>
                     ) : (
-                        <Tag color="blue">
+                        <Tag key="badge-total" color="blue">
                             Total: {unfilteredTotal.toLocaleString()}
                         </Tag>
                     )}

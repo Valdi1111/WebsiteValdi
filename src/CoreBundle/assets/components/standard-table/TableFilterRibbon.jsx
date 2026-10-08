@@ -7,24 +7,28 @@ const { Text } = Typography;
 
 /**
  * Filter summary ribbon rendered above the table to display active conditions as closable tags.
+ * Clicking a tag allows users to edit the filter directly.
  *
  * @param {Object} props
  * @param {Object} props.filters Current active filters map
  * @param {Array<Object>} props.columns Initial column configurations for resolving column titles
  * @param {Function} props.onRemoveCondition Callback invoked when closing an individual condition tag
  * @param {Function} props.onClearAll Callback invoked to clear all active conditions
+ * @param {Function} [props.onEditCondition] Callback invoked when clicking a tag to edit the filter
  */
 export default function TableFilterRibbon({
                                               filters,
                                               columns,
                                               onRemoveCondition,
                                               onClearAll,
+                                              onEditCondition,
+                                              style = null
                                           }) {
     const hasActiveFilters = Object.keys(filters).length > 0;
     if (!hasActiveFilters) return null;
 
     return (
-        <div style={{ marginBottom: 14 }}>
+        <div style={{ marginBottom: 14, ...style }}>
             <Flex gap="small" align="center" wrap="wrap">
                 <Text type="secondary" style={{ fontSize: 12 }}>
                     Active Filters:
@@ -38,7 +42,13 @@ export default function TableFilterRibbon({
                             key={`${field}_${idx}`}
                             color="blue"
                             closable
-                            onClose={() => onRemoveCondition(field, idx)}
+                            onClose={(e) => {
+                                // Prevent triggering the edit callback when removing the tag
+                                e.stopPropagation();
+                                onRemoveCondition(field, idx);
+                            }}
+                            onClick={() => onEditCondition && onEditCondition(colDef, idx)}
+                            style={{ cursor: onEditCondition ? "pointer" : "default" }}
                         >
                             <strong>{colTitle}</strong>: {getRuleDescription(rule, colDef)}
                         </Tag>

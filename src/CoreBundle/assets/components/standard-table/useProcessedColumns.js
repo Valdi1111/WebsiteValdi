@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
-import { Flex, Tag, Space } from "antd";
+import { Flex, Tag, Space, theme as antdTheme } from "antd";
 import { FilterFilled } from "@ant-design/icons";
+import Highlighter from "react-highlight-words";
 import { formatDateFromIso, formatDateTimeFromIso } from "@CoreBundle/format-utils";
 import MultiFilterDropdown from "@CoreBundle/components/standard-table/MultiFilterDropdown";
 import { getRuleDescription } from "@CoreBundle/components/standard-table/tableFilterUtils";
@@ -9,6 +10,9 @@ const ANTD_TAG_COLORS = [
     "blue", "purple", "cyan", "green", "magenta",
     "pink", "red", "orange", "yellow", "volcano", "geekblue", "gold"
 ];
+
+// Operators that qualify for text search highlight matching
+const PARTIAL_TEXT_OPERATORS = ["like", "startsWith", "endsWith", "exact", "notLike"];
 
 /**
  * Resolves a stable color name by hashing the given string value.
@@ -32,6 +36,7 @@ function resolveColorByHash(str) {
  * - Synchronizing controlled sortOrder and filteredValue.
  * - Mobile filter drawer delegation via filterIcon click.
  * - Tag rendering and color mapping for cell contents and filter menus.
+ * - Automatic search text highlighting for partial text filters.
  *
  * @param {Object} params
  * @param {Array<Object>} params.initialColumns Raw column definitions
@@ -40,6 +45,9 @@ function resolveColorByHash(str) {
  * @param {Object} params.sorter Active sorter state
  * @param {boolean} params.isMobile Whether current screen is mobile viewport
  * @param {Function} params.onOpenMobileFilter Callback to trigger the mobile filter drawer
+ * @param {string|null} [params.activeOpenColumn] DataIndex of column currently forced open
+ * @param {Function} [params.onFilterDropdownOpenChange] Callback when a column dropdown toggles
+ * @param {Object|null} [params.targetRuleFocus] Object containing { index, token } to focus and select
  * @returns {Array<Object>} Decorated columns ready for Ant Design Table
  */
 export default function useProcessedColumns({
@@ -49,7 +57,14 @@ export default function useProcessedColumns({
                                                 sorter,
                                                 isMobile,
                                                 onOpenMobileFilter,
+                                                activeOpenColumn = null,
+                                                onFilterDropdownOpenChange,
+                                                targetRuleFocus = null,
                                             }) {
+    // Access active theme tokens for highlighting styling
+    const { token } = antdTheme.useToken();
+    const highlightBg = token.controlItemBgActiveHover || "#ffe58f";
+
     return useMemo(() => {
         return initialColumns
             .filter((col) => columnVisibility[col.dataIndex] === true)
@@ -60,6 +75,13 @@ export default function useProcessedColumns({
 
                 const catalog = col.tagCatalog || col.tagColorMap || col.valueEnum || {};
                 const defaultVariant = col.variant || col.tagVariant;
+
+                // Extract active search words for partial text matching highlighting
+                const textSearchTerms = (col.filterType === "text" && Array.isArray(activeColFilters))
+                    ? activeColFilters
+                        .filter((r) => PARTIAL_TEXT_OPERATORS.includes(r.operator) && r.value)
+                        .map((r) => String(r.value))
+                    : [];
 
                 // Helper to resolve tag properties (text, color, icon, variant) for a given value
                 const resolveTagProps = (valKey, customFallbackText = null) => {
@@ -143,6 +165,19 @@ export default function useProcessedColumns({
                     processed.filteredValue = inRule && Array.isArray(inRule.value) ? inRule.value : null;
                 }
 
+                // Controlled open state for dropdown via filterDropdownProps to prevent Ant Design deprecation warnings
+                if (!isMobile) {
+                    const existingFilterDropdownProps = col.filterDropdownProps || {};
+                    processed.filterDropdownProps = {
+                        ...existingFilterDropdownProps,
+                        open: activeOpenColumn !== null ? activeOpenColumn === col.dataIndex : existingFilterDropdownProps.open,
+                        onOpenChange: (visible) => {
+                            existingFilterDropdownProps.onOpenChange?.(visible);
+                            onFilterDropdownOpenChange?.(col.dataIndex, visible);
+                        },
+                    };
+                }
+
                 // Header title with active rules badge and nowrap constraint
                 const originalTitle = col.title;
                 processed.title = (
@@ -194,12 +229,19 @@ export default function useProcessedColumns({
                 } else {
                     // Bind custom multi-filter dropdown for desktop
                     if (["text", "number", "date"].includes(col.filterType)) {
-                        processed.filterDropdown = (props) => <MultiFilterDropdown col={col} {...props} />;
+                        processed.filterDropdown = (props) => (
+                            <MultiFilterDropdown
+                                col={col}
+                                {...props}
+                                targetRuleFocus={activeOpenColumn === col.dataIndex ? targetRuleFocus : null}
+                            />
+                        );
                     }
                 }
 
-                // Default value formatters
-                if (!col.render) {
+                // Formatters & automatic text search highlighting
+                const originalRender = col.render;
+                if (!originalRender) {
                     if (col.valueType === "datetime") {
                         processed.render = (val) => (val ? <span>{formatDateTimeFromIso(val)}</span> : "-");
                     } else if (col.valueType === "date") {
@@ -228,7 +270,6 @@ export default function useProcessedColumns({
                                 .map((item) => {
                                     if (item === null || item === undefined || item === "") return null;
 
-                                    // If item is already an object { text, color }
                                     if (typeof item === "object") {
                                         const text = item.text ?? item.label ?? JSON.stringify(item);
                                         const color = item.color || col.tagColor || (col.tagRandomColor ? resolveColorByHash(String(text)) : "default");
@@ -262,9 +303,58 @@ export default function useProcessedColumns({
                                 </Space>
                             );
                         };
+                    } else if (textSearchTerms.length > 0) {
+                        processed.render = (val) => {
+                            if (val === null || val === undefined || val === "") return "-";
+                            return (
+                                <Highlighter
+                                    highlightStyle={{
+                                        backgroundColor: highlightBg,
+                                        color: "inherit",
+                                        borderRadius: "4px",
+                                        padding: "1px 2px",
+                                    }}
+                                    searchWords={textSearchTerms}
+                                    autoEscape
+                                    textToHighlight={String(val)}
+                                />
+                            );
+                        };
                     }
+                } else if (textSearchTerms.length > 0) {
+                    processed.render = (text, record, index) => {
+                        const rendered = originalRender(text, record, index);
+                        if (typeof rendered === "string" || typeof rendered === "number") {
+                            return (
+                                <Highlighter
+                                    highlightStyle={{
+                                        backgroundColor: highlightBg,
+                                        color: "inherit",
+                                        borderRadius: "4px",
+                                        padding: "1px 2px",
+                                    }}
+                                    searchWords={textSearchTerms}
+                                    autoEscape
+                                    textToHighlight={String(rendered)}
+                                />
+                            );
+                        }
+                        return rendered;
+                    };
                 }
+
                 return processed;
             });
-    }, [initialColumns, columnVisibility, filters, sorter, isMobile, onOpenMobileFilter]);
+    }, [
+        initialColumns,
+        columnVisibility,
+        filters,
+        sorter,
+        isMobile,
+        onOpenMobileFilter,
+        activeOpenColumn,
+        onFilterDropdownOpenChange,
+        targetRuleFocus,
+        highlightBg,
+    ]);
 }

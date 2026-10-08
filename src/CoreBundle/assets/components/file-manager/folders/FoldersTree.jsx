@@ -1,14 +1,16 @@
+import React from "react";
+import { Card, Tree, theme as antdTheme, Grid } from "antd";
+import Highlighter from "react-highlight-words";
 import FoldersTreeDropdown from "@CoreBundle/components/file-manager/folders/FoldersTreeDropdown";
 import FoldersTreeToolbar from "@CoreBundle/components/file-manager/folders/FoldersTreeToolbar";
 import FoldersTreeInfo from "@CoreBundle/components/file-manager/folders/FoldersTreeInfo";
 import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerContext";
-import { Layout, theme as antdTheme, Tree } from "antd";
-import Highlighter from "react-highlight-words";
-import React from "react";
+
+const { useBreakpoint } = Grid;
 
 /**
  * Directory navigation tree component.
- * Handles folder selection, search highlighting, expansion, and context menu actions.
+ * Rendered inside a styled Card on desktop, or without Card when on mobile / inside a drawer.
  */
 
 // Recursively filter tree nodes, preserving ancestors only if they match or contain matching descendants
@@ -49,14 +51,17 @@ function getAllKeys(nodes) {
     return keys;
 }
 
-export default function FoldersTree() {
+export default function FoldersTree({ inDrawer = false }) {
+    const screens = useBreakpoint();
+    const isMobile = inDrawer || !screens.sm;
+
     const [expandedIds, setExpandedIds] = React.useState(["/"]);
     const [searchText, setSearchText] = React.useState("");
     const [dropdownOpen, setDropdownOpen] = React.useState(null);
     const [dropdownPosition, setDropdownPosition] = React.useState({ x: 0, y: 0 });
 
     const { folders, selectedFolder, setSelectedFolder, setSelectedFile } = useFileManager();
-    const { token: { controlItemBgActiveHover } } = antdTheme.useToken();
+    const { token: { controlItemBgActiveHover, colorBorderSecondary } } = antdTheme.useToken();
 
     // Filtered tree structure based on current search query to exclude non-matching siblings
     const filteredFolders = React.useMemo(() => {
@@ -80,24 +85,26 @@ export default function FoldersTree() {
         if (!searchText || !expandedIds.includes(node.id)) {
             return node.title;
         }
-        return <Highlighter
-            highlightStyle={{
-                backgroundColor: controlItemBgActiveHover,
-                color: 'inherit',
-                borderRadius: '5px',
-                padding: '2px 0',
-            }}
-            searchWords={[searchText]}
-            autoEscape
-            textToHighlight={node.title ? node.title.toString() : ''}
-        />;
+        return (
+            <Highlighter
+                highlightStyle={{
+                    backgroundColor: controlItemBgActiveHover,
+                    color: "inherit",
+                    borderRadius: "5px",
+                    padding: "2px 0",
+                }}
+                searchWords={[searchText]}
+                autoEscape
+                textToHighlight={node.title ? node.title.toString() : ""}
+            />
+        );
     }, [searchText, expandedIds, controlItemBgActiveHover]);
 
     function onSelect(selectedIds, extra) {
         setSelectedFolder(extra.node);
         // Clear active file selection when navigating to another folder
         setSelectedFile(null);
-        console.debug('Selected', extra.node.id);
+        console.debug("Selected", extra.node.id);
     }
 
     function onRightClick({ event, node }) {
@@ -110,32 +117,31 @@ export default function FoldersTree() {
         setDropdownOpen(true);
     }
 
-    return (
-        <Layout style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'transparent' }}>
-            {/* Top action toolbar (Add, filter, and search inputs) */}
-            <div style={{ flexShrink: 0 }}>
-                <FoldersTreeToolbar
-                    expandedIds={expandedIds}
-                    setExpandedIds={setExpandedIds}
-                    searchText={searchText}
-                    setSearchText={setSearchText}
-                />
-            </div>
+    // Common tree body and bottom info content
+    const treeContent = (
+        <>
+            <FoldersTreeDropdown
+                node={selectedFolder}
+                posX={dropdownPosition.x}
+                posY={dropdownPosition.y}
+                open={dropdownOpen}
+                onOpenChange={(newOpen) => setDropdownOpen(newOpen)}
+            />
 
-            {/* Scrollable tree area; flex: 1 and minHeight: 0 constrain overflow exclusively to this container */}
-            <Layout.Content style={{ flex: 1, minHeight: 0, overflowY: "auto", overflowX: "hidden" }}>
-                <FoldersTreeDropdown
-                    node={selectedFolder}
-                    posX={dropdownPosition.x}
-                    posY={dropdownPosition.y}
-                    open={dropdownOpen}
-                    onOpenChange={(newOpen) => setDropdownOpen(newOpen)}
-                />
+            {/* Scrollable tree container */}
+            <div
+                style={{
+                    flex: 1,
+                    minHeight: 0,
+                    overflowY: "auto",
+                    overflowX: "hidden",
+                }}
+            >
                 <Tree
-                    fieldNames={{ key: 'id' }}
+                    fieldNames={{ key: "id" }}
                     treeData={filteredFolders}
                     filterTreeNode={filterTreeNode}
-                    onExpand={newExpandedIds => setExpandedIds(newExpandedIds)}
+                    onExpand={(newExpandedIds) => setExpandedIds(newExpandedIds)}
                     expandedKeys={expandedIds}
                     defaultSelectedKeys={["/"]}
                     selectedKeys={selectedFolder ? [selectedFolder.id] : []}
@@ -144,12 +150,83 @@ export default function FoldersTree() {
                     onRightClick={onRightClick}
                     showLine
                 />
-            </Layout.Content>
+            </div>
 
-            {/* Bottom storage statistics and usage indicator */}
-            <div style={{ flexShrink: 0 }}>
+            {/* Bottom storage statistics and usage indicator anchored at bottom */}
+            <div
+                style={{
+                    flexShrink: 0,
+                    marginTop: "auto",
+                    paddingTop: 8,
+                    paddingLeft: 8,
+                    paddingRight: 8,
+                    borderTop: `1px solid ${colorBorderSecondary || "#f0f0f0"}`,
+                }}
+            >
                 <FoldersTreeInfo />
             </div>
-        </Layout>
+        </>
+    );
+
+    // On mobile / inside a drawer, render directly without the Card wrapper
+    if (isMobile) {
+        return (
+            <div
+                style={{
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "hidden",
+                }}
+            >
+                <div style={{ flexShrink: 0 }}>
+                    <FoldersTreeToolbar
+                        expandedIds={expandedIds}
+                        setExpandedIds={setExpandedIds}
+                        searchText={searchText}
+                        setSearchText={setSearchText}
+                    />
+                </div>
+                {treeContent}
+            </div>
+        );
+    }
+
+    // On desktop, wrap in Card and constrain vertical height with an explicit bottom padding on the outer container
+    return (
+        <Card
+            styles={{
+                header: {
+                    padding: "10px 14px",
+                    height: "auto",
+                    flexShrink: 0,
+                },
+                body: {
+                    padding: 8,
+                    flex: 1,
+                    minHeight: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "hidden",
+                },
+            }}
+            style={{
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                minHeight: 0,
+                boxSizing: "border-box",
+            }}
+            title={
+                <FoldersTreeToolbar
+                    expandedIds={expandedIds}
+                    setExpandedIds={setExpandedIds}
+                    searchText={searchText}
+                    setSearchText={setSearchText}
+                />
+            }
+        >
+            {treeContent}
+        </Card>
     );
 }

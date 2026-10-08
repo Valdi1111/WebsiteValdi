@@ -12,6 +12,7 @@ import MultiFilterDropdown from "@CoreBundle/components/standard-table/MultiFilt
  * @param {Object} props.filters Active filter rules state map
  * @param {Function} props.onApply Callback invoked to apply updated filter rules for a column
  * @param {Function} props.onClear Callback invoked to clear all filter rules for a column
+ * @param {Object|null} [props.targetRuleFocus] Object containing { index, token } to focus and select
  */
 export default function TableMobileFilterDrawer({
                                                     col,
@@ -20,6 +21,7 @@ export default function TableMobileFilterDrawer({
                                                     filters,
                                                     onApply,
                                                     onClear,
+                                                    targetRuleFocus = null,
                                                 }) {
     if (!col) return null;
 
@@ -31,11 +33,13 @@ export default function TableMobileFilterDrawer({
         <Drawer
             title={`Filter: ${col.title}`}
             placement="bottom"
-            height="auto"
             open={open}
             onClose={onClose}
             destroyOnClose
             styles={{
+                wrapper: {
+                    height: "auto",
+                },
                 body: {
                     padding: 16,
                 },
@@ -46,6 +50,7 @@ export default function TableMobileFilterDrawer({
                 <MultiFilterDropdown
                     col={col}
                     isMobile={true}
+                    targetRuleFocus={targetRuleFocus}
                     selectedKeys={currentRules ? [currentRules] : []}
                     setSelectedKeys={(keys) => onApply(col.dataIndex, keys[0])}
                     confirm={onClose}

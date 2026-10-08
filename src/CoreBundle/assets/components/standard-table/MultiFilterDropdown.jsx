@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button, Select, Input, InputNumber, DatePicker, Space, Flex, Divider, Tooltip, theme } from "antd";
 import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 import { getAvailableOperators } from "@CoreBundle/components/standard-table/filterCatalog";
@@ -16,6 +16,7 @@ const { RangePicker } = DatePicker;
  * @param {Function} props.clearFilters Ant Design filter reset callback
  * @param {Function} props.close Ant Design dropdown close callback
  * @param {boolean} [props.isMobile] Whether the component is rendered inside a mobile Drawer
+ * @param {Object|null} [props.targetRuleFocus] Object containing { index, token } to focus and select
  */
 export default function MultiFilterDropdown({
                                                 col,
@@ -25,9 +26,13 @@ export default function MultiFilterDropdown({
                                                 clearFilters,
                                                 close,
                                                 isMobile = false,
+                                                targetRuleFocus = null,
                                             }) {
     // Access Ant Design design tokens for consistent border and background colors
     const { token } = theme.useToken();
+
+    // Container ref to query rule rows and focus relevant inputs
+    const containerRef = useRef(null);
 
     // Resolve available operators according to column filterType and optional whitelist
     const availableOperators = getAvailableOperators(col.filterType, col.filterOperators);
@@ -55,6 +60,48 @@ export default function MultiFilterDropdown({
     useEffect(() => {
         setRules(getInitialRules());
     }, [JSON.stringify(selectedKeys[0])]);
+
+    // Focus and select text inside the target rule input whenever targetRuleFocus changes
+    useEffect(() => {
+        if (!targetRuleFocus || targetRuleFocus.index === null || targetRuleFocus.index === undefined) {
+            return;
+        }
+
+        const targetIndex = targetRuleFocus.index;
+
+        const attemptFocus = () => {
+            if (!containerRef.current) return false;
+
+            const rowElem = containerRef.current.querySelector(`[data-rule-index="${targetIndex}"]`);
+            if (!rowElem) return false;
+
+            rowElem.scrollIntoView({ block: "nearest", behavior: "smooth" });
+
+            // Target exclusively the input within the value wrapper, bypassing the operator Select
+            const valueWrapper = rowElem.querySelector(".filter-rule-value-input");
+            if (valueWrapper) {
+                const targetInput = valueWrapper.querySelector("input");
+                if (targetInput) {
+                    targetInput.focus();
+                    if (typeof targetInput.select === "function") {
+                        targetInput.select();
+                    }
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        // Try immediately via requestAnimationFrame, with a fallback timeout for dropdown transition
+        const animFrame = requestAnimationFrame(() => {
+            if (!attemptFocus()) {
+                const timer = setTimeout(attemptFocus, 100);
+                return () => clearTimeout(timer);
+            }
+        });
+
+        return () => cancelAnimationFrame(animFrame);
+    }, [targetRuleFocus]);
 
     // Updates a specific property of a rule by its index
     const updateRule = (index, patch) => {
@@ -137,7 +184,11 @@ export default function MultiFilterDropdown({
     };
 
     return (
-        <div style={{ padding: isMobile ? 0 : 12, minWidth: isMobile ? "100%" : 320 }} onKeyDown={(e) => e.stopPropagation()}>
+        <div
+            ref={containerRef}
+            style={{ padding: isMobile ? 0 : 12, minWidth: isMobile ? "100%" : 320 }}
+            onKeyDown={(e) => e.stopPropagation()}
+        >
             <Flex vertical gap="small">
                 {/* Scrollable rules list container bounded to a maximum height */}
                 <div
@@ -154,6 +205,7 @@ export default function MultiFilterDropdown({
                     {rules.map((rule, idx) => (
                         <div
                             key={idx}
+                            data-rule-index={idx}
                             style={{
                                 background: token.colorFillAlter || "#fafafa",
                                 border: `1px solid ${token.colorBorderSecondary || "#f0f0f0"}`,
@@ -174,7 +226,7 @@ export default function MultiFilterDropdown({
 
                                 {/* Render specialized input based on column filterType */}
                                 {!["empty", "notEmpty"].includes(rule.operator) && (
-                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div className="filter-rule-value-input" style={{ flex: 1, minWidth: 0 }}>
                                         {col.filterType === "number" && (
                                             rule.operator === "between" ? (
                                                 <Space size={4} style={{ width: "100%", display: "flex" }}>

@@ -57,7 +57,7 @@ class ApiController extends AbstractController
     public function getFilesystem(): Filesystem
     {
         if (!$this->filesystem) {
-            $adapter = new LocalFilesystemAdapter($this->baseFolder, new PortableVisibilityConverter(directoryPublic: 02775));
+            $adapter = new LocalFilesystemAdapter($this->baseFolder, new PortableVisibilityConverter(filePublic: 0664, directoryPublic: 02775));
             $this->filesystem = new Filesystem($adapter);
         }
         return $this->filesystem;

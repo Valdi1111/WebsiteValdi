@@ -1,14 +1,31 @@
 import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerContext";
-import { App, Form, Input, Modal } from "antd";
+import { Form, Input, Modal } from "antd";
 import React from "react";
 
-/**
- * Add file modal
- * @param {boolean} visible
- * @param {(visible: boolean) => void} setVisible
- * @returns {React.JSX.Element}
- * @constructor
- */
+const nameValidationRules = [
+    {
+        required: true,
+        message: 'Please input the file name!',
+    },
+    {
+        pattern: /^[^\\/:*?"<>|]+$/,
+        message: 'Name contains invalid characters (/ \\ : * ? " < > |)',
+    },
+    {
+        validator: (_, value) => {
+            if (!value) return Promise.resolve();
+            const trimmed = value.trim();
+            if (trimmed !== value) {
+                return Promise.reject(new Error('Name cannot start or end with whitespace!'));
+            }
+            if (trimmed === '.' || trimmed === '..') {
+                return Promise.reject(new Error('Invalid file name!'));
+            }
+            return Promise.resolve();
+        },
+    },
+];
+
 export default function AddFileModal({ visible, setVisible }) {
     const [confirmLoading, setConfirmLoading] = React.useState(false);
     const [form] = Form.useForm();
@@ -23,15 +40,15 @@ export default function AddFileModal({ visible, setVisible }) {
                 loadingContent: 'Creating file...',
                 successContent: 'File created successfully',
             })
-            .fmMakeFile(selectedFolder.id, data.name)
-            .then(res => {
+            .fmMakeFile(selectedFolder.id, data.name.trim())
+            .then(() => {
                 reloadFiles();
                 setVisible(false);
             })
             .finally(() => {
                 setConfirmLoading(false);
             });
-    }, [selectedFolder?.id]);
+    }, [selectedFolder?.id, reloadFiles, api, setVisible]);
 
     return <Modal
         open={visible}
@@ -39,7 +56,6 @@ export default function AddFileModal({ visible, setVisible }) {
         onCancel={() => setVisible(false)}
         destroyOnHidden
         okButtonProps={{
-            autoFocus: true,
             htmlType: 'submit',
         }}
         confirmLoading={confirmLoading}
@@ -54,13 +70,8 @@ export default function AddFileModal({ visible, setVisible }) {
             </Form>
         }
     >
-        <Form.Item name="name" rules={[
-            {
-                required: true,
-                message: 'Please input the file name!',
-            },
-        ]}>
-            <Input placeholder="New file.txt"/>
+        <Form.Item name="name" rules={nameValidationRules}>
+            <Input placeholder="New file.txt" autoFocus />
         </Form.Item>
     </Modal>;
 }

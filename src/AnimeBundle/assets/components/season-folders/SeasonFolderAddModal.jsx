@@ -66,6 +66,7 @@ export default function SeasonFolderAddModal({ open, setOpen }) {
         open={open}
         title={<span>Add season folder</span>}
         onCancel={() => setOpen(false)}
+        afterClose={() => setDownloaded([])}
         destroyOnHidden
         okButtonProps={{
             autoFocus: true,

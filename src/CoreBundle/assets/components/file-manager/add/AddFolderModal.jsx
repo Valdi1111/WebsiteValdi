@@ -2,13 +2,30 @@ import { useFileManager } from "@CoreBundle/components/file-manager/FileManagerC
 import { Form, Input, Modal } from "antd";
 import React from "react";
 
-/**
- * Add folder modal
- * @param {boolean} visible
- * @param {(visible: boolean) => void} setVisible
- * @returns {React.JSX.Element}
- * @constructor
- */
+const nameValidationRules = [
+    {
+        required: true,
+        message: 'Please input the folder name!',
+    },
+    {
+        pattern: /^[^\\/:*?"<>|]+$/,
+        message: 'Name contains invalid characters (/ \\ : * ? " < > |)',
+    },
+    {
+        validator: (_, value) => {
+            if (!value) return Promise.resolve();
+            const trimmed = value.trim();
+            if (trimmed !== value) {
+                return Promise.reject(new Error('Name cannot start or end with whitespace!'));
+            }
+            if (trimmed === '.' || trimmed === '..') {
+                return Promise.reject(new Error('Invalid folder name!'));
+            }
+            return Promise.resolve();
+        },
+    },
+];
+
 export default function AddFolderModal({ visible, setVisible }) {
     const [confirmLoading, setConfirmLoading] = React.useState(false);
     const [form] = Form.useForm();
@@ -23,8 +40,8 @@ export default function AddFolderModal({ visible, setVisible }) {
                 loadingContent: 'Creating folder...',
                 successContent: 'Folder created successfully',
             })
-            .fmMakeFolder(selectedFolder.id, data.name)
-            .then(res => {
+            .fmMakeFolder(selectedFolder.id, data.name.trim())
+            .then(() => {
                 reloadFolders();
                 reloadFiles();
                 setVisible(false);
@@ -32,7 +49,7 @@ export default function AddFolderModal({ visible, setVisible }) {
             .finally(() => {
                 setConfirmLoading(false);
             });
-    }, [selectedFolder?.id]);
+    }, [selectedFolder?.id, reloadFolders, reloadFiles, api, setVisible]);
 
     return <Modal
         open={visible}
@@ -40,7 +57,6 @@ export default function AddFolderModal({ visible, setVisible }) {
         onCancel={() => setVisible(false)}
         destroyOnHidden
         okButtonProps={{
-            autoFocus: true,
             htmlType: 'submit',
         }}
         confirmLoading={confirmLoading}
@@ -55,13 +71,8 @@ export default function AddFolderModal({ visible, setVisible }) {
             </Form>
         }
     >
-        <Form.Item name="name" rules={[
-            {
-                required: true,
-                message: 'Please input the folder name!',
-            },
-        ]}>
-            <Input placeholder="New folder"/>
+        <Form.Item name="name" rules={nameValidationRules}>
+            <Input placeholder="New folder" autoFocus />
         </Form.Item>
     </Modal>;
 }

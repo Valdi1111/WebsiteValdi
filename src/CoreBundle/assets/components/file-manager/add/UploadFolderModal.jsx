@@ -14,7 +14,7 @@ export default function UploadFolderModal({ visible, setVisible }) {
         return {
             original_path: file.webkitRelativePath
         };
-    });
+    }, []);
 
     const beforeUpload = React.useCallback(file => {
         if (file.webkitRelativePath && file.webkitRelativePath.includes("/")) {
@@ -22,29 +22,32 @@ export default function UploadFolderModal({ visible, setVisible }) {
         }
         // Stop files upload: empty webkitRelativePath
         message.error(`Files are not supported: ${file.name}`);
-        return Upload.LIST_IGNORE; // skip
-    });
+        return Upload.LIST_IGNORE;
+    }, [message]);
 
     const onChange = React.useCallback(info => {
         const newFileList = [...info.fileList];
         if (info.file && info.file.status === 'error') {
-            // Read error from response
             const index = newFileList.findIndex(file => file.uid === info.file.uid);
-            newFileList[index].response = newFileList[index].response.detail;
+            if (index !== -1 && newFileList[index].response?.detail) {
+                newFileList[index].response = newFileList[index].response.detail;
+            }
         }
         setFileList(newFileList);
-        // Update folders and files
-        if (newFileList.every(file => file.status === 'done' || file.status === 'error')) {
+
+        // Update folders and files when batch is complete
+        if (newFileList.length > 0 && newFileList.every(file => file.status === 'done' || file.status === 'error')) {
             reloadFolders();
             reloadFiles();
         }
-    });
+    }, [reloadFolders, reloadFiles]);
 
     return <Modal
         open={visible}
         title={<span>Upload folder</span>}
         footer={null}
         onCancel={() => setVisible(false)}
+        afterClose={() => setFileList([])}
         destroyOnHidden
     >
         <Upload.Dragger

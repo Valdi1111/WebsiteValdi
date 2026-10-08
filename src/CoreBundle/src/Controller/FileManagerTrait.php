@@ -35,7 +35,7 @@ trait FileManagerTrait
         return match ($extension) {
             'zip', 'rar', 'tar', '7z', 'gz' => 'archive',
             'mp3', 'ogg', 'flac', 'wav' => 'audio',
-            'html', 'htm', 'js', 'json', 'css', 'scss', 'sass', 'less', 'php', 'sh', 'coffee', 'txt', 'md', 'go', 'yml' => 'code',
+            'html', 'htm', 'js', 'json', 'css', 'scss', 'sass', 'less', 'php', 'sh', 'coffee', 'txt', 'md', 'go', 'yml', 'plexmatch' => 'code',
             'docx', 'doc', 'xlsx', 'xls', 'pptx', 'ppt', 'pdf', 'djvu', 'djv' => 'document',
             'mpg', 'mp4', 'avi', 'mkv', 'ogv', 'mov' => 'video',
             'png', 'jpg', 'jpeg', 'webp', 'gif', 'tiff', 'tif', 'svg' => 'image',
@@ -48,7 +48,7 @@ trait FileManagerTrait
     public function getFilesystem(): Filesystem
     {
         if (!$this->filesystem) {
-            $adapter = new LocalFilesystemAdapter($this->getBaseFolder(), new PortableVisibilityConverter(directoryPublic: 02775));
+            $adapter = new LocalFilesystemAdapter($this->getBaseFolder(), new PortableVisibilityConverter(filePublic: 0664, directoryPublic: 02775));
             $this->filesystem = new Filesystem($adapter, [
                 Config::OPTION_DIRECTORY_VISIBILITY => 'public',
                 Config::OPTION_VISIBILITY => 'public',
@@ -118,6 +118,7 @@ trait FileManagerTrait
     private function finder(string $relativePath): Finder
     {
         return new Finder()
+            ->ignoreDotFiles(false)
             ->depth('== 0')
             ->in(Path::join($this->getBaseFolder(), $relativePath))
             ->sortByCaseInsensitiveName();
@@ -264,12 +265,17 @@ trait FileManagerTrait
         $path = $req->getPayload()->getString('id');
         $name = $req->getPayload()->getString('name');
         $newPath = Path::join($path, $name);
+
+        // Ensure the folder does not already exist
         $this->checkFolderOrException($newPath, false);
+
+        // Create the directory on the filesystem
         try {
             $this->getFilesystem()->createDirectory($newPath);
         } catch (FilesystemException $e) {
             throw new HttpException(500, "Error creating folder", $e);
         }
+
         return $this->jsonFolder($path, [$this->getBaseFolder(), $newPath]);
     }
 
@@ -280,12 +286,17 @@ trait FileManagerTrait
         $path = $req->getPayload()->getString('id');
         $name = $req->getPayload()->getString('name');
         $newPath = Path::join($path, $name);
+
+        // Ensure the file does not already exist
         $this->checkFileOrException($newPath, false);
+
+        // Create an empty file on the filesystem
         try {
             $this->getFilesystem()->write($newPath, "");
         } catch (FilesystemException $e) {
             throw new HttpException(500, "Error creating file", $e);
         }
+
         return $this->jsonFile($path, [$this->getBaseFolder(), $newPath]);
     }
 
@@ -367,18 +378,25 @@ trait FileManagerTrait
     {
         $path = $req->getPayload()->getString('id');
         $name = $req->getPayload()->getString('name');
+
+        // Ensure source directory exists
         $this->checkFolderOrException($path);
+
         $folder = Path::getDirectory($path);
         $newPath = Path::join($folder, $name);
-        $file = new File(Path::join($this->getBaseFolder(), $path), false);
-        if ($file->getFilename() !== $name) {
+        $currentName = basename($path);
+
+        // Perform rename only if the new name differs from the current one
+        if ($currentName !== $name) {
+            // Ensure no directory with the target name already exists
             $this->checkFolderOrException($newPath, false);
             try {
                 $this->getFilesystem()->move($path, $newPath);
             } catch (FilesystemException $e) {
-                throw new HttpException(500, "Error renaming file", $e);
+                throw new HttpException(500, "Error renaming folder", $e);
             }
         }
+
         return $this->jsonFolder($folder, [$this->getBaseFolder(), $newPath]);
     }
 
@@ -388,11 +406,17 @@ trait FileManagerTrait
     {
         $path = $req->getPayload()->getString('id');
         $name = $req->getPayload()->getString('name');
+
+        // Ensure source file exists
         $this->checkFileOrException($path);
+
         $folder = Path::getDirectory($path);
         $newPath = Path::join($folder, $name);
-        $file = new File(Path::join($this->getBaseFolder(), $path));
-        if ($file->getFilename() !== $name) {
+        $currentName = basename($path);
+
+        // Perform rename only if the new name differs from the current one
+        if ($currentName !== $name) {
+            // Ensure no file with the target name already exists
             $this->checkFileOrException($newPath, false);
             try {
                 $this->getFilesystem()->move($path, $newPath);
@@ -400,6 +424,7 @@ trait FileManagerTrait
                 throw new HttpException(500, "Error renaming file", $e);
             }
         }
+
         return $this->jsonFile($folder, [$this->getBaseFolder(), $newPath]);
     }
 
@@ -409,24 +434,34 @@ trait FileManagerTrait
     {
         $path = $req->getPayload()->getString('id');
         $to = $req->getPayload()->getString('to');
+
+        // Verify source file and destination directory exist
         $this->checkFileOrException($path);
         $this->checkFolderOrException($to, message: 'Destination folder not found!');
+
         $file = new File(Path::join($this->getBaseFolder(), $path));
         $newPath = Path::join($to, $file->getFilename());
+
+        // Prepare filename components to handle name collisions
         $i = 1;
         $extension = Path::getExtension($file->getPathname());
         if ($extension) {
             $extension = "." . $extension;
         }
+
+        // Generate an incremental suffix (e.g., "file (1).txt") if the destination file already exists
         while ($this->getFilesystem()->fileExists($newPath)) {
             $newPath = Path::join($to, Path::getFilenameWithoutExtension($file->getPathname()) . " ($i)" . $extension);
             $i++;
         }
+
+        // Perform file copy operation
         try {
             $this->getFilesystem()->copy($path, $newPath);
         } catch (FilesystemException $e) {
             throw new HttpException(500, "Error copying file", $e);
         }
+
         return $this->jsonFile($to, [$this->getBaseFolder(), $newPath]);
     }
 
@@ -436,19 +471,28 @@ trait FileManagerTrait
     {
         $path = $req->getPayload()->getString('id');
         $to = $req->getPayload()->getString('to');
+
+        // Verify source file and destination directory exist
         $this->checkFileOrException($path);
         $this->checkFolderOrException($to, message: 'Destination folder not found!');
-        $file = new File(Path::join($this->getBaseFolder(), $path));
-        $newPath = Path::join($to, $file->getFilename());
-        if ($path && $newPath) {
+
+        $fileName = basename($path);
+        $newPath = Path::join($to, $fileName);
+
+        // Return early if the destination matches the source path
+        if (Path::canonicalize($path) === Path::canonicalize($newPath)) {
             return $this->jsonFile($to, [$this->getBaseFolder(), $newPath]);
         }
-        $this->checkFileOrException($newPath, false);
+
+        // Ensure the target file does not already exist
+        $this->checkFileOrException($newPath, false, 'A file with this name already exists in destination!');
+
         try {
             $this->getFilesystem()->move($path, $newPath);
         } catch (FilesystemException $e) {
             throw new HttpException(500, "Error moving file", $e);
         }
+
         return $this->jsonFile($to, [$this->getBaseFolder(), $newPath]);
     }
 
@@ -457,12 +501,17 @@ trait FileManagerTrait
     public function fmDeleteFolder(Request $req): Response
     {
         $path = $req->getPayload()->getString('id');
+
+        // Ensure the folder exists before attempting deletion
         $this->checkFolderOrException($path);
+
+        // Recursively delete the directory and its contents
         try {
             $this->getFilesystem()->deleteDirectory($path);
         } catch (FilesystemException $e) {
             throw new HttpException(500, "Error deleting folder", $e);
         }
+
         return $this->json([]);
     }
 
@@ -471,12 +520,17 @@ trait FileManagerTrait
     public function fmDeleteFile(Request $req): Response
     {
         $path = $req->getPayload()->getString('id');
+
+        // Ensure the file exists before attempting deletion
         $this->checkFileOrException($path);
+
+        // Delete the file from the filesystem
         try {
             $this->getFilesystem()->delete($path);
         } catch (FilesystemException $e) {
             throw new HttpException(500, "Error deleting file", $e);
         }
+
         return $this->json([]);
     }
 
@@ -485,16 +539,22 @@ trait FileManagerTrait
     public function fmUpload(Request $req): Response
     {
         $path = $req->query->getString('id');
+
         /** @var UploadedFile $upload */
         $upload = $req->files->get('file');
         $originalPath = $req->getPayload()->getString('original_path');
         $newPath = Path::join($path, $originalPath);
+
+        // Ensure no file exists at destination to prevent accidental overwrites
         $this->checkFileOrException($newPath, false);
+
+        // Write uploaded file stream/content to the filesystem
         try {
             $this->getFilesystem()->write($newPath, $upload->getContent());
         } catch (FilesystemException $e) {
             throw new HttpException(500, "Error uploading file", $e);
         }
+
         return $this->json([]);
     }
 

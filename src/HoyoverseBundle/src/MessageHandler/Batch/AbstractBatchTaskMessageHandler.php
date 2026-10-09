@@ -48,7 +48,7 @@ abstract class AbstractBatchTaskMessageHandler
         $gameProfiles = $this->gameProfileRepository->findEligibleProfileIds($featureField, timezone: $timezone);
 
         $this->logger->info(sprintf(
-            'Batch [%s]: dispatching tasks for %d eligible profiles%s.',
+            'Batch [%s]: dispatching tasks for %d eligible profile(s)%s.',
             static::class,
             count($gameProfiles),
             $timezone ? " in timezone [{$timezone}]" : ''
@@ -66,7 +66,7 @@ abstract class AbstractBatchTaskMessageHandler
         }
 
         $this->logger->info(sprintf(
-            'Batch [%s] completed. Dispatched %d individual messages.',
+            'Batch [%s] completed. Dispatched %d individual message(s).',
             static::class,
             $dispatchedCount
         ));

@@ -62,7 +62,7 @@ class CodeRedeemBatchHandler
         $this->totalDispatched = 0;
 
         $this->getLogger()->info(sprintf(
-            'Starting task "%s" for %d eligible game service(s).',
+            'Batch [%s]: dispatching tasks for %d eligible game service(s).',
             static::class,
             $this->locator->count()
         ));
@@ -73,7 +73,7 @@ class CodeRedeemBatchHandler
         }
 
         $this->getLogger()->info(sprintf(
-            'Task "%s" completed. Dispatched %d code redeem message(s).',
+            'Batch [%s] completed. Dispatched %d code redeem message(s).',
             static::class,
             $this->totalDispatched
         ));

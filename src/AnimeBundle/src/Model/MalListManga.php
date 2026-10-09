@@ -3,8 +3,8 @@
 namespace App\AnimeBundle\Model;
 
 use App\AnimeBundle\Entity\ListManga;
-use App\CoreBundle\ObjectMapper\NotNullCondition;
 use Symfony\Component\ObjectMapper\Attribute\Map;
+use Symfony\Component\ObjectMapper\Condition\IsNotNull;
 use Symfony\Component\Serializer\Attribute\Context;
 use Symfony\Component\Serializer\Attribute\SerializedPath;
 use Symfony\Component\Serializer\Normalizer\BackedEnumNormalizer;
@@ -21,14 +21,12 @@ class MalListManga
     #[SerializedPath("[node][alternative_titles][en]")]
     private ?string $titleEn = '';
 
-    // TODO: Replace NotNullCondition with new IsNotNull() when upgrading to Symfony 8.1+
-    #[Map(if: new NotNullCondition())]
+    #[Map(if: new IsNotNull())]
     #[SerializedPath("[node][nsfw]")]
     #[Context(denormalizationContext: [BackedEnumNormalizer::ALLOW_INVALID_VALUES => true])]
     private ?Nsfw $nsfw = null;
 
-    // TODO: Replace NotNullCondition with new IsNotNull() when upgrading to Symfony 8.1+
-    #[Map(if: new NotNullCondition())]
+    #[Map(if: new IsNotNull())]
     #[SerializedPath("[node][media_type]")]
     #[Context(denormalizationContext: [BackedEnumNormalizer::ALLOW_INVALID_VALUES => true])]
     private ?ListMangaType $mediaType = null;
@@ -39,8 +37,7 @@ class MalListManga
     #[SerializedPath("[node][num_chapters]")]
     private ?int $numChapters = 0;
 
-    // TODO: Replace NotNullCondition with new IsNotNull() when upgrading to Symfony 8.1+
-    #[Map(if: new NotNullCondition())]
+    #[Map(if: new IsNotNull())]
     #[SerializedPath("[list_status][status]")]
     #[Context(denormalizationContext: [BackedEnumNormalizer::ALLOW_INVALID_VALUES => true])]
     private ?ListMangaStatus $status = null;

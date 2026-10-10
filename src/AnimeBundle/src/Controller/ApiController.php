@@ -7,6 +7,7 @@ use App\AnimeBundle\Entity\ListAnime;
 use App\AnimeBundle\Entity\ListManga;
 use App\AnimeBundle\Entity\SeasonFolder;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
+use App\AnimeBundle\Exception\UnsupportedTrackerException;
 use App\AnimeBundle\Exception\UnsupportedWebsiteException;
 use App\AnimeBundle\Model\EpisodeDownloadRequest;
 use App\AnimeBundle\Repository\EpisodeDownloadRepository;
@@ -17,6 +18,7 @@ use App\AnimeBundle\Service\AnimeTrackerLocator;
 use App\AnimeBundle\Service\AnimeStorage;
 use App\AnimeBundle\Service\EpisodeDownloadManager;
 use App\CoreBundle\Model\TableConfiguration;
+use App\CoreBundle\Model\TableJoin;
 use App\CoreBundle\Model\TableParameters;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\Filesystem;
@@ -68,17 +70,18 @@ class ApiController extends AbstractController
                 'tracker' => 'e.tracker',
                 'folder' => 'e.folder',
                 'episode_offset' => 'e.episodeOffset',
+                'title' => 'a.title',
             ],
-            hydrateObjects: true,
-            rowTransformer: function (array $row, SeasonFolder $entity) use ($listRepo): array {
-                // Find title matching both ID and tracker composite key
-                $anime = $listRepo->findOneBy([
-                    'id' => $entity->getId(),
-                    'tracker' => $entity->getTracker(),
-                ]);
-                $row['title'] = $anime?->getTitle();
-                return $row;
-            }
+            joins: [
+                TableJoin::left(
+                    join: ListAnime::class,
+                    alias: 'a',
+                    condition: 'a.id = e.id AND a.tracker = e.tracker'
+                ),
+            ],
+            queryModifier: fn($qb, $alias) => $qb
+                ->andWhere("$alias.tracker = :fixedTracker")
+                ->setParameter('fixedTracker', $tracker),
         );
 
         return $this->json([
@@ -100,12 +103,14 @@ class ApiController extends AbstractController
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
     #[Route('/{tracker}/season-folders', name: 'tracker_season_folders_add', methods: ['POST'])]
     public function apiSeasonFoldersAdd(
+        string                    $tracker,
         #[MapRequestPayload]
         SeasonFolder              $season,
         SeasonFolderRepository    $seasonRepo,
         EpisodeDownloadRepository $downloadRepo
     ): Response
     {
+        $season->setTracker($tracker);
         // Check uniqueness across both ID and tracker
         if ($seasonRepo->findOneBy(['id' => $season->getId(), 'tracker' => $season->getTracker()])) {
             throw new ConflictHttpException('Season folder already exists for this tracker.');
@@ -188,7 +193,10 @@ class ApiController extends AbstractController
                 'status' => 'e.status',
                 'media_type' => 'e.mediaType',
                 'nsfw' => 'e.nsfw',
-            ]
+            ],
+            queryModifier: fn($qb, $alias) => $qb
+                ->andWhere("$alias.tracker = :fixedTracker")
+                ->setParameter('fixedTracker', $tracker),
         );
 
         return $this->json([
@@ -239,7 +247,10 @@ class ApiController extends AbstractController
                 'status' => 'e.status',
                 'media_type' => 'e.mediaType',
                 'nsfw' => 'e.nsfw',
-            ]
+            ],
+            queryModifier: fn($qb, $alias) => $qb
+                ->andWhere("$alias.tracker = :fixedTracker")
+                ->setParameter('fixedTracker', $tracker),
         );
 
         return $this->json([
@@ -294,6 +305,10 @@ class ApiController extends AbstractController
                 'mal_id' => 'e.malId',
                 'al_id' => 'e.alId',
             ],
+            joins: [
+                'a' => 'e.episodeDownloadAttempts',
+            ],
+            fetchJoins: ['a'],
             hydrateObjects: true,
             rowTransformer: function (array $row, EpisodeDownload $entity): array {
                 // Include last attempt details for easy error inspection in UI tables
@@ -345,7 +360,11 @@ class ApiController extends AbstractController
         int              $id,
         AnimeTrackerLocator $trackerLocator
     ): Response {
-        $t = $trackerLocator->get($tracker);
+        try {
+            $t = $trackerLocator->get($tracker);
+        } catch (UnsupportedTrackerException $e) {
+            throw $this->createNotFoundException("Tracker '$tracker' not found.");
+        }
 
         return $this->json($t->fetchAnimeTitle($id));
     }
@@ -356,7 +375,11 @@ class ApiController extends AbstractController
         int              $id,
         AnimeTrackerLocator $trackerLocator
     ): Response {
-        $t = $trackerLocator->get($tracker);
+        try {
+            $t = $trackerLocator->get($tracker);
+        } catch (UnsupportedTrackerException $e) {
+            throw $this->createNotFoundException("Tracker '$tracker' not found.");
+        }
 
         return $this->json($t->fetchMangaTitle($id));
     }
@@ -371,7 +394,7 @@ class ApiController extends AbstractController
         try {
             $downloadManager->retryDownload($download);
         } catch (UnsupportedWebsiteException $e) {
-            throw new BadRequestHttpException("No service has been found for the given download.", $e);
+            throw new BadRequestHttpException("No provider has been found for the given download.");
         }
 
         return $this->json($download);

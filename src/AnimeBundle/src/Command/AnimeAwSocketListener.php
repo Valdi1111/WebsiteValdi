@@ -4,7 +4,7 @@ namespace App\AnimeBundle\Command;
 
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
 use App\AnimeBundle\Model\EpisodeDownloadRequest;
-use App\AnimeBundle\Service\Provider\AnimeProviderInterface;
+use App\AnimeBundle\Service\EpisodeDownloadManager;
 use ElephantIO\Client;
 use Exception;
 use Psr\Log\LoggerInterface;
@@ -28,8 +28,7 @@ class AnimeAwSocketListener extends Command
     public function __construct(
         #[Target('anime.aw_handler')]
         private readonly LoggerInterface        $logger,
-        #[Target('animeworld')]
-        private readonly AnimeProviderInterface $downloader,
+        private readonly EpisodeDownloadManager $downloadManager,
         #[Autowire(param: 'anime.animeworld.api_url')]
         private readonly string                 $awApiUrl,
         #[Autowire(param: 'anime.animeworld.client_id')]
@@ -155,9 +154,10 @@ class AnimeAwSocketListener extends Command
             return;
         }
         $downloadReq = new EpisodeDownloadRequest()
-            ->setUrl($data['episode']['link']);
+            ->setUrl($data['episode']['link'])
+            ->setDelay(60);
         try {
-            $episodes = $this->downloader->createEpisodeDownloads($downloadReq);
+            $episodes = $this->downloadManager->processDownloadRequest($downloadReq);
             if (!count($episodes)) {
                 $this->logger->error("No episode found!", ['episode' => $data['episode']]);
                 return;
@@ -165,15 +165,16 @@ class AnimeAwSocketListener extends Command
             $this->logger->info("Added episode!", [
                 'file' => $episodes[0]->getFile(),
                 'episode' => $episodes[0]->getEpisode(),
-                'malId' => $episodes[0]->getMalId()]
-            );
+                'malId' => $episodes[0]->getMalId(),
+                'alId' => $episodes[0]->getAlId(),
+            ]);
         } catch (CacheAnimeNotFoundException $e) {
             $this->logger->warning($e->getMessage());
         }
     }
 
     /**
-     * Event dispatched when a new news is added.
+     * Event dispatched when new news is added.
      * @param array{
      *     metadata: array{id: int, date: int},
      *     news: array{id: int, title: string, link: string, description: string, image: string, categories: ?string[]}

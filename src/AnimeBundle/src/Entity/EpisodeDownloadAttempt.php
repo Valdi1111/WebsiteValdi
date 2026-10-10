@@ -7,6 +7,7 @@ use App\AnimeBundle\Repository\EpisodeDownloadAttemptRepository;
 use Doctrine\DBAL\Schema\DefaultExpression\CurrentTimestamp;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Attribute\Ignore;
 
 #[ORM\Table(name: 'episode_download_attempt')]
 #[ORM\Index(name: 'FK_episode_download_episode_download_attempt', columns: ['episode_download_id'])]
@@ -46,6 +47,7 @@ class EpisodeDownloadAttempt
         return $this->id;
     }
 
+    #[Ignore]
     public function getEpisodeDownload(): ?EpisodeDownload
     {
         return $this->episodeDownload;

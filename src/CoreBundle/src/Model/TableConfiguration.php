@@ -2,9 +2,11 @@
 
 namespace App\CoreBundle\Model;
 
+use Doctrine\ORM\QueryBuilder;
+
 /**
  * Encapsulates table query metadata, projection mappings, relationship joins,
- * eager fetch joins, and post-query row transformers.
+ * eager fetch joins, custom query modifiers, and post-query row transformers.
  */
 class TableConfiguration
 {
@@ -14,13 +16,19 @@ class TableConfiguration
     private $rowTransformer = null;
 
     /**
+     * @var null|callable(QueryBuilder, string): void
+     */
+    private $queryModifier = null;
+
+    /**
      * @param string $rootEntityClass The FQCN of the root entity (e.g. Credential::class)
      * @param string $rootAlias The root alias used in DQL queries (default: 'e')
      * @param array<string, string> $fieldMappings Map of [ 'frontendDataIndex' => 'dql.targetProperty' ]
-     * @param array<string, string> $joins Map of [ 'joinAlias' => 'targetRelation' ] (e.g. ['s' => 'e.server'])
+     * @param array<string|int, string|TableJoin> $joins List of TableJoin instances or map of [ 'joinAlias' => 'targetRelation' ] (e.g. ['s' => 'e.server'])
      * @param string[] $fetchJoins List of joined aliases to include in the SELECT clause when hydrateObjects is enabled to avoid N+1 queries
      * @param bool $hydrateObjects Whether to hydrate full entity objects instead of flat array scalars (default: false)
      * @param null|callable(array<string, mixed>, object): array<string, mixed> $rowTransformer Callback accepting (array $row, object $entity)
+     * @param null|callable(\Doctrine\ORM\QueryBuilder, string): void $queryModifier
      */
     public function __construct(
         private readonly string $rootEntityClass,
@@ -29,9 +37,11 @@ class TableConfiguration
         private readonly array  $joins = [],
         private readonly array  $fetchJoins = [],
         private readonly bool   $hydrateObjects = false,
-        ?callable               $rowTransformer = null
+        ?callable               $rowTransformer = null,
+        ?callable               $queryModifier = null,
     ) {
         $this->rowTransformer = $rowTransformer;
+        $this->queryModifier = $queryModifier;
     }
 
     public function getRootEntityClass(): string
@@ -49,6 +59,9 @@ class TableConfiguration
         return $this->fieldMappings;
     }
 
+    /**
+     * @return array<string|int, string|TableJoin>
+     */
     public function getJoins(): array
     {
         return $this->joins;
@@ -67,6 +80,11 @@ class TableConfiguration
     public function getRowTransformer(): ?callable
     {
         return $this->rowTransformer;
+    }
+
+    public function getQueryModifier(): ?callable
+    {
+        return $this->queryModifier;
     }
 
     /**

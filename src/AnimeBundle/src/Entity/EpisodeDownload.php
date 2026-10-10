@@ -9,6 +9,7 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Schema\DefaultExpression\CurrentTimestamp;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Serializer\Attribute\Ignore;
 
 #[ORM\Index(name: 'IDX_state', columns: ['state'])]
 #[ORM\Index(name: 'IDX_mal_id', columns: ['mal_id'])]
@@ -278,6 +279,7 @@ class EpisodeDownload
     /**
      * @return Collection<int, EpisodeDownloadAttempt>
      */
+    #[Ignore]
     public function getEpisodeDownloadAttempts(): Collection
     {
         return $this->episodeDownloadAttempts;

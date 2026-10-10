@@ -2,10 +2,15 @@
 
 namespace App\CoreBundle\Repository;
 
+use App\CoreBundle\Exception\InvalidTableJoinException;
 use App\CoreBundle\Model\TableConfiguration;
+use App\CoreBundle\Model\TableJoin;
 use App\CoreBundle\Model\TableParameters;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\ORM\QueryBuilder;
+use Doctrine\ORM\Tools\Pagination\OffsetPaginator;
+use Doctrine\ORM\Tools\Pagination\Window;
 
 /**
  * Trait providing dynamic projection, pagination, sorting, relation joins, and multi-condition filtering for DQL tables.
@@ -21,8 +26,11 @@ trait TableRepositoryTrait
         $qb = $this->createQueryBuilder($alias);
 
         $this->applyConfiguredJoins($qb, $config);
+        $this->applyCustomQueryModifier($qb, $config);
 
-        return (int) $qb->select("COUNT(DISTINCT $alias.id)")
+        $countExpression = $this->buildCountDistinctExpression($qb, $config);
+
+        return (int) $qb->select($countExpression)
             ->getQuery()
             ->getSingleScalarResult();
     }
@@ -33,11 +41,43 @@ trait TableRepositoryTrait
         $qb = $this->createQueryBuilder($alias);
 
         $this->applyConfiguredJoins($qb, $config);
+        $this->applyCustomQueryModifier($qb, $config);
         $this->applyConfiguredFilters($qb, $params, $config);
 
-        return (int) $qb->select("COUNT(DISTINCT $alias.id)")
+        $countExpression = $this->buildCountDistinctExpression($qb, $config);
+
+        return (int) $qb->select($countExpression)
             ->getQuery()
             ->getSingleScalarResult();
+    }
+
+    /**
+     * Builds a portable DQL COUNT(DISTINCT ...) expression supporting single non-id PKs and composite PKs.
+     */
+    protected function buildCountDistinctExpression(QueryBuilder $qb, TableConfiguration $config): string
+    {
+        $alias = $config->getRootAlias();
+        $expr = $qb->expr();
+
+        $metadata = $qb->getEntityManager()->getClassMetadata($config->getRootEntityClass());
+        $idFields = $metadata->getIdentifierFieldNames();
+
+        // 1. Single primary key (standard, whether named 'id', 'uuid', etc.)
+        if (count($idFields) === 1) {
+            return (string) $expr->countDistinct("$alias.{$idFields[0]}");
+        }
+
+        // 2. Composite primary key: DQL doesn't support COUNT(DISTINCT a, b).
+        // Build an interleaved array: ["e.id", "'_'", "e.tracker", ...]
+        $concatArgs = [];
+        foreach ($idFields as $index => $field) {
+            if ($index > 0) {
+                $concatArgs[] = "'_'";
+            }
+            $concatArgs[] = "$alias.$field";
+        }
+
+        return (string) $expr->countDistinct($expr->concat(...$concatArgs));
     }
 
     public function getTableRows(TableParameters $params, TableConfiguration $config): array
@@ -46,19 +86,30 @@ trait TableRepositoryTrait
         $qb = $this->createQueryBuilder($alias);
 
         $this->applyConfiguredJoins($qb, $config);
+        $this->applyCustomQueryModifier($qb, $config);
         $this->applyConfiguredFilters($qb, $params, $config);
         $this->applyConfiguredSorter($qb, $params, $config);
+
+        $limit = $params->getPageSize();
+        $offset = $limit * ($params->getCurrent() - 1);
 
         // Path A: Hydrate full entity objects
         if ($config->isHydrateObjects()) {
             $selectAliases = array_merge([$alias], $config->getFetchJoins());
             $qb->select($selectAliases);
 
-            $entities = $qb
-                ->setMaxResults($params->getPageSize())
-                ->setFirstResult($params->getPageSize() * ($params->getCurrent() - 1))
-                ->getQuery()
-                ->getResult();
+            // Use OffsetPaginator when fetch joins are configured to prevent duplicated rows and invalid limits
+            if (!empty($config->getFetchJoins())) {
+                $paginator = new OffsetPaginator(fetchJoinCollection: true);
+                $page = $paginator->paginate($qb->getQuery(), new Window($offset, $limit));
+                $entities = iterator_to_array($page);
+            } else {
+                $entities = $qb
+                    ->setFirstResult($offset)
+                    ->setMaxResults($limit)
+                    ->getQuery()
+                    ->getResult();
+            }
 
             $transformer = $config->getRowTransformer();
 
@@ -87,8 +138,8 @@ trait TableRepositoryTrait
         }
 
         $rows = $qb
-            ->setMaxResults($params->getPageSize())
-            ->setFirstResult($params->getPageSize() * ($params->getCurrent() - 1))
+            ->setFirstResult($offset)
+            ->setMaxResults($limit)
             ->getQuery()
             ->getArrayResult();
 
@@ -99,6 +150,13 @@ trait TableRepositoryTrait
         }
 
         return $rows;
+    }
+
+    protected function applyCustomQueryModifier(QueryBuilder $qb, TableConfiguration $config): void
+    {
+        if ($modifier = $config->getQueryModifier()) {
+            $modifier($qb, $config->getRootAlias());
+        }
     }
 
     /**
@@ -146,7 +204,28 @@ trait TableRepositoryTrait
 
     protected function applyConfiguredJoins(QueryBuilder $qb, TableConfiguration $config): void
     {
-        foreach ($config->getJoins() as $joinAlias => $joinTarget) {
+        foreach ($config->getJoins() as $key => $joinDef) {
+            if ($joinDef instanceof TableJoin) {
+                $method = match ($joinDef->getType()) {
+                    Join::INNER_JOIN => 'innerJoin',
+                    Join::LEFT_JOIN => 'leftJoin',
+                    default => throw new InvalidTableJoinException("Invalid table join type '{$joinDef->getType()}'"),
+                };
+
+                $qb->$method(
+                    join: $joinDef->getJoin(),
+                    alias: $joinDef->getAlias(),
+                    conditionType: $joinDef->getConditionType(),
+                    condition: $joinDef->getCondition(),
+                    indexBy: $joinDef->getIndexBy()
+                );
+                continue;
+            }
+
+            // Fallback for string format: ['alias' => 'target']
+            $joinAlias = (string) $key;
+            $joinTarget = (string) $joinDef;
+
             $qb->leftJoin($joinTarget, $joinAlias);
         }
     }

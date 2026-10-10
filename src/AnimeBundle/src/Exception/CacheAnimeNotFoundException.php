@@ -4,10 +4,9 @@ namespace App\AnimeBundle\Exception;
 
 use App\AnimeBundle\Model\TrackerIdentifier;
 use Doctrine\Common\Collections\Collection;
-use Exception;
 use Throwable;
 
-class CacheAnimeNotFoundException extends Exception
+class CacheAnimeNotFoundException extends \RuntimeException
 {
     /**
      * @param Collection<TrackerIdentifier> $identifiers Mapping of tracking services and ids checked

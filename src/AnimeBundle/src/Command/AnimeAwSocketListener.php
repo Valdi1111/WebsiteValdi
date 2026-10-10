@@ -162,11 +162,13 @@ class AnimeAwSocketListener extends Command
                 $this->logger->error("No episode found!", ['episode' => $data['episode']]);
                 return;
             }
+
+            $defaultTracker = $episodes[0]->getDefaultTracker();
             $this->logger->info("Added episode!", [
                 'file' => $episodes[0]->getFile(),
                 'episode' => $episodes[0]->getEpisode(),
-                'malId' => $episodes[0]->getMalId(),
-                'alId' => $episodes[0]->getAlId(),
+                'tracker' => $defaultTracker?->getTracker(),
+                'trackerId' => $defaultTracker?->getTrackerId(),
             ]);
         } catch (CacheAnimeNotFoundException $e) {
             $this->logger->warning($e->getMessage());

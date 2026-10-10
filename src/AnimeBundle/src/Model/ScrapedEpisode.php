@@ -9,15 +9,18 @@ class ScrapedEpisode
     private string $episodeNumber;
     private ?string $downloadUrl = null;
     private ?string $filename = null;
-    private ?int $malId = null;
-    private ?int $alId = null;
+
+    /**
+     * @var array<string, TrackerIdentifier>
+     */
+    private array $trackers = [];
 
     public function getProvider(): string
     {
         return $this->provider;
     }
 
-    public function setProvider(string $provider): ScrapedEpisode
+    public function setProvider(string $provider): self
     {
         $this->provider = $provider;
         return $this;
@@ -28,7 +31,7 @@ class ScrapedEpisode
         return $this->episodeUrl;
     }
 
-    public function setEpisodeUrl(string $episodeUrl): ScrapedEpisode
+    public function setEpisodeUrl(string $episodeUrl): self
     {
         $this->episodeUrl = $episodeUrl;
         return $this;
@@ -39,7 +42,7 @@ class ScrapedEpisode
         return $this->episodeNumber;
     }
 
-    public function setEpisodeNumber(string $episodeNumber): ScrapedEpisode
+    public function setEpisodeNumber(string $episodeNumber): self
     {
         $this->episodeNumber = $episodeNumber;
         return $this;
@@ -50,7 +53,7 @@ class ScrapedEpisode
         return $this->downloadUrl;
     }
 
-    public function setDownloadUrl(?string $downloadUrl): ScrapedEpisode
+    public function setDownloadUrl(?string $downloadUrl): self
     {
         $this->downloadUrl = $downloadUrl;
         return $this;
@@ -61,31 +64,45 @@ class ScrapedEpisode
         return $this->filename;
     }
 
-    public function setFilename(?string $filename): ScrapedEpisode
+    public function setFilename(?string $filename): self
     {
         $this->filename = $filename;
         return $this;
     }
 
-    public function getMalId(): ?int
+    /**
+     * @return array<string, TrackerIdentifier>
+     */
+    public function getTrackers(): array
     {
-        return $this->malId;
+        return $this->trackers;
     }
 
-    public function setMalId(?int $malId): ScrapedEpisode
+    /**
+     * @param array<string, TrackerIdentifier>|TrackerIdentifier[] $trackers
+     */
+    public function setTrackers(array $trackers): self
     {
-        $this->malId = $malId;
+        $this->trackers = [];
+        foreach ($trackers as $tracker) {
+            $this->addTracker($tracker);
+        }
         return $this;
     }
 
-    public function getAlId(): ?int
+    public function addTracker(TrackerIdentifier $tracker): self
     {
-        return $this->alId;
+        $this->trackers[$tracker->getTracker()] = $tracker;
+        return $this;
     }
 
-    public function setAlId(?int $alId): ScrapedEpisode
+    public function getTracker(string $trackerName): ?TrackerIdentifier
     {
-        $this->alId = $alId;
-        return $this;
+        return $this->trackers[$trackerName] ?? null;
+    }
+
+    public function getFirstTracker(): ?TrackerIdentifier
+    {
+        return array_values($this->trackers)[0] ?? null;
     }
 }

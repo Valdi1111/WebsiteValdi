@@ -1,5 +1,6 @@
 import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
 import ExternalTitleLink from "@AnimeBundle/components/ExternalTitleLink";
+import { TRACKER_CATALOG } from "@AnimeBundle/components/TrackerConstants";
 import { formatDateTimeFromIso } from "@CoreBundle/format-utils";
 import { App, Button, Descriptions, Modal, Space } from "antd";
 import { DownloadOutlined, ExclamationCircleFilled } from "@ant-design/icons";
@@ -52,7 +53,8 @@ export default function DownloadDetailModal({ open, setOpen, selectedId }) {
         if (!data) {
             return [];
         }
-        return [
+
+        const baseItems = [
             {
                 key: 1,
                 label: 'Episode URL',
@@ -107,31 +109,29 @@ export default function DownloadDetailModal({ open, setOpen, selectedId }) {
                 children: formatDateTimeFromIso(data.download.completed, "Not completed"),
                 span: 5,
             },
-            {
-                key: 10,
-                label: 'MyAnimeList',
-                children: (
-                    <ExternalTitleLink
-                        id={data.download.mal_id}
-                        url={`https://myanimelist.net/anime/${data.download.mal_id}`}
-                        fetchTitle={data.download.mal_id ? () => api.tracker().animeTitle('myanimelist', data.download.mal_id) : null}
-                    />
-                ),
-                span: 5,
-            },
-            {
-                key: 11,
-                label: 'AniList',
-                children: (
-                    <ExternalTitleLink
-                        id={data.download.al_id}
-                        url={`https://anilist.co/anime/${data.download.al_id}`}
-                        fetchTitle={data.download.al_id ? () => api.tracker().animeTitle('anilist', data.download.al_id) : null}
-                    />
-                ),
-                span: 5,
-            },
         ];
+
+        // Dynamically iterates trackers map (es. myanimelist, anilist, etc.)
+        const trackerItems = Object.values(data.download.trackers || {}).map((t) => {
+            const config = TRACKER_CATALOG[t.tracker];
+            const label = config?.label ?? t.tracker;
+            const url = config ? config.buildAnimeUrl(t.tracker_id) : `#`;
+
+            return {
+                key: `tracker_${t.tracker}_${t.tracker_id}`,
+                label: label,
+                children: (
+                    <ExternalTitleLink
+                        id={t.tracker_id}
+                        url={url}
+                        fetchTitle={t.tracker_id ? () => api.tracker().animeTitle(t.tracker, t.tracker_id) : null}
+                    />
+                ),
+                span: 5,
+            };
+        });
+
+        return [...baseItems, ...trackerItems];
     }, [data, api]);
 
     return (

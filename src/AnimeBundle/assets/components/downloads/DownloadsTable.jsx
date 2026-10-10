@@ -98,18 +98,6 @@ export default function DownloadsTable() {
             align: "center",
         },
         {
-            title: "MAL ID",
-            dataIndex: "mal_id",
-            filterType: "number",
-            hidden: true,
-        },
-        {
-            title: "AL ID",
-            dataIndex: "al_id",
-            filterType: "number",
-            hidden: true,
-        },
-        {
             title: "Started",
             dataIndex: "started",
             valueType: "datetime",

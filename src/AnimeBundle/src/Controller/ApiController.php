@@ -3,6 +3,7 @@
 namespace App\AnimeBundle\Controller;
 
 use App\AnimeBundle\Entity\EpisodeDownload;
+use App\AnimeBundle\Entity\EpisodeDownloadTracker;
 use App\AnimeBundle\Entity\ListAnime;
 use App\AnimeBundle\Entity\ListManga;
 use App\AnimeBundle\Entity\SeasonFolder;
@@ -293,8 +294,8 @@ class ApiController extends AbstractController
             fieldMappings: [
                 'id' => 'e.id',
                 'provider' => 'e.provider',
-                'tracker' => 'e.tracker',
-                'tracker_id' => 'e.trackerId',
+                'tracker' => 'dt.tracker',
+                'tracker_id' => 'dt.trackerId',
                 'episode_url' => 'e.episodeUrl',
                 'folder' => 'e.folder',
                 'file' => 'e.file',
@@ -302,19 +303,31 @@ class ApiController extends AbstractController
                 'started' => 'e.started',
                 'completed' => 'e.completed',
                 'state' => 'e.state',
-                'mal_id' => 'e.malId',
-                'al_id' => 'e.alId',
             ],
             joins: [
-                'a' => 'e.episodeDownloadAttempts',
+                'a' => 'e.attempts',
+                'trackers' => 'e.trackers',
+                TableJoin::left(
+                    join: EpisodeDownloadTracker::class,
+                    alias: 'dt',
+                    condition: 'dt.episodeDownload = e AND dt.default = true'
+                ),
             ],
-            fetchJoins: ['a'],
+            fetchJoins: ['a', 'trackers'],
             hydrateObjects: true,
             rowTransformer: function (array $row, EpisodeDownload $entity): array {
                 // Include last attempt details for easy error inspection in UI tables
                 $lastAttempt = $entity->getLastAttempt();
                 $row['last_error'] = $lastAttempt?->getErrorMessage();
-                $row['attempts_count'] = $entity->getEpisodeDownloadAttempts()->count();
+                $row['attempts_count'] = $entity->getAttempts()->count();
+
+                // Serialize linked trackers into a dictionary map { "myanimelist": 123, ... }
+                $trackersMap = [];
+                foreach ($entity->getTrackers() as $t) {
+                    $trackersMap[$t->getTracker()] = $t->getTrackerId();
+                }
+                $row['trackers'] = $trackersMap;
+
                 return $row;
             }
         );
@@ -350,7 +363,7 @@ class ApiController extends AbstractController
     {
         return $this->json([
             "download" => $download,
-            "attempts" => $download->getEpisodeDownloadAttempts()->toArray(),
+            "attempts" => $download->getAttempts()->toArray(),
         ]);
     }
 

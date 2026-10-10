@@ -3,6 +3,7 @@
 namespace App\AnimeBundle\Entity;
 
 use App\AnimeBundle\Model\EpisodeDownloadState;
+use App\AnimeBundle\Model\TrackerIdentifier;
 use App\AnimeBundle\Repository\EpisodeDownloadRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -12,11 +13,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Ignore;
 
 #[ORM\Index(name: 'IDX_state', columns: ['state'])]
-#[ORM\Index(name: 'IDX_mal_id', columns: ['mal_id'])]
-#[ORM\Index(name: 'IDX_al_id', columns: ['al_id'])]
 #[ORM\Index(name: 'IDX_provider', columns: ['provider'])]
-#[ORM\Index(name: 'IDX_tracker', columns: ['tracker'])]
-#[ORM\Index(name: 'IDX_tracker_tracker_id', columns: ['tracker', 'tracker_id'])]
 #[ORM\Table(name: 'episode_download')]
 #[ORM\Entity(repositoryClass: EpisodeDownloadRepository::class)]
 class EpisodeDownload
@@ -67,29 +64,22 @@ class EpisodeDownload
     #[ORM\Column(type: Types::DATETIME_MUTABLE, nullable: true)]
     private ?\DateTimeInterface $completed = null;
 
-    #[ORM\Column(nullable: true, options: ["unsigned" => true])]
-    private ?int $malId = null;
-
-    #[ORM\Column(nullable: true, options: ["unsigned" => true])]
-    private ?int $alId = null;
-
     #[ORM\Column(length: 50)]
     private ?string $provider = null;
 
     /** @var Collection<int, EpisodeDownloadAttempt> */
     #[ORM\OneToMany(targetEntity: EpisodeDownloadAttempt::class, mappedBy: 'episodeDownload', cascade: ['persist', 'remove'])]
     #[ORM\OrderBy(['created' => \SortDirection::Ascending])]
-    private Collection $episodeDownloadAttempts;
+    private Collection $attempts;
 
-    #[ORM\Column(length: 50, nullable: true)]
-    private ?string $tracker = null;
-
-    #[ORM\Column(nullable: true, options: ["unsigned" => true])]
-    private ?int $trackerId = null;
+    /** @var Collection<int, EpisodeDownloadTracker> */
+    #[ORM\OneToMany(targetEntity: EpisodeDownloadTracker::class, mappedBy: 'episodeDownload', cascade: ['persist', 'remove'], indexBy: 'tracker')]
+    private Collection $trackers;
 
     public function __construct()
     {
-        $this->episodeDownloadAttempts = new ArrayCollection();
+        $this->attempts = new ArrayCollection();
+        $this->trackers = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -240,30 +230,6 @@ class EpisodeDownload
         return $this;
     }
 
-    public function getMalId(): ?int
-    {
-        return $this->malId;
-    }
-
-    public function setMalId(?int $malId): static
-    {
-        $this->malId = $malId;
-
-        return $this;
-    }
-
-    public function getAlId(): ?int
-    {
-        return $this->alId;
-    }
-
-    public function setAlId(?int $alId): static
-    {
-        $this->alId = $alId;
-
-        return $this;
-    }
-
     public function getProvider(): ?string
     {
         return $this->provider;
@@ -280,24 +246,24 @@ class EpisodeDownload
      * @return Collection<int, EpisodeDownloadAttempt>
      */
     #[Ignore]
-    public function getEpisodeDownloadAttempts(): Collection
+    public function getAttempts(): Collection
     {
-        return $this->episodeDownloadAttempts;
+        return $this->attempts;
     }
 
-    public function addEpisodeDownloadAttempt(EpisodeDownloadAttempt $attempt): static
+    public function addAttempt(EpisodeDownloadAttempt $attempt): static
     {
-        if (!$this->getEpisodeDownloadAttempts()->contains($attempt)) {
-            $this->episodeDownloadAttempts[] = $attempt;
+        if (!$this->getAttempts()->contains($attempt)) {
+            $this->attempts[] = $attempt;
             $attempt->setEpisodeDownload($this);
         }
 
         return $this;
     }
 
-    public function removeEpisodeDownloadAttempt(EpisodeDownloadAttempt $attempt): static
+    public function removeAttempt(EpisodeDownloadAttempt $attempt): static
     {
-        if ($this->getEpisodeDownloadAttempts()->removeElement($attempt)) {
+        if ($this->getAttempts()->removeElement($attempt)) {
             if ($attempt->getEpisodeDownload() === $this) {
                 $attempt->setEpisodeDownload(null);
             }
@@ -311,31 +277,49 @@ class EpisodeDownload
      */
     public function getLastAttempt(): ?EpisodeDownloadAttempt
     {
-        return $this->episodeDownloadAttempts->last() ?: null;
+        return $this->attempts->last() ?: null;
     }
 
-    public function getTracker(): ?string
+    /**
+     * @return Collection<int, EpisodeDownloadTracker>
+     */
+    public function getTrackers(): Collection
     {
-        return $this->tracker;
+        return $this->trackers;
     }
 
-    public function setTracker(?string $tracker): static
+    public function addTracker(EpisodeDownloadTracker $tracker): static
     {
-        $this->tracker = $tracker;
+        if (!$this->getTrackers()->contains($tracker)) {
+            $this->trackers[] = $tracker;
+            $tracker->setEpisodeDownload($this);
+        }
 
         return $this;
     }
 
-    public function getTrackerId(): ?int
+    public function removeTracker(EpisodeDownloadTracker $tracker): static
     {
-        return $this->trackerId;
-    }
-
-    public function setTrackerId(?int $trackerId): static
-    {
-        $this->trackerId = $trackerId;
+        if ($this->getTrackers()->removeElement($tracker)) {
+            if ($tracker->getEpisodeDownload() === $this) {
+                $tracker->setEpisodeDownload(null);
+            }
+        }
 
         return $this;
+    }
+
+    /**
+     * Returns the tracker marked as the execution trigger or falls back to the first available one.
+     */
+    public function getDefaultTracker(): ?EpisodeDownloadTracker
+    {
+        return $this->trackers->findFirst(static fn (string $name, EpisodeDownloadTracker $tracker): bool => $tracker->isDefault());
+    }
+
+    public function getTracker(string $trackerName): ?EpisodeDownloadTracker
+    {
+        return $this->trackers->get($trackerName);
     }
 
 }

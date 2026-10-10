@@ -5,6 +5,7 @@ namespace App\AnimeBundle\Service\Provider;
 use App\AnimeBundle\Exception\ScrapeParsingException;
 use App\AnimeBundle\Model\EpisodeDownloadRequest;
 use App\AnimeBundle\Model\ScrapedEpisode;
+use App\AnimeBundle\Model\TrackerIdentifier;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -199,14 +200,21 @@ readonly class AnimeUnityProvider extends AbstractAnimeProvider
 
         [$downloadUrl, $filename] = $this->scrapeEpisodeFile($pageData['embed_url']);
 
-        return new ScrapedEpisode()
+        $episode = new ScrapedEpisode()
             ->setProvider(self::PROVIDER_NAME)
             ->setEpisodeUrl($episodeUrl)
             ->setEpisodeNumber((string) $episodeData['number'])
             ->setDownloadUrl($downloadUrl)
-            ->setFilename($filename)
-            ->setMalId($pageData['anime']['mal_id'] ?? null)
-            ->setAlId($pageData['anime']['anilist_id'] ?? null);
+            ->setFilename($filename);
+
+        if (!empty($pageData['anime']['mal_id'])) {
+            $episode->addTracker(TrackerIdentifier::fromMyAnimeList((int) $pageData['anime']['mal_id']));
+        }
+        if (!empty($pageData['anime']['anilist_id'])) {
+            $episode->addTracker(TrackerIdentifier::fromAniList((int) $pageData['anime']['anilist_id']));
+        }
+
+        return $episode;
     }
 
     /**

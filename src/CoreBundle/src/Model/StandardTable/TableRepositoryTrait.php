@@ -95,13 +95,29 @@ trait TableRepositoryTrait
             $selectAliases = array_merge([$alias], $config->getFetchJoins());
             $qb->select($selectAliases);
 
+            // Separate root entity fields from joined/external scalar fields
+            $rootAlias = $config->getRootAlias();
+            $externalSelects = [];
+            foreach ($config->getFieldMappings() as $dataIndex => $dqlPath) {
+                if (!str_starts_with($dqlPath, "$rootAlias.")) {
+                    $externalSelects[$dataIndex] = "$dqlPath AS $dataIndex";
+                }
+            }
+
+            // Add external joined fields as scalar expressions in the query
+            foreach ($externalSelects as $expr) {
+                $qb->addSelect($expr);
+            }
+
+            $hasExternalSelects = !empty($externalSelects);
+
             // Use OffsetPaginator when fetch joins are configured to prevent duplicated rows and invalid limits
             if (!empty($config->getFetchJoins())) {
                 $paginator = new OffsetPaginator(fetchJoinCollection: true);
                 $page = $paginator->paginate($qb->getQuery(), new Window($offset, $limit));
-                $entities = iterator_to_array($page);
+                $results = iterator_to_array($page);
             } else {
-                $entities = $qb
+                $results = $qb
                     ->setFirstResult($offset)
                     ->setMaxResults($limit)
                     ->getQuery()
@@ -110,16 +126,22 @@ trait TableRepositoryTrait
 
             $transformer = $config->getRowTransformer();
 
-            return array_map(function (object $entity) use ($config, $transformer) {
-                // Pre-populate array from field mappings using entity getters
-                $row = $this->extractMappedFieldsFromEntity($entity, $config);
+            return array_map(function (mixed $resultItem) use ($config, $transformer, $hasExternalSelects) {
+                $entity = $hasExternalSelects ? $resultItem[0] : $resultItem;
+                $extraScalars = $hasExternalSelects ? array_filter($resultItem, 'is_string', ARRAY_FILTER_USE_KEY) : [];
+
+                // Pre-populate array from root entity getters, then merge joined scalar fields
+                $row = array_merge(
+                    $this->extractMappedFieldsFromEntity($entity, $config),
+                    $extraScalars
+                );
 
                 if ($transformer) {
                     return $transformer($row, $entity);
                 }
 
                 return $row;
-            }, $entities);
+            }, $results);
         }
 
         // Path B: Flat scalar projection across main and joined entities (high performance)

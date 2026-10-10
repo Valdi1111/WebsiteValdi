@@ -5,6 +5,7 @@ namespace App\AnimeBundle\Service\Provider;
 use App\AnimeBundle\Exception\ScrapeParsingException;
 use App\AnimeBundle\Model\EpisodeDownloadRequest;
 use App\AnimeBundle\Model\ScrapedEpisode;
+use App\AnimeBundle\Model\TrackerIdentifier;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -134,14 +135,21 @@ readonly class AnimeWorldProvider extends AbstractAnimeProvider
 
             [$downloadUrl, $filename] = $this->resolveEpisodeFile($episodeUrl);
 
-            $episodes[] = new ScrapedEpisode()
+            $episode = new ScrapedEpisode()
                 ->setProvider(self::PROVIDER_NAME)
                 ->setEpisodeUrl($episodeUrl)
                 ->setEpisodeNumber($itemCrawler->attr("data-episode-num"))
                 ->setDownloadUrl($downloadUrl)
-                ->setFilename($filename)
-                ->setMalId($malId)
-                ->setAlId($alId);
+                ->setFilename($filename);
+
+            if ($malId !== null) {
+                $episode->addTracker(TrackerIdentifier::fromMyAnimeList($malId));
+            }
+            if ($alId !== null) {
+                $episode->addTracker(TrackerIdentifier::fromAniList($alId));
+            }
+
+            $episodes[] = $episode;
         }
 
         return $episodes;

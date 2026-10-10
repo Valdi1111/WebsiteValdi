@@ -140,6 +140,13 @@ $config = new TableConfiguration(
 | `rowTransformer` | `?callable` | `null` | Post-processing callback: `function(array $row, ?object $entity): array`. |
 | `queryModifier` | `?callable` | `null` | Callback to apply fixed WHERE clauses or parameters: `function(QueryBuilder $qb, string $alias): void`. |
 
+#### Content of `$row` in `rowTransformer`
+
+The `$row` array received by `callable(array $row, ?object $entity): array` is pre-populated as follows:
+1. **Root Entity Fields (`e.*`)**: Populated automatically via entity getters (`get*()`, `is*()`, `has*()`).
+2. **Joined / Non-Root Scalar Fields (`alias.*`)**: Populated automatically from the DQL query's scalar projections (e.g. `dt.tracker`).
+3. **Custom Additions**: You only need to assign purely synthetic, aggregated, or deeply nested computed properties (e.g. `attempts_count`, `last_error`, or dictionary maps).
+
 #### Automatic DQL Path Resolution (`resolveDqlPath`)
 
 When a filter or sorter is applied to a field not explicitly declared in `fieldMappings`, `resolveDqlPath` automatically converts `snake_case` identifiers to `camelCase` on the root alias:
@@ -292,14 +299,14 @@ $config = new TableConfiguration(
         'state'       => 'e.state',
     ],
     joins: [
-        TableJoin::left('e.episodeDownloadAttempts', 'a'),
+        TableJoin::left('e.attempts', 'a'),
     ],
     fetchJoins: ['a'],
     hydrateObjects: true,
     rowTransformer: function (array $row, EpisodeDownload $entity): array {
         $lastAttempt = $entity->getLastAttempt();
         $row['last_error'] = $lastAttempt?->getErrorMessage();
-        $row['attempts_count'] = $entity->getEpisodeDownloadAttempts()->count();
+        $row['attempts_count'] = $entity->getAttempts()->count();
         return $row;
     }
 );
@@ -307,7 +314,42 @@ $config = new TableConfiguration(
 
 ---
 
-## 4. Multi-Condition Filter Operators Reference
+#### Hybrid Projections (Root Entities + Joined Scalars)
+
+When `hydrateObjects: true` is enabled, `TableRepositoryTrait` seamlessly supports mixed/hybrid projections:
+- **Root Fields (`e.property`)**: Hydrated as part of the entity object and read via reflection/getters into `$row`.
+- **Joined Scalar Fields (`dt.tracker`)**: Automatically appended to the query via `addSelect('dt.tracker AS tracker')` and merged directly into `$row`.
+
+```php
+$config = new TableConfiguration(
+    rootEntityClass: EpisodeDownload::class,
+    rootAlias: 'e',
+    fieldMappings: [
+        'id'         => 'e.id',
+        'provider'   => 'e.provider',
+        'tracker'    => 'dt.tracker',    // Automatically merged into $row['tracker']!
+        'tracker_id' => 'dt.trackerId',  // Automatically merged into $row['tracker_id']!
+    ],
+    joins: [
+        TableJoin::left(
+            join: EpisodeDownloadTracker::class,
+            alias: 'dt',
+            condition: 'dt.episodeDownload = e AND dt.default = true'
+        ),
+    ],
+    hydrateObjects: true,
+    rowTransformer: function (array $row, EpisodeDownload$entity): array {
+        // $row['tracker'] and$row['tracker_id'] are ALREADY present and populated.
+        // Only computed/aggregated values need to be added manually:
+        $row['attempts_count'] =$entity->getAttempts()->count();
+        return $row;
+    }
+);
+```
+
+---
+
+### 4. Multi-Condition Filter Operators Reference
 
 `TableRepositoryTrait` translates filter rules sent by frontend columns into type-safe parameterized expressions. Each parameter key is salted with a unique random hex string (`paramKey . '_' . bin2hex(random_bytes(4))`) to prevent parameter collisions when multiple rules target the same column.
 
@@ -468,7 +510,8 @@ class EpisodeDownloadController extends AbstractController
             fieldMappings: [
                 'id'          => 'e.id',
                 'provider'    => 'e.provider',
-                'tracker'     => 'e.tracker',
+                'tracker'     => 'dt.tracker',    // Sourced from joined EpisodeDownloadTracker
+                'tracker_id'  => 'dt.trackerId',  // Sourced from joined EpisodeDownloadTracker
                 'episode_url' => 'e.episodeUrl',
                 'folder'      => 'e.folder',
                 'episode'     => 'e.episode',
@@ -477,14 +520,29 @@ class EpisodeDownloadController extends AbstractController
                 'state'       => 'e.state',
             ],
             joins: [
-                TableJoin::left('e.episodeDownloadAttempts', 'a'),
+                TableJoin::left('e.attempts', 'a'),
+                'trackers' => 'e.trackers',
+                TableJoin::left(
+                    join: EpisodeDownloadTracker::class,
+                    alias: 'dt',
+                    condition: 'dt.episodeDownload = e AND dt.default = true'
+                ),
             ],
-            fetchJoins: ['a'],
+            fetchJoins: ['a', 'trackers'],
             hydrateObjects: true,
             rowTransformer: function (array $row, EpisodeDownload $entity): array {
+                // $row['tracker'] and $row['tracker_id'] are already populated!
                 $lastAttempt = $entity->getLastAttempt();
                 $row['last_error'] = $lastAttempt?->getErrorMessage();
-                $row['attempts_count'] = $entity->getEpisodeDownloadAttempts()->count();
+                $row['attempts_count'] = $entity->getAttempts()->count();
+
+                // Serialize linked trackers into a dictionary map { "myanimelist": 123, ... }
+                $trackersMap = [];
+                foreach ($entity->getTrackers() as $t) {
+                    $trackersMap[$t->getTracker()] = $t->getTrackerId();
+                }
+                $row['trackers'] = $trackersMap;
+
                 return $row;
             }
         );

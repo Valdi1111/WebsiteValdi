@@ -4,6 +4,7 @@ namespace App\AnimeBundle\Service;
 
 use App\AnimeBundle\Entity\EpisodeDownload;
 use App\AnimeBundle\Entity\EpisodeDownloadAttempt;
+use App\AnimeBundle\Entity\EpisodeDownloadTracker;
 use App\AnimeBundle\Entity\EpisodeRelease;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
 use App\AnimeBundle\Exception\SiteUnavailableException;
@@ -51,12 +52,12 @@ readonly class EpisodeDownloadManager
 
         foreach ($scrapedDtos as $dto) {
             // Resolve tracker: check user cache or fallback to first available identifier
-            $trackerIdentifier = $downloadReq->isFilter()
+            $defaultTracker = $downloadReq->isFilter()
                 ? $this->trackerLocator->ensureAnimeInList($dto)
-                : TrackerIdentifier::firstFromScrapedEpisode($dto);
+                : $dto->getFirstTracker();
 
             // Resolve target folder and possible season offset
-            $seasonFolder = $this->folderResolver->resolveSeasonFolder($trackerIdentifier);
+            $seasonFolder = $this->folderResolver->resolveSeasonFolder($defaultTracker);
             $folder = $seasonFolder?->getFolder() ?? $this->folderResolver->getFallbackFolder();
             $offset = $seasonFolder?->getEpisodeOffset() ?? 0;
 
@@ -86,19 +87,26 @@ readonly class EpisodeDownloadManager
                 ->setEpisode($finalEpisodeString)
                 ->setEpisodes($adjustedNumbers)
                 ->setFolder($folder)
-                ->setTracker($trackerIdentifier?->getTracker())
-                ->setTrackerId($trackerIdentifier?->getTrackerId())
-                ->setMalId($dto->getMalId())
-                ->setAlId($dto->getAlId())
                 ->setDownloadUrl($dto->getDownloadUrl())
                 ->setOriginalFile($dto->getFilename())
                 ->setFile($finalFilename)
                 ->setState(EpisodeDownloadState::created);
 
+            // Attach all scraped trackers and mark the matching trigger as default
+            foreach ($dto->getTrackers() as $identifier) {
+                $isDefault = $identifier->same($defaultTracker);
+
+                $episode->addTracker(new EpisodeDownloadTracker()
+                    ->setTracker($identifier->getTracker())
+                    ->setTrackerId($identifier->getTrackerId())
+                    ->setDefault($isDefault)
+                );
+            }
+
             // Instantiate and attach initial execution attempt
             $initialAttempt = new EpisodeDownloadAttempt()
                 ->setState(EpisodeDownloadState::created);
-            $episode->addEpisodeDownloadAttempt($initialAttempt);
+            $episode->addAttempt($initialAttempt);
 
             if ($downloadReq->isSave()) {
                 $this->entityManager->persist($episode);
@@ -213,7 +221,7 @@ readonly class EpisodeDownloadManager
         // 3. Create and attach a new attempt instance for this retry cycle
         $newAttempt = new EpisodeDownloadAttempt()
             ->setState(EpisodeDownloadState::created);
-        $download->addEpisodeDownloadAttempt($newAttempt);
+        $download->addAttempt($newAttempt);
 
         $this->entityManager->flush();
 

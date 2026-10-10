@@ -20,7 +20,7 @@ class EpisodeDownloadAttempt
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(targetEntity: EpisodeDownload::class, inversedBy: 'episodeDownloadAttempts')]
+    #[ORM\ManyToOne(targetEntity: EpisodeDownload::class, inversedBy: 'attempts')]
     #[ORM\JoinColumn(name: 'episode_download_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
     private ?EpisodeDownload $episodeDownload = null;
 

@@ -313,7 +313,7 @@ class EpisodeDownload
      */
     public function getTriggerTracker(): ?EpisodeDownloadTracker
     {
-        return $this->trackers->findFirst(static fn (string $name, EpisodeDownloadTracker $tracker): bool => $tracker->isTrigger());
+        return $this->trackers->findFirst(static fn ($_, EpisodeDownloadTracker $tracker): bool => $tracker->isTrigger());
     }
 
     public function getTracker(string $trackerName): ?EpisodeDownloadTracker

@@ -21,7 +21,7 @@ class GameNotesWeeklies extends ArrayCollection
         if ($this->isEmpty()) {
             return true;
         }
-        return $this->forAll(static fn (int $i, GameNotesProgressMetric $metric) => $metric->isDone());
+        return $this->forAll(static fn ($_, GameNotesProgressMetric $metric) => $metric->isDone());
     }
 
 }

@@ -28,7 +28,7 @@ class GameNotesExpeditions extends ArrayCollection
         if ($this->isEmpty()) {
             return false;
         }
-        return $this->forAll(static fn (int $i, GameNotesExpedition $expedition) => $expedition->isDone());
+        return $this->forAll(static fn ($_, GameNotesExpedition $expedition) => $expedition->isDone());
     }
 
 }

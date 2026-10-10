@@ -47,6 +47,8 @@ readonly class EpisodeDownloadManager
         $scrapedDtos = $provider->scrapeEpisodes($downloadReq);
 
         $episodes = [];
+        $attemptsToDispatch = [];
+
         foreach ($scrapedDtos as $dto) {
             // Resolve tracker: check user cache or fallback to first available identifier
             $trackerIdentifier = $downloadReq->isFilter()
@@ -100,6 +102,7 @@ readonly class EpisodeDownloadManager
 
             if ($downloadReq->isSave()) {
                 $this->entityManager->persist($episode);
+                $attemptsToDispatch[] = $initialAttempt;
             }
 
             $episodes[] = $episode;
@@ -113,8 +116,8 @@ readonly class EpisodeDownloadManager
                 $stamps[] = new DelayStamp($downloadReq->getDelay() * 1000);
             }
 
-            foreach ($episodes as $episode) {
-                $this->bus->dispatch(new EpisodeDownloadMessage($episode->getId()), $stamps);
+            foreach ($attemptsToDispatch as $attempt) {
+                $this->bus->dispatch(new EpisodeDownloadMessage($attempt->getId()), $stamps);
             }
         }
 
@@ -141,6 +144,8 @@ readonly class EpisodeDownloadManager
         }
 
         $episodes = [];
+        $attemptsToDispatch = [];
+
         foreach ($urlPaths as $urlPath) {
             // Check if episode has already been released
             $release = $this->releaseRepository->findOneBy([
@@ -169,6 +174,12 @@ readonly class EpisodeDownloadManager
                 foreach ($scrapedEpisodes as $episodeLocal) {
                     $this->entityManager->persist($episodeLocal);
                     $episodes[] = $episodeLocal;
+
+                    // Collect the created attempt to dispatch once saved
+                    $lastAttempt = $episodeLocal->getLastAttempt();
+                    if ($lastAttempt) {
+                        $attemptsToDispatch[] = $lastAttempt;
+                    }
                 }
             } catch (CacheAnimeNotFoundException) {
                 continue;
@@ -177,8 +188,8 @@ readonly class EpisodeDownloadManager
 
         $this->entityManager->flush();
 
-        foreach ($episodes as $episode) {
-            $this->bus->dispatch(new EpisodeDownloadMessage($episode->getId()));
+        foreach ($attemptsToDispatch as $attempt) {
+            $this->bus->dispatch(new EpisodeDownloadMessage($attempt->getId()));
         }
 
         return $episodes;
@@ -212,7 +223,7 @@ readonly class EpisodeDownloadManager
             $this->animeStorage->delete($filePath);
         }
 
-        // 5. Dispatch message to Messenger queue
-        $this->bus->dispatch(new EpisodeDownloadMessage($download->getId()));
+        // 5. Dispatch message with the new attempt ID to Messenger queue
+        $this->bus->dispatch(new EpisodeDownloadMessage($newAttempt->getId()));
     }
 }

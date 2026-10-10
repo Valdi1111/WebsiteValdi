@@ -1,6 +1,6 @@
 <?php
 
-namespace App\CoreBundle\Model;
+namespace App\CoreBundle\Model\StandardTable;
 
 use Symfony\Component\Serializer\Attribute\SerializedName;
 use Symfony\Component\Serializer\Attribute\SerializedPath;

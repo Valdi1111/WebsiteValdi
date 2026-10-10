@@ -1,11 +1,8 @@
 <?php
 
-namespace App\CoreBundle\Repository;
+namespace App\CoreBundle\Model\StandardTable;
 
 use App\CoreBundle\Exception\InvalidTableJoinException;
-use App\CoreBundle\Model\TableConfiguration;
-use App\CoreBundle\Model\TableJoin;
-use App\CoreBundle\Model\TableParameters;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\ORM\QueryBuilder;

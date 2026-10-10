@@ -3,8 +3,8 @@
 namespace App\AnimeBundle\Repository;
 
 use App\AnimeBundle\Entity\EpisodeDownload;
-use App\CoreBundle\Repository\TableRepositoryInterface;
-use App\CoreBundle\Repository\TableRepositoryTrait;
+use App\CoreBundle\Model\StandardTable\TableRepositoryInterface;
+use App\CoreBundle\Model\StandardTable\TableRepositoryTrait;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 

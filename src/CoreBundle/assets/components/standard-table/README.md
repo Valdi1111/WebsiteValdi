@@ -1,5 +1,7 @@
 # Standard Table Component System & Developer Guide (Ant Design 6.x)
 
+> 💡 **Companion Guide:** For backend API specifications, DQL mapping, Doctrine 3.x pagination, and server-side filter evaluation, see the **[Backend Standard Table Guide](../../../src/Model/StandardTable/README.md)**.
+
 ## 1. Overview & Architecture
 
 The **Standard Table System** is a unified, modular table suite built on top of [Ant Design 6.x](https://ant.design/components/table). It decouples presentational rendering from data management, providing consistent UI behavior, advanced multi-condition filtering, column visibility toggles, text search highlighting, and responsive mobile adaptations.

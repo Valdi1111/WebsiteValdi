@@ -1,6 +1,6 @@
 <?php
 
-namespace App\CoreBundle\Model;
+namespace App\CoreBundle\Model\StandardTable;
 
 use Doctrine\ORM\QueryBuilder;
 

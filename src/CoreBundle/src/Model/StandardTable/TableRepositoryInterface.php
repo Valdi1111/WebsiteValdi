@@ -1,9 +1,6 @@
 <?php
 
-namespace App\CoreBundle\Repository;
-
-use App\CoreBundle\Model\TableConfiguration;
-use App\CoreBundle\Model\TableParameters;
+namespace App\CoreBundle\Model\StandardTable;
 
 /**
  * Contract for repositories capable of executing paginated and filtered table queries.

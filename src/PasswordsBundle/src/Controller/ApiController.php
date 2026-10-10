@@ -2,8 +2,8 @@
 
 namespace App\PasswordsBundle\Controller;
 
-use App\CoreBundle\Model\TableConfiguration;
-use App\CoreBundle\Model\TableParameters;
+use App\CoreBundle\Model\StandardTable\TableConfiguration;
+use App\CoreBundle\Model\StandardTable\TableParameters;
 use App\PasswordsBundle\Entity\Credential;
 use App\PasswordsBundle\Repository\CredentialRepository;
 use Doctrine\ORM\EntityManagerInterface;

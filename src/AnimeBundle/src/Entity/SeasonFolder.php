@@ -7,7 +7,7 @@ use Doctrine\DBAL\Schema\DefaultExpression\CurrentTimestamp;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Index(name: 'IDX_provider', columns: ['provider'])]
+#[ORM\Index(name: 'IDX_tracker', columns: ['tracker'])]
 #[ORM\Table(name: 'season_folder')]
 #[ORM\Entity(repositoryClass: SeasonFolderRepository::class)]
 class SeasonFolder
@@ -18,7 +18,7 @@ class SeasonFolder
 
     #[ORM\Id]
     #[ORM\Column(length: 50)]
-    private ?string $provider = null;
+    private ?string $tracker = null;
 
     #[ORM\Column(length: 255)]
     private ?string $folder = null;
@@ -41,14 +41,14 @@ class SeasonFolder
         return $this;
     }
 
-    public function getProvider(): string
+    public function getTracker(): string
     {
-        return $this->provider;
+        return $this->tracker;
     }
 
-    public function setProvider(string $provider): static
+    public function setTracker(string $tracker): static
     {
-        $this->provider = $provider;
+        $this->tracker = $tracker;
 
         return $this;
     }

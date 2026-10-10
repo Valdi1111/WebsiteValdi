@@ -5,6 +5,7 @@ namespace App\AnimeBundle\Service\Tracker;
 use App\AnimeBundle\Entity\ListAnime;
 use App\AnimeBundle\Entity\ListManga;
 use App\AnimeBundle\Exception\CacheRefreshException;
+use App\AnimeBundle\Model\TrackerMediaTitle;
 
 interface AnimeTrackerInterface
 {
@@ -38,4 +39,12 @@ interface AnimeTrackerInterface
      * @throws CacheRefreshException
      */
     public function refreshMangaCache(): array;
+
+    public function getAnimeUrl(int $id): string;
+
+    public function getMangaUrl(int $id): string;
+
+    public function fetchAnimeTitle(int $id): TrackerMediaTitle;
+
+    public function fetchMangaTitle(int $id): TrackerMediaTitle;
 }

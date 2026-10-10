@@ -5,7 +5,6 @@ namespace App\AnimeBundle\Service\Provider;
 use App\AnimeBundle\Exception\ScrapeParsingException;
 use App\AnimeBundle\Model\EpisodeDownloadRequest;
 use App\AnimeBundle\Model\ScrapedEpisode;
-use App\AnimeBundle\Service\AnimeDownloaderInterface;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -13,12 +12,12 @@ use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-#[AsAlias('anime.downloader.' . self::SERVICE_NAME)]
-#[AsAlias(AnimeDownloaderInterface::class, target: self::SERVICE_NAME)]
-#[AutoconfigureTag(name: 'anime.downloader', attributes: ['key' => self::SERVICE_NAME])]
+#[AsAlias('anime.provider.' . self::PROVIDER_NAME)]
+#[AsAlias(AnimeProviderInterface::class, target: self::PROVIDER_NAME)]
+#[AutoconfigureTag(name: 'anime.provider', attributes: ['key' => self::PROVIDER_NAME])]
 readonly class AnimeUnityProvider extends AbstractAnimeProvider
 {
-    public const string SERVICE_NAME = "animeunity";
+    public const string PROVIDER_NAME = "animeunity";
 
     public function __construct(
         #[Target('anime.animeunity.client')]
@@ -125,7 +124,7 @@ readonly class AnimeUnityProvider extends AbstractAnimeProvider
         }
 
         if (empty($data['downloadUrl'])) {
-            throw new ScrapeParsingException(self::SERVICE_NAME, "Failed to scrape downloadUrl parameter from $embedUrl");
+            throw new ScrapeParsingException(self::PROVIDER_NAME, "Failed to scrape downloadUrl parameter from $embedUrl");
         }
 
         $downloadUrl = $data['downloadUrl'];
@@ -151,7 +150,7 @@ readonly class AnimeUnityProvider extends AbstractAnimeProvider
         }
 
         if (empty($filename)) {
-            throw new ScrapeParsingException(self::SERVICE_NAME, "Failed to resolve filename for embed $embedUrl");
+            throw new ScrapeParsingException(self::PROVIDER_NAME, "Failed to resolve filename for embed $embedUrl");
         }
 
         $cleanFilename = str_replace(' ', '_', $filename);
@@ -194,14 +193,14 @@ readonly class AnimeUnityProvider extends AbstractAnimeProvider
             $episodeCrawler = $this->fetchPage($episodeUrl);
             $pageData = $this->scrapeEpisodeDataFromPage($episodeCrawler);
             if (!$pageData) {
-                throw new ScrapeParsingException(self::SERVICE_NAME, "Could not scrape video-player data from $episodeUrl");
+                throw new ScrapeParsingException(self::PROVIDER_NAME, "Could not scrape video-player data from $episodeUrl");
             }
         }
 
         [$downloadUrl, $filename] = $this->scrapeEpisodeFile($pageData['embed_url']);
 
         return new ScrapedEpisode()
-            ->setServiceName(self::SERVICE_NAME)
+            ->setProvider(self::PROVIDER_NAME)
             ->setEpisodeUrl($episodeUrl)
             ->setEpisodeNumber((string) $episodeData['number'])
             ->setDownloadUrl($downloadUrl)
@@ -219,7 +218,7 @@ readonly class AnimeUnityProvider extends AbstractAnimeProvider
         $pageData = $this->scrapeEpisodeDataFromPage($globalCrawler);
 
         if (!$pageData) {
-            throw new ScrapeParsingException(self::SERVICE_NAME, "Failed to parse anime page structure at: " . $downloadReq->getUrlPath());
+            throw new ScrapeParsingException(self::PROVIDER_NAME, "Failed to parse anime page structure at: " . $downloadReq->getUrlPath());
         }
 
         // TODO scaricare tutti gli episodi solo se $downloadReq->isAll()
@@ -240,7 +239,7 @@ readonly class AnimeUnityProvider extends AbstractAnimeProvider
         $pageData = $this->scrapeEpisodeDataFromPage($episodeCrawler);
 
         if (!$pageData || empty($pageData['embed_url'])) {
-            throw new ScrapeParsingException(self::SERVICE_NAME, "Cannot retrieve embed_url for $episodeUrl");
+            throw new ScrapeParsingException(self::PROVIDER_NAME, "Cannot retrieve embed_url for $episodeUrl");
         }
 
         [$downloadUrl] = $this->scrapeEpisodeFile($pageData['embed_url']);
@@ -250,8 +249,8 @@ readonly class AnimeUnityProvider extends AbstractAnimeProvider
     /**
      * @inheritDoc
      */
-    public static function getServiceName(): string
+    public static function getProviderName(): string
     {
-        return self::SERVICE_NAME;
+        return self::PROVIDER_NAME;
     }
 }

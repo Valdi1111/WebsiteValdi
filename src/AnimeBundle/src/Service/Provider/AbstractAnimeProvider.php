@@ -4,7 +4,6 @@ namespace App\AnimeBundle\Service\Provider;
 
 use App\AnimeBundle\Exception\ProviderFetchException;
 use App\AnimeBundle\Exception\SiteUnavailableException;
-use App\AnimeBundle\Service\AnimeDownloaderInterface;
 use Symfony\Component\BrowserKit\HttpBrowser;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
@@ -12,7 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-abstract readonly class AbstractAnimeProvider implements AnimeDownloaderInterface
+abstract readonly class AbstractAnimeProvider implements AnimeProviderInterface
 {
     protected HttpBrowser $httpBrowser;
 
@@ -44,7 +43,7 @@ abstract readonly class AbstractAnimeProvider implements AnimeDownloaderInterfac
         } catch (TransportExceptionInterface | \Throwable $e) {
             // Handle network errors, timeouts, or DNS resolution issues
             throw new SiteUnavailableException(
-                sprintf("[%s] Network/DNS error while contacting provider: %s", static::getServiceName(), $e->getMessage()),
+                sprintf("[%s] Network/DNS error while contacting provider: %s", static::getProviderName(), $e->getMessage()),
                 0,
                 $e
             );
@@ -54,13 +53,13 @@ abstract readonly class AbstractAnimeProvider implements AnimeDownloaderInterfac
 
         if ($statusCode >= 500) {
             throw new SiteUnavailableException(
-                sprintf("[%s] Site is currently unavailable (HTTP %d)", static::getServiceName(), $statusCode),
+                sprintf("[%s] Site is currently unavailable (HTTP %d)", static::getProviderName(), $statusCode),
                 $statusCode
             );
         }
 
         if ($statusCode !== Response::HTTP_OK) {
-            throw new ProviderFetchException(static::getServiceName(), $statusCode, $targetUrl);
+            throw new ProviderFetchException(static::getProviderName(), $statusCode, $targetUrl);
         }
 
         return $crawler;

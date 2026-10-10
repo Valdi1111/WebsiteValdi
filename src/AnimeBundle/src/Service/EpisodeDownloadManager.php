@@ -10,7 +10,9 @@ use App\AnimeBundle\Exception\SiteUnavailableException;
 use App\AnimeBundle\Message\EpisodeDownloadMessage;
 use App\AnimeBundle\Model\EpisodeDownloadRequest;
 use App\AnimeBundle\Model\EpisodeDownloadState;
+use App\AnimeBundle\Model\TrackerIdentifier;
 use App\AnimeBundle\Repository\EpisodeReleaseRepository;
+use App\AnimeBundle\Service\Provider\AnimeProviderInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Target;
@@ -23,9 +25,9 @@ readonly class EpisodeDownloadManager
     public function __construct(
         private EntityManagerInterface   $entityManager,
         private MessageBusInterface      $bus,
-        private AnimeDownloaderLocator   $locator,
+        private AnimeProviderLocator     $providerLocator,
         private AnimeFolderResolver      $folderResolver,
-        private AnimeListChecker         $listChecker,
+        private AnimeTrackerLocator      $trackerLocator,
         private EpisodeNumberCalculator  $episodeCalculator,
         private EpisodeReleaseRepository $releaseRepository,
         private AnimeStorage             $animeStorage,
@@ -39,19 +41,20 @@ readonly class EpisodeDownloadManager
      *
      * @return EpisodeDownload[]
      */
-    public function processDownloadRequest(EpisodeDownloadRequest $downloadReq, ?AnimeDownloaderInterface $provider = null): array
+    public function processDownloadRequest(EpisodeDownloadRequest $downloadReq, ?AnimeProviderInterface $provider = null): array
     {
-        $provider ??= $this->locator->getService($downloadReq);
+        $provider ??= $this->providerLocator->getService($downloadReq);
         $scrapedDtos = $provider->scrapeEpisodes($downloadReq);
 
         $episodes = [];
         foreach ($scrapedDtos as $dto) {
-            if ($downloadReq->isFilter()) {
-                $this->listChecker->ensureAnimeInList($dto);
-            }
+            // Resolve tracker: check user cache or fallback to first available identifier
+            $trackerIdentifier = $downloadReq->isFilter()
+                ? $this->trackerLocator->ensureAnimeInList($dto)
+                : TrackerIdentifier::firstFromScrapedEpisode($dto);
 
             // Resolve target folder and possible season offset
-            $seasonFolder = $this->folderResolver->resolveSeasonFolder($dto->getMalId(), $dto->getAlId());
+            $seasonFolder = $this->folderResolver->resolveSeasonFolder($trackerIdentifier);
             $folder = $seasonFolder?->getFolder() ?? $this->folderResolver->getFallbackFolder();
             $offset = $seasonFolder?->getEpisodeOffset() ?? 0;
 
@@ -75,12 +78,14 @@ readonly class EpisodeDownloadManager
 
             // Initialize main episode download entity
             $episode = new EpisodeDownload()
-                ->setServiceName($dto->getServiceName())
+                ->setProvider($dto->getProvider())
                 ->setEpisodeUrl($dto->getEpisodeUrl())
                 ->setOriginalEpisode($dto->getEpisodeNumber())
                 ->setEpisode($finalEpisodeString)
                 ->setEpisodes($adjustedNumbers)
                 ->setFolder($folder)
+                ->setTracker($trackerIdentifier?->getTracker())
+                ->setTrackerId($trackerIdentifier?->getTrackerId())
                 ->setMalId($dto->getMalId())
                 ->setAlId($dto->getAlId())
                 ->setDownloadUrl($dto->getDownloadUrl())
@@ -121,15 +126,15 @@ readonly class EpisodeDownloadManager
      *
      * @return EpisodeDownload[]
      */
-    public function checkNewEpisodes(string $serviceName): array
+    public function checkNewEpisodes(string $providerName): array
     {
-        $downloader = $this->locator->get($serviceName);
+        $provider = $this->providerLocator->get($providerName);
 
         try {
-            $urlPaths = $downloader->fetchLatestEpisodeUrls();
+            $urlPaths = $provider->fetchLatestEpisodeUrls();
         } catch (SiteUnavailableException $e) {
-            $this->logger->warning("Skipping {service} check: {message}", [
-                'service' => $serviceName,
+            $this->logger->warning("Skipping {provider} check: {message}", [
+                'provider' => $providerName,
                 'message' => $e->getMessage(),
             ]);
             return [];
@@ -139,7 +144,7 @@ readonly class EpisodeDownloadManager
         foreach ($urlPaths as $urlPath) {
             // Check if episode has already been released
             $release = $this->releaseRepository->findOneBy([
-                'serviceName' => $serviceName,
+                'provider' => $providerName,
                 'episodeUrl' => $urlPath,
             ]);
             if ($release) {
@@ -149,18 +154,18 @@ readonly class EpisodeDownloadManager
             // Add release to database
             $release = new EpisodeRelease()
                 ->setEpisodeUrl($urlPath)
-                ->setServiceName($serviceName);
+                ->setProvider($providerName);
             $this->entityManager->persist($release);
 
             // Create download request
             // TODO add option to download missed episodes
             $downloadReq = new EpisodeDownloadRequest()
-                ->setUrl($downloader->getWebsiteUrl() . $urlPath)
+                ->setUrl($provider->getWebsiteUrl() . $urlPath)
                 ->setSave(false);
 
             // Create episode downloads
             try {
-                $scrapedEpisodes = $this->processDownloadRequest($downloadReq, $downloader);
+                $scrapedEpisodes = $this->processDownloadRequest($downloadReq, $provider);
                 foreach ($scrapedEpisodes as $episodeLocal) {
                     $this->entityManager->persist($episodeLocal);
                     $episodes[] = $episodeLocal;
@@ -185,7 +190,7 @@ readonly class EpisodeDownloadManager
     public function retryDownload(EpisodeDownload $download): void
     {
         // 1. Fetch provider and extract fresh CDN download URL (tokens/signatures might have expired)
-        $provider = $this->locator->get($download->getServiceName());
+        $provider = $this->providerLocator->get($download->getProvider());
         $newUrl = $provider->extractDownloadUrl($download->getEpisodeUrl());
         $download->setDownloadUrl($newUrl);
 

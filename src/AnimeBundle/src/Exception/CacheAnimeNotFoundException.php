@@ -2,19 +2,21 @@
 
 namespace App\AnimeBundle\Exception;
 
+use App\AnimeBundle\Model\TrackerIdentifier;
+use Doctrine\Common\Collections\Collection;
 use Exception;
 use Throwable;
 
 class CacheAnimeNotFoundException extends Exception
 {
     /**
-     * @param array<string, int|string> $identifiers Mapping of tracking services and ids checked (e.g. ['myanimelist' => 1234, 'anilist' => 5678])
+     * @param Collection<TrackerIdentifier> $identifiers Mapping of tracking services and ids checked
      */
-    public function __construct(array $identifiers = [], int $code = 0, ?Throwable $previous = null)
+    public function __construct(Collection $identifiers, int $code = 0, ?Throwable $previous = null)
     {
         $details = [];
-        foreach ($identifiers as $service => $id) {
-            $details[] = sprintf('%s ID: %s', strtoupper((string) $service), (string) $id);
+        foreach ($identifiers as $identifier) {
+            $details[] = sprintf('%s ID: %d', strtoupper($identifier->getTracker()), $identifier->getTrackerId());
         }
 
         $message = !empty($details)

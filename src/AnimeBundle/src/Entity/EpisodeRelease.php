@@ -8,8 +8,8 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Index(name: 'IDX_episode_url', columns: ['episode_url'])]
-#[ORM\Index(name: 'IDX_service_name', columns: ['service_name'])]
-#[ORM\UniqueConstraint(name: 'IDX_episode_service', columns: ['episode_url', 'service_name'])]
+#[ORM\Index(name: 'IDX_provider', columns: ['provider'])]
+#[ORM\UniqueConstraint(name: 'IDX_episode_url_provider', columns: ['episode_url', 'provider'])]
 #[ORM\Table(name: 'episode_release')]
 #[ORM\Entity(repositoryClass: EpisodeReleaseRepository::class)]
 class EpisodeRelease
@@ -24,8 +24,8 @@ class EpisodeRelease
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, insertable: false, updatable: false, options: ["default" => new CurrentTimestamp()])]
     private ?\DateTimeInterface $created = null;
-    #[ORM\Column(length: 255)]
-    private ?string $serviceName = null;
+    #[ORM\Column(length: 50)]
+    private ?string $provider = null;
 
     public function getId(): ?int
     {
@@ -49,14 +49,14 @@ class EpisodeRelease
         return $this->created;
     }
 
-    public function getServiceName(): ?string
+    public function getProvider(): ?string
     {
-        return $this->serviceName;
+        return $this->provider;
     }
 
-    public function setServiceName(string $serviceName): static
+    public function setProvider(string $provider): static
     {
-        $this->serviceName = $serviceName;
+        $this->provider = $provider;
 
         return $this;
     }

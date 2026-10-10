@@ -8,7 +8,7 @@ use App\AnimeBundle\Model\Nsfw;
 use App\AnimeBundle\Repository\ListAnimeRepository;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Index(name: 'IDX_provider', columns: ['provider'])]
+#[ORM\Index(name: 'IDX_tracker', columns: ['tracker'])]
 #[ORM\Table(name: 'list_anime')]
 #[ORM\Entity(repositoryClass: ListAnimeRepository::class)]
 class ListAnime
@@ -19,7 +19,7 @@ class ListAnime
 
     #[ORM\Id]
     #[ORM\Column(length: 50)]
-    private ?string $provider = null;
+    private ?string $tracker = null;
 
     #[ORM\Column(length: 255, nullable: false, options: ['default' => ""])]
     private ?string $title = '';
@@ -51,14 +51,14 @@ class ListAnime
         return $this;
     }
 
-    public function getProvider(): string
+    public function getTracker(): string
     {
-        return $this->provider;
+        return $this->tracker;
     }
 
-    public function setProvider(string $provider): static
+    public function setTracker(string $tracker): static
     {
-        $this->provider = $provider;
+        $this->tracker = $tracker;
 
         return $this;
     }

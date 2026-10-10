@@ -7,26 +7,23 @@ use App\AnimeBundle\Entity\ListAnime;
 use App\AnimeBundle\Entity\ListManga;
 use App\AnimeBundle\Entity\SeasonFolder;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
-use App\AnimeBundle\Exception\UnhandledWebsiteException;
+use App\AnimeBundle\Exception\UnsupportedWebsiteException;
 use App\AnimeBundle\Model\EpisodeDownloadRequest;
 use App\AnimeBundle\Repository\EpisodeDownloadRepository;
 use App\AnimeBundle\Repository\ListAnimeRepository;
 use App\AnimeBundle\Repository\ListMangaRepository;
 use App\AnimeBundle\Repository\SeasonFolderRepository;
+use App\AnimeBundle\Service\AnimeTrackerLocator;
+use App\AnimeBundle\Service\AnimeStorage;
 use App\AnimeBundle\Service\EpisodeDownloadManager;
 use App\CoreBundle\Model\TableConfiguration;
 use App\CoreBundle\Model\TableParameters;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\Filesystem;
-use League\Flysystem\Local\LocalFilesystemAdapter;
-use League\Flysystem\UnixVisibility\PortableVisibilityConverter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Console\Messenger\RunCommandMessage;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\Filesystem\Path;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -36,78 +33,93 @@ use Symfony\Component\Messenger\Message\RedispatchMessage;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 #[IsGranted('ROLE_USER_ANIME', null, 'Access Denied.')]
 #[Route('/api', name: 'api_', format: 'json')]
 class ApiController extends AbstractController
 {
-    private ?Filesystem $filesystem = null;
 
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
-        #[Autowire(param: 'anime.base_folder')]
-        private readonly string                 $baseFolder)
+        private readonly AnimeStorage           $animeStorage,
+    )
     {
     }
 
     public function getFilesystem(): Filesystem
     {
-        if (!$this->filesystem) {
-            $adapter = new LocalFilesystemAdapter($this->baseFolder, new PortableVisibilityConverter(filePublic: 0664, directoryPublic: 02775));
-            $this->filesystem = new Filesystem($adapter);
-        }
-        return $this->filesystem;
+        return $this->animeStorage;
     }
 
-    #[Route('/season-folders/table', name: 'season_folders_table', methods: ['GET'])]
+    #[Route('/{tracker}/season-folders/table', name: 'tracker_season_folders_table', methods: ['GET'])]
     public function apiSeasonFoldersTable(
-        SeasonFolderRepository            $foldersRepo,
-        ListAnimeRepository               $listRepo,
-        #[MapQueryString] TableParameters $params
-    ): Response {
+        string                 $tracker,
+        SeasonFolderRepository $foldersRepo,
+        ListAnimeRepository    $listRepo,
+        #[MapQueryString]
+        TableParameters        $params
+    ): Response
+    {
         $config = new TableConfiguration(
             rootEntityClass: SeasonFolder::class,
             rootAlias: 'e',
             fieldMappings: [
-                'id'     => 'e.id',
+                'id' => 'e.id',
+                'tracker' => 'e.tracker',
                 'folder' => 'e.folder',
+                'episode_offset' => 'e.episodeOffset',
             ],
             hydrateObjects: true,
             rowTransformer: function (array $row, SeasonFolder $entity) use ($listRepo): array {
-                // TODO da rendere una join column, in modo che si possa ordinare e filtrare da frontend
-                $anime = $listRepo->find($entity->getId());
+                // Find title matching both ID and tracker composite key
+                $anime = $listRepo->findOneBy([
+                    'id' => $entity->getId(),
+                    'tracker' => $entity->getTracker(),
+                ]);
                 $row['title'] = $anime?->getTitle();
                 return $row;
             }
         );
 
         return $this->json([
-            'rows'  => $foldersRepo->getTableRows($params, $config),
+            'rows' => $foldersRepo->getTableRows($params, $config),
             'count' => $foldersRepo->getTableCount($params, $config),
             'total_count' => $foldersRepo->getTableUnfilteredCount($config),
         ]);
     }
 
-    #[Route('/season-folders/{season}', name: 'season_folders_id', requirements: ['season' => '\d+'], methods: ['GET'])]
-    public function apiSeasonFoldersId(#[MapEntity(message: "Season not found.")] SeasonFolder $season): Response
+    #[Route('/{tracker}/season-folders/{id}', name: 'tracker_season_folders_id', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function apiSeasonFoldersId(
+        #[MapEntity(mapping: ['id' => 'id', 'tracker' => 'tracker'], message: "Season not found.")]
+        SeasonFolder $season
+    ): Response
     {
         return $this->json($season);
     }
 
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
-    #[Route('/season-folders', name: 'season_folders_add', methods: ['POST'])]
-    public function apiSeasonFoldersAdd(#[MapRequestPayload] SeasonFolder $season, SeasonFolderRepository $seasonRepo, EpisodeDownloadRepository $downloadRepo): Response
+    #[Route('/{tracker}/season-folders', name: 'tracker_season_folders_add', methods: ['POST'])]
+    public function apiSeasonFoldersAdd(
+        #[MapRequestPayload]
+        SeasonFolder              $season,
+        SeasonFolderRepository    $seasonRepo,
+        EpisodeDownloadRepository $downloadRepo
+    ): Response
     {
-        if ($seasonRepo->find($season->getId())) {
-            throw new ConflictHttpException('Season already exists.');
+        // Check uniqueness across both ID and tracker
+        if ($seasonRepo->findOneBy(['id' => $season->getId(), 'tracker' => $season->getTracker()])) {
+            throw new ConflictHttpException('Season folder already exists for this tracker.');
         }
         if (!$this->getFilesystem()->directoryExists($season->getFolder())) {
             throw new ConflictHttpException('Folder not found!');
         }
         $this->entityManager->persist($season);
 
-        $downloads = $downloadRepo->findBy(['malId' => $season->getId()]);
+        // Move existing downloaded files for this series according to its tracker
+        $downloads = $downloadRepo->findBy([
+            'tracker' => $season->getTracker(),
+            'trackerId' => $season->getId(),
+        ]);
         foreach ($downloads as $download) {
             if ($download->getFolder() !== $season->getFolder()) {
                 $oldEpisodePath = Path::join($download->getFolder(), $download->getFile());
@@ -124,132 +136,176 @@ class ApiController extends AbstractController
     }
 
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
-    #[Route('/season-folders/{season}', name: 'season_folders_id_delete', requirements: ['season' => '\d+'], methods: ['DELETE'])]
-    public function apiSeasonFoldersDelete(#[MapEntity(message: "Season not found.")] SeasonFolder $season): Response
+    #[Route('/{tracker}/season-folders/{id}', name: 'tracker_season_folders_id_delete', requirements: ['id' => '\d+'], methods: ['DELETE'])]
+    public function apiSeasonFoldersDelete(
+        #[MapEntity(mapping: ['id' => 'id', 'tracker' => 'tracker'], message: "Season not found.")]
+        SeasonFolder $season
+    ): Response
     {
-        $id = $season->getId();
         $this->entityManager->remove($season);
         $this->entityManager->flush();
-        return $this->json(['id' => $id]);
+        return $this->json(['id' => $season->getId(), 'tracker' => $season->getTracker()]);
     }
 
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
-    #[Route('/season-folders/{id}/downloads', name: 'season_folders_id_downloads', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function apiSeasonFoldersIdDownloads(int $id, EpisodeDownloadRepository $downloadRepo): Response
+    #[Route('/{tracker}/season-folders/{id}/downloads', name: 'tracker_season_folders_id_downloads', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function apiSeasonFoldersIdDownloads(
+        #[MapEntity(mapping: ['id' => 'id', 'tracker' => 'tracker'], message: "Season not found.")]
+        SeasonFolder $season,
+        EpisodeDownloadRepository $downloadRepo
+    ): Response
     {
         $downloads = array_map(
             fn(EpisodeDownload $download) => [
                 "file_exists" => $this->getFilesystem()->fileExists(Path::join($download->getFolder(), $download->getFile())),
                 "download" => $download,
             ],
-            $downloadRepo->findBy(['malId' => $id]),
+            $downloadRepo->findBy([
+                'tracker' => $season->getTracker(),
+                'trackerId' => $season->getId(),
+            ]),
         );
         return $this->json($downloads);
     }
 
-    #[Route('/list-anime/table', name: 'list_anime_table', methods: ['GET'])]
+    #[Route('/{tracker}/list-anime/table', name: 'tracker_list_anime_table', methods: ['GET'])]
     public function apiListAnimeTable(
-        ListAnimeRepository               $listRepo,
-        #[MapQueryString] TableParameters $params
-    ): Response {
+        string              $tracker,
+        ListAnimeRepository $listRepo,
+        #[MapQueryString]
+        TableParameters     $params
+    ): Response
+    {
         $config = new TableConfiguration(
             rootEntityClass: ListAnime::class,
             rootAlias: 'e',
             fieldMappings: [
-                'id'           => 'e.id',
-                'title'        => 'e.title',
-                'title_en'     => 'e.titleEn',
+                'id' => 'e.id',
+                'tracker' => 'e.tracker',
+                'title' => 'e.title',
+                'title_en' => 'e.titleEn',
                 'num_episodes' => 'e.numEpisodes',
-                'status'       => 'e.status',
-                'media_type'   => 'e.mediaType',
-                'nsfw'         => 'e.nsfw',
+                'status' => 'e.status',
+                'media_type' => 'e.mediaType',
+                'nsfw' => 'e.nsfw',
             ]
         );
 
         return $this->json([
-            'rows'  => $listRepo->getTableRows($params, $config),
+            'rows' => $listRepo->getTableRows($params, $config),
             'count' => $listRepo->getTableCount($params, $config),
             'total_count' => $listRepo->getTableUnfilteredCount($config),
         ]);
     }
 
-    #[Route('/list-anime/{anime}', name: 'list_anime_id', requirements: ['anime' => '\d+'], methods: ['GET'])]
-    public function apiListAnimeId(#[MapEntity(message: "Anime not found.")] ListAnime $anime): Response
+    #[Route('/{tracker}/list-anime/{id}', name: 'tracker_list_anime_id', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function apiListAnimeId(
+        #[MapEntity(mapping: ['id' => 'id', 'tracker' => 'tracker'], message: "Anime not found.")]
+        ListAnime $anime
+    ): Response
     {
         return $this->json($anime);
     }
 
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
-    #[Route('/list-anime/refresh', name: 'list_anime_refresh', methods: ['POST'])]
-    public function apiListAnimeRefresh(MessageBusInterface $bus): Response
+    #[Route('/{tracker}/list-anime/refresh', name: 'tracker_list_anime_refresh', methods: ['POST'])]
+    public function apiListAnimeRefresh(
+        string              $tracker,
+        MessageBusInterface $bus
+    ): Response
     {
-        $bus->dispatch(new RedispatchMessage(new RunCommandMessage('anime:cache-refresh anime'), 'core_async'));
+        $bus->dispatch(new RedispatchMessage(new RunCommandMessage("anime:cache-refresh anime --tracker $tracker"), 'core_async'));
         return $this->json(['ok' => true]);
     }
 
-    #[Route('/list-manga/table', name: 'list_manga_table', methods: ['GET'])]
+    #[Route('/{tracker}/list-manga/table', name: 'tracker_list_manga_table', methods: ['GET'])]
     public function apiListMangaTable(
-        ListMangaRepository               $listRepo,
-        #[MapQueryString] TableParameters $params
-    ): Response {
+        string              $tracker,
+        ListMangaRepository $listRepo,
+        #[MapQueryString]
+        TableParameters     $params
+    ): Response
+    {
         $config = new TableConfiguration(
             rootEntityClass: ListManga::class,
             rootAlias: 'e',
             fieldMappings: [
-                'id'           => 'e.id',
-                'title'        => 'e.title',
-                'title_en'     => 'e.titleEn',
-                'num_volumes'  => 'e.numVolumes',
+                'id' => 'e.id',
+                'tracker' => 'e.tracker',
+                'title' => 'e.title',
+                'title_en' => 'e.titleEn',
+                'num_volumes' => 'e.numVolumes',
                 'num_chapters' => 'e.numChapters',
-                'status'       => 'e.status',
-                'media_type'   => 'e.mediaType',
-                'nsfw'         => 'e.nsfw',
+                'status' => 'e.status',
+                'media_type' => 'e.mediaType',
+                'nsfw' => 'e.nsfw',
             ]
         );
 
         return $this->json([
-            'rows'  => $listRepo->getTableRows($params, $config),
+            'rows' => $listRepo->getTableRows($params, $config),
             'count' => $listRepo->getTableCount($params, $config),
             'total_count' => $listRepo->getTableUnfilteredCount($config),
         ]);
     }
 
-    #[Route('/list-manga/{manga}', name: 'list_manga_id', requirements: ['manga' => '\d+'], methods: ['GET'])]
-    public function apiListMangaId(#[MapEntity(message: "Manga not found.")] ListManga $manga): Response
+    #[Route('/{tracker}/list-manga/{id}', name: 'tracker_list_manga_id', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function apiListMangaId(
+        #[MapEntity(mapping: ['id' => 'id', 'tracker' => 'tracker'], message: "Manga not found.")]
+        ListManga $manga
+    ): Response
     {
         return $this->json($manga);
     }
 
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
-    #[Route('/list-manga/refresh', name: 'list_manga_refresh', methods: ['POST'])]
-    public function apiListMangaRefresh(MessageBusInterface $bus): Response
+    #[Route('/{tracker}/list-manga/refresh', name: 'tracker_list_manga_refresh', methods: ['POST'])]
+    public function apiListMangaRefresh(
+        string              $tracker,
+        MessageBusInterface $bus
+    ): Response
     {
-        $bus->dispatch(new RedispatchMessage(new RunCommandMessage('anime:cache-refresh manga'), 'core_async'));
+        $bus->dispatch(new RedispatchMessage(new RunCommandMessage("anime:cache-refresh manga --tracker $tracker"), 'core_async'));
         return $this->json(['ok' => true]);
     }
 
     #[Route('/downloads/table', name: 'downloads_table', methods: ['GET'])]
     public function apiDownloadsTable(
-        EpisodeDownloadRepository         $episodeRepo,
-        #[MapQueryString] TableParameters $params
-    ): Response {
+        EpisodeDownloadRepository $episodeRepo,
+        #[MapQueryString]
+        TableParameters           $params
+    ): Response
+    {
         $config = new TableConfiguration(
             rootEntityClass: EpisodeDownload::class,
             rootAlias: 'e',
             fieldMappings: [
-                'id'          => 'e.id',
+                'id' => 'e.id',
+                'provider' => 'e.provider',
+                'tracker' => 'e.tracker',
+                'tracker_id' => 'e.trackerId',
                 'episode_url' => 'e.episodeUrl',
-                'folder'      => 'e.folder',
-                'episode'     => 'e.episode',
-                'started'     => 'e.started',
-                'completed'   => 'e.completed',
-                'state'       => 'e.state',
-                'mal_id'      => 'e.malId',
-            ]
+                'folder' => 'e.folder',
+                'file' => 'e.file',
+                'episode' => 'e.episode',
+                'started' => 'e.started',
+                'completed' => 'e.completed',
+                'state' => 'e.state',
+                'mal_id' => 'e.malId',
+                'al_id' => 'e.alId',
+            ],
+            hydrateObjects: true,
+            rowTransformer: function (array $row, EpisodeDownload $entity): array {
+                // Include last attempt details for easy error inspection in UI tables
+                $lastAttempt = $entity->getLastAttempt();
+                $row['last_error'] = $lastAttempt?->getErrorMessage();
+                $row['attempts_count'] = $entity->getEpisodeDownloadAttempts()->count();
+                return $row;
+            }
         );
 
         return $this->json([
-            'rows'  => $episodeRepo->getTableRows($params, $config),
+            'rows' => $episodeRepo->getTableRows($params, $config),
             'count' => $episodeRepo->getTableCount($params, $config),
             'total_count' => $episodeRepo->getTableUnfilteredCount($config),
         ]);
@@ -258,12 +314,14 @@ class ApiController extends AbstractController
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
     #[Route('/downloads', name: 'downloads_add', methods: ['POST'])]
     public function apiDownloadsAdd(
-        #[MapRequestPayload] EpisodeDownloadRequest $downloadReq,
+        #[MapRequestPayload]
+        EpisodeDownloadRequest $downloadReq,
         EpisodeDownloadManager $downloadManager
-    ): Response {
+    ): Response
+    {
         try {
             $downloads = $downloadManager->processDownloadRequest($downloadReq);
-        } catch (UnhandledWebsiteException $e) {
+        } catch (UnsupportedWebsiteException $e) {
             throw new BadRequestHttpException("No service has been found for the given url.", $e);
         } catch (CacheAnimeNotFoundException $e) {
             throw new BadRequestHttpException($e->getMessage(), $e);
@@ -275,81 +333,44 @@ class ApiController extends AbstractController
     #[Route('/downloads/{download}', name: 'downloads_id', requirements: ['download' => '\d+'], methods: ['GET'])]
     public function apiDownloadsId(#[MapEntity(message: "Download not found.")] EpisodeDownload $download): Response
     {
-        $res = ["download" => $download];
-        return $this->json($res);
-    }
-
-    #[Route('/myanimelist/anime-title/{id}', name: 'myanimelist_anime_title', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function apiMyAnimeListAnimeTitle(int $id, HttpClientInterface $client): Response
-    {
-        $url = "https://myanimelist.net/anime/{$id}";
-
         return $this->json([
-            'id' => $id,
-            'url' => $url,
-            'title' => $this->getOgTitle($client, $url),
+            "download" => $download,
+            "attempts" => $download->getEpisodeDownloadAttempts()->toArray(),
         ]);
     }
 
-    #[Route('/myanimelist/manga-title/{id}', name: 'myanimelist_manga_title', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function apiMyAnimeListMangaTitle(int $id, HttpClientInterface $client): Response
-    {
-        $url = "https://myanimelist.net/manga/{$id}";
+    #[Route('/{tracker}/anime-title/{id}', name: 'tracker_anime_title', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function apiAnimeTitle(
+        string           $tracker,
+        int              $id,
+        AnimeTrackerLocator $trackerLocator
+    ): Response {
+        $t = $trackerLocator->get($tracker);
 
-        return $this->json([
-            'id' => $id,
-            'url' => $url,
-            'title' => $this->getOgTitle($client, $url),
-        ]);
+        return $this->json($t->fetchAnimeTitle($id));
     }
 
-    #[Route('/anilist/anime-title/{id}', name: 'anilist_anime_title', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function apiAniListAnimeTitle(int $id, HttpClientInterface $client): Response
-    {
-        $url = "https://anilist.co/anime/{$id}";
+    #[Route('/{tracker}/manga-title/{id}', name: 'tracker_manga_title', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function apiMangaTitle(
+        string           $tracker,
+        int              $id,
+        AnimeTrackerLocator $trackerLocator
+    ): Response {
+        $t = $trackerLocator->get($tracker);
 
-        return $this->json([
-            'id' => $id,
-            'url' => $url,
-            'title' => $this->getOgTitle($client, $url),
-        ]);
-    }
-
-    #[Route('/anilist/manga-title/{id}', name: 'anilist_manga_title', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function apiAniListMangaTitle(int $id, HttpClientInterface $client): Response
-    {
-        $url = "https://anilist.co/manga/{$id}";
-
-        return $this->json([
-            'id' => $id,
-            'url' => $url,
-            'title' => $this->getOgTitle($client, $url),
-        ]);
-    }
-
-    private function getOgTitle(HttpClientInterface $client, string $url): ?string
-    {
-        try {
-            $response = $client->request(Request::METHOD_GET, $url);
-            $html = $response->getContent();
-            $crawler = new Crawler($html);
-            return $crawler
-                ->filter('meta[property="og:title"]')
-                ->attr('content');
-        } catch (\Throwable $e) {
-            return null;
-        }
+        return $this->json($t->fetchMangaTitle($id));
     }
 
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
     #[Route('/downloads/{download}/retry', name: 'downloads_id_retry', methods: ['POST'])]
     public function apiDownloadsIdRetry(
         #[MapEntity(message: "Download not found.")] EpisodeDownload $download,
-        EpisodeDownloadManager $downloadManager
-    ): Response {
+        EpisodeDownloadManager                                       $downloadManager
+    ): Response
+    {
         try {
             $downloadManager->retryDownload($download);
-        } catch (UnhandledWebsiteException $e) {
+        } catch (UnsupportedWebsiteException $e) {
             throw new BadRequestHttpException("No service has been found for the given download.", $e);
         }
 

@@ -2,7 +2,7 @@
 
 namespace App\AnimeBundle\Command;
 
-use App\AnimeBundle\Exception\UnhandledWebsiteException;
+use App\AnimeBundle\Exception\UnsupportedWebsiteException;
 use App\AnimeBundle\Model\EpisodeDownloadRequest;
 use App\AnimeBundle\Service\EpisodeDownloadManager;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -40,7 +40,7 @@ class AnimeAddDownloadCommand extends Command
 
         try {
             $episodes = $this->downloadManager->processDownloadRequest($downloadReq);
-        } catch (UnhandledWebsiteException $e) {
+        } catch (UnsupportedWebsiteException $e) {
             $output->writeln("<error>No service found for the given url.</error>");
             return Command::FAILURE;
         }

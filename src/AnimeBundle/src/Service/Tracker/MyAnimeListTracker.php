@@ -5,10 +5,8 @@ namespace App\AnimeBundle\Service\Tracker;
 use App\AnimeBundle\Entity\ListAnime;
 use App\AnimeBundle\Entity\ListManga;
 use App\AnimeBundle\Exception\CacheRefreshException;
-use App\AnimeBundle\Model\AlListAnime;
-use App\AnimeBundle\Model\AlListManga;
-use App\AnimeBundle\Model\AniListAnime;
-use App\AnimeBundle\Model\AniListManga;
+use App\AnimeBundle\Model\MalListAnime;
+use App\AnimeBundle\Model\MalListManga;
 use App\AnimeBundle\Repository\ListAnimeRepository;
 use App\AnimeBundle\Repository\ListMangaRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -23,36 +21,11 @@ use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 #[AutoconfigureTag(name: 'anime.tracker', attributes: ['key' => self::TRACKER_NAME])]
-readonly class AniListService implements AnimeTrackerInterface
+readonly class MyAnimeListTracker extends AbstractAnimeTracker
 {
-    public const string TRACKER_NAME = 'anilist';
-    private const string API_URL = '/';
-
-    private const string GRAPHQL_QUERY = <<<'GRAPHQL'
-    query ($userName: String, $type: MediaType) {
-      MediaListCollection(userName: $userName, type: $type) {
-        lists {
-          entries {
-            mediaId
-            status
-            media {
-              id
-              title {
-                romaji
-                english
-              }
-              format
-              countryOfOrigin
-              episodes
-              chapters
-              volumes
-              isAdult
-            }
-          }
-        }
-      }
-    }
-    GRAPHQL;
+    public const string TRACKER_NAME = 'myanimelist';
+    public const string FETCH_URL = '/v2/users/%1$s/%2$slist?nsfw=true&limit=%3$d&fields=%4$s';
+    public const int LIMIT = 1000;
 
     public function __construct(
         #[Target('anime.cache')]
@@ -60,13 +33,14 @@ readonly class AniListService implements AnimeTrackerInterface
         private EntityManagerInterface $entityManager,
         private ListAnimeRepository    $animeRepository,
         private ListMangaRepository    $mangaRepository,
-        #[Target('anime.anilist.client')]
-        private HttpClientInterface    $httpClient,
+        #[Target('anime.myanimelist.client')]
+        HttpClientInterface    $httpClient,
         private DenormalizerInterface  $denormalizer,
         private ObjectMapperInterface  $objectMapper,
-        #[Autowire(param: 'anime.anilist.user')]
+        #[Autowire(param: 'anime.myanimelist.user')]
         private string                 $user,
     ) {
+        parent::__construct($httpClient);
     }
 
     public static function getTrackerName(): string
@@ -76,71 +50,50 @@ readonly class AniListService implements AnimeTrackerInterface
 
     public function existsInAnimeCache(int $id): bool
     {
-        return $this->animeRepository->findOneBy(['id' => $id, 'provider' => self::TRACKER_NAME]) !== null;
+        return $this->animeRepository->findOneBy(['id' => $id, 'tracker' => self::TRACKER_NAME]) !== null;
     }
 
     public function existsInMangaCache(int $id): bool
     {
-        return $this->mangaRepository->findOneBy(['id' => $id, 'provider' => self::TRACKER_NAME]) !== null;
+        return $this->mangaRepository->findOneBy(['id' => $id, 'tracker' => self::TRACKER_NAME]) !== null;
     }
 
     /**
      * @template T of object
      *
      * @param string $type
+     * @param string[] $fields string[]
      * @param class-string $denormalizeClass
      * @param class-string<T> $class
      * @return T[]
      */
-    private function refreshCache(string $type, string $denormalizeClass, string $class): array
+    private function refreshCache(string $type, array $fields, string $denormalizeClass, string $class): array
     {
         $this->logger->info("Refreshing $type cache for " . self::TRACKER_NAME . "...");
-
+        $denormalizedList = [];
         try {
-            $response = $this->httpClient->request(Request::METHOD_POST, self::API_URL, [
-                'json' => [
-                    'query' => self::GRAPHQL_QUERY,
-                    'variables' => [
-                        'userName' => $this->user,
-                        'type' => strtoupper($type),
-                    ],
-                ],
-            ]);
-
-            if ($response->getStatusCode() !== Response::HTTP_OK) {
-                throw new \RuntimeException("Error fetching data from AniList API (Status {$response->getStatusCode()}).");
-            }
-
-            $data = $response->toArray();
-            $lists = $data['data']['MediaListCollection']['lists'] ?? [];
-        } catch (\Throwable $e) {
-            throw new CacheRefreshException("$type (anilist)", $e);
-        }
-
-        // Deduplicate entries by mediaId across different user status/custom lists
-        $uniqueEntries = [];
-        foreach ($lists as $list) {
-            foreach ($list['entries'] as $entry) {
-                $mediaId = (int) $entry['media']['id'];
-                if (!isset($uniqueEntries[$mediaId])) {
-                    $uniqueEntries[$mediaId] = $entry;
+            $next = sprintf(self::FETCH_URL, $this->user, $type, self::LIMIT, implode(',', $fields));
+            while ($next) {
+                $response = $this->httpClient->request(Request::METHOD_GET, $next);
+                if ($response->getStatusCode() !== Response::HTTP_OK) {
+                    throw new \RuntimeException("Error fetching list from MyAnimeList. (Http code {$response->getStatusCode()})");
                 }
+                $content = $response->toArray();
+                $next = $content['paging']['next'] ?? null;
+                $denormalizedList = array_merge($denormalizedList, $this->denormalizer->denormalize($content['data'], $denormalizeClass . '[]'));
             }
+        } catch (\Throwable $e) {
+            throw new CacheRefreshException($type, $e);
         }
-
-        $denormalizedList = $this->denormalizer->denormalize(
-            array_values($uniqueEntries),
-            $denormalizeClass . '[]'
-        );
 
         // Wrap delete and insert in a single transaction to prevent empty cache state on failures
         return $this->entityManager->wrapInTransaction(function () use ($class, $denormalizedList, $type) {
-            // Only remove existing entries for this specific provider
+            // Only remove existing entries for this specific tracker
             $this->entityManager->getRepository($class)
                 ->createQueryBuilder('e')
                 ->delete()
-                ->where('e.provider = :provider')
-                ->setParameter('provider', self::TRACKER_NAME)
+                ->where('e.tracker = :tracker')
+                ->setParameter('tracker', self::TRACKER_NAME)
                 ->getQuery()
                 ->execute();
 
@@ -148,7 +101,7 @@ readonly class AniListService implements AnimeTrackerInterface
             foreach ($denormalizedList as $denormalizedItem) {
                 /** @var ListAnime|ListManga $cacheItem */
                 $cacheItem = $this->objectMapper->map($denormalizedItem);
-                $cacheItem->setProvider(self::TRACKER_NAME);
+                $cacheItem->setTracker(self::TRACKER_NAME);
 
                 $this->entityManager->persist($cacheItem);
                 $cacheList[] = $cacheItem;
@@ -165,7 +118,8 @@ readonly class AniListService implements AnimeTrackerInterface
     {
         return $this->refreshCache(
             'anime',
-            AlListAnime::class,
+            ['id', 'title', 'alternative_titles', 'nsfw', 'media_type', 'num_episodes', 'list_status'],
+            MalListAnime::class,
             ListAnime::class
         );
     }
@@ -174,8 +128,19 @@ readonly class AniListService implements AnimeTrackerInterface
     {
         return $this->refreshCache(
             'manga',
-            AlListManga::class,
+            ['id', 'title', 'alternative_titles', 'nsfw', 'media_type', 'num_volumes', 'num_chapters', 'list_status'],
+            MalListManga::class,
             ListManga::class
         );
+    }
+
+    public function getAnimeUrl(int $id): string
+    {
+        return "https://myanimelist.net/anime/{$id}";
+    }
+
+    public function getMangaUrl(int $id): string
+    {
+        return "https://myanimelist.net/manga/{$id}";
     }
 }

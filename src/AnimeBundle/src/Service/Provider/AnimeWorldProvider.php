@@ -5,7 +5,6 @@ namespace App\AnimeBundle\Service\Provider;
 use App\AnimeBundle\Exception\ScrapeParsingException;
 use App\AnimeBundle\Model\EpisodeDownloadRequest;
 use App\AnimeBundle\Model\ScrapedEpisode;
-use App\AnimeBundle\Service\AnimeDownloaderInterface;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -14,12 +13,12 @@ use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-#[AsAlias('anime.downloader.' . self::SERVICE_NAME)]
-#[AsAlias(AnimeDownloaderInterface::class, target: self::SERVICE_NAME)]
-#[AutoconfigureTag(name: 'anime.downloader', attributes: ['key' => self::SERVICE_NAME])]
+#[AsAlias('anime.provider.' . self::PROVIDER_NAME)]
+#[AsAlias(AnimeProviderInterface::class, target: self::PROVIDER_NAME)]
+#[AutoconfigureTag(name: 'anime.provider', attributes: ['key' => self::PROVIDER_NAME])]
 readonly class AnimeWorldProvider extends AbstractAnimeProvider
 {
-    public const string SERVICE_NAME = "animeworld";
+    public const string PROVIDER_NAME = "animeworld";
 
     public const string URL_REGEX = "/^\/play\/(?<animeLink>.+?)\.(?<animeIdentifier>[^\/]+)\/(?<episodeToken>[^\/]+)$/";
 
@@ -69,7 +68,7 @@ readonly class AnimeWorldProvider extends AbstractAnimeProvider
     private function resolveEpisodeFile(string $episodeUrl): array
     {
         if (!preg_match(self::URL_REGEX, $episodeUrl, $matches)) {
-            throw new ScrapeParsingException(self::SERVICE_NAME, "Episode URL does not match expected pattern: {$episodeUrl}");
+            throw new ScrapeParsingException(self::PROVIDER_NAME, "Episode URL does not match expected pattern: {$episodeUrl}");
         }
 
         $episodeToken = $matches['episodeToken'];
@@ -82,11 +81,11 @@ readonly class AnimeWorldProvider extends AbstractAnimeProvider
             ]);
             $data = $response->toArray();
         } catch (\Throwable $e) {
-            throw new ScrapeParsingException(self::SERVICE_NAME, "Failed to resolve download URL from Node service: {$e->getMessage()}", $e);
+            throw new ScrapeParsingException(self::PROVIDER_NAME, "Failed to resolve download URL from Node service: {$e->getMessage()}", $e);
         }
 
         if (empty($data['url'])) {
-            throw new ScrapeParsingException(self::SERVICE_NAME, "Node extraction service returned an empty URL for token: {$episodeToken}");
+            throw new ScrapeParsingException(self::PROVIDER_NAME, "Node extraction service returned an empty URL for token: {$episodeToken}");
         }
 
         $dlUrl = $data['url'];
@@ -136,7 +135,7 @@ readonly class AnimeWorldProvider extends AbstractAnimeProvider
             [$downloadUrl, $filename] = $this->resolveEpisodeFile($episodeUrl);
 
             $episodes[] = new ScrapedEpisode()
-                ->setServiceName(self::SERVICE_NAME)
+                ->setProvider(self::PROVIDER_NAME)
                 ->setEpisodeUrl($episodeUrl)
                 ->setEpisodeNumber($itemCrawler->attr("data-episode-num"))
                 ->setDownloadUrl($downloadUrl)
@@ -160,8 +159,8 @@ readonly class AnimeWorldProvider extends AbstractAnimeProvider
     /**
      * @inheritDoc
      */
-    public static function getServiceName(): string
+    public static function getProviderName(): string
     {
-        return self::SERVICE_NAME;
+        return self::PROVIDER_NAME;
     }
 }

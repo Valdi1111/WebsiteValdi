@@ -6,7 +6,7 @@ use App\AnimeBundle\Entity\EpisodeDownloadAttempt;
 use App\AnimeBundle\Message\EpisodeDownloadMessage;
 use App\AnimeBundle\Model\EpisodeDownloadState;
 use App\AnimeBundle\Repository\EpisodeDownloadRepository;
-use App\AnimeBundle\Service\Downloader\EpisodeDownloaderEngineInterface;
+use App\AnimeBundle\Service\Downloader\EpisodeDownloaderInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Target;
@@ -17,10 +17,10 @@ readonly class EpisodeDownloadMessageHandler
 {
     public function __construct(
         #[Target('anime.episode_downloader')]
-        private LoggerInterface                  $logger,
-        private EntityManagerInterface           $entityManager,
-        private EpisodeDownloadRepository        $downloadRepository,
-        private EpisodeDownloaderEngineInterface $downloaderEngine,
+        private LoggerInterface            $logger,
+        private EntityManagerInterface     $entityManager,
+        private EpisodeDownloadRepository  $downloadRepository,
+        private EpisodeDownloaderInterface $downloader,
     ) {
     }
 
@@ -76,7 +76,7 @@ readonly class EpisodeDownloadMessageHandler
 
         try {
             // Delegate the actual file retrieval to the pluggable download engine
-            $this->downloaderEngine->download($download, $progressCallback);
+            $this->downloader->download($download, $progressCallback);
 
             // Mark download and attempt as completed
             $download->setState(EpisodeDownloadState::completed);

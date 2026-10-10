@@ -2,7 +2,7 @@
 
 namespace App\AnimeBundle\Exception;
 
-class UnhandledWebsiteException extends \RuntimeException
+class UnsupportedWebsiteException extends \RuntimeException
 {
 
     public function __construct()

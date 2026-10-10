@@ -4,7 +4,7 @@ namespace App\AnimeBundle\Model;
 
 class ScrapedEpisode
 {
-    private string $serviceName;
+    private string $provider;
     private string $episodeUrl;
     private string $episodeNumber;
     private ?string $downloadUrl = null;
@@ -12,14 +12,14 @@ class ScrapedEpisode
     private ?int $malId = null;
     private ?int $alId = null;
 
-    public function getServiceName(): string
+    public function getProvider(): string
     {
-        return $this->serviceName;
+        return $this->provider;
     }
 
-    public function setServiceName(string $serviceName): ScrapedEpisode
+    public function setProvider(string $provider): ScrapedEpisode
     {
-        $this->serviceName = $serviceName;
+        $this->provider = $provider;
         return $this;
     }
 

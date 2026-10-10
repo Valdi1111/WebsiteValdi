@@ -24,7 +24,7 @@ final class Version20250927160423 extends AbstractMigration
         $this->addSql('CREATE INDEX IDX_state ON episode_download (state)');
         $this->addSql('CREATE INDEX IDX_mal_id ON episode_download (mal_id)');
         $this->addSql('CREATE INDEX IDX_al_id ON episode_download (al_id)');
-        $this->addSql('CREATE INDEX IDX_service_name ON episode_download (service_name)');
+        $this->addSql('CREATE INDEX IDX_provider ON episode_download (provider)');
     }
 
     public function down(Schema $schema): void
@@ -34,6 +34,6 @@ final class Version20250927160423 extends AbstractMigration
         $this->addSql('DROP INDEX IDX_state ON episode_download');
         $this->addSql('DROP INDEX IDX_mal_id ON episode_download');
         $this->addSql('DROP INDEX IDX_al_id ON episode_download');
-        $this->addSql('DROP INDEX IDX_service_name ON episode_download');
+        $this->addSql('DROP INDEX IDX_provider ON episode_download');
     }
 }

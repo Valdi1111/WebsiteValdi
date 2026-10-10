@@ -14,18 +14,18 @@ final class Version20250221161036 extends AbstractMigration
 {
     public function getDescription(): string
     {
-        return 'Add serviceName to EpisodeDownload entity';
+        return 'Add provider to EpisodeDownload entity';
     }
 
     public function up(Schema $schema): void
     {
         // this up() migration is auto-generated, please modify it to your needs
-        $this->addSql('ALTER TABLE episode_download ADD service_name VARCHAR(255) NOT NULL');
+        $this->addSql('ALTER TABLE episode_download ADD provider VARCHAR(50) NOT NULL');
     }
 
     public function down(Schema $schema): void
     {
         // this down() migration is auto-generated, please modify it to your needs
-        $this->addSql('ALTER TABLE episode_download DROP service_name');
+        $this->addSql('ALTER TABLE episode_download DROP provider');
     }
 }

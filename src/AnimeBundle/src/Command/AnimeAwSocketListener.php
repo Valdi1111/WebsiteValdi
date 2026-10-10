@@ -4,7 +4,7 @@ namespace App\AnimeBundle\Command;
 
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
 use App\AnimeBundle\Model\EpisodeDownloadRequest;
-use App\AnimeBundle\Service\AnimeDownloaderInterface;
+use App\AnimeBundle\Service\Provider\AnimeProviderInterface;
 use ElephantIO\Client;
 use Exception;
 use Psr\Log\LoggerInterface;
@@ -27,16 +27,16 @@ class AnimeAwSocketListener extends Command
 
     public function __construct(
         #[Target('anime.aw_handler')]
-        private readonly LoggerInterface          $logger,
+        private readonly LoggerInterface        $logger,
         #[Target('animeworld')]
-        private readonly AnimeDownloaderInterface $downloader,
+        private readonly AnimeProviderInterface $downloader,
         #[Autowire(param: 'anime.animeworld.api_url')]
-        private readonly string                   $awApiUrl,
+        private readonly string                 $awApiUrl,
         #[Autowire(param: 'anime.animeworld.client_id')]
-        private readonly string                   $awClientId,
+        private readonly string                 $awClientId,
         #[Autowire(param: 'anime.animeworld.api_key')]
-        private readonly string                   $awApiKey,
-        ?string                                   $name = null)
+        private readonly string                 $awApiKey,
+        ?string                                 $name = null)
     {
         parent::__construct($name);
     }

@@ -8,7 +8,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use YoutubeDl\Options;
 use YoutubeDl\YoutubeDl;
 
-readonly class YoutubeDlEngine implements EpisodeDownloaderEngineInterface
+readonly class YoutubeDlDownloader implements EpisodeDownloaderInterface
 {
     public function __construct(
         #[Autowire(param: 'anime.youtube_dl.bin_path')]

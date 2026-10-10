@@ -2,7 +2,7 @@
 
 namespace App\AnimeBundle\Command;
 
-use App\AnimeBundle\Service\AnimeListChecker;
+use App\AnimeBundle\Service\AnimeTrackerLocator;
 use Exception;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -18,8 +18,8 @@ use Symfony\Component\Scheduler\Attribute\AsCronTask;
 class AnimeCacheRefreshCommand extends Command
 {
     public function __construct(
-        private readonly AnimeListChecker $listChecker,
-        ?string                           $name = null
+        private readonly AnimeTrackerLocator $trackerLocator,
+        ?string                              $name = null
     ) {
         parent::__construct($name);
     }
@@ -40,8 +40,8 @@ class AnimeCacheRefreshCommand extends Command
         }
 
         $trackersToRefresh = $trackerOption === 'all'
-            ? $this->listChecker->getTrackers()
-            : [$trackerOption => $this->listChecker->getTracker($trackerOption)];
+            ? $this->trackerLocator
+            : [$trackerOption => $this->trackerLocator->get($trackerOption)];
 
         foreach ($trackersToRefresh as $name => $tracker) {
             $output->writeln(sprintf("Refreshing %s cache for tracker [%s]...", $type, strtoupper($name)));

@@ -3,9 +3,8 @@
 namespace App\AnimeBundle\Service;
 
 use App\AnimeBundle\Entity\SeasonFolder;
+use App\AnimeBundle\Model\TrackerIdentifier;
 use App\AnimeBundle\Repository\SeasonFolderRepository;
-use App\AnimeBundle\Service\Tracker\AniListService;
-use App\AnimeBundle\Service\Tracker\MyAnimeListService;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 readonly class AnimeFolderResolver
@@ -18,43 +17,28 @@ readonly class AnimeFolderResolver
     }
 
     /**
-     * Resolve the target SeasonFolder entity for given anime identifiers
+     * Resolve the target SeasonFolder entity for a given tracker identifier
      */
-    public function resolveSeasonFolder(?int $malId = null, ?int $alId = null): ?SeasonFolder
+    public function resolveSeasonFolder(?TrackerIdentifier $trackerIdentifier): ?SeasonFolder
     {
-        // 1. Try resolving using MyAnimeList ID
-        if ($malId !== null) {
-            $folder = $this->seasonFolderRepository->findOneBy([
-                'id' => $malId,
-                'provider' => MyAnimeListService::TRACKER_NAME,
-            ]);
-            if ($folder !== null) {
-                return $folder;
-            }
+        if ($trackerIdentifier === null) {
+            return null;
         }
 
-        // 2. Try resolving using AniList ID
-        if ($alId !== null) {
-            $folder = $this->seasonFolderRepository->findOneBy([
-                'id' => $alId,
-                'provider' => AniListService::TRACKER_NAME,
-            ]);
-            if ($folder !== null) {
-                return $folder;
-            }
-        }
-
-        return null;
+        return $this->seasonFolderRepository->findOneBy([
+            'id' => $trackerIdentifier->getTrackerId(),
+            'tracker' => $trackerIdentifier->getTracker(),
+        ]);
     }
 
     /**
      * Resolve the target folder path
      */
-    public function resolveFolder(?int $malId = null, ?int $alId = null): string
+    public function resolveFolder(?TrackerIdentifier $trackerIdentifier): string
     {
-        $seasonFolder = $this->resolveSeasonFolder($malId, $alId);
+        $seasonFolder = $this->resolveSeasonFolder($trackerIdentifier);
 
-        return $seasonFolder?->getFolder() ?? $this->tempFolder;
+        return $seasonFolder?->getFolder() ?? $this->getFallbackFolder();
     }
 
     public function getFallbackFolder(): string

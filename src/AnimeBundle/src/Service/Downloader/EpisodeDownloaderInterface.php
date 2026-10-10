@@ -4,7 +4,7 @@ namespace App\AnimeBundle\Service\Downloader;
 
 use App\AnimeBundle\Entity\EpisodeDownload;
 
-interface EpisodeDownloaderEngineInterface
+interface EpisodeDownloaderInterface
 {
     /**
      * Download the episode file to destination folder

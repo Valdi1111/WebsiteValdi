@@ -1,6 +1,6 @@
 <?php
 
-namespace App\AnimeBundle\Service;
+namespace App\AnimeBundle\Service\Provider;
 
 use App\AnimeBundle\Exception\ProviderFetchException;
 use App\AnimeBundle\Exception\ScrapeParsingException;
@@ -8,7 +8,7 @@ use App\AnimeBundle\Exception\SiteUnavailableException;
 use App\AnimeBundle\Model\EpisodeDownloadRequest;
 use App\AnimeBundle\Model\ScrapedEpisode;
 
-interface AnimeDownloaderInterface
+interface AnimeProviderInterface
 {
     /**
      * Determine if the provider can handle the given URL
@@ -64,9 +64,7 @@ interface AnimeDownloaderInterface
     public function getWebsiteUrlRegex(): string;
 
     /**
-     * Service name
-     *
-     * @return string
+     * Unique identifier for the provider (e.g. 'animeworld', 'animeunity')
      */
-    public static function getServiceName(): string;
+    public static function getProviderName(): string;
 }

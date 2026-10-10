@@ -2,9 +2,10 @@
 
 namespace App\AnimeBundle\MessageHandler;
 
-use App\AnimeBundle\Entity\EpisodeDownload;
+use App\AnimeBundle\Entity\EpisodeDownloadAttempt;
 use App\AnimeBundle\Message\EpisodeDownloadMessage;
 use App\AnimeBundle\Model\EpisodeDownloadState;
+use App\AnimeBundle\Repository\EpisodeDownloadRepository;
 use App\AnimeBundle\Service\Downloader\EpisodeDownloaderEngineInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -18,22 +19,26 @@ readonly class EpisodeDownloadMessageHandler
         #[Target('anime.episode_downloader')]
         private LoggerInterface                  $logger,
         private EntityManagerInterface           $entityManager,
-        private EpisodeDownloaderEngineInterface $downloadEngine,
+        private EpisodeDownloadRepository        $downloadRepository,
+        private EpisodeDownloaderEngineInterface $downloaderEngine,
     ) {
     }
 
     public function __invoke(EpisodeDownloadMessage $message): void
     {
-        $episode = $this->entityManager
-            ->getRepository(EpisodeDownload::class)
-            ->find($message->getId());
-
-        if (!$episode) {
-            $this->logger->info("No episode found in queue");
+        $download = $this->downloadRepository->find($message->getId());
+        if (!$download) {
+            $this->logger->info("No episode #{$download->getId()} found in queue");
             return;
         }
 
-        $this->logger->info("Found episode in queue", ['id' => $episode->getId()]);
+        // Retrieve existing unstarted attempt or create a new one
+        $attempt = $download->getLastAttempt();
+        if ($attempt === null || $attempt->getState() !== EpisodeDownloadState::created) {
+            $attempt = new EpisodeDownloadAttempt()
+                ->setState(EpisodeDownloadState::created);
+            $download->addEpisodeDownloadAttempt($attempt);
+        }
 
         // Progress callback to keep the logger updated during download execution
         $progressCallback = function (
@@ -60,29 +65,47 @@ readonly class EpisodeDownloadMessageHandler
             $this->logger->info("Downloading $progressTarget", $context);
         };
 
-        // Mark episode as downloading
-        $episode->setState(EpisodeDownloadState::downloading)
-            ->setStarted(new \DateTime());
+        // Mark both download and active attempt as downloading
+        $download->setState(EpisodeDownloadState::downloading);
+        $download->setStarted(new \DateTime());
+
+        $attempt->setState(EpisodeDownloadState::downloading);
+        $attempt->setStarted(new \DateTime());
+
         $this->entityManager->flush();
 
         try {
             // Delegate the actual file retrieval to the pluggable download engine
-            $this->downloadEngine->download($episode, $progressCallback);
+            $this->downloaderEngine->download($download, $progressCallback);
 
-            $episode->setState(EpisodeDownloadState::completed)
-                ->setCompleted(new \DateTime());
+            // Mark download and attempt as completed
+            $download->setState(EpisodeDownloadState::completed);
+            $download->setCompleted(new \DateTime());
+
+            $attempt->setState(EpisodeDownloadState::completed);
+            $attempt->setCompleted(new \DateTime());
+            $attempt->setErrorMessage(null);
+            $attempt->setErrorTrace(null);
+
             $this->logger->info("Downloaded episode successfully", [
-                'id' => $episode->getId(),
-                'file' => $episode->getFile(),
+                'id' => $download->getId(),
+                'file' => $download->getFile(),
             ]);
         } catch (\Throwable $e) {
-            $episode->setState(EpisodeDownloadState::error_downloading);
-            $this->logger->error("Error downloading video: {$e->getMessage()}", [
-                'id' => $episode->getId(),
+            // Mark download as failed
+            $download->setState(EpisodeDownloadState::error_downloading);
+
+            // Record failure details and trace on current attempt
+            $attempt->setState(EpisodeDownloadState::error_downloading);
+            $attempt->setErrorMessage($e->getMessage());
+            $attempt->setErrorTrace($e->getTraceAsString());
+            $attempt->setCompleted(new \DateTime());
+
+            $this->logger->error("Failed downloading episode #{$download->getId()}: " . $e->getMessage(), [
                 'exception' => $e,
             ]);
+        } finally {
+            $this->entityManager->flush();
         }
-
-        $this->entityManager->flush();
     }
 }

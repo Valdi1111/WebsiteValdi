@@ -3,6 +3,7 @@
 namespace App\AnimeBundle\Service;
 
 use App\AnimeBundle\Entity\EpisodeDownload;
+use App\AnimeBundle\Entity\EpisodeDownloadAttempt;
 use App\AnimeBundle\Entity\EpisodeRelease;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
 use App\AnimeBundle\Exception\SiteUnavailableException;
@@ -49,28 +50,30 @@ readonly class EpisodeDownloadManager
                 $this->listChecker->ensureAnimeInList($dto);
             }
 
+            // Resolve target folder and possible season offset
             $seasonFolder = $this->folderResolver->resolveSeasonFolder($dto->getMalId(), $dto->getAlId());
             $folder = $seasonFolder?->getFolder() ?? $this->folderResolver->getFallbackFolder();
             $offset = $seasonFolder?->getEpisodeOffset() ?? 0;
 
-            // 1. Parse raw original numbers (e.g. "7-8" -> [7.0, 8.0])
+            // 1. Parse raw original numbers (e.g. "7-8" -> [7, 8], "7.5" -> [7.5])
             $parsedNumbers = $this->episodeCalculator->parseEpisodes($dto->getEpisodeNumber());
 
-            // 2. Apply folder offset (e.g. +12 -> [19.0, 20.0])
+            // 2. Apply folder offset if configured
             $adjustedNumbers = $this->episodeCalculator->applyOffset($parsedNumbers, $offset);
 
-            // 3. Format adjusted episode string (e.g. "19-20")
+            // 3. Rebuild formatted episode string
             $finalEpisodeString = !empty($adjustedNumbers)
                 ? $this->episodeCalculator->formatEpisodeString($adjustedNumbers)
                 : $dto->getEpisodeNumber();
 
-            // 4. Compute adjusted filename replacing old numbering with new
+            // 4. Compute destination filename with updated episode numbers
             $finalFilename = $this->episodeCalculator->computeFilename(
                 $dto->getFilename(),
                 $dto->getEpisodeNumber(),
                 $finalEpisodeString
             );
 
+            // Initialize main episode download entity
             $episode = new EpisodeDownload()
                 ->setServiceName($dto->getServiceName())
                 ->setEpisodeUrl($dto->getEpisodeUrl())
@@ -82,11 +85,18 @@ readonly class EpisodeDownloadManager
                 ->setAlId($dto->getAlId())
                 ->setDownloadUrl($dto->getDownloadUrl())
                 ->setOriginalFile($dto->getFilename())
-                ->setFile($finalFilename);
+                ->setFile($finalFilename)
+                ->setState(EpisodeDownloadState::created);
+
+            // Instantiate and attach initial execution attempt
+            $initialAttempt = new EpisodeDownloadAttempt()
+                ->setState(EpisodeDownloadState::created);
+            $episode->addEpisodeDownloadAttempt($initialAttempt);
 
             if ($downloadReq->isSave()) {
                 $this->entityManager->persist($episode);
             }
+
             $episodes[] = $episode;
         }
 
@@ -170,25 +180,34 @@ readonly class EpisodeDownloadManager
     }
 
     /**
-     * Refresh URL, reset state, delete existing file and re-queue download
+     * Refresh URL, reset state, delete incomplete file, record a new attempt, and re-queue download.
      */
     public function retryDownload(EpisodeDownload $download): void
     {
+        // 1. Fetch provider and extract fresh CDN download URL (tokens/signatures might have expired)
         $provider = $this->locator->get($download->getServiceName());
         $newUrl = $provider->extractDownloadUrl($download->getEpisodeUrl());
         $download->setDownloadUrl($newUrl);
 
+        // 2. Reset primary download state and execution timestamps
         $download->setState(EpisodeDownloadState::created)
             ->setStarted(null)
             ->setCompleted(null);
 
+        // 3. Create and attach a new attempt instance for this retry cycle
+        $newAttempt = new EpisodeDownloadAttempt()
+            ->setState(EpisodeDownloadState::created);
+        $download->addEpisodeDownloadAttempt($newAttempt);
+
         $this->entityManager->flush();
 
+        // 4. Remove any partially downloaded or corrupted file from storage
         $filePath = Path::join($download->getFolder(), $download->getFile());
         if ($this->animeStorage->fileExists($filePath)) {
             $this->animeStorage->delete($filePath);
         }
 
+        // 5. Dispatch message to Messenger queue
         $this->bus->dispatch(new EpisodeDownloadMessage($download->getId()));
     }
 }

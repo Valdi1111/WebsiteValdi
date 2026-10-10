@@ -27,10 +27,6 @@ class EpisodeRelease
     #[ORM\Column(length: 255)]
     private ?string $serviceName = null;
 
-    public function __construct()
-    {
-    }
-
     public function getId(): ?int
     {
         return $this->id;

@@ -4,6 +4,8 @@ namespace App\AnimeBundle\Entity;
 
 use App\AnimeBundle\Model\EpisodeDownloadState;
 use App\AnimeBundle\Repository\EpisodeDownloadRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Schema\DefaultExpression\CurrentTimestamp;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -71,8 +73,14 @@ class EpisodeDownload
     #[ORM\Column(length: 255)]
     private ?string $serviceName = null;
 
+    /** @var Collection<int, EpisodeDownloadAttempt> */
+    #[ORM\OneToMany(targetEntity: EpisodeDownloadAttempt::class, mappedBy: 'episodeDownload', cascade: ['persist', 'remove'])]
+    #[ORM\OrderBy(['created' => \SortDirection::Ascending])]
+    private Collection $episodeDownloadAttempts;
+
     public function __construct()
     {
+        $this->episodeDownloadAttempts = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -257,6 +265,43 @@ class EpisodeDownload
         $this->serviceName = $serviceName;
 
         return $this;
+    }
+
+    /**
+     * @return Collection<int, EpisodeDownloadAttempt>
+     */
+    public function getEpisodeDownloadAttempts(): Collection
+    {
+        return $this->episodeDownloadAttempts;
+    }
+
+    public function addEpisodeDownloadAttempt(EpisodeDownloadAttempt $attempt): self
+    {
+        if (!$this->getEpisodeDownloadAttempts()->contains($attempt)) {
+            $this->episodeDownloadAttempts[] = $attempt;
+            $attempt->setEpisodeDownload($this);
+        }
+
+        return $this;
+    }
+
+    public function removeEpisodeDownloadAttempt(EpisodeDownloadAttempt $attempt): self
+    {
+        if ($this->getEpisodeDownloadAttempts()->removeElement($attempt)) {
+            if ($attempt->getEpisodeDownload() === $this) {
+                $attempt->setEpisodeDownload(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * Returns the latest attempt
+     */
+    public function getLastAttempt(): ?EpisodeDownloadAttempt
+    {
+        return $this->episodeDownloadAttempts->last() ?: null;
     }
 
 }

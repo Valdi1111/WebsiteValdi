@@ -7,6 +7,7 @@ use Doctrine\DBAL\Schema\DefaultExpression\CurrentTimestamp;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
+#[ORM\Index(name: 'IDX_provider', columns: ['provider'])]
 #[ORM\Table(name: 'season_folder')]
 #[ORM\Entity(repositoryClass: SeasonFolderRepository::class)]
 class SeasonFolder
@@ -27,10 +28,6 @@ class SeasonFolder
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, insertable: false, updatable: false, options: ["default" => new CurrentTimestamp()])]
     private ?\DateTimeInterface $created = null;
-
-    public function __construct()
-    {
-    }
 
     public function getId(): ?int
     {

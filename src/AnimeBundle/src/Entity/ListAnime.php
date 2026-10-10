@@ -8,6 +8,7 @@ use App\AnimeBundle\Model\Nsfw;
 use App\AnimeBundle\Repository\ListAnimeRepository;
 use Doctrine\ORM\Mapping as ORM;
 
+#[ORM\Index(name: 'IDX_provider', columns: ['provider'])]
 #[ORM\Table(name: 'list_anime')]
 #[ORM\Entity(repositoryClass: ListAnimeRepository::class)]
 class ListAnime

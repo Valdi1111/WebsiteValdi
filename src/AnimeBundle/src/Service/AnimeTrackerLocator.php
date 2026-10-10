@@ -28,15 +28,19 @@ readonly class AnimeTrackerLocator implements ServiceCollectionInterface
 
     /**
      * Ensure anime exists in user list across supported trackers.
-     * Returns the first matching tracker name and its corresponding media ID.
+     * Returns the first matching tracker identifier found in cache.
      *
      * @throws CacheAnimeNotFoundException
      */
     public function ensureAnimeInList(ScrapedEpisode $episode): TrackerIdentifier
     {
-        $identifiers = TrackerIdentifier::allFromScrapedEpisode($episode);
+        $identifiers = $episode->getTrackers();
 
         foreach ($identifiers as $identifier) {
+            if (!$this->has($identifier->getTracker())) {
+                continue;
+            }
+
             $tracker = $this->get($identifier->getTracker());
             if ($tracker->existsInAnimeCache($identifier->getTrackerId())) {
                 // Match found in at least one tracker cache
@@ -44,7 +48,7 @@ readonly class AnimeTrackerLocator implements ServiceCollectionInterface
             }
         }
 
-        throw new CacheAnimeNotFoundException($identifiers);
+        throw new CacheAnimeNotFoundException(array_values($identifiers));
     }
 
     public function get(string $id): AnimeTrackerInterface

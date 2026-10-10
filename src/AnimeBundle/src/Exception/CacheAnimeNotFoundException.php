@@ -3,15 +3,14 @@
 namespace App\AnimeBundle\Exception;
 
 use App\AnimeBundle\Model\TrackerIdentifier;
-use Doctrine\Common\Collections\Collection;
 use Throwable;
 
 class CacheAnimeNotFoundException extends \RuntimeException
 {
     /**
-     * @param Collection<TrackerIdentifier> $identifiers Mapping of tracking services and ids checked
+     * @param TrackerIdentifier[] $identifiers Mapping of tracking services and ids checked
      */
-    public function __construct(Collection $identifiers, int $code = 0, ?Throwable $previous = null)
+    public function __construct(array $identifiers, int $code = 0, ?Throwable $previous = null)
     {
         $details = [];
         foreach ($identifiers as $identifier) {

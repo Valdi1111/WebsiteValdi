@@ -24,8 +24,19 @@ class EpisodeDownload
     #[ORM\Column(length: 255)]
     private ?string $episodeUrl = null;
 
-    #[ORM\Column(length: 16, nullable: true)]
+    #[ORM\Column(length: 32, nullable: true)]
+    private ?string $originalEpisode = null;
+
+    #[ORM\Column(length: 32, nullable: true)]
     private ?string $episode = null;
+
+    /**
+     * Normalized episode numbers (e.g. [7.0, 8.0] or [7.5])
+     *
+     * @var array<int|float>|null
+     */
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $episodes = [];
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $downloadUrl = null;
@@ -35,6 +46,9 @@ class EpisodeDownload
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $folder = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $originalFile = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $file = null;
@@ -78,6 +92,18 @@ class EpisodeDownload
         return $this;
     }
 
+    public function getOriginalEpisode(): ?string
+    {
+        return $this->originalEpisode;
+    }
+
+    public function setOriginalEpisode(?string $originalEpisode): static
+    {
+        $this->originalEpisode = $originalEpisode;
+
+        return $this;
+    }
+
     public function getEpisode(): ?string
     {
         return $this->episode;
@@ -86,6 +112,24 @@ class EpisodeDownload
     public function setEpisode(?string $episode): static
     {
         $this->episode = $episode;
+
+        return $this;
+    }
+
+    /**
+     * @return array<int|float>|null
+     */
+    public function getEpisodes(): ?array
+    {
+        return $this->episodes;
+    }
+
+    /**
+     * @param array<int|float>|null $episodes
+     */
+    public function setEpisodes(?array $episodes): static
+    {
+        $this->episodes = $episodes;
 
         return $this;
     }
@@ -122,6 +166,18 @@ class EpisodeDownload
     public function setFolder(?string $folder): static
     {
         $this->folder = $folder;
+
+        return $this;
+    }
+
+    public function getOriginalFile(): ?string
+    {
+        return $this->originalFile;
+    }
+
+    public function setOriginalFile(?string $originalFile): static
+    {
+        $this->originalFile = $originalFile;
 
         return $this;
     }

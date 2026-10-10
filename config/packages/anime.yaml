@@ -7,11 +7,13 @@ anime:
         api_url: 'https://api.myanimelist.net'
         client_id: '%env(MAL_CLIENT_ID)%'
         client_secret: '%env(MAL_CLIENT_SECRET)%'
+        user: '%env(MAL_USER)%'
     anilist:
         url: 'https://anilist.co'
         api_url: 'https://graphql.anilist.co'
         client_id: '%env(AL_CLIENT_ID)%'
         client_secret: '%env(AL_CLIENT_SECRET)%'
+        user: '%env(AL_USER)%'
     animeworld:
         url_regex: '/^https:\/\/www\.animeworld\.(ac|so)\/.*/'
         url: 'https://www.animeworld.ac'

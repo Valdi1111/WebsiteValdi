@@ -11,32 +11,33 @@ use Traversable;
 
 readonly class AnimeDownloaderLocator implements ServiceCollectionInterface
 {
-
     /**
      * @param ServiceCollectionInterface<AnimeDownloaderInterface> $locator
      */
     public function __construct(
         #[AutowireLocator(services: 'anime.downloader', indexAttribute: 'key')]
         private ServiceCollectionInterface $locator,
-        private ParameterBagInterface      $parameterBag,
-    )
-    {
+    ) {
     }
 
     /**
+     * Resolve the provider supporting the given download request URL
+     *
      * @param EpisodeDownloadRequest $downloadReq
      * @return AnimeDownloaderInterface
      * @throws UnhandledWebsiteException if no service has been found for the given download request
      */
     public function getService(EpisodeDownloadRequest $downloadReq): AnimeDownloaderInterface
     {
-        // iterate through all services of the locator
-        foreach ($this->locator as $serviceId => $service) {
-            if ($this->parameterBag->has("anime.$serviceId.url_regex") &&
-                preg_match($this->parameterBag->get("anime.$serviceId.url_regex"), $downloadReq->getUrl())) {
+        $url = $downloadReq->getUrl();
+
+        /** @var AnimeDownloaderInterface $service */
+        foreach ($this->locator as $service) {
+            if ($service->supports($url)) {
                 return $service;
             }
         }
+
         throw new UnhandledWebsiteException();
     }
 

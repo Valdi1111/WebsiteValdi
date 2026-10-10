@@ -2,14 +2,25 @@
 
 namespace App\AnimeBundle\Exception;
 
-use App\CoreBundle\Exception\EntityNotFoundException;
+use Exception;
+use Throwable;
 
-class CacheAnimeNotFoundException extends EntityNotFoundException
+class CacheAnimeNotFoundException extends Exception
 {
-
-    public function __construct($id)
+    /**
+     * @param array<string, int|string> $identifiers Mapping of tracking services and ids checked (e.g. ['myanimelist' => 1234, 'anilist' => 5678])
+     */
+    public function __construct(array $identifiers = [], int $code = 0, ?Throwable $previous = null)
     {
-        parent::__construct("Anime not found in MyAnimeList cache. (id = $id)");
-    }
+        $details = [];
+        foreach ($identifiers as $service => $id) {
+            $details[] = sprintf('%s ID: %s', strtoupper((string) $service), (string) $id);
+        }
 
+        $message = !empty($details)
+            ? sprintf("This series was not found in your tracking list (%s).", implode(', ', $details))
+            : "This series was not found in your tracking list.";
+
+        parent::__construct($message, $code, $previous);
+    }
 }

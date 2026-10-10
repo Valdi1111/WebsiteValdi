@@ -15,6 +15,10 @@ class SeasonFolder
     #[ORM\Column]
     private ?int $id = null;
 
+    #[ORM\Id]
+    #[ORM\Column(length: 50)]
+    private ?string $provider = null;
+
     #[ORM\Column(length: 255)]
     private ?string $folder = null;
 
@@ -36,6 +40,18 @@ class SeasonFolder
     public function setId(int $id): static
     {
         $this->id = $id;
+
+        return $this;
+    }
+
+    public function getProvider(): string
+    {
+        return $this->provider;
+    }
+
+    public function setProvider(string $provider): static
+    {
+        $this->provider = $provider;
 
         return $this;
     }

@@ -8,14 +8,12 @@ use App\AnimeBundle\Entity\ListManga;
 use App\AnimeBundle\Entity\SeasonFolder;
 use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
 use App\AnimeBundle\Exception\UnhandledWebsiteException;
-use App\AnimeBundle\Message\EpisodeDownloadNotification;
 use App\AnimeBundle\Model\EpisodeDownloadRequest;
-use App\AnimeBundle\Model\EpisodeDownloadState;
 use App\AnimeBundle\Repository\EpisodeDownloadRepository;
 use App\AnimeBundle\Repository\ListAnimeRepository;
 use App\AnimeBundle\Repository\ListMangaRepository;
 use App\AnimeBundle\Repository\SeasonFolderRepository;
-use App\AnimeBundle\Service\AnimeDownloaderLocator;
+use App\AnimeBundle\Service\EpisodeDownloadManager;
 use App\CoreBundle\Model\TableConfiguration;
 use App\CoreBundle\Model\TableParameters;
 use Doctrine\ORM\EntityManagerInterface;
@@ -36,7 +34,6 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\Messenger\Message\RedispatchMessage;
 use Symfony\Component\Messenger\MessageBusInterface;
-use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -260,23 +257,18 @@ class ApiController extends AbstractController
 
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
     #[Route('/downloads', name: 'downloads_add', methods: ['POST'])]
-    public function apiDownloadsAdd(#[MapRequestPayload] EpisodeDownloadRequest $downloadReq, AnimeDownloaderLocator $locator, MessageBusInterface $bus): Response
-    {
+    public function apiDownloadsAdd(
+        #[MapRequestPayload] EpisodeDownloadRequest $downloadReq,
+        EpisodeDownloadManager $downloadManager
+    ): Response {
         try {
-            $downloader = $locator->getService($downloadReq);
-            $downloads = $downloader->createEpisodeDownloads($downloadReq);
+            $downloads = $downloadManager->processDownloadRequest($downloadReq);
         } catch (UnhandledWebsiteException $e) {
             throw new BadRequestHttpException("No service has been found for the given url.", $e);
         } catch (CacheAnimeNotFoundException $e) {
-            throw new BadRequestHttpException("This series isn't on your anime list", $e);
+            throw new BadRequestHttpException($e->getMessage(), $e);
         }
-        foreach ($downloads as $download) {
-            $stamps = [];
-            if ($downloadReq->getDelay() > 0) {
-                $stamps[] = new DelayStamp($downloadReq->getDelay() * 1000);
-            }
-            $bus->dispatch(new EpisodeDownloadNotification($download->getId()), $stamps);
-        }
+
         return $this->json($downloads);
     }
 
@@ -351,24 +343,16 @@ class ApiController extends AbstractController
 
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
     #[Route('/downloads/{download}/retry', name: 'downloads_id_retry', methods: ['POST'])]
-    public function apiDownloadsIdRetry(#[MapEntity(message: "Download not found.")] EpisodeDownload $download, AnimeDownloaderLocator $locator, MessageBusInterface $bus): Response
-    {
-        if (!$locator->has($download->getServiceName())) {
-            throw new BadRequestHttpException("No service has been found for the given download.");
+    public function apiDownloadsIdRetry(
+        #[MapEntity(message: "Download not found.")] EpisodeDownload $download,
+        EpisodeDownloadManager $downloadManager
+    ): Response {
+        try {
+            $downloadManager->retryDownload($download);
+        } catch (UnhandledWebsiteException $e) {
+            throw new BadRequestHttpException("No service has been found for the given download.", $e);
         }
-        $file = Path::join($download->getFolder(), $download->getFile());
 
-        $downloader = $locator->get($download->getServiceName());
-        $downloader->refreshDownloadUrl($download);
-        $download->setState(EpisodeDownloadState::created)
-            ->setStarted(null)
-            ->setCompleted(null);
-        $this->entityManager->flush();
-
-        if ($this->getFilesystem()->fileExists($file)) {
-            $this->getFilesystem()->delete($file);
-        }
-        $bus->dispatch(new EpisodeDownloadNotification($download->getId()));
         return $this->json($download);
     }
 

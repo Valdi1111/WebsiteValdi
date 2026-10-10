@@ -2,46 +2,71 @@
 
 namespace App\AnimeBundle\Service;
 
-use App\AnimeBundle\Entity\EpisodeDownload;
-use App\AnimeBundle\Exception\CacheAnimeNotFoundException;
+use App\AnimeBundle\Exception\ProviderFetchException;
+use App\AnimeBundle\Exception\ScrapeParsingException;
+use App\AnimeBundle\Exception\SiteUnavailableException;
 use App\AnimeBundle\Model\EpisodeDownloadRequest;
-use Exception;
+use App\AnimeBundle\Model\ScrapedEpisode;
 
 interface AnimeDownloaderInterface
 {
-
     /**
-     * @return EpisodeDownload[]
-     * @throws CacheAnimeNotFoundException
-     * @throws Exception
+     * Determine if the provider can handle the given URL
+     *
+     * @param string $url
+     * @return bool
      */
-    public function checkNewEpisodes(): array;
+    public function supports(string $url): bool;
 
     /**
+     * Fetch newly released episode relative/absolute URLs
+     *
+     * @return string[]
+     * @throws SiteUnavailableException
+     * @throws ProviderFetchException
+     */
+    public function fetchLatestEpisodeUrls(): array;
+
+    /**
+     * Scrape episode metadata and download references
+     *
      * @param EpisodeDownloadRequest $downloadReq download request data
-     * @return EpisodeDownload[]
-     * @throws CacheAnimeNotFoundException
-     * @throws Exception
+     * @return ScrapedEpisode[]
+     * @throws SiteUnavailableException
+     * @throws ProviderFetchException
+     * @throws ScrapeParsingException
      */
-    public function createEpisodeDownloads(EpisodeDownloadRequest $downloadReq): array;
+    public function scrapeEpisodes(EpisodeDownloadRequest $downloadReq): array;
 
     /**
-     * @param EpisodeDownload $episode
-     * @return void
-     * @throws Exception
+     * Extract or refresh direct download URL for an episode
+     *
+     * @param string $episodeUrl
+     * @return string
+     * @throws SiteUnavailableException
+     * @throws ProviderFetchException
+     * @throws ScrapeParsingException
      */
-    public function refreshDownloadUrl(EpisodeDownload $episode): void;
+    public function extractDownloadUrl(string $episodeUrl): string;
 
     /**
      * Website base url
+     *
      * @return string
      */
     public function getWebsiteUrl(): string;
 
     /**
+     * Website regex url
+     *
+     * @return string
+     */
+    public function getWebsiteUrlRegex(): string;
+
+    /**
      * Service name
+     *
      * @return string
      */
     public static function getServiceName(): string;
-
 }

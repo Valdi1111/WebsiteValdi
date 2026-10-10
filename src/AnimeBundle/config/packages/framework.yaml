@@ -18,6 +18,8 @@ framework:
                 base_uri: '%anime.myanimelist.api_url%'
                 headers:
                     X-MAL-CLIENT-ID: '%anime.myanimelist.client_id%'
+            anime.anilist.client:
+                base_uri: '%anime.anilist.api_url%'
             anime.animeworld.client:
                 base_uri: '%anime.animeworld.url%'
             anime.animeunity.client:

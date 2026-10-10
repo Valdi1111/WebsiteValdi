@@ -16,6 +16,10 @@ class ListManga
     #[ORM\Column]
     private ?int $id = null;
 
+    #[ORM\Id]
+    #[ORM\Column(length: 50)]
+    private ?string $provider = null;
+
     #[ORM\Column(length: 255, nullable: false, options: ['default' => ""])]
     private ?string $title = '';
 
@@ -45,6 +49,18 @@ class ListManga
     public function setId(int $id): static
     {
         $this->id = $id;
+
+        return $this;
+    }
+
+    public function getProvider(): string
+    {
+        return $this->provider;
+    }
+
+    public function setProvider(string $provider): static
+    {
+        $this->provider = $provider;
 
         return $this;
     }

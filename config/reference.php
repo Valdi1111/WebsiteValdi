@@ -140,12 +140,14 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         api_url?: scalar|Param|null, // Default: null
  *         client_id?: scalar|Param|null, // Default: null
  *         client_secret?: scalar|Param|null, // Default: null
+ *         user?: scalar|Param|null, // Default: null
  *     },
  *     anilist?: array{
  *         url?: scalar|Param|null, // Default: null
  *         api_url?: scalar|Param|null, // Default: null
  *         client_id?: scalar|Param|null, // Default: null
  *         client_secret?: scalar|Param|null, // Default: null
+ *         user?: scalar|Param|null, // Default: null
  *     },
  *     animeworld?: array{
  *         url_regex?: scalar|Param|null, // Default: null

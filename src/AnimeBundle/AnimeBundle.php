@@ -30,10 +30,12 @@ class AnimeBundle extends AbstractBundle
         $configurator->parameters()->set('anime.myanimelist.api_url', $config['myanimelist']['api_url']);
         $configurator->parameters()->set('anime.myanimelist.client_id', $config['myanimelist']['client_id']);
         $configurator->parameters()->set('anime.myanimelist.client_secret', $config['myanimelist']['client_secret']);
+        $configurator->parameters()->set('anime.myanimelist.user', $config['myanimelist']['user']);
         $configurator->parameters()->set('anime.anilist.url', $config['anilist']['url']);
         $configurator->parameters()->set('anime.anilist.api_url', $config['anilist']['api_url']);
         $configurator->parameters()->set('anime.anilist.client_id', $config['anilist']['client_id']);
         $configurator->parameters()->set('anime.anilist.client_secret', $config['anilist']['client_secret']);
+        $configurator->parameters()->set('anime.anilist.user', $config['anilist']['user']);
         $configurator->parameters()->set('anime.animeworld.url_regex', $config['animeworld']['url_regex']);
         $configurator->parameters()->set('anime.animeworld.url', $config['animeworld']['url']);
         $configurator->parameters()->set('anime.animeworld.api_url', $config['animeworld']['api_url']);
@@ -57,6 +59,7 @@ class AnimeBundle extends AbstractBundle
                     ->scalarNode('api_url')->defaultNull()->end()
                     ->scalarNode('client_id')->defaultNull()->end()
                     ->scalarNode('client_secret')->defaultNull()->end()
+                    ->scalarNode('user')->defaultNull()->end()
                 ->end()
             ->end()
             ->arrayNode('anilist')
@@ -65,6 +68,7 @@ class AnimeBundle extends AbstractBundle
                     ->scalarNode('api_url')->defaultNull()->end()
                     ->scalarNode('client_id')->defaultNull()->end()
                     ->scalarNode('client_secret')->defaultNull()->end()
+                    ->scalarNode('user')->defaultNull()->end()
                 ->end()
             ->end()
             ->arrayNode('animeworld')

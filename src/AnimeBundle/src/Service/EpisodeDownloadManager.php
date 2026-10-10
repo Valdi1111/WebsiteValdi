@@ -52,12 +52,12 @@ readonly class EpisodeDownloadManager
 
         foreach ($scrapedDtos as $dto) {
             // Resolve tracker: check user cache or fallback to first available identifier
-            $defaultTracker = $downloadReq->isFilter()
+            $triggerTracker = $downloadReq->isFilter()
                 ? $this->trackerLocator->ensureAnimeInList($dto)
                 : $dto->getFirstTracker();
 
             // Resolve target folder and possible season offset
-            $seasonFolder = $this->folderResolver->resolveSeasonFolder($defaultTracker);
+            $seasonFolder = $this->folderResolver->resolveSeasonFolder($triggerTracker);
             $folder = $seasonFolder?->getFolder() ?? $this->folderResolver->getFallbackFolder();
             $offset = $seasonFolder?->getEpisodeOffset() ?? 0;
 
@@ -92,14 +92,14 @@ readonly class EpisodeDownloadManager
                 ->setFile($finalFilename)
                 ->setState(EpisodeDownloadState::created);
 
-            // Attach all scraped trackers and mark the matching trigger as default
+            // Attach all scraped trackers and mark the matching trigger as trigger
             foreach ($dto->getTrackers() as $identifier) {
-                $isDefault = $identifier->same($defaultTracker);
+                $isTrigger = $identifier->same($triggerTracker);
 
                 $episode->addTracker(new EpisodeDownloadTracker()
                     ->setTracker($identifier->getTracker())
                     ->setTrackerId($identifier->getTrackerId())
-                    ->setDefault($isDefault)
+                    ->setIsTrigger($isTrigger)
                 );
             }
 

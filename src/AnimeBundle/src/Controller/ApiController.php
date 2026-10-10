@@ -310,7 +310,7 @@ class ApiController extends AbstractController
                 TableJoin::left(
                     join: EpisodeDownloadTracker::class,
                     alias: 'dt',
-                    condition: 'dt.episodeDownload = e AND dt.default = true'
+                    condition: 'dt.episodeDownload = e AND dt.isTrigger = true'
                 ),
             ],
             fetchJoins: ['a', 'trackers'],

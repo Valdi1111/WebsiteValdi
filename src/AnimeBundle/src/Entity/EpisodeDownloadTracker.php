@@ -8,9 +8,9 @@ use Symfony\Component\Serializer\Attribute\Ignore;
 #[ORM\Table(name: 'episode_download_tracker')]
 #[ORM\UniqueConstraint(name: 'IDX_episode_download_tracker', columns: ['episode_download_id', 'tracker'])]
 #[ORM\Index(name: 'FK_episode_download', columns: ['episode_download_id'])]
-#[ORM\Index(name: 'IDX_episode_download_default', columns: ['episode_download_id', 'default'])]
+#[ORM\Index(name: 'IDX_episode_download_is_trigger', columns: ['episode_download_id', '`is_trigger`'])]
 #[ORM\Index(name: 'IDX_tracker_tracker_id', columns: ['tracker', 'tracker_id'])]
-#[ORM\Index(name: 'IDX_default', columns: ['default'])]
+#[ORM\Index(name: 'IDX_is_trigger', columns: ['is_trigger'])]
 #[ORM\Entity]
 class EpisodeDownloadTracker
 {
@@ -29,8 +29,8 @@ class EpisodeDownloadTracker
     #[ORM\Column(options: ["unsigned" => true])]
     private ?int $trackerId = null;
 
-    #[ORM\Column(options: ['default' => "0"])]
-    private bool $default = false;
+    #[ORM\Column(name: 'is_trigger', options: ['default' => "0"])]
+    private bool $isTrigger = false;
 
     public function getId(): ?int
     {
@@ -71,14 +71,14 @@ class EpisodeDownloadTracker
         return $this;
     }
 
-    public function isDefault(): bool
+    public function isTrigger(): bool
     {
-        return $this->default;
+        return $this->isTrigger;
     }
 
-    public function setDefault(bool $default): static
+    public function setIsTrigger(bool $isTrigger): static
     {
-        $this->default = $default;
+        $this->isTrigger = $isTrigger;
         return $this;
     }
 }

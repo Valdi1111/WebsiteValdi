@@ -3,7 +3,6 @@
 namespace App\AnimeBundle\Entity;
 
 use App\AnimeBundle\Model\EpisodeDownloadState;
-use App\AnimeBundle\Model\TrackerIdentifier;
 use App\AnimeBundle\Repository\EpisodeDownloadRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -310,11 +309,11 @@ class EpisodeDownload
     }
 
     /**
-     * Returns the tracker marked as the execution trigger or falls back to the first available one.
+     * Returns the tracker marked as the execution trigger.
      */
-    public function getDefaultTracker(): ?EpisodeDownloadTracker
+    public function getTriggerTracker(): ?EpisodeDownloadTracker
     {
-        return $this->trackers->findFirst(static fn (string $name, EpisodeDownloadTracker $tracker): bool => $tracker->isDefault());
+        return $this->trackers->findFirst(static fn (string $name, EpisodeDownloadTracker $tracker): bool => $tracker->isTrigger());
     }
 
     public function getTracker(string $trackerName): ?EpisodeDownloadTracker

@@ -25,4 +25,23 @@ class EpisodeDownloadRepository extends ServiceEntityRepository implements Table
         parent::__construct($registry, EpisodeDownload::class);
     }
 
+    /**
+     * @return EpisodeDownload[]
+     */
+    public function findByTracker(string $tracker, int $trackerId, ?bool $default = null): array
+    {
+        $qb = $this->createQueryBuilder('e')
+            ->innerJoin('e.trackers', 't')
+            ->andWhere('t.tracker = :tracker')
+            ->andWhere('t.trackerId = :trackerId')
+            ->setParameter('tracker', $tracker)
+            ->setParameter('trackerId', $trackerId);
+        if ($default !== null) {
+            $qb->andWhere('e.defaultDownload = :default')
+                ->setParameter('default', $default);
+        }
+        return $qb->getQuery()
+            ->getResult();
+    }
+
 }

@@ -122,10 +122,10 @@ class ApiController extends AbstractController
         $this->entityManager->persist($season);
 
         // Move existing downloaded files for this series according to its tracker
-        $downloads = $downloadRepo->findBy([
-            'tracker' => $season->getTracker(),
-            'trackerId' => $season->getId(),
-        ]);
+        $downloads = $downloadRepo->findByTracker(
+            tracker: $season->getTracker(),
+            trackerId: $season->getId(),
+        );;
         foreach ($downloads as $download) {
             if ($download->getFolder() !== $season->getFolder()) {
                 $oldEpisodePath = Path::join($download->getFolder(), $download->getFile());
@@ -166,10 +166,10 @@ class ApiController extends AbstractController
                 "file_exists" => $this->getFilesystem()->fileExists(Path::join($download->getFolder(), $download->getFile())),
                 "download" => $download,
             ],
-            $downloadRepo->findBy([
-                'tracker' => $tracker,
-                'trackerId' => $id,
-            ]),
+            $downloadRepo->findByTracker(
+                tracker: $tracker,
+                trackerId: $id,
+            ),
         );
         return $this->json($downloads);
     }

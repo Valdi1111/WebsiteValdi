@@ -14,6 +14,16 @@ import RemoteTable from "@CoreBundle/components/standard-table/RemoteTable.jsx";
 
 const { useBreakpoint } = Grid;
 
+const PROVIDER_CATALOG = {
+    animeworld: { text: "AnimeWorld", color: "volcano" },
+    animeunity: { text: "AnimeUnity", color: "purple" },
+};
+
+const TRACKER_TAG_CATALOG = {
+    myanimelist: { text: "MyAnimeList", color: "blue" },
+    anilist: { text: "AniList", color: "geekblue" },
+};
+
 /**
  * Unified catalog for episode download queue states (tags & filters)
  */
@@ -45,9 +55,22 @@ export default function DownloadsTable() {
             filterOperators: ["eq", "gt", "lt"],
         },
         {
+            title: "Provider",
+            dataIndex: "provider",
+            valueType: "tags",
+            filterType: "tags",
+            tagCatalog: PROVIDER_CATALOG,
+        },
+        {
+            title: "Tracker",
+            dataIndex: "tracker",
+            valueType: "tags",
+            filterType: "tags",
+            tagCatalog: TRACKER_TAG_CATALOG,
+        },
+        {
             title: "Episode URL",
             dataIndex: "episode_url",
-            sorter: true,
             filterType: "text",
             ellipsis: true,
         },
@@ -66,12 +89,25 @@ export default function DownloadsTable() {
             dataIndex: "state",
             valueType: "tags",
             filterType: "tags",
-            tagColorMap: STATUS_CATALOG,
+            tagCatalog: STATUS_CATALOG,
+            tooltipDataIndex: "last_error",
+        },
+        {
+            title: "Attempts",
+            dataIndex: "attempts_count",
+            align: "center",
         },
         {
             title: "MAL ID",
             dataIndex: "mal_id",
             filterType: "number",
+            hidden: true,
+        },
+        {
+            title: "AL ID",
+            dataIndex: "al_id",
+            filterType: "number",
+            hidden: true,
         },
         {
             title: "Started",

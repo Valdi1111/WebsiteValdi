@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Flex, Tag, Space, theme as antdTheme } from "antd";
+import {Flex, Tag, Space, theme as antdTheme, Tooltip} from "antd";
 import { FilterFilled } from "@ant-design/icons";
 import Highlighter from "react-highlight-words";
 import { formatDateFromIso, formatDateTimeFromIso } from "@CoreBundle/format-utils";
@@ -240,14 +240,15 @@ export default function useProcessedColumns({
                 }
 
                 // Formatters & automatic text search highlighting
-                const originalRender = col.render;
-                if (!originalRender) {
+                let cellRender = col.render;
+
+                if (!cellRender) {
                     if (col.valueType === "datetime") {
-                        processed.render = (val) => (val ? <span>{formatDateTimeFromIso(val)}</span> : "-");
+                        cellRender = (val) => (val ? <span>{formatDateTimeFromIso(val)}</span> : "-");
                     } else if (col.valueType === "date") {
-                        processed.render = (val) => (val ? <span>{formatDateFromIso(val)}</span> : "-");
+                        cellRender = (val) => (val ? <span>{formatDateFromIso(val)}</span> : "-");
                     } else if (col.valueType === "tags") {
-                        processed.render = (rawVal) => {
+                        cellRender = (rawVal) => {
                             if (rawVal === null || rawVal === undefined || rawVal === "") return "-";
 
                             // 1. Normalize input to an array of raw items
@@ -304,7 +305,7 @@ export default function useProcessedColumns({
                             );
                         };
                     } else if (textSearchTerms.length > 0) {
-                        processed.render = (val) => {
+                        cellRender = (val) => {
                             if (val === null || val === undefined || val === "") return "-";
                             return (
                                 <Highlighter
@@ -322,8 +323,9 @@ export default function useProcessedColumns({
                         };
                     }
                 } else if (textSearchTerms.length > 0) {
-                    processed.render = (text, record, index) => {
-                        const rendered = originalRender(text, record, index);
+                    const originalCustomRender = cellRender;
+                    cellRender = (text, record, index) => {
+                        const rendered = originalCustomRender(text, record, index);
                         if (typeof rendered === "string" || typeof rendered === "number") {
                             return (
                                 <Highlighter
@@ -341,6 +343,28 @@ export default function useProcessedColumns({
                         }
                         return rendered;
                     };
+                }
+
+                // Wrap rendered cell output in a Tooltip if the column defines tooltipDataIndex or a tooltip resolver callback
+                if (col.tooltipDataIndex || typeof col.tooltip === "function") {
+                    const baseRender = cellRender || ((val) => val ?? "-");
+                    processed.render = (text, record, index) => {
+                        const content = baseRender(text, record, index);
+                        const tooltipText = typeof col.tooltip === "function"
+                            ? col.tooltip(text, record)
+                            : record?.[col.tooltipDataIndex];
+
+                        if (tooltipText) {
+                            return (
+                                <Tooltip title={tooltipText}>
+                                    <span style={{ display: "inline-block" }}>{content}</span>
+                                </Tooltip>
+                            );
+                        }
+                        return content;
+                    };
+                } else if (cellRender) {
+                    processed.render = cellRender;
                 }
 
                 return processed;

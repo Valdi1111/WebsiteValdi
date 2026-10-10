@@ -1,4 +1,5 @@
 import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
+import { useTracker } from "@AnimeBundle/components/TrackerContext";
 import ExternalTitleLink from "@AnimeBundle/components/ExternalTitleLink";
 import { Descriptions, Modal } from "antd";
 import React from "react";
@@ -6,6 +7,7 @@ import React from "react";
 export default function ListAnimeDetailModal({ open, setOpen, selectedId }) {
     const [loading, setLoading] = React.useState(true);
     const [data, setData] = React.useState(null);
+    const { tracker, trackerConfig } = useTracker();
     const api = useBackendApi();
 
     const afterOpenChange = React.useCallback(opened => {
@@ -18,13 +20,13 @@ export default function ListAnimeDetailModal({ open, setOpen, selectedId }) {
         api
             .withErrorHandling()
             .listAnime()
-            .getId(selectedId)
+            .getId(tracker, selectedId)
             .then(res => {
                 setData(res.data);
                 setLoading(false);
             })
             .catch(() => setLoading(false));
-    }, [selectedId, api]);
+    }, [selectedId, tracker, api]);
 
     const items = React.useMemo(() => {
         if (!data) {
@@ -33,12 +35,12 @@ export default function ListAnimeDetailModal({ open, setOpen, selectedId }) {
         return [
             {
                 key: 1,
-                label: 'MyAnimeList',
+                label: trackerConfig.label,
                 children: (
                     <ExternalTitleLink
                         id={data.id}
-                        url={`https://myanimelist.net/anime/${data.id}`}
-                        fetchTitle={() => api.myAnimeList().animeTitle(data.id)}
+                        url={trackerConfig.buildAnimeUrl(data.id)}
+                        fetchTitle={() => api.tracker().animeTitle(tracker, data.id)}
                     />
                 ),
                 span: 2,
@@ -81,7 +83,7 @@ export default function ListAnimeDetailModal({ open, setOpen, selectedId }) {
                 hidden: true,
             },
         ];
-    }, [data, api]);
+    }, [data, tracker, trackerConfig, api]);
 
     return (
         <Modal

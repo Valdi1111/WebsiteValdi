@@ -8,6 +8,7 @@ import MainLayout from "@AnimeBundle/components/MainLayout";
 import NotFoundComponent from "@CoreBundle/components/NotFoundComponent";
 import BackendApiContext from "@AnimeBundle/components/BackendApiContext";
 import createBackendApi from "@AnimeBundle/components/BackendApi";
+import { TrackerProvider } from "@AnimeBundle/components/TrackerContext";
 import { API_URL, ROOT_URL } from "@AnimeBundle/constants";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 import { App as AntdApp } from "antd";
@@ -17,45 +18,48 @@ export default function App() {
     const app = AntdApp.useApp();
     const api = React.useMemo(() => createBackendApi(API_URL, app), []);
 
-    return <BackendApiContext value={api}>
-        <BrowserRouter basename={ROOT_URL}>
-            <Routes>
-                <Route path="/" element={<Navigate to="/downloads"/>}/>
-                <Route path="/downloads" element={
-                    <MainLayout>
-                        <DownloadsTable/>
-                    </MainLayout>
-                }/>
-                <Route path="/season-folders" element={
-                    <MainLayout>
-                        <SeasonFoldersTable/>
-                    </MainLayout>
-                }/>
-                <Route path="/list-anime" element={
-                    <MainLayout>
-                        <ListAnimeTable/>
-                    </MainLayout>
-                }/>
-                <Route path="/list-manga" element={
-                    <MainLayout>
-                        <ListMangaTable/>
-                    </MainLayout>
-                }/>
-                <Route path="/files" element={
-                    <MainLayout>
-                        <FileManager apiUrl={api.fmUrl()}/>
-                    </MainLayout>
-                }/>
-                <Route path="/videos" element={
-                    <VideoPlayer apiUrl={api.fmDirectUrl}/>
-                }/>
-                <Route path="*" element={
-                    <MainLayout>
-                        <NotFoundComponent redirectPath="/downloads" redirectText="Back Home"/>
-                    </MainLayout>
-                }/>
-            </Routes>
-        </BrowserRouter>
-    </BackendApiContext>;
-
+    return (
+        <BackendApiContext value={api}>
+            <TrackerProvider>
+                <BrowserRouter basename={ROOT_URL}>
+                    <Routes>
+                        <Route path="/" element={<Navigate to="/downloads"/>}/>
+                        <Route path="/downloads" element={
+                            <MainLayout>
+                                <DownloadsTable/>
+                            </MainLayout>
+                        }/>
+                        <Route path="/season-folders" element={
+                            <MainLayout>
+                                <SeasonFoldersTable/>
+                            </MainLayout>
+                        }/>
+                        <Route path="/list-anime" element={
+                            <MainLayout>
+                                <ListAnimeTable/>
+                            </MainLayout>
+                        }/>
+                        <Route path="/list-manga" element={
+                            <MainLayout>
+                                <ListMangaTable/>
+                            </MainLayout>
+                        }/>
+                        <Route path="/files" element={
+                            <MainLayout>
+                                <FileManager apiUrl={api.fmUrl()}/>
+                            </MainLayout>
+                        }/>
+                        <Route path="/videos" element={
+                            <VideoPlayer apiUrl={api.fmDirectUrl}/>
+                        }/>
+                        <Route path="*" element={
+                            <MainLayout>
+                                <NotFoundComponent redirectPath="/downloads" redirectText="Back Home"/>
+                            </MainLayout>
+                        }/>
+                    </Routes>
+                </BrowserRouter>
+            </TrackerProvider>
+        </BackendApiContext>
+    );
 }

@@ -9,7 +9,9 @@ import {
 } from "@ant-design/icons";
 import ListAnimeDetailModal from "@AnimeBundle/components/list-anime/ListAnimeDetailModal";
 import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
+import { useTracker } from "@AnimeBundle/components/TrackerContext";
 import RemoteTable from "@CoreBundle/components/standard-table/RemoteTable.jsx";
+import TrackerSelector from "@AnimeBundle/components/TrackerSelector.jsx";
 
 const { useBreakpoint } = Grid;
 
@@ -53,6 +55,7 @@ export default function ListAnimeTable() {
     const screens = useBreakpoint();
     const isMobile = !screens.sm;
 
+    const { tracker, setTracker } = useTracker();
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [selectedId, setSelectedId] = useState(null);
     const { message } = App.useApp();
@@ -113,7 +116,7 @@ export default function ListAnimeTable() {
     const handleRefreshCache = () => {
         api.withErrorHandling()
             .listAnime()
-            .refresh()
+            .refresh(tracker)
             .then(() => {
                 message.open({
                     key: "list-anime-refresh-loader",
@@ -137,17 +140,22 @@ export default function ListAnimeTable() {
                 open={detailModalOpen}
                 setOpen={setDetailModalOpen}
                 selectedId={selectedId}
+                tracker={tracker}
             />
 
             <RemoteTable
+                key={tracker}
                 title="Anime Library"
                 subtitle="Browse, filter, and track synced anime episodes and publication states"
                 columns={columns}
-                fetchData={(params) => api.withErrorHandling().listAnime().table(params)}
+                fetchData={(params) => api.withErrorHandling().listAnime().table(tracker, params)}
                 extraToolbarActions={
-                    <Button type="primary" icon={<CloudSyncOutlined />} onClick={handleRefreshCache}>
-                        Sync
-                    </Button>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <TrackerSelector />
+                        <Button type="primary" icon={<CloudSyncOutlined />} onClick={handleRefreshCache}>
+                            Sync
+                        </Button>
+                    </div>
                 }
                 onRow={(record) => ({
                     onClick: () => {

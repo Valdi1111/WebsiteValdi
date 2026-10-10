@@ -12,8 +12,8 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Scheduler\Attribute\AsCronTask;
 
-#[AsCronTask('@midnight', arguments: ['type' => 'anime', '--tracker' => 'all'], transports: 'core_async')]
-#[AsCronTask('@midnight', arguments: ['type' => 'manga', '--tracker' => 'all'], transports: 'core_async')]
+#[AsCronTask('@midnight', arguments: ['type' => 'anime', '--tracker' => 'myanimelist'], transports: 'core_async')]
+#[AsCronTask('@midnight', arguments: ['type' => 'manga', '--tracker' => 'myanimelist'], transports: 'core_async')]
 #[AsCommand(name: 'anime:cache-refresh', description: 'Anime and manga tracking cache refresh')]
 class AnimeCacheRefreshCommand extends Command
 {

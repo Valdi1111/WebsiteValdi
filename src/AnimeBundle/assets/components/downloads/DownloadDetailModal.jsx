@@ -114,7 +114,7 @@ export default function DownloadDetailModal({ open, setOpen, selectedId }) {
                     <ExternalTitleLink
                         id={data.download.mal_id}
                         url={`https://myanimelist.net/anime/${data.download.mal_id}`}
-                        fetchTitle={data.download.mal_id ? () => api.myAnimeList().animeTitle(data.download.mal_id) : null}
+                        fetchTitle={data.download.mal_id ? () => api.tracker().animeTitle('myanimelist', data.download.mal_id) : null}
                     />
                 ),
                 span: 5,
@@ -126,7 +126,7 @@ export default function DownloadDetailModal({ open, setOpen, selectedId }) {
                     <ExternalTitleLink
                         id={data.download.al_id}
                         url={`https://anilist.co/anime/${data.download.al_id}`}
-                        fetchTitle={data.download.al_id ? () => api.aniList().animeTitle(data.download.al_id) : null}
+                        fetchTitle={data.download.al_id ? () => api.tracker().animeTitle('anilist', data.download.al_id) : null}
                     />
                 ),
                 span: 5,

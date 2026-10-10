@@ -155,8 +155,8 @@ class ApiController extends AbstractController
     #[IsGranted('ROLE_ADMIN_ANIME', null, 'Access Denied.')]
     #[Route('/{tracker}/season-folders/{id}/downloads', name: 'tracker_season_folders_id_downloads', requirements: ['id' => '\d+'], methods: ['GET'])]
     public function apiSeasonFoldersIdDownloads(
-        #[MapEntity(mapping: ['id' => 'id', 'tracker' => 'tracker'], message: "Season not found.")]
-        SeasonFolder $season,
+        string $tracker,
+        int $id,
         EpisodeDownloadRepository $downloadRepo
     ): Response
     {
@@ -166,8 +166,8 @@ class ApiController extends AbstractController
                 "download" => $download,
             ],
             $downloadRepo->findBy([
-                'tracker' => $season->getTracker(),
-                'trackerId' => $season->getId(),
+                'tracker' => $tracker,
+                'trackerId' => $id,
             ]),
         );
         return $this->json($downloads);

@@ -1,13 +1,15 @@
 import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
+import { useTracker } from "@AnimeBundle/components/TrackerContext";
 import ExternalTitleLink from "@AnimeBundle/components/ExternalTitleLink";
 import { DeleteOutlined, ExclamationCircleFilled } from "@ant-design/icons";
 import { App, Button, Descriptions, Modal, Space, Tooltip } from "antd";
 import { formatDateTimeFromIso } from "@CoreBundle/format-utils";
 import React from "react";
 
-export default function SeasonFolderDetailModal({ open, setOpen, selectedId, type }) {
+export default function SeasonFolderDetailModal({ open, setOpen, selectedId }) {
     const [loading, setLoading] = React.useState(true);
     const [data, setData] = React.useState(null);
+    const { tracker, trackerConfig } = useTracker();
 
     const { modal } = App.useApp();
     const api = useBackendApi();
@@ -22,13 +24,13 @@ export default function SeasonFolderDetailModal({ open, setOpen, selectedId, typ
         api
             .withErrorHandling()
             .seasonFolders()
-            .getId(selectedId)
+            .getId(tracker, selectedId)
             .then(res => {
                 setData(res.data);
                 setLoading(false);
             })
             .catch(() => setLoading(false));
-    }, [selectedId, api]);
+    }, [selectedId, tracker, api]);
 
     const onDeleteOpen = React.useCallback(() => {
         if (!data) {
@@ -45,10 +47,10 @@ export default function SeasonFolderDetailModal({ open, setOpen, selectedId, typ
                     successContent: 'Season folder deleted successfully',
                 })
                 .seasonFolders()
-                .delete(selectedId)
+                .delete(tracker, selectedId)
                 .then(() => setOpen(false)),
         });
-    }, [data, api, modal, selectedId, setOpen]);
+    }, [data, api, modal, tracker, selectedId, setOpen]);
 
     const items = React.useMemo(() => {
         if (!data) {
@@ -57,12 +59,12 @@ export default function SeasonFolderDetailModal({ open, setOpen, selectedId, typ
         return [
             {
                 key: 1,
-                label: 'MyAnimeList',
+                label: trackerConfig.label,
                 children: (
                     <ExternalTitleLink
                         id={data.id}
-                        url={`https://myanimelist.net/anime/${data.id}`}
-                        fetchTitle={() => api.myAnimeList().animeTitle(data.id)}
+                        url={trackerConfig.buildAnimeUrl(data.id)}
+                        fetchTitle={() => api.tracker().animeTitle(tracker, data.id)}
                     />
                 ),
                 span: 2,
@@ -80,7 +82,7 @@ export default function SeasonFolderDetailModal({ open, setOpen, selectedId, typ
                 span: 4,
             },
         ];
-    }, [data, api]);
+    }, [data, tracker, trackerConfig, api]);
 
     return (
         <Modal

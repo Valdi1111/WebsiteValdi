@@ -4,7 +4,9 @@ import { PlusOutlined } from "@ant-design/icons";
 import SeasonFolderAddModal from "@AnimeBundle/components/season-folders/SeasonFolderAddModal";
 import SeasonFolderDetailModal from "@AnimeBundle/components/season-folders/SeasonFolderDetailModal";
 import { useBackendApi } from "@AnimeBundle/components/BackendApiContext";
+import { useTracker } from "@AnimeBundle/components/TrackerContext";
 import RemoteTable from "@CoreBundle/components/standard-table/RemoteTable.jsx";
+import TrackerSelector from "@AnimeBundle/components/TrackerSelector.jsx";
 
 const { useBreakpoint } = Grid;
 
@@ -12,6 +14,7 @@ export default function SeasonFoldersTable() {
     const screens = useBreakpoint();
     const isMobile = !screens.sm;
 
+    const { tracker, setTracker } = useTracker();
     const [addModalOpen, setAddModalOpen] = useState(false);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [selectedId, setSelectedId] = useState(null);
@@ -29,6 +32,8 @@ export default function SeasonFoldersTable() {
         {
             title: "Title",
             dataIndex: "title",
+            sorter: true,
+            filterType: "text",
         },
         {
             title: "Folder",
@@ -47,22 +52,31 @@ export default function SeasonFoldersTable() {
                 boxSizing: "border-box",
             }}
         >
-            <SeasonFolderAddModal open={addModalOpen} setOpen={setAddModalOpen} />
+            <SeasonFolderAddModal
+                open={addModalOpen}
+                setOpen={setAddModalOpen}
+                tracker={tracker}
+            />
             <SeasonFolderDetailModal
                 open={detailModalOpen}
                 setOpen={setDetailModalOpen}
                 selectedId={selectedId}
+                tracker={tracker}
             />
 
             <RemoteTable
+                key={tracker}
                 title="Season Folders"
                 subtitle="Local filesystem directory mappings for automated series organizing"
                 columns={columns}
-                fetchData={(params) => api.withErrorHandling().seasonFolders().table(params)}
+                fetchData={(params) => api.withErrorHandling().seasonFolders().table(tracker, params)}
                 extraToolbarActions={
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddModalOpen(true)}>
-                        Add Folder
-                    </Button>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <TrackerSelector />
+                        <Button type="primary" icon={<PlusOutlined />} onClick={() => setAddModalOpen(true)}>
+                            Add Folder
+                        </Button>
+                    </div>
                 }
                 onRow={(record) => ({
                     onClick: () => {

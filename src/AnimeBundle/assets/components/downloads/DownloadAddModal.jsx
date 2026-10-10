@@ -18,45 +18,44 @@ export default function DownloadAddModal({ open, setOpen }) {
             })
             .downloads()
             .add(data)
-            .then(res => {
-                setOpen(false);
-            })
+            .then(() => setOpen(false))
             .finally(() => setConfirmLoading(false));
-    }, []);
+    }, [api, setOpen]);
 
-    return <Modal
-        open={open}
-        title={<span>Add download</span>}
-        onCancel={() => setOpen(false)}
-        destroyOnHidden
-        okButtonProps={{
-            autoFocus: true,
-            htmlType: 'submit',
-        }}
-        confirmLoading={confirmLoading}
-        modalRender={(dom) =>
-            <Form
-                form={form}
-                layout="vertical"
-                name="add_download_modal"
-                clearOnDestroy={true}
-                onFinish={data => onSubmit(data)}>
-                {dom}
-            </Form>
-        }
-    >
-        <Form.Item label="Url" name="url" rules={[{ required: true, message: 'Please input download url.' }]}>
-            <Input prefix={<GlobalOutlined/>} placeholder="Url"/>
-        </Form.Item>
-        <Form.Item name="all" valuePropName="checked" initialValue={false}>
-            <Checkbox>All episodes</Checkbox>
-        </Form.Item>
-        <Form.Item name="filter" valuePropName="checked" initialValue={true}>
-            <Checkbox>Skip if not on MyAnimeList</Checkbox>
-        </Form.Item>
-        <Form.Item name="save" valuePropName="checked" initialValue={true}>
-            <Checkbox>Download</Checkbox>
-        </Form.Item>
-    </Modal>;
-
+    return (
+        <Modal
+            open={open}
+            title={<span>Add download</span>}
+            onCancel={() => setOpen(false)}
+            destroyOnHidden
+            okButtonProps={{
+                autoFocus: true,
+                htmlType: 'submit',
+            }}
+            confirmLoading={confirmLoading}
+            modalRender={(dom) =>
+                <Form
+                    form={form}
+                    layout="vertical"
+                    name="add_download_modal"
+                    clearOnDestroy={true}
+                    onFinish={data => onSubmit(data)}>
+                    {dom}
+                </Form>
+            }
+        >
+            <Form.Item label="Url" name="url" rules={[{ required: true, message: 'Please input download url.' }]}>
+                <Input prefix={<GlobalOutlined/>} placeholder="Url"/>
+            </Form.Item>
+            <Form.Item name="all" valuePropName="checked" initialValue={false}>
+                <Checkbox>All episodes</Checkbox>
+            </Form.Item>
+            <Form.Item name="filter" valuePropName="checked" initialValue={true}>
+                <Checkbox>Skip if not on trackers</Checkbox>
+            </Form.Item>
+            <Form.Item name="save" valuePropName="checked" initialValue={true}>
+                <Checkbox>Download</Checkbox>
+            </Form.Item>
+        </Modal>
+    );
 }

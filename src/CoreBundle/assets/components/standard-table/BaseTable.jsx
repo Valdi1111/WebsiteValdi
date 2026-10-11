@@ -35,7 +35,7 @@ export default function BaseTable({
                                       // Whether the card should expand and lock to 100% height of the parent container
                                       fillHeight = false,
                                       compactHeaderOnMobile = false,
-                                      collapseActionsOnMobile = true,
+                                      collapseHeaderActionsOnMobile = true,
                                       // Custom Ant Design Table passthrough props
                                       onRow,
                                       components,
@@ -168,7 +168,7 @@ export default function BaseTable({
                     columnVisibility={columnVisibility}
                     onToggleColumnVisibility={handleToggleColumnVisibility}
                     compactHeaderOnMobile={compactHeaderOnMobile}
-                    collapseActionsOnMobile={collapseActionsOnMobile}
+                    collapseHeaderActionsOnMobile={collapseHeaderActionsOnMobile}
                 />
             }
         >

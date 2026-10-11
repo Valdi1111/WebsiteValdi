@@ -15,7 +15,7 @@ export default function RemoteTable({
                                         extraToolbarActions = null,
                                         fillHeight = false,
                                         compactHeaderOnMobile = false,
-                                        collapseActionsOnMobile = true,
+                                        collapseHeaderActionsOnMobile = true,
                                         onRow,
                                         components,
                                         rowClassName,
@@ -168,7 +168,7 @@ export default function RemoteTable({
             extraToolbarActions={extraToolbarActions}
             fillHeight={fillHeight}
             compactHeaderOnMobile={compactHeaderOnMobile}
-            collapseActionsOnMobile={collapseActionsOnMobile}
+            collapseHeaderActionsOnMobile={collapseHeaderActionsOnMobile}
             onReload={() => loadData()}
             onChange={handleTableChange}
             onRemoveCondition={handleRemoveCondition}

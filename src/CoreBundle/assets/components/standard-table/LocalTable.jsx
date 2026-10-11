@@ -18,7 +18,7 @@ export default function LocalTable({
                                        extraToolbarActions = null,
                                        fillHeight = false,
                                        compactHeaderOnMobile = false,
-                                       collapseActionsOnMobile = true,
+                                       collapseHeaderActionsOnMobile = true,
                                        onReload,
                                        onRow,
                                        components,
@@ -178,7 +178,7 @@ export default function LocalTable({
             extraToolbarActions={extraToolbarActions}
             fillHeight={fillHeight}
             compactHeaderOnMobile={compactHeaderOnMobile}
-            collapseActionsOnMobile={collapseActionsOnMobile}
+            collapseHeaderActionsOnMobile={collapseHeaderActionsOnMobile}
             onReload={onReload}
             onChange={handleTableChange}
             onRemoveCondition={handleRemoveCondition}

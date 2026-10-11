@@ -22,7 +22,7 @@ const { Text } = Typography;
  * @param {Object} [props.columnVisibility] Visibility state map keyed by column dataIndex
  * @param {Function} props.onToggleColumnVisibility Callback invoked when toggling column checkbox
  * @param {boolean} [props.compactHeaderOnMobile] Keep title alongside action buttons and truncate subtitle to single line on mobile
- * @param {boolean} [props.collapseActionsOnMobile] Strip text from extraToolbarActions buttons on mobile, keeping icons only
+ * @param {boolean} [props.collapseHeaderActionsOnMobile] Strip text from extraToolbarActions buttons on mobile, keeping icons only
  */
 export default function TableToolbar({
                                          title,
@@ -38,7 +38,7 @@ export default function TableToolbar({
                                          columnVisibility = {},
                                          onToggleColumnVisibility,
                                          compactHeaderOnMobile = false,
-                                         collapseActionsOnMobile = true,
+                                         collapseHeaderActionsOnMobile = true,
                                      }) {
     // Checkbox list content rendered inside the column visibility popover.
     // Filters out action/utility columns without titles and ensures a guaranteed unique key.
@@ -62,7 +62,7 @@ export default function TableToolbar({
     );
 
     const isCompact = isMobile && compactHeaderOnMobile;
-    const shouldCollapse = isMobile && collapseActionsOnMobile;
+    const shouldCollapse = isMobile && collapseHeaderActionsOnMobile;
 
     // Helper to recursively strip text from Button components on mobile and wrap them with Tooltip
     const renderCollapsedActions = (children) => {

@@ -10,7 +10,7 @@ export default function TrackerSelector({ size = "middle", ...restProps }) {
     const screens = useBreakpoint();
 
     // Screen widths below md (768px) are treated as mobile devices
-    const isMobile = !screens.sm;
+    const isMobile = !screens.md;
 
     const options = useMemo(() => {
         return Object.values(TRACKER_CATALOG).map((t) => ({

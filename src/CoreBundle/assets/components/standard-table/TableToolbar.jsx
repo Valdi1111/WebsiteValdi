@@ -20,8 +20,9 @@ const { Text } = Typography;
  * @param {Function} props.onReload Callback to trigger table data reload
  * @param {Array<Object>} [props.columns] Original column configuration definitions
  * @param {Object} [props.columnVisibility] Visibility state map keyed by column dataIndex
- * @param {Function} [props.onToggleColumnVisibility] Callback invoked when toggling column checkbox
+ * @param {Function} props.onToggleColumnVisibility Callback invoked when toggling column checkbox
  * @param {boolean} [props.compactHeaderOnMobile] Keep title alongside action buttons and truncate subtitle to single line on mobile
+ * @param {boolean} [props.collapseActionsOnMobile] Strip text from extraToolbarActions buttons on mobile, keeping icons only
  */
 export default function TableToolbar({
                                          title,
@@ -37,6 +38,7 @@ export default function TableToolbar({
                                          columnVisibility = {},
                                          onToggleColumnVisibility,
                                          compactHeaderOnMobile = false,
+                                         collapseActionsOnMobile = true,
                                      }) {
     // Checkbox list content rendered inside the column visibility popover.
     // Filters out action/utility columns without titles and ensures a guaranteed unique key.
@@ -60,6 +62,43 @@ export default function TableToolbar({
     );
 
     const isCompact = isMobile && compactHeaderOnMobile;
+    const shouldCollapse = isMobile && collapseActionsOnMobile;
+
+    // Helper to recursively strip text from Button components on mobile and wrap them with Tooltip
+    const renderCollapsedActions = (children) => {
+        return React.Children.map(children, (child) => {
+            if (!React.isValidElement(child)) {
+                return child;
+            }
+
+            // If it's a Button with an icon, remove the text and attach tooltip if text was string
+            if (child.type === Button || child.props?.icon) {
+                const textContent = typeof child.props.children === "string" ? child.props.children : null;
+                const buttonWithoutText = React.cloneElement(child, {
+                    children: null,
+                });
+
+                if (textContent && !child.props.title) {
+                    return (
+                        <Tooltip title={textContent} key={child.key}>
+                            {buttonWithoutText}
+                        </Tooltip>
+                    );
+                }
+
+                return buttonWithoutText;
+            }
+
+            // Traverse children if wrapped in a Fragment or another container (e.g. Space / Flex)
+            if (child.props?.children) {
+                return React.cloneElement(child, {
+                    children: renderCollapsedActions(child.props.children),
+                });
+            }
+
+            return child;
+        });
+    };
 
     // Helper renderer for active count badges
     const renderBadge = () => {
@@ -99,7 +138,6 @@ export default function TableToolbar({
     return (
         <Flex
             justify="space-between"
-            align="center"
             vertical={isMobile && !compactHeaderOnMobile}
             gap={isCompact ? 8 : 12}
             style={{ width: "100%", whiteSpace: "nowrap" }}
@@ -191,7 +229,7 @@ export default function TableToolbar({
                     flexShrink: 0,
                 }}
             >
-                {extraToolbarActions}
+                {shouldCollapse ? renderCollapsedActions(extraToolbarActions) : extraToolbarActions}
                 <Tooltip title="Reload">
                     <Button
                         icon={<ReloadOutlined />}

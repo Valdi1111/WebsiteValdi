@@ -5,7 +5,7 @@ namespace App\BooksBundle\Controller;
 use App\BooksBundle\Entity\Library;
 use App\BooksBundle\Entity\Shelf;
 use App\BooksBundle\Model\Channel;
-use App\BooksBundle\Normalizer\BookCacheNormalizer;
+use App\BooksBundle\Normalizer\BookMetadataNormalizer;
 use App\BooksBundle\Repository\BookRepository;
 use App\BooksBundle\Repository\LibraryRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -121,7 +121,7 @@ class ApiShelvesController extends AbstractController
             ];
         }
         return $this->json($books, context: [
-            BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_THUMB,
+            BookMetadataNormalizer::FILTER_TYPE => BookMetadataNormalizer::FILTER_THUMB,
             'groups' => ['book:list']
         ]);
     }

@@ -42,7 +42,7 @@ export default function ItemInfo({ id, open, setOpen }) {
                 setData({
                     path: res.data.url,
                     metadata: res.data.book_metadata,
-                    coverUrl: res.data.book_cache.cover ? res.data.book_cache.cover_url : null,
+                    coverUrl: res.data.book_metadata.cover ? res.data.book_metadata.cover_url : null,
                 });
                 setLoading(false);
             });

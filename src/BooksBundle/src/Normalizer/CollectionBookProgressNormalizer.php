@@ -12,7 +12,6 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 
-#[AsTaggedItem('serializer.normalizer')]
 class CollectionBookProgressNormalizer implements NormalizerInterface
 {
     public const string SERIALIZE = 'serialize_book_progress';

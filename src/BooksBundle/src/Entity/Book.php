@@ -45,9 +45,6 @@ class Book
     #[ORM\OneToOne(targetEntity: BookMetadata::class, mappedBy: 'book', cascade: ['persist', 'remove'])]
     private ?BookMetadata $bookMetadata = null;
 
-    #[ORM\OneToOne(targetEntity: BookCache::class, mappedBy: 'book', cascade: ['persist', 'remove'])]
-    private ?BookCache $bookCache = null;
-
     /** @var Collection<int, BookProgress> */
     #[OneToMany(targetEntity: BookProgress::class, mappedBy: 'book', cascade: ['persist', 'remove'], indexBy: 'user_id')]
     private Collection $bookProgresses;
@@ -130,20 +127,6 @@ class Book
     {
         $this->bookMetadata = $bookMetadata;
         $bookMetadata->setBook($this);
-
-        return $this;
-    }
-
-    #[Groups(['book:list', 'book:metadata'])]
-    public function getBookCache(): ?BookCache
-    {
-        return $this->bookCache;
-    }
-
-    public function setBookCache(BookCache $bookCache): static
-    {
-        $this->bookCache = $bookCache;
-        $bookCache->setBook($this);
 
         return $this;
     }

@@ -2,15 +2,13 @@
 
 namespace App\BooksBundle\Normalizer;
 
-use App\BooksBundle\Entity\BookCache;
+use App\BooksBundle\Entity\BookMetadata;
 use InvalidArgumentException;
 use Liip\ImagineBundle\Imagine\Cache\CacheManager;
-use Symfony\Component\DependencyInjection\Attribute\AsTaggedItem;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 
-#[AsTaggedItem('serializer.normalizer')]
-class BookCacheNormalizer implements NormalizerInterface
+class BookMetadataNormalizer implements NormalizerInterface
 {
     const string FILTER_TYPE = 'filter_type';
     const string FILTER_THUMB = 'books_thumb';
@@ -28,8 +26,8 @@ class BookCacheNormalizer implements NormalizerInterface
      */
     public function normalize(mixed $data, ?string $format = null, array $context = []): array
     {
-        if (!$data instanceof BookCache) {
-            throw new InvalidArgumentException(sprintf("The object must be an instance of '%s'.", BookCache::class));
+        if (!$data instanceof BookMetadata) {
+            throw new InvalidArgumentException(sprintf("The object must be an instance of '%s'.", BookMetadata::class));
         }
         $json = $this->normalizer->normalize($data, $format, $context);
         if(isset($context[self::FILTER_TYPE])) {
@@ -43,7 +41,7 @@ class BookCacheNormalizer implements NormalizerInterface
      */
     public function supportsNormalization(mixed $data, ?string $format = null, array $context = []): bool
     {
-        return $data instanceof BookCache;
+        return $data instanceof BookMetadata;
     }
 
     /**
@@ -52,7 +50,7 @@ class BookCacheNormalizer implements NormalizerInterface
     public function getSupportedTypes(?string $format): array
     {
         return [
-            BookCache::class => true,
+            BookMetadata::class => true,
         ];
     }
 }

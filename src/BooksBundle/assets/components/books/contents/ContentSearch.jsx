@@ -8,8 +8,10 @@ function ContentSearchItem({ item, searchText }) {
     const { navigateTo, setContentsDrawerOpen } = useBook();
 
     const onItemClick = React.useCallback(() => {
-        navigateTo(item.cfi);
-        setContentsDrawerOpen(false);
+        if (item.cfi) {
+            navigateTo(item.cfi);
+            setContentsDrawerOpen(false);
+        }
     }, [navigateTo, setContentsDrawerOpen, item.cfi]);
 
     return (
@@ -18,7 +20,7 @@ function ContentSearchItem({ item, searchText }) {
             style={{ cursor: 'pointer' }}
         >
             <List.Item.Meta
-                title={item.chapter?.label}
+                title={item.chapter?.label || 'Match'}
                 description={
                     <Highlighter
                         highlightStyle={{
@@ -29,7 +31,7 @@ function ContentSearchItem({ item, searchText }) {
                         }}
                         searchWords={[searchText]}
                         autoEscape
-                        textToHighlight={item.excerpt}
+                        textToHighlight={String(item.excerpt || '')}
                     />
                 }
             />
@@ -53,6 +55,8 @@ export default function ContentSearch() {
         if (!value || !value.trim()) {
             setSearchResults([]);
             setSearching(false);
+            // Clear highlights in foliate-js
+            search('');
             return;
         }
 
@@ -82,6 +86,11 @@ export default function ContentSearch() {
                     <Input.Search
                         placeholder="Search"
                         onSearch={onSearch}
+                        onChange={e => {
+                            if (!e.target.value) {
+                                onSearch('');
+                            }
+                        }}
                         size="large"
                         allowClear
                         loading={searching}
@@ -108,7 +117,13 @@ export default function ContentSearch() {
                     bordered
                     loading={searching}
                     dataSource={searchResults}
-                    renderItem={item => <ContentSearchItem key={item.cfi} item={item} searchText={searchText}/>}
+                    renderItem={item => (
+                        <ContentSearchItem
+                            key={item.cfi || Math.random()}
+                            item={item}
+                            searchText={searchText}
+                        />
+                    )}
                 />
             </Layout.Content>
             <Layout.Footer style={{ background: colorBgElevated, padding: 16 }}>

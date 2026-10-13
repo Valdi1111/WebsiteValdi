@@ -3,15 +3,15 @@ import { Typography } from "antd";
 import React from "react";
 
 export default function BookPercentage() {
-    const { percentage } = useBook();
+    const { location } = useBook();
 
-    if (percentage == null) {
+    if (location.fraction == null) {
         return <Typography.Text id="book-percentage" />;
     }
 
     return (
         <Typography.Text id="book-percentage" ellipsis>
-            {Math.round(percentage * 100)}%
+            {Math.round(location.fraction * 100)}%
         </Typography.Text>
     );
 }

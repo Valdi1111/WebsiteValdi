@@ -6,18 +6,21 @@ import { useThemes } from "@CoreBundle/components/theme/ThemeContext";
 import { useBookSettings } from "@BooksBundle/components/books/BookSettingsContext";
 import { useBackendApi } from "@BooksBundle/components/BackendApiContext";
 import { useParams } from "react-router";
-import { Book, EpubCFI } from "epubjs";
 import React from "react";
 // import "@BooksBundle/styles/iframe.css";
 import {
     FORCE_TEXT_COLOR, FONT, FONTS, FONT_SIZE,
-    SPACING, MARGINS, WIDTH,
+    SPACING, GAP, WIDTH,
     FORCE_FONT, FORCE_FONT_SIZE, JUSTIFY,
     LAYOUT, LAYOUTS,
     UPDATE_LAST_READ
 } from "@BooksBundle/components/books/BookConstants";
 import { theme as antdTheme } from "antd";
 import ImageViewModal from "@BooksBundle/components/books/modals/ImageViewModal.jsx";
+
+// Import Foliate-js custom element definition
+import { makeBook } from "@foliate/view.js";
+import { makeHttpRangeReader } from "@BooksBundle/utils/httpRangeReader.js";
 
 export default function BookId() {
     const { token: { colorBgElevated, colorText, colorLink, colorLinkHover } } = antdTheme.useToken();
@@ -35,83 +38,63 @@ export default function BookId() {
     // State for loading screen
     const [loading, setLoading] = React.useState(true);
 
-    // Book mark (position and page)
-    const [mark, setMark] = React.useState({ position: null, page: 0 });
-    const markRef = React.useRef(mark);
-    markRef.current = mark;
+    // Unified book location (position, current/total pages and progress fraction)
+    const [location, setLocation] = React.useState({
+        position: null,
+        current: 0,
+        total: 100,
+        fraction: 0
+    });
+    const locationRef = React.useRef(location);
+    locationRef.current = location;
 
     // Book data
     const [title, setTitle] = React.useState('');
     const [navigation, setNavigation] = React.useState([]);
     const [chapter, setChapter] = React.useState(null);
     const [section, setSection] = React.useState(null);
-    const [location, setLocation] = React.useState(null);
-    const [percentage, setPercentage] = React.useState(null);
 
     // Image modal
     const [imageModal, setImageModal] = React.useState({ open: false, src: '', alt: '' });
 
     // Track pending unsaved progress
-    const pendingMarkRef = React.useRef(null);
+    const pendingLocationRef = React.useRef(null);
     const settingsRef = React.useRef(settings);
     settingsRef.current = settings;
 
     const api = useBackendApi();
+    const apiRef = React.useRef(api);
+    apiRef.current = api;
+
     const { bookId } = useParams();
 
-    // Memoized flattened navigation tree
-    const flatNavigation = React.useMemo(() => {
-        function flattenNav(items) {
-            return [].concat.apply([], items.map(item => [].concat.apply([item], flattenNav(item.subitems || []))));
-        }
-        return flattenNav(navigation);
-    }, [navigation]);
-
-    /**
-     * Get navigation chapter from epub cfi if it exists, null otherwise.
-     * @param cfi {string} the cfi
-     * @returns {*} the chapter
-     */
-    const getChapFromCfi = React.useCallback((cfi) => {
-        let prev = null;
-        // TODO fix current chapter bug
-        //let found = false;
-        flatNavigation.forEach(s => {
-            if (s.cfi === null) {
-                return;
-            }
-            //console.log(cfi, s);
-            if (new EpubCFI().compare(cfi, s.cfi) === -1) {
-                //if(prev && !found) {
-                //    found = true;
-                //}
-                return;
-            }
-            //if(!found) {
-            prev = s;
-            //}
-        });
-        return prev;
-    }, [flatNavigation]);
+    // Track currently active section documents rendered by Foliate
+    const activeDocsRef = React.useRef(new Set());
 
     /**
      * Go to the previous page
      */
     const prev = React.useCallback(() => {
-        if (!renditionRef.current) {
-            return;
+        const view = renditionRef.current;
+        if (!view) return;
+        if (view.renderer?.prev) {
+            view.renderer.prev();
+        } else {
+            view.prev();
         }
-        renditionRef.current.prev();
     }, []);
 
     /**
      * Go to the next page
      */
     const next = React.useCallback(() => {
-        if (!renditionRef.current) {
-            return;
+        const view = renditionRef.current;
+        if (!view) return;
+        if (view.renderer?.next) {
+            view.renderer.next();
+        } else {
+            view.next();
         }
-        renditionRef.current.next();
     }, []);
 
     /**
@@ -119,11 +102,13 @@ export default function BookId() {
      * @param e event
      */
     const onKeyDown = React.useCallback((e) => {
-        let code = e.keyCode || e.which;
-        if (code === 37) {
+        const code = e.keyCode || e.which;
+        const key = e.key;
+
+        if (code === 37 || key === 'ArrowLeft') {
             prev();
         }
-        if (code === 39) {
+        if (code === 39 || key === 'ArrowRight') {
             next();
         }
     }, [prev, next]);
@@ -136,29 +121,40 @@ export default function BookId() {
         };
     }, [onKeyDown]);
 
-    const updatePage = React.useCallback((loc) => {
-        if (!loc || !loc.start || !book.current) {
+    const updatePage = React.useCallback((detail) => {
+        if (!detail || !book.current) {
             return;
         }
-        const { cfi } = loc.start;
+        const cfi = detail.cfi;
+        const fraction = detail.fraction ?? 0;
+        const loc = detail.location;
+
         // update current chapter
-        setChapter(getChapFromCfi(loc.end.cfi));
+        if (detail.tocItem) {
+            setChapter({ label: detail.tocItem.label, href: detail.tocItem.href, cfi: detail.cfi });
+        } else {
+            setChapter(null);
+        }
+
         // update section
-        const spine = book.current.spine;
-        const currentItem = spine.get(cfi);
-        const lastItem = spine.last();
+        const totalSections = book.current.sections ? book.current.sections.length : 1;
         setSection({
-            current: currentItem ? currentItem.index : 0,
-            total: lastItem ? lastItem.index : 0
+            current: detail.section ?? 0,
+            total: totalSections
         });
-        // update location
-        const page = book.current.locations.locationFromCfi(cfi);
-        setLocation({ current: page, total: book.current.locations.length() });
-        // update percentage
-        setPercentage(book.current.locations.percentageFromCfi(cfi));
-        // update cache position
-        setMark({ position: cfi, page: page });
-    }, [getChapFromCfi]);
+
+        // update location (unifies current, total, position and fraction)
+        setLocation({
+            position: cfi,
+            current: loc?.current ?? 0,
+            total: loc?.total ?? 100,
+            fraction: fraction
+        });
+    }, []);
+
+    // Keep latest updatePage in a ref to avoid recreating event listeners
+    const updatePageRef = React.useRef(updatePage);
+    updatePageRef.current = updatePage;
 
     /**
      * Build raw CSS string for book theme to ensure clean overrides
@@ -172,6 +168,7 @@ export default function BookId() {
         const fontFamily = FONTS[settings[FONT]] || 'inherit';
         const fontSize = settings[FONT_SIZE] || '18';
         const spacing = settings[SPACING] || '1.4';
+        const textAlign = isJustify ? 'justify' : 'left';
 
         let css = `
             html, body {
@@ -180,8 +177,13 @@ export default function BookId() {
                 color: ${colorText} ${isForceText ? '!important' : ''};
                 font-family: ${fontFamily} ${isForceFont ? '!important' : ''};
                 font-size: ${fontSize}px ${isForceFontSize ? '!important' : ''};
-                line-height: ${spacing};
-                text-align: ${isJustify ? 'justify' : 'left'};
+                line-height: ${spacing} !important;
+                text-align: ${textAlign} !important;
+            }
+            /* Explicitly apply text-align and line-height to elements to override book styling */
+            p, div, li, span, h1, h2, h3, h4, h5, h6 {
+                text-align: ${textAlign} !important;
+                line-height: ${spacing} !important;
             }
             a {
                 color: ${colorLink} !important;
@@ -193,7 +195,7 @@ export default function BookId() {
 
         if (isForceText) {
             css += `
-                p, span, div, li, h1, h2, h3, h4, h5, h6 {
+                p, span, div, li, h1, h2, h3, h4, h5, h6, blockquote, em, strong {
                     color: ${colorText} !important;
                 }
             `;
@@ -201,8 +203,16 @@ export default function BookId() {
 
         if (isForceFont) {
             css += `
-                p, span, div, li, h1, h2, h3, h4, h5, h6 {
+                p, span, div, li, h1, h2, h3, h4, h5, h6, blockquote, em, strong {
                     font-family: ${fontFamily} !important;
+                }
+            `;
+        }
+
+        if (isForceFontSize) {
+            css += `
+                p, span, div, li {
+                    font-size: ${fontSize}px !important;
                 }
             `;
         }
@@ -225,6 +235,9 @@ export default function BookId() {
             styleTag.id = 'epub-dynamic-theme';
             styleTag.type = 'text/css';
             doc.head.appendChild(styleTag);
+        } else {
+            // Append to the end of head so that it always has highest cascade priority
+            doc.head.appendChild(styleTag);
         }
         // Completely replace text content to wipe out previously active !important rules
         styleTag.textContent = cssString;
@@ -240,7 +253,8 @@ export default function BookId() {
      * Apply styles live without rebuilding the rendition
      */
     const updateThemeStyles = React.useCallback(() => {
-        if (!renditionRef.current) {
+        const view = renditionRef.current;
+        if (!view) {
             return;
         }
 
@@ -251,143 +265,82 @@ export default function BookId() {
             viewerRef.current.style.backgroundColor = colorBgElevated;
         }
 
-        // Overwrite or create <style id="epub-dynamic-theme"> in all loaded iframe documents
-        if (renditionRef.current.getContents) {
-            renditionRef.current.getContents().forEach(c => {
-                if (c.document) {
-                    injectStylesheetToDoc(c.document, cssString);
-                }
-            });
+        // Apply styles to Foliate view renderer
+        if (view.renderer?.setStyles) {
+            view.renderer.setStyles(cssString);
         }
-    }, [getComputedCssString, colorBgElevated, settings, injectStylesheetToDoc]);
+
+        // Live-update all actively mounted section documents in memory
+        activeDocsRef.current.forEach(doc => {
+            try {
+                if (doc && doc.defaultView) {
+                    injectStylesheetToDoc(doc, cssString);
+                } else {
+                    activeDocsRef.current.delete(doc);
+                }
+            } catch (e) {
+                activeDocsRef.current.delete(doc);
+            }
+        });
+    }, [getComputedCssString, colorBgElevated, injectStylesheetToDoc]);
 
     /**
-     * Initialize rendition once when book is ready
+     * Apply layout configuration to foliate renderer
      */
-    const initializeRendition = React.useCallback(async () => {
-        console.log("Updating layout...");
-        const area = viewerRef.current;
-        if (!area || !book.current || isRendering.current) {
+    const applyLayoutSettings = React.useCallback(() => {
+        const view = renditionRef.current;
+        if (!view?.renderer) {
             return;
         }
-        isRendering.current = true;
 
-        // Ensure container is clean
-        area.innerHTML = '';
+        const layoutKey = settingsRef.current[LAYOUT] || 'auto';
+        const layoutConfig = LAYOUTS[layoutKey]?.settings || LAYOUTS.auto.settings;
+        const maxColumnCount = layoutConfig.maxColumnCount ?? 2;
+        const flow = layoutConfig.flow || 'paginated';
 
-        const gap = parseInt(settings[MARGINS]) || 0;
-        const width = (parseInt(settings[WIDTH]) || 1000) + gap;
+        const gapVal = settingsRef.current[GAP] !== undefined && settingsRef.current[GAP] !== null
+            ? parseInt(settingsRef.current[GAP], 10)
+            : 6;
+        const gapPercent = isNaN(gapVal) ? 6 : Math.max(0, Math.min(gapVal, 30));
+        const gapAttr = `${gapPercent}%`;
 
-        const layoutConfig = LAYOUTS[settings[LAYOUT]]?.settings || {};
-        const rendition = book.current.renderTo(area, {
-            ...layoutConfig,
-            allowScriptedContent: true,
-            width: width,
-            height: '100%',
-            gap: gap
-        });
-        renditionRef.current = rendition;
+        const totalWidth = parseInt(settingsRef.current[WIDTH], 10) || 1400;
 
-        rendition.on('relocated', updatePage);
-        rendition.on('keydown', onKeyDown);
-
-        // Open image view modal when clicking on img or image tag
-        rendition.on('click', e => {
-            const target = e.target;
-            const tag = target.tagName ? target.tagName.toLowerCase() : '';
-            if (tag === 'img') {
-                setImageModal({
-                    open: true,
-                    src: target.src,
-                    alt: target.alt || 'Image from book'
-                });
-            } else if (tag === 'image') {
-                setImageModal({
-                    open: true,
-                    src: target.getAttribute('xlink:href') || target.getAttribute('href'),
-                    alt: 'Image from book'
-                });
-            }
-        });
-
-        // Automatically inject current dynamic style whenever new chapter content loads
-        rendition.hooks.content.register(contents => {
-            if (contents.document) {
-                injectStylesheetToDoc(contents.document, cssStringRef.current);
-            }
-        });
-
-        // Turn page on mouse wheel
-        rendition.hooks.content.register(contents => {
-            if (settings[LAYOUT] !== 'auto' && settings[LAYOUT] !== 'single') {
-                return;
-            }
-            contents.documentElement.onwheel = e => {
-                if (e.deltaY < 0) {
-                    prev();
-                }
-                if (e.deltaY > 0) {
-                    next();
-                }
-            };
-        });
-
-        // Turn page on touch swipe
-        rendition.hooks.content.register(contents => {
-            let start, end;
-            contents.documentElement.ontouchstart = e => {
-                start = e.changedTouches[0];
-            };
-            contents.documentElement.ontouchend = e => {
-                end = e.changedTouches[0];
-                const boundArea = viewerRef.current;
-                if (boundArea) {
-                    const bound = boundArea.getBoundingClientRect();
-                    const hr = (end.screenX - start.screenX) / bound.width;
-                    const vr = Math.abs(end.screenY - start.screenY) / bound.height;
-                    if (hr > 0.1 && vr < 0.1) {
-                        prev();
-                    }
-                    if (hr < -0.1 && vr < 0.1) {
-                        next();
-                    }
-                }
-            };
-        });
-
-        // Hide cursor after 3 seconds
-        rendition.hooks.content.register(contents => {
-            let mouseTimer = null;
-            let cursorVisible = true;
-            contents.documentElement.onmousemove = e => {
-                if (mouseTimer) {
-                    window.clearTimeout(mouseTimer);
-                }
-                if (!cursorVisible) {
-                    contents.documentElement.style.cursor = 'default';
-                    cursorVisible = true;
-                }
-                mouseTimer = window.setTimeout(() => {
-                    mouseTimer = null;
-                    contents.documentElement.style.cursor = 'none';
-                    cursorVisible = false;
-                }, 3000);
-            };
-        });
-
-        // Set container background
-        area.style.backgroundColor = colorBgElevated;
-
-        // Display
-        const currentPosition = markRef.current?.position;
-        if (!currentPosition) {
-            await rendition.display();
-        } else {
-            await rendition.display(currentPosition);
+        // Constrain container and foliate-view elements
+        if (viewerRef.current) {
+            viewerRef.current.style.maxWidth = `${totalWidth}px`;
+            viewerRef.current.style.width = '100%';
+            viewerRef.current.style.height = '100%';
+            viewerRef.current.style.margin = '0 auto';
         }
+        view.style.maxWidth = `${totalWidth}px`;
+        view.style.width = '100%';
+        view.style.height = '100%';
+        view.style.margin = '0 auto';
 
-        isRendering.current = false;
-    }, [settings, onKeyDown, prev, next, updatePage, colorBgElevated, injectStylesheetToDoc]);
+        const renderer = view.renderer;
+
+        // Set flow, gap and column count attributes on Foliate renderer
+        renderer.setAttribute('flow', flow);
+        renderer.setAttribute('gap', gapAttr);
+        renderer.setAttribute('max-column-count', String(maxColumnCount));
+
+        // Compute column width (max-inline-size in foliate-js represents per-column width)
+        if (flow === 'scrolled') {
+            const scrollWidth = Math.min(totalWidth, 900);
+            renderer.setAttribute('max-inline-size', `${scrollWidth}px`);
+        } else if (maxColumnCount === 1) {
+            const singleWidth = Math.min(totalWidth, 1000);
+            renderer.setAttribute('max-inline-size', `${singleWidth}px`);
+        } else {
+            const availableContentWidth = totalWidth * (1 - (gapPercent / 100));
+            const doubleColWidth = Math.floor(availableContentWidth / 2);
+            renderer.setAttribute('max-inline-size', `${doubleColWidth}px`);
+        }
+    }, []);
+
+    const applyLayoutSettingsRef = React.useRef(applyLayoutSettings);
+    applyLayoutSettingsRef.current = applyLayoutSettings;
 
     /**
      * Load book
@@ -396,81 +349,212 @@ export default function BookId() {
         setLoading(true);
         let active = true;
 
-        api
+        apiRef.current
             .withErrorHandling()
             .books()
             .getId(bookId)
-            .then(res => {
+            .then(async res => {
                 if (!active) {
                     return;
                 }
                 console.debug("Loading book", bookId);
-                const newBook = new Book(api.books().epubUrl(res.data.id), { openAs: 'epub' });
-                book.current = newBook;
                 setTitle(res.data.book_metadata.title);
-                setNavigation(res.data.book_cache.navigation);
-                setMark(res.data.book_progress);
-                // Generate locations
-                newBook.ready.then(() => {
-                    if (!active) {
-                        return;
-                    }
-                    console.debug("Loading locations...");
-                    newBook.locations.load(res.data.book_cache.locations);
-                    console.debug("Locations loaded!");
-                    setLoading(false);
+
+                // Initialize location from backend progress
+                setLocation(res.data.book_progress);
+
+                const area = viewerRef.current;
+                if (!area || isRendering.current) {
+                    return;
+                }
+                isRendering.current = true;
+
+                // Ensure container is clean
+                area.innerHTML = '';
+
+                const foliateView = document.createElement('foliate-view');
+                // Ensure custom element is treated as block to correctly compute dimensions
+                foliateView.style.display = 'block';
+                foliateView.style.width = '100%';
+                foliateView.style.height = '100%';
+                area.appendChild(foliateView);
+
+                renditionRef.current = foliateView;
+
+                // Listen to relocate events using ref to decouple handler from dependency array
+                foliateView.addEventListener('relocate', (e) => {
+                    updatePageRef.current?.(e.detail);
                 });
+
+                // Automatically inject current dynamic style whenever new chapter content loads
+                foliateView.addEventListener('load', (e) => {
+                    const doc = e.detail?.doc;
+                    if (doc) {
+                        // Register active document to enable instant live style updates
+                        activeDocsRef.current.add(doc);
+
+                        let mouseTimer = null;
+
+                        // Attach keyboard navigation directly to iframe document so focus inside book doesn't block arrows
+                        doc.addEventListener('keydown', onKeyDown);
+
+                        // Clean up when document is unloaded
+                        if (doc.defaultView) {
+                            doc.defaultView.addEventListener('unload', () => {
+                                if (mouseTimer) window.clearTimeout(mouseTimer);
+                                doc.removeEventListener('keydown', onKeyDown);
+                                activeDocsRef.current.delete(doc);
+                            }, { once: true });
+                        }
+
+                        injectStylesheetToDoc(doc, cssStringRef.current);
+
+                        // Open image view modal when clicking on img or svg image inside chapter iframe
+                        doc.addEventListener('click', evt => {
+                            const target = evt.target;
+                            const tag = target?.tagName ? target.tagName.toLowerCase() : '';
+
+                            if (tag === 'img') {
+                                evt.preventDefault();
+                                setImageModal({
+                                    open: true,
+                                    src: target.currentSrc || target.src,
+                                    alt: target.alt || 'Image from book'
+                                });
+                            } else if (tag === 'image') {
+                                evt.preventDefault();
+                                const href = target.getAttribute('xlink:href') || target.getAttribute('href');
+                                if (href) {
+                                    // Resolve relative SVG image path against iframe document location
+                                    const resolvedSrc = new URL(href, doc.location.href).href;
+                                    setImageModal({
+                                        open: true,
+                                        src: resolvedSrc,
+                                        alt: 'Image from book'
+                                    });
+                                }
+                            }
+                        });
+
+                        // Turn page on mouse wheel
+                        if (settingsRef.current[LAYOUT] === 'auto' || settingsRef.current[LAYOUT] === 'single' || settingsRef.current[LAYOUT] === 'double') {
+                            doc.documentElement.onwheel = wheelEvt => {
+                                if (wheelEvt.deltaY < 0) {
+                                    prev();
+                                }
+                                if (wheelEvt.deltaY > 0) {
+                                    next();
+                                }
+                            };
+                        }
+
+                        // Turn page on touch swipe
+                        let start, end;
+                        doc.documentElement.ontouchstart = touchEvt => {
+                            start = touchEvt.changedTouches[0];
+                        };
+                        doc.documentElement.ontouchend = touchEvt => {
+                            end = touchEvt.changedTouches[0];
+                            const boundArea = viewerRef.current;
+                            if (boundArea && start && end) {
+                                const bound = boundArea.getBoundingClientRect();
+                                const hr = (end.screenX - start.screenX) / bound.width;
+                                const vr = Math.abs(end.screenY - start.screenY) / bound.height;
+                                if (hr > 0.1 && vr < 0.1) {
+                                    prev();
+                                }
+                                if (hr < -0.1 && vr < 0.1) {
+                                    next();
+                                }
+                            }
+                        };
+
+                        // Hide cursor after 3 seconds
+                        let cursorVisible = true;
+                        doc.documentElement.onmousemove = () => {
+                            if (mouseTimer) {
+                                window.clearTimeout(mouseTimer);
+                            }
+                            if (!cursorVisible) {
+                                doc.documentElement.style.cursor = 'default';
+                                cursorVisible = true;
+                            }
+                            mouseTimer = window.setTimeout(() => {
+                                mouseTimer = null;
+                                doc.documentElement.style.cursor = 'none';
+                                cursorVisible = false;
+                            }, 3000);
+                        };
+                    }
+                });
+
+                // Set container background
+                area.style.backgroundColor = colorBgElevated;
+
+                const downloadUrl = apiRef.current.books().epubUrl(res.data.id);
+
+                // 1. Initialize HTTP range reader with 256 KB chunk cache
+                const rangeReader = await makeHttpRangeReader(downloadUrl);
+
+                // 2. Create book model
+                const bookModel = await makeBook(rangeReader);
+                book.current = bookModel;
+
+                // 3. Pass opened book model to foliate-view
+                await foliateView.open(bookModel);
+                book.current = foliateView.book;
+
+                // Extract navigation TOC if available from book structure
+                if (foliateView.book?.toc) {
+                    setNavigation(foliateView.book.toc);
+                }
+
+                // Apply initial layout settings
+                applyLayoutSettingsRef.current();
+                if (foliateView.renderer?.setStyles) {
+                    foliateView.renderer.setStyles(cssStringRef.current);
+                }
+
+                // Display
+                const currentPosition = res.data.book_progress?.position;
+                if (!currentPosition) {
+                    await foliateView.goTo(0);
+                } else {
+                    await foliateView.goTo(currentPosition);
+                }
+
+                isRendering.current = false;
+                if (active) {
+                    setLoading(false);
+                }
+            })
+            .catch(err => {
+                console.error("Failed to load book:", err);
+                isRendering.current = false;
+                if (active) {
+                    setLoading(false);
+                }
             });
 
         return () => {
             active = false;
-            if (book.current) {
-                book.current.destroy();
-                book.current = null;
+            activeDocsRef.current.clear();
+            if (renditionRef.current) {
+                renditionRef.current.close?.();
+                renditionRef.current.remove?.();
+                renditionRef.current = null;
             }
-            renditionRef.current = null;
+            book.current = null;
             isRendering.current = false;
         };
-    }, [bookId, api]);
-
-    // Initial render when book finished loading
-    React.useEffect(() => {
-        if (!loading && book.current && !renditionRef.current) {
-            initializeRendition();
-        }
-    }, [loading, initializeRendition]);
+    }, [bookId]); // Depend strictly on bookId to prevent infinite loop
 
     /**
-     * Handle size/margin updates dynamically without re-rendering or duplicating views
+     * Handle size, margin and layout updates dynamically
      */
     React.useEffect(() => {
-        if (!renditionRef.current) {
-            return;
-        }
-        console.debug("Resizing layout...", { margins: settings[MARGINS], width: settings[WIDTH] });
-        const gap = parseInt(settings[MARGINS]) || 0;
-        const width = (parseInt(settings[WIDTH]) || 1000) + gap;
-        renditionRef.current.resize(width, '100%');
-    }, [settings[MARGINS], settings[WIDTH]]);
-
-    /**
-     * Handle layout mode updates dynamically
-     */
-    React.useEffect(() => {
-        if (!renditionRef.current) {
-            return;
-        }
-        console.debug("Updating layout mode...", settings[LAYOUT]);
-        const layoutConfig = LAYOUTS[settings[LAYOUT]]?.settings;
-        if (layoutConfig) {
-            if (layoutConfig.flow) {
-                renditionRef.current.flow(layoutConfig.flow);
-            }
-            if (layoutConfig.spread) {
-                renditionRef.current.spread(layoutConfig.spread);
-            }
-        }
-    }, [settings[LAYOUT]]);
+        applyLayoutSettings();
+    }, [settings[GAP], settings[WIDTH], settings[LAYOUT], applyLayoutSettings]);
 
     /**
      * Handle theme/style changes on the fly
@@ -497,7 +581,7 @@ export default function BookId() {
      * Flush/save position immediately to backend
      */
     const flushPositionUpdate = React.useCallback(() => {
-        const pending = pendingMarkRef.current;
+        const pending = pendingLocationRef.current;
         if (!pending || !pending.position) {
             return;
         }
@@ -505,32 +589,32 @@ export default function BookId() {
         const update = settingsRef.current[UPDATE_LAST_READ] === 'true';
         console.debug("Flushing position update to backend:", pending);
 
-        api
+        apiRef.current
             .withErrorHandling()
             .books()
-            .updatePosition(bookId, pending.position, pending.page, update)
+            .updatePosition(bookId, pending.position, pending.current, pending.total, pending.fraction, update)
             .then(() => {
                 console.debug("Position flush completed!");
-                // Clear pending mark if it hasn't changed in the meantime
-                if (pendingMarkRef.current === pending) {
-                    pendingMarkRef.current = null;
+                // Clear pending location if it hasn't changed in the meantime
+                if (pendingLocationRef.current === pending) {
+                    pendingLocationRef.current = null;
                 }
             })
             .catch(err => {
                 console.error("Failed to flush position:", err);
             });
-    }, [api, bookId]);
+    }, [bookId]);
 
     /**
      * Debounced position update + guaranteed flush on unmount and page exit
      */
     React.useEffect(() => {
-        if (!mark.position || loading) {
+        if (!location.position || loading) {
             return;
         }
 
-        // Record the latest position as pending
-        pendingMarkRef.current = mark;
+        // Record the latest location as pending
+        pendingLocationRef.current = location;
 
         // Debounce update during active reading
         const timer = setTimeout(() => {
@@ -540,14 +624,14 @@ export default function BookId() {
         return () => {
             clearTimeout(timer);
         };
-    }, [mark, loading, flushPositionUpdate]);
+    }, [location, loading, flushPositionUpdate]);
 
     /**
      * Handle browser tab close, window reload or external navigation
      */
     React.useEffect(() => {
         const handlePageHide = () => {
-            const pending = pendingMarkRef.current;
+            const pending = pendingLocationRef.current;
             if (!pending || !pending.position) {
                 return;
             }
@@ -555,25 +639,22 @@ export default function BookId() {
             const update = settingsRef.current[UPDATE_LAST_READ] === 'true';
             const payload = JSON.stringify({
                 position: pending.position,
-                page: pending.page,
-                update_last_read: update,
+                current: pending.current,
+                total: pending.total,
+                fraction: pending.fraction,
+                update: update,
             });
 
-            // If backend URL endpoint is known via api helper, use beacon or keepalive fetch:
-            // Example: api.books().updatePositionUrl(bookId)
-            const endpoint = `/api/books/${bookId}/position`;
+            // Get exact endpoint from BackendApi helper
+            const endpoint = apiRef.current.books().updatePositionUrl(bookId);
 
-            if (navigator.sendBeacon) {
-                const blob = new Blob([payload], { type: 'application/json' });
-                navigator.sendBeacon(endpoint, blob);
-            } else {
-                fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: payload,
-                    keepalive: true,
-                }).catch(() => {});
-            }
+            // sendBeacon does not support PUT, so fetch with keepalive: true is used to match axiosInstance.put
+            fetch(endpoint, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: payload,
+                keepalive: true,
+            }).catch(() => {});
         };
 
         // Listen for browser close or navigation away from page
@@ -581,26 +662,22 @@ export default function BookId() {
 
         return () => {
             window.removeEventListener('pagehide', handlePageHide);
-            // Flush any remaining unsaved mark when navigating inside the SPA
+            // Flush any remaining unsaved location when navigating inside the SPA
             flushPositionUpdate();
         };
     }, [bookId, flushPositionUpdate]);
 
     /**
-     * Search a string inside spine.
-     * @param item the spine item
-     * @param value the string to search
-     * @returns {Promise<*[]>} an array of results
+     * Clear all active search highlights on Foliate
      */
-    const searchSpine = React.useCallback((item, value) => {
-        return item.load(book.current.load.bind(book.current))
-            .then(item.find.bind(item, value))
-            .finally(item.unload.bind(item))
-            .then(elems => elems.map(e => {
-                e.chapter = getChapFromCfi(e.cfi);
-                return e;
-            }));
-    }, [getChapFromCfi]);
+    const clearSearchHighlights = React.useCallback(() => {
+        const view = renditionRef.current;
+        if (!view) {
+            return;
+        }
+
+        view.clearSearch();
+    }, []);
 
     /**
      * Search a string inside the book
@@ -608,21 +685,75 @@ export default function BookId() {
      * @param all true to search inside all the book, false to search only inside the current chapter
      * @returns {Promise<*[]>}
      */
-    const search = React.useCallback((value, all) => {
-        if (!book.current) {
-            return Promise.resolve([]);
+    const search = React.useCallback(async (value, all = true) => {
+        const view = renditionRef.current;
+        if (!view) {
+            return [];
         }
-        if (all) {
-            return Promise.all(book.current.spine.spineItems.map(item => searchSpine(item, value)))
-                .then(results => Promise.resolve([].concat.apply([], results)));
+
+        // When search value is empty, clear highlights and exit
+        if (!value || !value.trim()) {
+            clearSearchHighlights();
+            return [];
         }
-        const currentCfi = renditionRef.current?.location?.start?.cfi;
-        if (!currentCfi) {
-            return Promise.resolve([]);
+
+        // Clear previous highlights before starting a new search
+        clearSearchHighlights();
+
+        const query = value.trim();
+        const results = [];
+
+        try {
+            const searchIterator = view.search({ query });
+
+            if (!searchIterator) {
+                return [];
+            }
+
+            for await (const result of searchIterator) {
+                // Ignore progress chunks ({ progress: 0.04... })
+                if (!result || !result.subitems || !Array.isArray(result.subitems)) {
+                    continue;
+                }
+
+                const sectionLabel = result.label || null;
+
+                for (const item of result.subitems) {
+                    if (!item || !item.cfi) {
+                        continue;
+                    }
+
+                    // Extract pre, match, post from the item.excerpt object
+                    const pre = item.excerpt?.pre ?? '';
+                    const match = item.excerpt?.match ?? query;
+                    const post = item.excerpt?.post ?? '';
+
+                    // Construct a single plain string for react-highlight-words
+                    const excerptString = `${pre}${match}${post}`;
+
+                    // Resolve chapter label from section label
+                    const chapterLabel = sectionLabel || (chapter?.label ?? 'Match');
+
+                    results.push({
+                        cfi: item.cfi,
+                        excerpt: excerptString || match,
+                        chapter: { label: chapterLabel }
+                    });
+
+                    if (!all && results.length >= 50) {
+                        break;
+                    }
+                }
+
+                if (!all && results.length >= 50) {
+                    break;
+                }
+            }
+        } catch (err) {
+            console.error("Search error in foliate-js:", err);
         }
-        const item = book.current.spine.get(currentCfi);
-        return item ? searchSpine(item, value) : Promise.resolve([]);
-    }, [searchSpine]);
+        return results;
+    }, [chapter, clearSearchHighlights]);
 
     /**
      * Navigate to location
@@ -632,7 +763,7 @@ export default function BookId() {
         if (!renditionRef.current) {
             return;
         }
-        renditionRef.current.display(href).then(res => console.debug("Navigate", href));
+        renditionRef.current.goTo(href).then(() => console.debug("Navigate", href));
     }, []);
 
     return (
@@ -642,7 +773,6 @@ export default function BookId() {
             chapter, setChapter,
             section, setSection,
             location, setLocation,
-            percentage, setPercentage,
             navigateTo, search,
             prev, next,
             contentsDrawerOpen, setContentsDrawerOpen,

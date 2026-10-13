@@ -40,6 +40,9 @@ class BookMetadata
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $modified = null;
 
+    #[ORM\Column(options: ["default" => "0"])]
+    private bool $cover = false;
+
     #[Ignore]
     public function getBook(): ?Book
     {
@@ -158,6 +161,19 @@ class BookMetadata
     public function setModified(string $modified): static
     {
         $this->modified = $modified;
+
+        return $this;
+    }
+
+    #[Groups(['book:list', 'book:metadata'])]
+    public function hasCover(): bool
+    {
+        return $this->cover;
+    }
+
+    public function setCover(bool $cover): static
+    {
+        $this->cover = $cover;
 
         return $this;
     }

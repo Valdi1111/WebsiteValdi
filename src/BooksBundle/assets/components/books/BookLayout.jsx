@@ -2,7 +2,7 @@ import BookSettingsContext from "@BooksBundle/components/books/BookSettingsConte
 import SpinComponent from "@CoreBundle/components/SpinComponent";
 import {
     FORCE_TEXT_COLOR, FONT, FONTS, FONT_SIZE,
-    SPACING, MARGINS, WIDTH,
+    SPACING, GAP, WIDTH,
     FORCE_FONT, FORCE_FONT_SIZE, JUSTIFY,
     LAYOUT, LAYOUTS, UPDATE_LAST_READ
 } from "@BooksBundle/components/books/BookConstants";
@@ -22,7 +22,7 @@ export default function BookLayout({ children }) {
         loadSettingOrSave(s, FORCE_FONT, true);
         loadSettingOrSave(s, FORCE_FONT_SIZE, true);
         loadSettingOrSave(s, SPACING, 1.4);
-        loadSettingOrSave(s, MARGINS, 100);
+        loadSettingOrSave(s, GAP, 4);
         loadSettingOrSave(s, WIDTH, 1700);
         loadSettingOrSave(s, LAYOUT, Object.keys(LAYOUTS)[0]);
         loadSettingOrSave(s, JUSTIFY, true);

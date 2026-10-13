@@ -3,7 +3,11 @@ export const FORCE_TEXT_COLOR = 'force-text-color';
 export const FONT = 'font';
 export const FORCE_FONT = 'force-font';
 export const SPACING = 'spacing';
-export const MARGINS = 'margins';
+/**
+ * Used as gap between columns/pages in Foliate
+ * @type {string}
+ */
+export const GAP = 'gap';
 export const WIDTH = 'width';
 export const FONT_SIZE = 'font-size';
 export const FORCE_FONT_SIZE = 'force-font-size';
@@ -27,19 +31,19 @@ function range(start, end) {
 
 export const LAYOUTS = {
     auto: {
-        name: 'Automatic',
-        settings: { flow: 'paginated', maxSpreadColumns: 2 }
+        name: 'Automatic (1 or 2 cols)',
+        settings: { flow: 'paginated', maxColumnCount: 2 }
     },
     single: {
         name: 'Single column',
-        settings: { flow: 'paginated', spread: 'none' }
+        settings: { flow: 'paginated', maxColumnCount: 1 }
+    },
+    double: {
+        name: 'Double column',
+        settings: { flow: 'paginated', maxColumnCount: 2 }
     },
     scrolled: {
-        name: 'Scrolled',
-        settings: { flow: 'scrolled-doc' }
-    },
-    continuous: {
-        name: 'Continuous',
-        settings: { flow: 'scrolled', manager: 'continuous' }
+        name: 'Continuous scroll',
+        settings: { flow: 'scrolled', maxColumnCount: 1 }
     }
-}
+};

@@ -9,6 +9,7 @@ if (!Encore.isRuntimeEnvironmentConfigured()) {
 
 Encore
     .addAliases({
+        '@foliate': path.resolve(import.meta.dirname, 'assets/vendor/foliate-js'),
         '@App': path.resolve(import.meta.dirname, 'assets/'),
         '@CoreBundle': path.resolve(import.meta.dirname, 'src/CoreBundle/assets/'),
         '@AnimeBundle': path.resolve(import.meta.dirname, 'src/AnimeBundle/assets/'),
@@ -85,6 +86,8 @@ Encore
     // configure Babel
     .configureBabel((config) => {
         config.plugins.push(['polyfill-corejs3', { method: 'usage-global', version: '3.49' }]);
+    }, {
+        exclude: /(node_modules|assets[\\/]vendor[\\/]foliate-js)/
     })
 
     // enables Sass/SCSS support

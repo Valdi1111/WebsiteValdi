@@ -3,13 +3,12 @@
 namespace App\BooksBundle\Controller;
 
 use App\BooksBundle\Entity\Book;
-use App\BooksBundle\Entity\BookCache;
 use App\BooksBundle\Entity\BookMetadata;
 use App\BooksBundle\Entity\BookProgress;
 use App\BooksBundle\Entity\Library;
 use App\BooksBundle\Model\Channel;
 use App\BooksBundle\Model\EbookLoader;
-use App\BooksBundle\Normalizer\BookCacheNormalizer;
+use App\BooksBundle\Normalizer\BookMetadataNormalizer;
 use App\BooksBundle\Repository\BookRepository;
 use App\BooksBundle\Repository\LibraryRepository;
 use App\BooksBundle\Repository\ShelfRepository;
@@ -19,15 +18,19 @@ use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FileAttributes;
 use League\Flysystem\Filesystem;
 use League\Flysystem\FilesystemReader;
+use League\Flysystem\PathTraversalDetected;
 use League\Flysystem\StorageAttributes;
 use Liip\ImagineBundle\Imagine\Cache\CacheManager;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Filesystem\Path;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpKernel\Attribute\MapQueryParameter;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Mercure\Authorization;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
@@ -68,24 +71,68 @@ class ApiBooksController extends AbstractController
         return $this->getLibrary()->getFilesystem();
     }
 
+    #[Route('/books/{book}/book.epub', name: 'books_id_epub_extension', requirements: ['book' => '\d+'], methods: ['GET'], priority: 10)]
     #[Route('/books/{book}/epub', name: 'books_id_epub', requirements: ['book' => '\d+'], methods: ['GET'], priority: 10)]
-    public function apiEpubId(#[MapEntity(message: "Book not found.")] Book $book): Response
+    public function apiEpubId(#[MapEntity(message: "Book not found.")] Book $book, Request $request): Response
     {
-        return $this->apiEpubPath($book->getUrl());
+        return $this->serveEpub($book->getUrl(), $request);
     }
 
     #[IsGranted('ROLE_ADMIN_BOOKS', null, 'Access Denied.')]
     #[Route('/epub/{path}', name: 'epub_path', requirements: ['path' => '.*'], methods: ['GET'])]
-    public function apiEpubPath(string $path): Response
+    public function apiEpubPath(string $path, Request $request): Response
     {
-        if (!$this->getFilesystem()->fileExists($path)) {
-            throw new BadRequestHttpException("Epub file not found.");
+        return $this->serveEpub($path, $request);
+    }
+
+    /**
+     * Unifies delivery for both Book ID and raw path with traversal protection and Range support.
+     */
+    private function serveEpub(string $rawPath, Request $request): Response
+    {
+        // 1. Decode and sanitize incoming path
+        $path = ltrim(rawurldecode($rawPath), '/\\');
+
+        // 2. Traversal protection: reject explicit unsafe path sequences
+        if (str_contains($path, '..') || str_contains($path, '\\') || str_contains($path, "\0")) {
+            throw new BadRequestHttpException("Invalid path: directory traversal is forbidden.");
         }
-        $filename = basename($path);
-        return new Response($this->getFilesystem()->read($path), 200, [
-            'Content-Type' => "application/epub+zip",
-            'Content-Disposition' => "attachment; filename=\"$filename\"",
-        ]);
+
+        // 3. Check file existence via Flysystem
+        try {
+            if (!$this->getFilesystem()->fileExists($path)) {
+                throw new NotFoundHttpException("Epub file not found.");
+            }
+        } catch (PathTraversalDetected $e) {
+            throw new BadRequestHttpException("Path traversal attempt detected: " . $e->getMessage());
+        }
+
+        // 4. Resolve and enforce storage boundaries on the local filesystem
+        $baseDir = realpath($this->getLibrary()->getBasePath());
+        if ($baseDir === false) {
+            throw new \RuntimeException("Configured storage directory does not exist.");
+        }
+
+        $fullPath = realpath(Path::join($baseDir, $path));
+
+        // Ensure the physical file exists and stays confined within the base directory
+        if ($fullPath === false || !str_starts_with($fullPath, $baseDir . DIRECTORY_SEPARATOR)) {
+            throw new BadRequestHttpException("Access denied: path points outside allowed storage boundary.");
+        }
+
+        $filename = basename($fullPath);
+
+        // 5. BinaryFileResponse automatically handles Range headers (HTTP 206 Partial Content)
+        $response = $this->file(
+            $fullPath,
+            fileName: $filename,
+            disposition: ResponseHeaderBag::DISPOSITION_INLINE
+        );
+
+        // Required when the client fetches the endpoint via range/CORS requests
+        $response->headers->set('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Length');
+
+        return $response;
     }
 
     #[Route('/books/all', name: 'books_all', methods: ['GET'])]
@@ -100,7 +147,7 @@ class ApiBooksController extends AbstractController
     {
         $authorization->setCookie($req, [Channel::LIBRARY_ALL]);
         return $this->json($bookRepo->getAll($this->getLibrary(), $user, $limit, $offset), context: [
-            BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_THUMB,
+            BookMetadataNormalizer::FILTER_TYPE => BookMetadataNormalizer::FILTER_THUMB,
             'groups' => ['book:list']
         ]);
     }
@@ -117,7 +164,7 @@ class ApiBooksController extends AbstractController
     {
         $authorization->setCookie($req, [Channel::LIBRARY_NOT_IN_SHELVES]);
         return $this->json($bookRepo->getNotInShelves($this->getLibrary(), $user, $limit, $offset), context: [
-            BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_THUMB,
+            BookMetadataNormalizer::FILTER_TYPE => BookMetadataNormalizer::FILTER_THUMB,
             'groups' => ['book:list']
         ]);
     }
@@ -165,9 +212,6 @@ class ApiBooksController extends AbstractController
         if (!$req->getPayload()->has('url')) {
             throw new BadRequestHttpException("Parameter 'url' not found.");
         }
-        if (!$req->getPayload()->has('book_cache')) {
-            throw new BadRequestHttpException("Parameter 'book_cache' not found.");
-        }
         if (!$req->getPayload()->has('book_metadata')) {
             throw new BadRequestHttpException("Parameter 'book_metadata' not found.");
         }
@@ -183,12 +227,9 @@ class ApiBooksController extends AbstractController
         $ebookLoader = new EbookLoader();
         $ebookLoader->load($book);
         $serializer = new Serializer([$normalizer]);
-        // Book cache
-        $cache = $serializer->denormalize($req->getPayload()->all('book_cache'), BookCache::class);
-        $cache->setCover($ebookLoader->hasCover());
-        $book->setBookCache($cache);
         // Book metadata
         $metadata = $serializer->denormalize($req->getPayload()->all('book_metadata'), BookMetadata::class);
+        $metadata->setCover($ebookLoader->hasCover());
         $book->setBookMetadata($metadata);
         // Book progress
         $progress = new BookProgress()->setUser($user);
@@ -206,7 +247,7 @@ class ApiBooksController extends AbstractController
             json_encode([
                 'action' => 'book:add',
                 'book' => $normalizer->normalize($book, null, [
-                    BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_THUMB,
+                    BookMetadataNormalizer::FILTER_TYPE => BookMetadataNormalizer::FILTER_THUMB,
                     'groups' => ['book:list']
                 ]),
             ]),
@@ -219,7 +260,7 @@ class ApiBooksController extends AbstractController
     public function apiBooksIdGet(#[MapEntity(message: "Book not found.")] Book $book): Response
     {
         return $this->json($book, context: [
-            BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_COVER
+            BookMetadataNormalizer::FILTER_TYPE => BookMetadataNormalizer::FILTER_COVER
         ]);
     }
 
@@ -227,25 +268,20 @@ class ApiBooksController extends AbstractController
     #[Route('/books/{book}', name: 'books_id_edit', requirements: ['book' => '\d+'], methods: ['PUT'])]
     public function apiBooksIdEdit(Request $req, #[MapEntity(message: "Book not found.")] Book $book, NormalizerInterface $normalizer, HubInterface $hub, CacheManager $cacheManager): Response
     {
-        if (!$req->getPayload()->has('book_cache')) {
-            throw new BadRequestHttpException("Parameter 'book_cache' not found.");
-        }
         if (!$req->getPayload()->has('book_metadata')) {
             throw new BadRequestHttpException("Parameter 'book_metadata' not found.");
         }
 
-        if ($book->getBookCache()->hasCover()) {
+        if ($book->getBookMetadata()->hasCover()) {
             $cacheManager->remove($book->getId());
         }
 
         $ebookLoader = new EbookLoader();
         $ebookLoader->load($book);
         $serializer = new Serializer([$normalizer]);
-        // Book cache
-        $serializer->denormalize($req->getPayload()->all('book_cache'), BookCache::class, null, [AbstractNormalizer::OBJECT_TO_POPULATE => $book->getBookCache()]);
-        $book->getBookCache()->setCover($ebookLoader->hasCover());
         // Book metadata
         $serializer->denormalize($req->getPayload()->all('book_metadata'), BookMetadata::class, null, [AbstractNormalizer::OBJECT_TO_POPULATE => $book->getBookMetadata()]);
+        $book->getBookMetadata()->setCover($ebookLoader->hasCover());
 
         $this->entityManager->flush();
 
@@ -258,7 +294,7 @@ class ApiBooksController extends AbstractController
             json_encode([
                 'action' => 'book:recreate',
                 'book' => $normalizer->normalize($book, null, [
-                    BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_THUMB,
+                    BookMetadataNormalizer::FILTER_TYPE => BookMetadataNormalizer::FILTER_THUMB,
                     'groups' => ['book:list']
                 ]),
             ]),
@@ -272,7 +308,7 @@ class ApiBooksController extends AbstractController
     public function apiBooksIdDelete(#[MapEntity(message: "Book not found.")] Book $book, HubInterface $hub, CacheManager $cacheManager): Response
     {
         $id = $book->getId();
-        if ($book->getBookCache()->hasCover()) {
+        if ($book->getBookMetadata()->hasCover()) {
             $cacheManager->remove($book->getId());
         }
 
@@ -318,10 +354,12 @@ class ApiBooksController extends AbstractController
         }
         $progress->setPosition(null);
         if ($type === 'read') {
-            $progress->setPage(-1);
+            $progress->setCurrent(-1)
+                ->setFraction(1);
         }
         if ($type === 'unread') {
-            $progress->setPage(0);
+            $progress->setCurrent(0)
+                ->setFraction(0);
         }
         $this->entityManager->flush();
         return $this->json(['id' => $book->getId()]);
@@ -331,7 +369,7 @@ class ApiBooksController extends AbstractController
     public function apiBooksIdMetadata(#[MapEntity(message: "Book not found.")] Book $book): Response
     {
         return $this->json($book, context: [
-            BookCacheNormalizer::FILTER_TYPE => BookCacheNormalizer::FILTER_COVER,
+            BookMetadataNormalizer::FILTER_TYPE => BookMetadataNormalizer::FILTER_COVER,
             'groups' => ['book:metadata']
         ]);
     }
@@ -345,13 +383,21 @@ class ApiBooksController extends AbstractController
             $book->addBookProgress($progress);
         }
         if (!$req->getPayload()->has('position')) {
-            throw new BadRequestHttpException("Parameter 'offset' not found.");
+            throw new BadRequestHttpException("Parameter 'position' not found.");
         }
-        if (!$req->getPayload()->has('page')) {
-            throw new BadRequestHttpException("Parameter 'page' not found.");
+        if (!$req->getPayload()->has('current')) {
+            throw new BadRequestHttpException("Parameter 'current' not found.");
+        }
+        if (!$req->getPayload()->has('total')) {
+            throw new BadRequestHttpException("Parameter 'total' not found.");
+        }
+        if (!$req->getPayload()->has('fraction')) {
+            throw new BadRequestHttpException("Parameter 'fraction' not found.");
         }
         $progress->setPosition($req->getPayload()->getString('position'))
-            ->setPage($req->getPayload()->getInt('page'));
+            ->setCurrent($req->getPayload()->getInt('current'))
+            ->setTotal($req->getPayload()->getInt('total'))
+            ->setFraction($req->getPayload()->get('fraction'));
         if ($req->getPayload()->getBoolean('update', true)) {
             $progress->updateLastRead();
         }

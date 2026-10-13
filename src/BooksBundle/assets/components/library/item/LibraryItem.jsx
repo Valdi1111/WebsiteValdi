@@ -15,7 +15,7 @@ import {
 } from "@ant-design/icons";
 
 /**
- * @typedef {{id: int, url: string, shelf_id: int, book_cache: {pages: int, cover: string}, book_metadata: {title: string, creator: string}, book_progress: {position: ?string, page: int}}} BookProps
+ * @typedef {{id: int, url: string, shelf_id: int, book_metadata: {cover: bool, cover_url: ?string, title: string, creator: string}, book_progress: {position: ?string, current: int, total: int, fraction: double}}} BookProps
  */
 
 /**
@@ -27,16 +27,16 @@ export default function LibraryItem(props) {
     const [infoOpen, setInfoOpen] = React.useState(false);
     const hide_shelf = props.hide_shelf | false;
     const { id, shelf_id } = props.book;
-    const { cover, cover_url, pages } = props.book.book_cache;
-    const { title, creator } = props.book.book_metadata;
-    const [page, setPage] = React.useState(props.book.book_progress.page);
+    const { cover, cover_url, title, creator } = props.book.book_metadata;
+    const total = props.book.book_progress.total;
+    const [current, setCurrent] = React.useState(props.book.book_progress.current);
 
     const { modal } = App.useApp();
     const navigate = useNavigate();
     const api = useBackendApi();
 
     function setRead(val) {
-        setPage(val ? -1 : 0);
+        setCurrent(val ? -1 : 0);
     }
 
     const onRecreateOpen = React.useCallback(() => {
@@ -117,7 +117,7 @@ export default function LibraryItem(props) {
                 creator={creator}
             />}
             actions={[
-                <ItemProgress id={id} page={page} total={pages} setRead={setRead}/>,
+                <ItemProgress id={id} current={current} total={total} setRead={setRead}/>,
                 <InfoCircleOutlined key="info" onClick={() => setInfoOpen(true)}/>,
                 <Dropdown destroyOnHidden menu={{ items: dropdownItems }}>
                     <EllipsisOutlined key="ellipsis"/>

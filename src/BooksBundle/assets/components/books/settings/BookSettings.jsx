@@ -4,7 +4,7 @@ import SettingsForceFont from "@BooksBundle/components/books/settings/SettingsFo
 import SettingsForceFontSize from "@BooksBundle/components/books/settings/SettingsForceFontSize";
 import SettingsFullJustification from "@BooksBundle/components/books/settings/SettingsFullJustification";
 import SettingsSpacing from "@BooksBundle/components/books/settings/SettingsSpacing";
-import SettingsMargins from "@BooksBundle/components/books/settings/SettingsMargins";
+import SettingsGap from "@BooksBundle/components/books/settings/SettingsGap.jsx";
 import SettingsWidth from "@BooksBundle/components/books/settings/SettingsWidth";
 import SettingsLayout from "@BooksBundle/components/books/settings/SettingsLayout";
 import { useBook } from "@BooksBundle/components/books/BookContext";
@@ -43,7 +43,7 @@ export default function BookSettings() {
                     <SettingsFullJustification />
                     <SettingsSpacing />
                     <Divider titlePlacement="start" style={{ margin: 0 }}>Layout / Page Style</Divider>
-                    <SettingsMargins />
+                    <SettingsGap />
                     <SettingsWidth />
                     <Divider titlePlacement="start" style={{ margin: 0 }}>Reading Mode / Pagination</Divider>
                     <SettingsLayout />

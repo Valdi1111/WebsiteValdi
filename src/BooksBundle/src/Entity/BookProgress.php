@@ -30,7 +30,13 @@ class BookProgress
     private ?string $position = null;
 
     #[ORM\Column(options: ["default" => "0"])]
-    private int $page = 0;
+    private int $current = 0;
+
+    #[ORM\Column(options: ["default" => "0"])]
+    private int $total = 0;
+
+    #[ORM\Column(options: ["default" => "0"])]
+    private float $fraction = 0;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, options: ["default" => new CurrentTimestamp()])]
     private \DateTimeInterface $lastRead;
@@ -90,14 +96,40 @@ class BookProgress
     }
 
     #[Groups(['book:list'])]
-    public function getPage(): int
+    public function getCurrent(): int
     {
-        return $this->page;
+        return $this->current;
     }
 
-    public function setPage(int $page): static
+    public function setCurrent(int $current): static
     {
-        $this->page = $page;
+        $this->current = $current;
+
+        return $this;
+    }
+
+    #[Groups(['book:list'])]
+    public function getTotal(): int
+    {
+        return $this->total;
+    }
+
+    public function setTotal(int $total): static
+    {
+        $this->total = $total;
+
+        return $this;
+    }
+
+    #[Groups(['book:list'])]
+    public function getFraction(): float
+    {
+        return $this->fraction;
+    }
+
+    public function setFraction(float $fraction): static
+    {
+        $this->fraction = $fraction;
 
         return $this;
     }

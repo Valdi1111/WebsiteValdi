@@ -36,8 +36,12 @@ const opts = {
 };
 const formatter = new Intl.NumberFormat(locale, opts);
 
-export function formatPercent(amount, total) {
+export function formatPercentCalculate(amount, total) {
     return formatter.format((!amount || !total) ? 0 : (amount / total));
+}
+
+export function formatPercent(fraction) {
+    return formatter.format(fraction || 0);
 }
 
 export function formatBytes(bytes) {

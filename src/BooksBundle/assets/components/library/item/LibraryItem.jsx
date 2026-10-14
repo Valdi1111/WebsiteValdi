@@ -28,15 +28,14 @@ export default function LibraryItem(props) {
     const hide_shelf = props.hide_shelf | false;
     const { id, shelf_id } = props.book;
     const { cover, cover_url, title, creator } = props.book.book_metadata;
-    const total = props.book.book_progress.total;
-    const [current, setCurrent] = React.useState(props.book.book_progress.current);
+    const [fraction, setFraction] = React.useState(props.book.book_progress.fraction);
 
     const { modal } = App.useApp();
     const navigate = useNavigate();
     const api = useBackendApi();
 
     function setRead(val) {
-        setCurrent(val ? -1 : 0);
+        setFraction(val ? 1.0 : 0.0);
     }
 
     const onRecreateOpen = React.useCallback(() => {
@@ -117,7 +116,7 @@ export default function LibraryItem(props) {
                 creator={creator}
             />}
             actions={[
-                <ItemProgress id={id} current={current} total={total} setRead={setRead}/>,
+                <ItemProgress id={id} fraction={fraction} setRead={setRead}/>,
                 <InfoCircleOutlined key="info" onClick={() => setInfoOpen(true)}/>,
                 <Dropdown destroyOnHidden menu={{ items: dropdownItems }}>
                     <EllipsisOutlined key="ellipsis"/>

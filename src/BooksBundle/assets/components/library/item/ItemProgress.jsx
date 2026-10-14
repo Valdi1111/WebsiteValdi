@@ -3,7 +3,7 @@ import { CheckCircleFilled } from "@ant-design/icons";
 import { formatPercent } from "@CoreBundle/format-utils";
 import React from "react";
 
-export default function ItemProgress({ id, current, total, setRead }) {
+export default function ItemProgress({ id, fraction, setRead }) {
     const api = useBackendApi();
 
     const onMarkRead = React.useCallback(() => {
@@ -34,8 +34,8 @@ export default function ItemProgress({ id, current, total, setRead }) {
             });
     }, [id]);
 
-    if (current === -1) {
+    if (fraction === 1) {
         return <CheckCircleFilled type="success" onClick={() => onMarkUnread()}/>;
     }
-    return <span onClick={() => onMarkRead()}>{formatPercent(current, total)}</span>;
+    return <span onClick={() => onMarkRead()}>{formatPercent(fraction)}</span>;
 }

@@ -13,6 +13,7 @@ export default function NoteModal({ noteModal, setNoteModal, onSave, onDelete })
             open={noteModal.open}
             onOk={onSave}
             onCancel={handleClose}
+            destroyOnHidden
             footer={[
                 noteModal.id && (
                     <Button key="delete" danger onClick={() => onDelete(noteModal)}>

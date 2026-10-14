@@ -2,6 +2,9 @@ import BookHeader from "@BooksBundle/components/books/BookHeader";
 import BookFooter from "@BooksBundle/components/books/BookFooter";
 import BookBody from "@BooksBundle/components/books/BookBody";
 import BookContext from "@BooksBundle/components/books/BookContext";
+import SelectionFloatingMenu from "@BooksBundle/components/books/SelectionFloatingMenu";
+import NoteModal from "@BooksBundle/components/books/modals/NoteModal.jsx";
+import ImageViewModal from "@BooksBundle/components/books/modals/ImageViewModal.jsx";
 import { useThemes } from "@CoreBundle/components/theme/ThemeContext";
 import { useBookSettings } from "@BooksBundle/components/books/BookSettingsContext";
 import { useBackendApi } from "@BooksBundle/components/BackendApiContext";
@@ -9,23 +12,26 @@ import { useParams } from "react-router";
 import React from "react";
 // import "@BooksBundle/styles/iframe.css";
 import {
-    FORCE_TEXT_COLOR, FONT, FONTS, FONT_SIZE,
+    FORCE_TEXT_COLOR, FONT, FONT_SIZE,
     SPACING, GAP, WIDTH,
     FORCE_FONT, FORCE_FONT_SIZE, JUSTIFY,
     LAYOUT, LAYOUTS,
     UPDATE_LAST_READ
 } from "@BooksBundle/components/books/BookConstants";
-import { theme as antdTheme } from "antd";
-import ImageViewModal from "@BooksBundle/components/books/modals/ImageViewModal.jsx";
+import {theme as antdTheme, App} from "antd";
 
-// Import Foliate-js custom element definition
+// Import Foliate-js custom element definition and Overlayer utilities
 import { makeBook } from "@foliate/view.js";
+import { Overlayer } from "@foliate/overlayer.js";
 import { makeHttpRangeReader } from "@BooksBundle/utils/httpRangeReader.js";
+import { drawBookmarkMarker, collapseRangeToFirstChar, getParagraphStartRange } from "@BooksBundle/utils/bookOverlayer.js";
+import { buildBookThemeCss, injectStylesheetToDoc } from "@BooksBundle/utils/bookThemeCss.js";
 
 export default function BookId() {
-    const { token: { colorBgElevated, colorText, colorLink, colorLinkHover } } = antdTheme.useToken();
+    const { token: { colorBgElevated, colorText, colorLink, colorLinkHover, colorPrimary } } = antdTheme.useToken();
     const [contentsDrawerOpen, setContentsDrawerOpen] = React.useState(false);
     const [settingsDrawerOpen, setSettingsDrawerOpen] = React.useState(false);
+    const { message, modal } = App.useApp();
     const { settings, setSetting } = useBookSettings();
     const [theme, setTheme] = useThemes();
 
@@ -53,6 +59,46 @@ export default function BookId() {
     const [navigation, setNavigation] = React.useState([]);
     const [chapter, setChapter] = React.useState(null);
     const [section, setSection] = React.useState(null);
+    const chapterRef = React.useRef(null);
+    chapterRef.current = chapter;
+
+    // Bookmarks and Notes state
+    const [bookmarks, setBookmarks] = React.useState([]);
+    const bookmarksRef = React.useRef([]);
+    bookmarksRef.current = bookmarks;
+
+    const [notes, setNotes] = React.useState([]);
+    const notesRef = React.useRef([]);
+    notesRef.current = notes;
+
+    // Mode to allow user to click any paragraph in the book to place an exact bookmark
+    const [bookmarkPickMode, setBookmarkPickMode] = React.useState(false);
+    const bookmarkPickModeRef = React.useRef(false);
+    bookmarkPickModeRef.current = bookmarkPickMode;
+
+    // Floating selection menu state
+    const [selectionMenu, setSelectionMenu] = React.useState({
+        open: false,
+        x: 0,
+        y: 0,
+        placement: 'top',
+        cfi: '',
+        text: '',
+        sectionIndex: null,
+        chapter: ''
+    });
+
+    // Note creation / editing modal state
+    const [noteModal, setNoteModal] = React.useState({
+        open: false,
+        id: null,
+        cfi: '',
+        text: '',
+        note: '',
+        color: '#ffeb3b',
+        chapter: '',
+        sectionIndex: null
+    });
 
     // Image modal
     const [imageModal, setImageModal] = React.useState({ open: false, src: '', alt: '' });
@@ -72,9 +118,209 @@ export default function BookId() {
     const activeDocsRef = React.useRef(new Set());
 
     /**
+     * Clear active browser text selections across all loaded chapter documents
+     */
+    const clearActiveSelections = React.useCallback(() => {
+        activeDocsRef.current.forEach(doc => {
+            try {
+                doc.getSelection()?.removeAllRanges();
+            } catch (e) {
+                // Ignore unloaded docs
+            }
+        });
+        setSelectionMenu(prev => prev.open ? { ...prev, open: false } : prev);
+    }, []);
+
+    /**
+     * Draw or remove a note annotation on Foliate view
+     */
+    const renderNoteAnnotation = React.useCallback((noteItem, remove = false) => {
+        const view = renditionRef.current;
+        if (!view || !view.addAnnotation || !noteItem?.cfi) return;
+        view.addAnnotation({
+            value: noteItem.cfi,
+            type: 'note',
+            color: noteItem.color || '#ffeb3b',
+            note: noteItem.note,
+            id: noteItem.id
+        }, remove);
+    }, []);
+
+    /**
+     * Draw or remove a Word-style bookmark indicator on Foliate view
+     */
+    const renderBookmarkAnnotation = React.useCallback((bookmarkItem, remove = false) => {
+        const view = renditionRef.current;
+        if (!view || !view.addAnnotation || !bookmarkItem?.cfi) return;
+        view.addAnnotation({
+            value: bookmarkItem.cfi,
+            type: 'bookmark',
+            color: '#ff4d4f',
+            label: bookmarkItem.label,
+            id: bookmarkItem.id
+        }, remove);
+    }, []);
+
+    /**
+     * Add a bookmark at a specific CFI or fallback to current reading location
+     */
+    const addBookmark = React.useCallback((customLabel = null, customCfi = null) => {
+        const targetCfi = customCfi || locationRef.current?.position;
+        if (!targetCfi) return;
+
+        const payload = {
+            cfi: targetCfi,
+            label: customLabel || chapterRef.current?.label || `Page ${locationRef.current?.current || 1}`,
+            chapter: chapterRef.current?.label || null,
+            fraction: locationRef.current?.fraction || 0
+        };
+
+        apiRef.current
+            .withErrorHandling()
+            .books()
+            .addBookmark(bookId, payload)
+            .then(res => {
+                console.debug("Bookmark created:", res.data);
+                setBookmarks(prevList => [res.data, ...prevList]);
+                renderBookmarkAnnotation(res.data, false);
+                message.success("Bookmark saved");
+            });
+    }, [bookId, message, renderBookmarkAnnotation]);
+
+    const addBookmarkRef = React.useRef(addBookmark);
+    addBookmarkRef.current = addBookmark;
+
+    /**
+     * Delete an existing bookmark
+     */
+    const deleteBookmark = React.useCallback((bookmarkId) => {
+        const target = bookmarksRef.current.find(b => b.id === bookmarkId);
+        apiRef.current
+            .withErrorHandling()
+            .books()
+            .deleteBookmark(bookId, bookmarkId)
+            .then(() => {
+                console.debug("Bookmark deleted:", bookmarkId);
+                if (target) {
+                    renderBookmarkAnnotation(target, true);
+                }
+                setBookmarks(prevList => prevList.filter(item => item.id !== bookmarkId));
+                message.success("Bookmark deleted");
+            });
+    }, [bookId, message, renderBookmarkAnnotation]);
+
+    const deleteBookmarkRef = React.useRef(deleteBookmark);
+    deleteBookmarkRef.current = deleteBookmark;
+
+    /**
+     * Create a 1-tap quick highlight directly from the floating selection toolbar
+     */
+    const quickHighlight = React.useCallback((color) => {
+        if (!selectionMenu.cfi) return;
+
+        apiRef.current
+            .withErrorHandling()
+            .books()
+            .addNote(bookId, {
+                cfi: selectionMenu.cfi,
+                text: selectionMenu.text,
+                note: '',
+                color: color,
+                chapter: selectionMenu.chapter,
+                sectionIndex: selectionMenu.sectionIndex
+            })
+            .then(res => {
+                console.debug("Quick highlight created:", res.data);
+                setNotes(prevList => [res.data, ...prevList]);
+                renderNoteAnnotation(res.data, false);
+                clearActiveSelections();
+                message.success("Highlight saved");
+            });
+    }, [bookId, selectionMenu, renderNoteAnnotation, clearActiveSelections, message]);
+
+    /**
+     * Open the full note modal from the current text selection
+     */
+    const openNoteModalFromSelection = React.useCallback(() => {
+        setNoteModal({
+            open: true,
+            id: null,
+            cfi: selectionMenu.cfi,
+            text: selectionMenu.text,
+            note: '',
+            color: '#ffeb3b',
+            chapter: selectionMenu.chapter,
+            sectionIndex: selectionMenu.sectionIndex
+        });
+        clearActiveSelections();
+    }, [selectionMenu, clearActiveSelections]);
+
+    /**
+     * Save (create or update) a note from the modal
+     */
+    const saveNoteModal = React.useCallback(() => {
+        if (noteModal.id) {
+            apiRef.current
+                .withErrorHandling()
+                .books()
+                .editNote(bookId, noteModal.id, {
+                    note: noteModal.note,
+                    color: noteModal.color
+                })
+                .then(res => {
+                    console.debug("Note updated:", res.data);
+                    setNotes(prevList => prevList.map(n => n.id === res.data.id ? res.data : n));
+                    renderNoteAnnotation(res.data, false);
+                    setNoteModal(prev => ({ ...prev, open: false }));
+                    message.success("Note updated");
+                });
+        } else {
+            apiRef.current
+                .withErrorHandling()
+                .books()
+                .addNote(bookId, {
+                    cfi: noteModal.cfi,
+                    text: noteModal.text,
+                    note: noteModal.note,
+                    color: noteModal.color,
+                    chapter: noteModal.chapter,
+                    sectionIndex: noteModal.sectionIndex
+                })
+                .then(res => {
+                    console.debug("Note created:", res.data);
+                    setNotes(prevList => [res.data, ...prevList]);
+                    renderNoteAnnotation(res.data, false);
+                    setNoteModal(prev => ({ ...prev, open: false }));
+                    message.success("Note saved");
+                });
+        }
+    }, [bookId, noteModal, renderNoteAnnotation, message]);
+
+    /**
+     * Delete an existing note
+     */
+    const deleteNote = React.useCallback((noteItem) => {
+        const target = typeof noteItem === 'object' ? noteItem : notesRef.current.find(n => n.id === noteItem);
+        if (!target) return;
+
+        apiRef.current
+            .withErrorHandling()
+            .books()
+            .deleteNote(bookId, target.id)
+            .then(() => {
+                console.debug("Note deleted:", target.id);
+                renderNoteAnnotation(target, true);
+                setNotes(prevList => prevList.filter(n => n.id !== target.id));
+                setNoteModal(prev => ({ ...prev, open: false }));
+                message.success("Note deleted");
+            });
+    }, [bookId, renderNoteAnnotation, message]);
+
+    /**
      * Go to the previous page
      */
     const prev = React.useCallback(() => {
+        clearActiveSelections();
         const view = renditionRef.current;
         if (!view) return;
         if (view.renderer?.prev) {
@@ -82,12 +328,13 @@ export default function BookId() {
         } else {
             view.prev();
         }
-    }, []);
+    }, [clearActiveSelections]);
 
     /**
      * Go to the next page
      */
     const next = React.useCallback(() => {
+        clearActiveSelections();
         const view = renditionRef.current;
         if (!view) return;
         if (view.renderer?.next) {
@@ -95,15 +342,28 @@ export default function BookId() {
         } else {
             view.next();
         }
-    }, []);
+    }, [clearActiveSelections]);
 
     /**
      * Handle arrow right/left to navigate book pages
      * @param e event
      */
     const onKeyDown = React.useCallback((e) => {
+        const activeTag = document.activeElement?.tagName?.toLowerCase();
+        if (activeTag === 'input' || activeTag === 'textarea') {
+            return;
+        }
+
         const code = e.keyCode || e.which;
         const key = e.key;
+
+        if (key === 'Escape') {
+            if (bookmarkPickModeRef.current) {
+                setBookmarkPickMode(false);
+            }
+            clearActiveSelections();
+            return;
+        }
 
         if (code === 37 || key === 'ArrowLeft') {
             prev();
@@ -111,7 +371,7 @@ export default function BookId() {
         if (code === 39 || key === 'ArrowRight') {
             next();
         }
-    }, [prev, next]);
+    }, [prev, next, clearActiveSelections]);
 
     // Attach global keyboard listener with cleanup
     React.useEffect(() => {
@@ -160,94 +420,27 @@ export default function BookId() {
      * Build raw CSS string for book theme to ensure clean overrides
      */
     const getComputedCssString = React.useCallback(() => {
-        const isForceText = settings[FORCE_TEXT_COLOR] === 'true';
-        const isForceFont = settings[FORCE_FONT] === 'true';
-        const isForceFontSize = settings[FORCE_FONT_SIZE] === 'true';
-        const isJustify = settings[JUSTIFY] === 'true';
-
-        const fontFamily = FONTS[settings[FONT]] || 'inherit';
-        const fontSize = settings[FONT_SIZE] || '18';
-        const spacing = settings[SPACING] || '1.4';
-        const textAlign = isJustify ? 'justify' : 'left';
-
-        let css = `
-            html, body {
-                background-color: ${colorBgElevated} !important;
-                background: ${colorBgElevated} !important;
-                color: ${colorText} ${isForceText ? '!important' : ''};
-                font-family: ${fontFamily} ${isForceFont ? '!important' : ''};
-                font-size: ${fontSize}px ${isForceFontSize ? '!important' : ''};
-                line-height: ${spacing} !important;
-                text-align: ${textAlign} !important;
-            }
-            /* Explicitly apply text-align and line-height to elements to override book styling */
-            p, div, li, span, h1, h2, h3, h4, h5, h6 {
-                text-align: ${textAlign} !important;
-                line-height: ${spacing} !important;
-            }
-            a {
-                color: ${colorLink} !important;
-            }
-            a:hover, a:active {
-                color: ${colorLinkHover} !important;
-            }
-        `;
-
-        if (isForceText) {
-            css += `
-                p, span, div, li, h1, h2, h3, h4, h5, h6, blockquote, em, strong {
-                    color: ${colorText} !important;
-                }
-            `;
-        }
-
-        if (isForceFont) {
-            css += `
-                p, span, div, li, h1, h2, h3, h4, h5, h6, blockquote, em, strong {
-                    font-family: ${fontFamily} !important;
-                }
-            `;
-        }
-
-        if (isForceFontSize) {
-            css += `
-                p, span, div, li {
-                    font-size: ${fontSize}px !important;
-                }
-            `;
-        }
-
-        return css;
-    }, [colorBgElevated, colorText, colorLink, colorLinkHover, settings]);
+        return buildBookThemeCss(settings, {
+            colorBgElevated,
+            colorText,
+            colorLink,
+            colorLinkHover,
+            colorPrimary
+        });
+    }, [colorBgElevated, colorText, colorLink, colorLinkHover, colorPrimary, settings]);
 
     // Keep CSS string updated in a ref so newly loaded section hooks always use the latest
     const cssStringRef = React.useRef('');
     cssStringRef.current = getComputedCssString();
 
-    /**
-     * Helper to inject or completely replace custom theme stylesheet in a document
-     */
-    const injectStylesheetToDoc = React.useCallback((doc, cssString) => {
-        if (!doc || !doc.head) return;
-        let styleTag = doc.getElementById('epub-dynamic-theme');
-        if (!styleTag) {
-            styleTag = doc.createElement('style');
-            styleTag.id = 'epub-dynamic-theme';
-            styleTag.type = 'text/css';
-            doc.head.appendChild(styleTag);
-        } else {
-            // Append to the end of head so that it always has highest cascade priority
-            doc.head.appendChild(styleTag);
-        }
-        // Completely replace text content to wipe out previously active !important rules
-        styleTag.textContent = cssString;
-
-        // Clean any leftover inline overrides on body
-        if (doc.body) {
-            doc.body.style.backgroundColor = colorBgElevated;
-            doc.body.style.color = '';
-        }
-    }, [colorBgElevated]);
+    // Toggle CSS class on active iframe documents when bookmarkPickMode changes
+    React.useEffect(() => {
+        activeDocsRef.current.forEach(doc => {
+            if (doc?.body) {
+                doc.body.classList.toggle('bookmark-pick-mode', bookmarkPickMode);
+            }
+        });
+    }, [bookmarkPickMode]);
 
     /**
      * Apply styles live without rebuilding the rendition
@@ -274,7 +467,7 @@ export default function BookId() {
         activeDocsRef.current.forEach(doc => {
             try {
                 if (doc && doc.defaultView) {
-                    injectStylesheetToDoc(doc, cssString);
+                    injectStylesheetToDoc(doc, cssString, colorBgElevated, bookmarkPickModeRef.current);
                 } else {
                     activeDocsRef.current.delete(doc);
                 }
@@ -282,7 +475,7 @@ export default function BookId() {
                 activeDocsRef.current.delete(doc);
             }
         });
-    }, [getComputedCssString, colorBgElevated, injectStylesheetToDoc]);
+    }, [getComputedCssString, colorBgElevated]);
 
     /**
      * Apply layout configuration to foliate renderer
@@ -343,22 +536,25 @@ export default function BookId() {
     applyLayoutSettingsRef.current = applyLayoutSettings;
 
     /**
-     * Load book
+     * Load book, bookmarks and notes
      */
     React.useEffect(() => {
         setLoading(true);
         let active = true;
 
-        apiRef.current
-            .withErrorHandling()
-            .books()
-            .getId(bookId)
-            .then(async res => {
+        Promise.all([
+            apiRef.current.withErrorHandling().books().getId(bookId),
+            apiRef.current.withErrorHandling().books().getBookmarks(bookId),
+            apiRef.current.withErrorHandling().books().getNotes(bookId),
+        ])
+            .then(async ([res, bookmarksRes, notesRes]) => {
                 if (!active) {
                     return;
                 }
                 console.debug("Loading book", bookId);
                 setTitle(res.data.book_metadata.title);
+                setBookmarks(bookmarksRes?.data || []);
+                setNotes(notesRes?.data || []);
 
                 // Initialize location from backend progress
                 setLocation(res.data.book_progress);
@@ -381,19 +577,108 @@ export default function BookId() {
 
                 renditionRef.current = foliateView;
 
+                // Render all currently loaded notes and bookmarks onto Foliate Overlayer
+                const applyAllAnnotationsToView = () => {
+                    notesRef.current.forEach(noteItem => {
+                        if (noteItem?.cfi) {
+                            foliateView.addAnnotation({
+                                value: noteItem.cfi,
+                                type: 'note',
+                                color: noteItem.color || '#ffeb3b',
+                                note: noteItem.note,
+                                id: noteItem.id
+                            });
+                        }
+                    });
+                    bookmarksRef.current.forEach(bmItem => {
+                        if (bmItem?.cfi) {
+                            foliateView.addAnnotation({
+                                value: bmItem.cfi,
+                                type: 'bookmark',
+                                color: '#ff4d4f',
+                                label: bmItem.label,
+                                id: bmItem.id
+                            });
+                        }
+                    });
+                };
+
                 // Listen to relocate events using ref to decouple handler from dependency array
                 foliateView.addEventListener('relocate', (e) => {
+                    setSelectionMenu(prev => prev.open ? { ...prev, open: false } : prev);
                     updatePageRef.current?.(e.detail);
+                });
+
+                foliateView.addEventListener('create-overlayer', () => {
+                    queueMicrotask(() => {
+                        applyAllAnnotationsToView();
+                    });
+                });
+
+                // Handle drawing highlights and bookmark icons on Foliate Overlayer
+                foliateView.addEventListener('draw-annotation', (e) => {
+                    const { draw, annotation, range, doc } = e.detail;
+                    if (annotation.type === 'bookmark') {
+                        // Collapse any range (full-page view, paragraph, or text selection) to its first visible char
+                        if (range && doc) {
+                            const startCharRange = collapseRangeToFirstChar(doc, range);
+                            range.setStart(startCharRange.startContainer, startCharRange.startOffset);
+                            range.setEnd(startCharRange.endContainer, startCharRange.endOffset);
+                        }
+
+                        draw(drawBookmarkMarker, {
+                            color: annotation.color || '#ff4d4f',
+                            onClick: () => {
+                                const existingBookmark = bookmarksRef.current.find(
+                                    b => b.id === annotation.id || b.cfi === annotation.value
+                                );
+                                if (existingBookmark) {
+                                    modal.confirm({
+                                        title: 'Bookmark',
+                                        content: existingBookmark.label || existingBookmark.chapter || 'Saved bookmark',
+                                        okText: 'Remove Bookmark',
+                                        okButtonProps: { danger: true },
+                                        cancelText: 'Close',
+                                        onOk: () => deleteBookmarkRef.current(existingBookmark.id)
+                                    });
+                                }
+                            }
+                        });
+                    } else {
+                        draw(Overlayer.highlight, { color: annotation.color || '#ffeb3b' });
+                    }
+                });
+
+                // Handle clicking an existing note highlight in the book (bookmarks are handled exclusively by their icon)
+                foliateView.addEventListener('show-annotation', (e) => {
+                    const { value } = e.detail;
+
+                    const existingNote = notesRef.current.find(n => n.cfi === value);
+                    if (existingNote) {
+                        setNoteModal({
+                            open: true,
+                            id: existingNote.id,
+                            cfi: existingNote.cfi,
+                            text: existingNote.text || '',
+                            note: existingNote.note || '',
+                            color: existingNote.color || '#ffeb3b',
+                            chapter: existingNote.chapter || '',
+                            sectionIndex: existingNote.sectionIndex ?? existingNote.section_index ?? null
+                        });
+                    }
                 });
 
                 // Automatically inject current dynamic style whenever new chapter content loads
                 foliateView.addEventListener('load', (e) => {
                     const doc = e.detail?.doc;
+                    const index = e.detail?.index;
                     if (doc) {
                         // Register active document to enable instant live style updates
                         activeDocsRef.current.add(doc);
 
                         let mouseTimer = null;
+                        let selectionTimer = null;
+                        let isTouching = false;
 
                         // Attach keyboard navigation directly to iframe document so focus inside book doesn't block arrows
                         doc.addEventListener('keydown', onKeyDown);
@@ -402,17 +687,101 @@ export default function BookId() {
                         if (doc.defaultView) {
                             doc.defaultView.addEventListener('unload', () => {
                                 if (mouseTimer) window.clearTimeout(mouseTimer);
+                                if (selectionTimer) window.clearTimeout(selectionTimer);
                                 doc.removeEventListener('keydown', onKeyDown);
                                 activeDocsRef.current.delete(doc);
                             }, { once: true });
                         }
 
-                        injectStylesheetToDoc(doc, cssStringRef.current);
+                        injectStylesheetToDoc(doc, cssStringRef.current, colorBgElevated, bookmarkPickModeRef.current);
+
+                        setTimeout(() => {
+                            applyAllAnnotationsToView();
+                        }, 50);
+
+                        const updateSelectionMenu = () => {
+                            const selection = doc.getSelection();
+                            if (!selection || selection.isCollapsed) {
+                                setSelectionMenu(prev => prev.open ? { ...prev, open: false } : prev);
+                                return;
+                            }
+
+                            const selectedText = selection.toString().trim();
+                            if (!selectedText) {
+                                setSelectionMenu(prev => prev.open ? { ...prev, open: false } : prev);
+                                return;
+                            }
+
+                            const range = selection.getRangeAt(0);
+                            const rect = range.getBoundingClientRect();
+                            if (rect.width === 0 && rect.height === 0) return;
+
+                            const frameElement = doc.defaultView?.frameElement;
+                            const frameRect = frameElement
+                                ? frameElement.getBoundingClientRect()
+                                : { left: 0, top: 0 };
+
+                            const absX = frameRect.left + rect.left + (rect.width / 2);
+                            const isMobile = window.matchMedia('(pointer: coarse)').matches;
+                            const placeBottom = isMobile || (frameRect.top + rect.top < 90);
+                            const absY = placeBottom
+                                ? frameRect.top + rect.bottom + 12
+                                : frameRect.top + rect.top - 12;
+
+                            const cfi = foliateView.getCFI(index, range);
+
+                            setSelectionMenu({
+                                open: true,
+                                x: Math.max(150, Math.min(window.innerWidth - 150, absX)),
+                                y: Math.max(16, Math.min(window.innerHeight - 60, absY)),
+                                placement: placeBottom ? 'bottom' : 'top',
+                                cfi: cfi,
+                                text: selectedText,
+                                sectionIndex: index,
+                                chapter: chapterRef.current?.label || null
+                            });
+                        };
+
+                        doc.addEventListener('selectionchange', () => {
+                            if (selectionTimer) window.clearTimeout(selectionTimer);
+                            selectionTimer = window.setTimeout(() => {
+                                if (!isTouching) {
+                                    updateSelectionMenu();
+                                }
+                            }, 250);
+                        });
+
+                        doc.addEventListener('mouseup', () => {
+                            setTimeout(updateSelectionMenu, 40);
+                        });
 
                         // Open image view modal when clicking on img or svg image inside chapter iframe
+                        // Handle paragraph bookmark pick mode
                         doc.addEventListener('click', evt => {
                             const target = evt.target;
                             const tag = target?.tagName ? target.tagName.toLowerCase() : '';
+
+                            // Check if user is picking a specific paragraph for a bookmark (or holding Alt+Click)
+                            if (bookmarkPickModeRef.current || evt.altKey) {
+                                const blockNode = target?.closest?.('p, li, h1, h2, h3, h4, h5, h6, blockquote');
+                                if (blockNode) {
+                                    evt.preventDefault();
+                                    evt.stopPropagation();
+
+                                    // Always target the exact beginning of the paragraph's text
+                                    const startCharRange = getParagraphStartRange(doc, blockNode);
+                                    const cfi = foliateView.getCFI(index, startCharRange);
+
+                                    const rawText = blockNode.textContent?.trim() || '';
+                                    const snippet = rawText
+                                        ? `«${rawText.slice(0, 65)}${rawText.length > 65 ? '…' : ''}»`
+                                        : null;
+
+                                    addBookmarkRef.current(snippet, cfi);
+                                    setBookmarkPickMode(false);
+                                    return;
+                                }
+                            }
 
                             if (tag === 'img') {
                                 evt.preventDefault();
@@ -448,12 +817,21 @@ export default function BookId() {
                             };
                         }
 
-                        // Turn page on touch swipe
+                        // Turn page on touch swipe (guarded against active text selection on mobile)
                         let start, end;
                         doc.documentElement.ontouchstart = touchEvt => {
+                            isTouching = true;
                             start = touchEvt.changedTouches[0];
                         };
                         doc.documentElement.ontouchend = touchEvt => {
+                            isTouching = false;
+
+                            const selection = doc.getSelection();
+                            if (selection && !selection.isCollapsed && selection.toString().trim().length > 0) {
+                                updateSelectionMenu();
+                                return;
+                            }
+
                             end = touchEvt.changedTouches[0];
                             const boundArea = viewerRef.current;
                             if (boundArea && start && end) {
@@ -522,6 +900,8 @@ export default function BookId() {
                 } else {
                     await foliateView.goTo(currentPosition);
                 }
+
+                applyAllAnnotationsToView();
 
                 isRendering.current = false;
                 if (active) {
@@ -777,16 +1157,53 @@ export default function BookId() {
             prev, next,
             contentsDrawerOpen, setContentsDrawerOpen,
             settingsDrawerOpen, setSettingsDrawerOpen,
+            bookmarks, addBookmark, deleteBookmark,
+            bookmarkPickMode, setBookmarkPickMode,
+            notes, deleteNote, setNoteModal,
         }}>
             <title>{title}</title>
             <BookHeader/>
+
+            <SelectionFloatingMenu
+                selectionMenu={selectionMenu}
+                bookmarkPickMode={bookmarkPickMode}
+                setBookmarkPickMode={setBookmarkPickMode}
+                onQuickHighlight={quickHighlight}
+                onOpenNoteModal={openNoteModalFromSelection}
+                onBookmarkSelection={() => {
+                    const snippet = `«${selectionMenu.text.slice(0, 65)}${selectionMenu.text.length > 65 ? '…' : ''}»`;
+                    addBookmark(snippet, selectionMenu.cfi);
+                    clearActiveSelections();
+                }}
+                onCopySelection={() => {
+                    navigator.clipboard.writeText(selectionMenu.text).then(() => {
+                        message.success("Copied to clipboard");
+                    });
+                    clearActiveSelections();
+                }}
+                onTranslateSelection={() => {
+                    const url = `https://translate.google.com/?sl=auto&tl=it&text=${encodeURIComponent(selectionMenu.text)}&op=translate`;
+                    window.open(url, '_blank', 'noopener,noreferrer');
+                    clearActiveSelections();
+                }}
+                onCloseMenu={clearActiveSelections}
+            />
+
             <BookBody loading={loading} viewerRef={viewerRef}/>
             <BookFooter/>
+
             <ImageViewModal
                 open={imageModal.open}
                 src={imageModal.src}
                 alt={imageModal.alt}
                 onClose={() => setImageModal({ open: false, src: '', alt: '' })}
+            />
+
+            <NoteModal
+                noteModal={noteModal}
+                setNoteModal={setNoteModal}
+                onSave={saveNoteModal}
+                onDelete={deleteNote}
             />
         </BookContext>
     );

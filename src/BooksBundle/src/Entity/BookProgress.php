@@ -36,7 +36,7 @@ class BookProgress
     private int $total = 0;
 
     #[ORM\Column(options: ["default" => "0"])]
-    private float $fraction = 0;
+    private float $fraction = 0.0;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE, options: ["default" => new CurrentTimestamp()])]
     private \DateTimeInterface $lastRead;

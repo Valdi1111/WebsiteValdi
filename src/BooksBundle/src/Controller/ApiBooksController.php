@@ -3,12 +3,16 @@
 namespace App\BooksBundle\Controller;
 
 use App\BooksBundle\Entity\Book;
+use App\BooksBundle\Entity\BookBookmark;
 use App\BooksBundle\Entity\BookMetadata;
+use App\BooksBundle\Entity\BookNote;
 use App\BooksBundle\Entity\BookProgress;
 use App\BooksBundle\Entity\Library;
 use App\BooksBundle\Model\Channel;
 use App\BooksBundle\Model\EbookLoader;
 use App\BooksBundle\Normalizer\BookMetadataNormalizer;
+use App\BooksBundle\Repository\BookBookmarkRepository;
+use App\BooksBundle\Repository\BookNoteRepository;
 use App\BooksBundle\Repository\BookRepository;
 use App\BooksBundle\Repository\LibraryRepository;
 use App\BooksBundle\Repository\ShelfRepository;
@@ -20,6 +24,7 @@ use League\Flysystem\Filesystem;
 use League\Flysystem\FilesystemReader;
 use League\Flysystem\PathTraversalDetected;
 use League\Flysystem\StorageAttributes;
+use Liip\ImagineBundle\Exception\Binary\Loader\NotLoadableException;
 use Liip\ImagineBundle\Imagine\Cache\CacheManager;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -335,13 +340,17 @@ class ApiBooksController extends AbstractController
     {
         try {
             $binary = $bookCoverLoader->find($book->getId());
-            return new Response($binary->getContent(), 200, [
-                'Content-Type' => $binary->getMimeType(),
-                'Content-Disposition' => "inline; filename=\"cover_{$book->getId()}.{$binary->getFormat()}\"",
-            ]);
-        } catch (\Exception) {
-            throw new BadRequestHttpException("Cover file not found.");
+        } catch (NotLoadableException $e) {
+            throw $this->createNotFoundException("Cover file not found.");
+        } catch (\Exception $e) {
+            throw new BadRequestHttpException("Unknown error loading cover file.");
         }
+
+        $bag = new ResponseHeaderBag();
+        $bag->set('Content-Type', $binary->getMimeType());
+        $bag->set('Content-Disposition', $bag->makeDisposition(ResponseHeaderBag::DISPOSITION_INLINE, "cover_{$book->getId()}.{$binary->getFormat()}"));
+
+        return new Response($binary->getContent(), 200, $bag);
     }
 
     #[Route('/books/{book}/mark-{type}', name: 'books_id_mark', requirements: ['book' => '\d+', 'type' => 'read|unread'], methods: ['PUT'])]
@@ -352,14 +361,13 @@ class ApiBooksController extends AbstractController
             $progress = new BookProgress()->setUser($user);
             $book->addBookProgress($progress);
         }
-        $progress->setPosition(null);
+        $progress->setPosition(null)
+            ->setCurrent(0);
         if ($type === 'read') {
-            $progress->setCurrent(-1)
-                ->setFraction(1);
+            $progress->setFraction(1);
         }
         if ($type === 'unread') {
-            $progress->setCurrent(0)
-                ->setFraction(0);
+            $progress->setFraction(0);
         }
         $this->entityManager->flush();
         return $this->json(['id' => $book->getId()]);
@@ -405,4 +413,130 @@ class ApiBooksController extends AbstractController
         return $this->json(['id' => $book->getId()]);
     }
 
+    #[Route('/books/{book}/bookmarks', name: 'books_id_bookmarks_get', requirements: ['book' => '\d+'], methods: ['GET'])]
+    public function apiBooksIdBookmarksGet(
+        #[CurrentUser] ?User $user,
+        #[MapEntity(message: "Book not found.")] Book $book,
+        BookBookmarkRepository $bookmarkRepo
+    ): Response {
+        return $this->json($bookmarkRepo->findByBookAndUser($book, $user), context: [
+            'groups' => ['book:bookmark']
+        ]);
+    }
+
+    #[Route('/books/{book}/bookmarks', name: 'books_id_bookmarks_add', requirements: ['book' => '\d+'], methods: ['POST'])]
+    public function apiBooksIdBookmarksAdd(
+        Request $req,
+        #[CurrentUser] ?User $user,
+        #[MapEntity(message: "Book not found.")] Book $book
+    ): Response {
+        if (!$req->getPayload()->has('cfi')) {
+            throw new BadRequestHttpException("Parameter 'cfi' not found.");
+        }
+
+        $bookmark = new BookBookmark()
+            ->setUser($user)
+            ->setCfi($req->getPayload()->getString('cfi'))
+            ->setLabel($req->getPayload()->get('label'))
+            ->setChapter($req->getPayload()->get('chapter'))
+            ->setFraction((float) $req->getPayload()->get('fraction', 0));
+        $book->addBookBookmark($bookmark);
+
+        $this->entityManager->flush();
+
+        return $this->json($bookmark, context: ['groups' => ['book:bookmark']]);
+    }
+
+    #[Route('/books/{book}/bookmarks/{bookmark}', name: 'books_id_bookmarks_delete', requirements: ['book' => '\d+', 'bookmark' => '\d+'], methods: ['DELETE'])]
+    public function apiBooksIdBookmarksDelete(
+        #[CurrentUser] ?User $user,
+        #[MapEntity(message: "Book not found.")] Book $book,
+        #[MapEntity(message: "Bookmark not found.")] BookBookmark $bookmark
+    ): Response {
+        if ($bookmark->getBook()->getId() !== $book->getId() || $bookmark->getUser()->getId() !== $user->getId()) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $id = $bookmark->getId();
+        $this->entityManager->remove($bookmark);
+        $this->entityManager->flush();
+
+        return $this->json(['id' => $id]);
+    }
+
+    #[Route('/books/{book}/notes', name: 'books_id_notes_get', requirements: ['book' => '\d+'], methods: ['GET'])]
+    public function apiBooksIdNotesGet(
+        #[CurrentUser] ?User $user,
+        #[MapEntity(message: "Book not found.")] Book $book,
+        BookNoteRepository $noteRepo
+    ): Response {
+        return $this->json($noteRepo->findByBookAndUser($book, $user), context: [
+            'groups' => ['book:note']
+        ]);
+    }
+
+    #[Route('/books/{book}/notes', name: 'books_id_notes_add', requirements: ['book' => '\d+'], methods: ['POST'])]
+    public function apiBooksIdNotesAdd(
+        Request $req,
+        #[CurrentUser] ?User $user,
+        #[MapEntity(message: "Book not found.")] Book $book
+    ): Response {
+        if (!$req->getPayload()->has('cfi')) {
+            throw new BadRequestHttpException("Parameter 'cfi' not found.");
+        }
+
+        $note = new BookNote()
+            ->setUser($user)
+            ->setCfi($req->getPayload()->getString('cfi'))
+            ->setText($req->getPayload()->get('text'))
+            ->setNote($req->getPayload()->get('note'))
+            ->setColor($req->getPayload()->getString('color', '#ffeb3b'))
+            ->setChapter($req->getPayload()->get('chapter'))
+            ->setSectionIndex($req->getPayload()->get('sectionIndex') !== null ? $req->getPayload()->getInt('sectionIndex') : null);
+        $book->addBookNote($note);
+
+        $this->entityManager->flush();
+
+        return $this->json($note, context: ['groups' => ['book:note']]);
+    }
+
+    #[Route('/books/{book}/notes/{note}', name: 'books_id_notes_edit', requirements: ['book' => '\d+', 'note' => '\d+'], methods: ['PUT'])]
+    public function apiBooksIdNotesEdit(
+        Request $req,
+        #[CurrentUser] ?User $user,
+        #[MapEntity(message: "Book not found.")] Book $book,
+        #[MapEntity(message: "Note not found.")] BookNote $note
+    ): Response {
+        if ($note->getBook()->getId() !== $book->getId() || $note->getUser()->getId() !== $user->getId()) {
+            throw $this->createAccessDeniedException();
+        }
+
+        if ($req->getPayload()->has('note')) {
+            $note->setNote($req->getPayload()->get('note'));
+        }
+        if ($req->getPayload()->has('color')) {
+            $note->setColor($req->getPayload()->getString('color'));
+        }
+
+        $this->entityManager->flush();
+
+        return $this->json($note, context: ['groups' => ['book:note']]);
+    }
+
+    #[Route('/books/{book}/notes/{note}', name: 'books_id_notes_delete', requirements: ['book' => '\d+', 'note' => '\d+'], methods: ['DELETE'])]
+    public function apiBooksIdNotesDelete(
+        #[CurrentUser] ?User $user,
+        #[MapEntity(message: "Book not found.")] Book $book,
+        #[MapEntity(message: "Note not found.")] BookNote $note
+    ): Response {
+        if ($note->getBook()->getId() !== $book->getId() || $note->getUser()->getId() !== $user->getId()) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $id = $note->getId();
+        $this->entityManager->remove($note);
+        $this->entityManager->flush();
+
+        return $this->json(['id' => $id]);
+    }
 }

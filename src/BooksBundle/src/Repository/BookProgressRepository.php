@@ -2,7 +2,9 @@
 
 namespace App\BooksBundle\Repository;
 
+use App\BooksBundle\Entity\Book;
 use App\BooksBundle\Entity\BookProgress;
+use App\CoreBundle\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -21,4 +23,16 @@ class BookProgressRepository extends ServiceEntityRepository
         parent::__construct($registry, BookProgress::class);
     }
 
+    public function findByBookAndUser(Book $book, User $user): ?BookProgress
+    {
+        return $this->createQueryBuilder('n')
+            ->andWhere('n.book = :book')
+            ->andWhere('n.user = :user')
+            ->setParameter('book', $book)
+            ->setParameter('user', $user)
+            ->orderBy('n.sectionIndex', 'ASC')
+            ->addOrderBy('n.id', 'DESC')
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
 }

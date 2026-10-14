@@ -49,9 +49,19 @@ class Book
     #[OneToMany(targetEntity: BookProgress::class, mappedBy: 'book', cascade: ['persist', 'remove'], indexBy: 'user_id')]
     private Collection $bookProgresses;
 
+    /** @var Collection<int, BookBookmark> */
+    #[OneToMany(targetEntity: BookBookmark::class, mappedBy: 'book', cascade: ['persist', 'remove'], indexBy: 'user_id')]
+    private Collection $bookBookmarks;
+
+    /** @var Collection<int, BookNote> */
+    #[OneToMany(targetEntity: BookNote::class, mappedBy: 'book', cascade: ['persist', 'remove'], indexBy: 'user_id')]
+    private Collection $bookNotes;
+
     public function __construct()
     {
         $this->bookProgresses = new ArrayCollection();
+        $this->bookBookmarks = new ArrayCollection();
+        $this->bookNotes = new ArrayCollection();
     }
 
     #[Groups(['book:list', 'book:metadata'])]
@@ -160,6 +170,70 @@ class Book
         if ($this->getBookProgresses()->removeElement($progress)) {
             if ($progress->getBook() === $this) {
                 $progress->setBook(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /** @return Collection<int, BookBookmark> */
+    public function getBookBookmarks(): Collection
+    {
+        return $this->bookBookmarks;
+    }
+
+    public function getBookBookmark(User $user): ?BookBookmark
+    {
+        return $this->getBookBookmarks()->get($user->getId());
+    }
+
+    public function addBookBookmark(BookBookmark $bookmark): self
+    {
+        if (!$this->getBookBookmarks()->contains($bookmark)) {
+            $this->bookBookmarks[] = $bookmark;
+            $bookmark->setBook($this);
+        }
+
+        return $this;
+    }
+
+    public function removeBookBookmark(BookBookmark $bookmark): self
+    {
+        if ($this->getBookBookmarks()->removeElement($bookmark)) {
+            if ($bookmark->getBook() === $this) {
+                $bookmark->setBook(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /** @return Collection<int, BookNote> */
+    public function getBookNotes(): Collection
+    {
+        return $this->bookNotes;
+    }
+
+    public function getBookNote(User $user): ?BookNote
+    {
+        return $this->getBookNotes()->get($user->getId());
+    }
+
+    public function addBookNote(BookNote $note): self
+    {
+        if (!$this->getBookNotes()->contains($note)) {
+            $this->bookNotes[] = $note;
+            $note->setBook($this);
+        }
+
+        return $this;
+    }
+
+    public function removeBookNote(BookNote $note): self
+    {
+        if ($this->getBookNotes()->removeElement($note)) {
+            if ($note->getBook() === $this) {
+                $note->setBook(null);
             }
         }
 

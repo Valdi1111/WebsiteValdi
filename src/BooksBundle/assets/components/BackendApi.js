@@ -31,6 +31,13 @@ import axios from "axios";
  * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} delete
  * @property {(url: string) => Promise<axios.AxiosResponse<any>>} create
  * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} recreate
+ * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} getBookmarks
+ * @property {(id: string|number, data: Object) => Promise<axios.AxiosResponse<any>>} addBookmark
+ * @property {(id: string|number, bookmarkId: string|number) => Promise<axios.AxiosResponse<any>>} deleteBookmark
+ * @property {(id: string|number) => Promise<axios.AxiosResponse<any>>} getNotes
+ * @property {(id: string|number, data: Object) => Promise<axios.AxiosResponse<any>>} addNote
+ * @property {(id: string|number, noteId: string|number, data: Object) => Promise<axios.AxiosResponse<any>>} editNote
+ * @property {(id: string|number, noteId: string|number) => Promise<axios.AxiosResponse<any>>} deleteNote
  */
 
 /**
@@ -77,6 +84,18 @@ export default function (apiUrl, libraryId, { message }) {
     api._books.getMetadata = async (id) => axiosInstance.get(`/libraries/${libraryId}/books/${id}/metadata`);
     api._books.getId = async (id) => axiosInstance.get(`/libraries/${libraryId}/books/${id}`);
     api._books.delete = async (id) => axiosInstance.delete(`/libraries/${libraryId}/books/${id}`);
+
+    // Bookmarks endpoints
+    api._books.getBookmarks = async (id) => axiosInstance.get(`/libraries/${libraryId}/books/${id}/bookmarks`);
+    api._books.addBookmark = async (id, data) => axiosInstance.post(`/libraries/${libraryId}/books/${id}/bookmarks`, data);
+    api._books.deleteBookmark = async (id, bookmarkId) => axiosInstance.delete(`/libraries/${libraryId}/books/${id}/bookmarks/${bookmarkId}`);
+
+    // Notes endpoints
+    api._books.getNotes = async (id) => axiosInstance.get(`/libraries/${libraryId}/books/${id}/notes`);
+    api._books.addNote = async (id, data) => axiosInstance.post(`/libraries/${libraryId}/books/${id}/notes`, data);
+    api._books.editNote = async (id, noteId, data) => axiosInstance.put(`/libraries/${libraryId}/books/${id}/notes/${noteId}`, data);
+    api._books.deleteNote = async (id, noteId) => axiosInstance.delete(`/libraries/${libraryId}/books/${id}/notes/${noteId}`);
+
     api._books.create = async (url) => {
         console.debug("Creating book from link...");
         const epub = new Book(api.epubUrl(url));

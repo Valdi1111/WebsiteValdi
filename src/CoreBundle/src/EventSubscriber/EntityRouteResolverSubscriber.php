@@ -107,7 +107,7 @@ class EntityRouteResolverSubscriber
             $argumentMetadata = new ArgumentMetadata(
                 name: $param->getName(),
                 type: $paramType->getName(),
-                isVariadic: false,
+                isVariadic: $param->isVariadic(),
                 hasDefaultValue: $param->isDefaultValueAvailable(),
                 defaultValue: $param->isDefaultValueAvailable() ? $param->getDefaultValue() : null,
                 isNullable: $paramType->allowsNull(),

@@ -14,9 +14,9 @@ use App\BooksBundle\Normalizer\BookMetadataNormalizer;
 use App\BooksBundle\Repository\BookBookmarkRepository;
 use App\BooksBundle\Repository\BookNoteRepository;
 use App\BooksBundle\Repository\BookRepository;
-use App\BooksBundle\Repository\LibraryRepository;
 use App\BooksBundle\Repository\ShelfRepository;
 use App\BooksBundle\Service\BookCoverLoader;
+use App\CoreBundle\Attribute\ResolveEntityFromRoute;
 use App\CoreBundle\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FileAttributes;
@@ -30,7 +30,6 @@ use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Filesystem\Path;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpKernel\Attribute\MapQueryParameter;
@@ -46,6 +45,7 @@ use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 use Symfony\Component\Serializer\Serializer;
 
+#[ResolveEntityFromRoute(setter: 'setLibrary')]
 #[IsGranted('ROLE_USER_BOOKS', null, 'Access Denied.')]
 #[Route('/api/libraries/{library}', name: 'api_libraries_id_', requirements: ['library' => '\d+'], format: 'json')]
 class ApiBooksController extends AbstractController
@@ -55,20 +55,18 @@ class ApiBooksController extends AbstractController
 
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
-        private readonly LibraryRepository      $libraryRepo,
-        private readonly RequestStack           $requestStack)
+    )
     {
-        $req = $this->requestStack->getCurrentRequest();
-        $library = $this->libraryRepo->find($req->attributes->getInt('library'));
-        if (!$library) {
-            throw $this->createNotFoundException("Library not found.");
-        }
-        $this->library = $library;
     }
 
     protected function getLibrary(): Library
     {
         return $this->library;
+    }
+
+    public function setLibrary(#[MapEntity(id: 'library', message: "Library not found.")] Library $library): void
+    {
+        $this->library = $library;
     }
 
     protected function getFilesystem(): Filesystem

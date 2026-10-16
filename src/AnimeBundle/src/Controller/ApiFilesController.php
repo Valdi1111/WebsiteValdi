@@ -20,7 +20,7 @@ class ApiFilesController extends AbstractController
     {
     }
 
-    public function getBaseFolder(): string
+    protected function getBaseFolder(): string
     {
         return $this->baseFolder;
     }

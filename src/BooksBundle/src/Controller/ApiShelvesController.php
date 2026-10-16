@@ -7,18 +7,18 @@ use App\BooksBundle\Entity\Shelf;
 use App\BooksBundle\Model\Channel;
 use App\BooksBundle\Normalizer\BookMetadataNormalizer;
 use App\BooksBundle\Repository\BookRepository;
-use App\BooksBundle\Repository\LibraryRepository;
+use App\CoreBundle\Attribute\ResolveEntityFromRoute;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Mercure\Authorization;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
+#[ResolveEntityFromRoute(setter: 'setLibrary')]
 #[IsGranted('ROLE_USER_BOOKS', null, 'Access Denied.')]
 #[Route('/api/libraries/{library}', name: 'api_libraries_id_', requirements: ['library' => '\d+'], format: 'json')]
 class ApiShelvesController extends AbstractController
@@ -28,20 +28,18 @@ class ApiShelvesController extends AbstractController
 
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
-        private readonly LibraryRepository      $libraryRepo,
-        private readonly RequestStack           $requestStack)
+    )
     {
-        $req = $this->requestStack->getCurrentRequest();
-        $library = $this->libraryRepo->find($req->attributes->getInt('library'));
-        if (!$library) {
-            throw $this->createNotFoundException("Library not found.");
-        }
-        $this->library = $library;
     }
 
     protected function getLibrary(): Library
     {
         return $this->library;
+    }
+
+    public function setLibrary(#[MapEntity(id: 'library', message: "Library not found.")] Library $library): void
+    {
+        $this->library = $library;
     }
 
     #[Route('/shelves', name: 'shelves', methods: ['GET'])]

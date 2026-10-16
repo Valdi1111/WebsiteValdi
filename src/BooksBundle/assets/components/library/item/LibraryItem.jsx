@@ -15,7 +15,7 @@ import {
 } from "@ant-design/icons";
 
 /**
- * @typedef {{id: int, url: string, shelf_id: int, book_metadata: {cover: bool, cover_url: ?string, title: string, creator: string}, book_progress: {position: ?string, current: int, total: int, fraction: double}}} BookProps
+ * @typedef {{id: int, url: string, shelf_id: int, book_metadata: {cover: bool, cover_url: ?string, title: string, creator: string}, book_progress: {position: ?string, current: int, total: int, fraction: double}|null}} BookProps
  */
 
 /**
@@ -28,7 +28,7 @@ export default function LibraryItem(props) {
     const hide_shelf = props.hide_shelf | false;
     const { id, shelf_id } = props.book;
     const { cover, cover_url, title, creator } = props.book.book_metadata;
-    const [fraction, setFraction] = React.useState(props.book.book_progress.fraction);
+    const [fraction, setFraction] = React.useState(props.book.book_progress?.fraction ?? 0);
 
     const { modal } = App.useApp();
     const navigate = useNavigate();

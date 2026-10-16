@@ -50,11 +50,11 @@ class Book
     private Collection $bookProgresses;
 
     /** @var Collection<int, BookBookmark> */
-    #[OneToMany(targetEntity: BookBookmark::class, mappedBy: 'book', cascade: ['persist', 'remove'], indexBy: 'user_id')]
+    #[OneToMany(targetEntity: BookBookmark::class, mappedBy: 'book', cascade: ['persist', 'remove'])]
     private Collection $bookBookmarks;
 
     /** @var Collection<int, BookNote> */
-    #[OneToMany(targetEntity: BookNote::class, mappedBy: 'book', cascade: ['persist', 'remove'], indexBy: 'user_id')]
+    #[OneToMany(targetEntity: BookNote::class, mappedBy: 'book', cascade: ['persist', 'remove'])]
     private Collection $bookNotes;
 
     public function __construct()

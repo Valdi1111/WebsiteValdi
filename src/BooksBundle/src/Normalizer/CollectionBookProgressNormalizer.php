@@ -26,7 +26,7 @@ class CollectionBookProgressNormalizer implements NormalizerInterface
     /**
      * @inheritDoc
      */
-    public function normalize(mixed $data, ?string $format = null, array $context = []): array
+    public function normalize(mixed $data, ?string $format = null, array $context = []): ?array
     {
         if (!$data instanceof Collection) {
             throw new InvalidArgumentException(sprintf("The object must be an instance of '%s'.", Collection::class));
@@ -35,7 +35,7 @@ class CollectionBookProgressNormalizer implements NormalizerInterface
         $user = $this->security->getUser();
         $progress = $data->get($user->getId());
         if (!$progress) {
-            $progress = new BookProgress();
+            return null;
         }
         return $this->normalizer->normalize($progress, $format, $context);
     }

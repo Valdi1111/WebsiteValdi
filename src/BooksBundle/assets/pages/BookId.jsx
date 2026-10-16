@@ -557,7 +557,12 @@ export default function BookId() {
                 setNotes(notesRes?.data || []);
 
                 // Initialize location from backend progress
-                setLocation(res.data.book_progress);
+                setLocation({
+                    position: res.data.book_progress?.position ?? null,
+                    current: res.data.book_progress?.current ?? 0,
+                    total: res.data.book_progress?.total ?? 100,
+                    fraction: res.data.book_progress?.fraction ?? 0
+                });
 
                 const area = viewerRef.current;
                 if (!area || isRendering.current) {

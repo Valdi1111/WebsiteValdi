@@ -43,7 +43,7 @@ trait FileManagerTrait
         };
     }
 
-    public abstract function getBaseFolder(): string;
+    protected abstract function getBaseFolder(): string;
 
     public function getFilesystem(): Filesystem
     {

@@ -1,0 +1,3 @@
+twig:
+    globals:
+        gryphline_domain_name: '%gryphline.domain_name%'

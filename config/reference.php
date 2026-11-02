@@ -275,6 +275,9 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         },
  *     },
  * }
+ * @psalm-type GryphlineConfig = array{
+ *     domain_name?: scalar|Param|null, // Default: null
+ * }
  * @psalm-type PasswordsConfig = array{
  *     domain_name?: scalar|Param|null, // Default: null
  *     encryption_key?: scalar|Param|null, // Default: null
@@ -1885,6 +1888,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     anime?: AnimeConfig,
  *     books?: BooksConfig,
  *     hoyoverse?: HoyoverseConfig,
+ *     gryphline?: GryphlineConfig,
  *     passwords?: PasswordsConfig,
  *     videos?: VideosConfig,
  *     doctrine?: DoctrineConfig,
@@ -1905,6 +1909,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         anime?: AnimeConfig,
  *         books?: BooksConfig,
  *         hoyoverse?: HoyoverseConfig,
+ *         gryphline?: GryphlineConfig,
  *         passwords?: PasswordsConfig,
  *         videos?: VideosConfig,
  *         doctrine?: DoctrineConfig,
@@ -1929,6 +1934,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         anime?: AnimeConfig,
  *         books?: BooksConfig,
  *         hoyoverse?: HoyoverseConfig,
+ *         gryphline?: GryphlineConfig,
  *         passwords?: PasswordsConfig,
  *         videos?: VideosConfig,
  *         doctrine?: DoctrineConfig,
@@ -1950,6 +1956,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         anime?: AnimeConfig,
  *         books?: BooksConfig,
  *         hoyoverse?: HoyoverseConfig,
+ *         gryphline?: GryphlineConfig,
  *         passwords?: PasswordsConfig,
  *         videos?: VideosConfig,
  *         doctrine?: DoctrineConfig,

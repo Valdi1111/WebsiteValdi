@@ -81,6 +81,7 @@
             "App\\AnimeBundle\\": "src/AnimeBundle/src/",
             "App\\BooksBundle\\": "src/BooksBundle/src/",
             "App\\HoyoverseBundle\\": "src/HoyoverseBundle/src/",
+            "App\\GryphlineBundle\\": "src/GryphlineBundle/src/",
             "App\\PasswordsBundle\\": "src/PasswordsBundle/src/",
             "App\\VideosBundle\\": "src/VideosBundle/src/"
         }
@@ -92,6 +93,7 @@
             "App\\AnimeBundle\\Tests\\": "src/AnimeBundle/tests/",
             "App\\BooksBundle\\Tests\\": "src/BooksBundle/tests/",
             "App\\HoyoverseBundle\\Tests\\": "src/HoyoverseBundle/tests/",
+            "App\\GryphlineBundle\\Tests\\": "src/GryphlineBundle/tests/",
             "App\\PasswordsBundle\\Tests\\": "src/PasswordsBundle/tests/",
             "App\\VideosBundle\\Tests\\": "src/VideosBundle/tests/"
         }

@@ -4,6 +4,8 @@
     "{{ asset('build/images/books-favicon.ico') }}"
 {% elseif app.request().headers.get('host') is same as(hoyoverse_domain_name) %}
     "{{ asset('build/images/hoyoverse-favicon.ico') }}"
+{% elseif app.request().headers.get('host') is same as(gryphline_domain_name) %}
+    "{{ asset('build/images/gryphline-favicon.ico') }}"
 {% elseif app.request().headers.get('host') is same as(passwords_domain_name) %}
     "{{ asset('build/images/passwords-favicon.ico') }}"
 {% elseif app.request().headers.get('host') is same as(videos_domain_name) %}

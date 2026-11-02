@@ -15,6 +15,7 @@ Encore
         '@AnimeBundle': path.resolve(import.meta.dirname, 'src/AnimeBundle/assets/'),
         '@BooksBundle': path.resolve(import.meta.dirname, 'src/BooksBundle/assets/'),
         '@HoyoverseBundle': path.resolve(import.meta.dirname, 'src/HoyoverseBundle/assets/'),
+        '@GryphlineBundle': path.resolve(import.meta.dirname, 'src/GryphlineBundle/assets/'),
         '@PasswordsBundle': path.resolve(import.meta.dirname, 'src/PasswordsBundle/assets/'),
         '@VideosBundle': path.resolve(import.meta.dirname, 'src/VideosBundle/assets/'),
     })
@@ -30,6 +31,7 @@ Encore
         {from: path.resolve(import.meta.dirname, 'src/BooksBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
         {from: path.resolve(import.meta.dirname, 'src/CoreBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
         {from: path.resolve(import.meta.dirname, 'src/HoyoverseBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
+        {from: path.resolve(import.meta.dirname, 'src/GryphlineBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
         {from: path.resolve(import.meta.dirname, 'src/PasswordsBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
         {from: path.resolve(import.meta.dirname, 'src/VideosBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
     ])
@@ -45,6 +47,7 @@ Encore
     .addEntry('anime', '@AnimeBundle/app.js')
     .addEntry('books', '@BooksBundle/app.js')
     .addEntry('hoyoverse', '@HoyoverseBundle/app.js')
+    .addEntry('gryphline', '@GryphlineBundle/app.js')
     .addEntry('passwords', '@PasswordsBundle/app.js')
     .addEntry('videos', '@VideosBundle/app.js')
     .addEntry('app', '@App/app.js')

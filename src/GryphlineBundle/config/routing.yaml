@@ -1,0 +1,7 @@
+controllers:
+    resource:
+        path: ../src/Controller/
+        namespace: App\GryphlineBundle\Controller
+    type: attribute
+    name_prefix: gryphline_
+    host: '%gryphline.domain_name%'

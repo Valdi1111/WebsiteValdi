@@ -2,12 +2,12 @@
 
 namespace App\HoyoverseBundle\Controller;
 
+use App\CoreBundle\Attribute\ResolveEntityFromRoute;
 use App\CoreBundle\Entity\User;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Model\Diary\GameDiaryCurrency;
 use App\HoyoverseBundle\Model\Game\GameInterface;
-use App\HoyoverseBundle\Repository\HoyoverseAccountRepository;
 use App\HoyoverseBundle\Repository\HoyoverseDiaryEntryRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -15,7 +15,6 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Routing\Attribute\Route;
@@ -24,6 +23,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 
+#[ResolveEntityFromRoute(setter: 'setAccount')]
 #[IsGranted('ROLE_USER_HOYOVERSE', null, 'Access Denied.')]
 #[Route('/api/accounts/{account}', name: 'api_hoyoverse_game_profiles_', requirements: ['account' => '\d+'], format: 'json')]
 class ApiGameProfilesController extends AbstractController
@@ -35,25 +35,20 @@ class ApiGameProfilesController extends AbstractController
      */
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
-        private readonly HoyoverseAccountRepository $accountRepo,
-        private readonly RequestStack $requestStack,
         #[AutowireLocator(services: 'hoyoverse.game.id', indexAttribute: 'key')]
         private readonly ServiceLocator $locatorByGameId
-    ) {
-        $req = $this->requestStack->getCurrentRequest();
-        $accountId = $req?->attributes->getInt('account') ?? 0;
-        $account = $this->accountRepo->find($accountId);
-
-        if (!$account) {
-            throw $this->createNotFoundException("Hoyoverse Account not found.");
-        }
-
-        $this->account = $account;
+    )
+    {
     }
 
     protected function getAccount(): HoyoverseAccount
     {
         return $this->account;
+    }
+
+    public function setAccount(#[MapEntity(id: 'account', message: "Hoyoverse Account not found.")] HoyoverseAccount $account): void
+    {
+        $this->account = $account;
     }
 
     protected function checkAccountOwnership(User $user): void

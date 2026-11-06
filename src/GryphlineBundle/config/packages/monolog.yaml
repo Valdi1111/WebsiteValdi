@@ -1,0 +1,18 @@
+monolog:
+    channels:
+        - gryphline
+        - gryphline.endfield
+
+when@prod:
+    monolog:
+        handlers:
+            gryphline_file:
+                type: stream
+                path: '%kernel.logs_dir%/gryphline.log'
+                level: debug
+                channels: ['gryphline']
+            gryphline_endfield_file:
+                type: stream
+                path: '%kernel.logs_dir%/gryphline-endfield.log'
+                level: debug
+                channels: ['gryphline.endfield']

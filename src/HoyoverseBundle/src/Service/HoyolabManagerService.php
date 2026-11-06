@@ -82,6 +82,7 @@ class HoyolabManagerService
             $gameProfile = $gameProfileRepo->findOneBy([
                 "account" => $account,
                 "gameBiz" => $gameRole->getGameBiz(),
+                "gameUid" => $gameRole->getGameUid(),
             ]);
             if (!$gameProfile) {
                 $gameProfile = new HoyoverseGameProfile();
@@ -144,11 +145,13 @@ class HoyolabManagerService
             $gameProfile = $gameProfileRepo->findOneBy([
                 "account" => $account,
                 "gameId" => $gameRecord->getGameId(),
+                "gameUid" => $gameRecord->getGameUid(),
             ]);
             if (!$gameProfile) {
                 $gameProfile = new HoyoverseGameProfile();
                 $gameService = $this->locatorByGameId->get($gameRecord->getGameId());
                 $gameProfile->setGameBiz($gameService::getGameBiz());
+                $gameProfile->setGameName($gameService->getGameName());
             }
 
             $this->getObjectMapper()->map($gameRecord, $gameProfile);
@@ -162,5 +165,4 @@ class HoyolabManagerService
 
         return $account;
     }
-
 }

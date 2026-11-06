@@ -7,24 +7,26 @@ use App\HoyoverseBundle\Model\Diary\ZenlessZoneZeroDiaryItem;
 use App\HoyoverseBundle\Model\Game\AutoCodeRedemptionTrait;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasAutoCodeRedemptionInterface;
-use App\HoyoverseBundle\Model\Game\HasDailiesInterface;
+use App\CoreBundle\Model\Game\HasDailiesInterface;
 use App\HoyoverseBundle\Model\Game\HasDiaryInterface;
 use App\HoyoverseBundle\Model\Game\DiaryTrait;
 use App\HoyoverseBundle\Model\Game\HasShopStatusInterface;
-use App\HoyoverseBundle\Model\Game\HasWeekliesInterface;
+use App\CoreBundle\Model\Game\HasWeekliesInterface;
 use App\HoyoverseBundle\Model\Game\GameService;
-use App\HoyoverseBundle\Model\Game\HasNotesInterface;
+use App\CoreBundle\Model\Game\HasNotesInterface;
 use App\HoyoverseBundle\Model\Game\NotesTrait;
-use App\HoyoverseBundle\Model\Game\HasStaminaInterface;
-use App\HoyoverseBundle\Model\Notes\GameNotesDailies;
-use App\HoyoverseBundle\Model\Notes\GameNotesProgressMetric;
-use App\HoyoverseBundle\Model\Notes\GameNotesStamina;
-use App\HoyoverseBundle\Model\Notes\GameNotesStateMetric;
-use App\HoyoverseBundle\Model\Notes\GameNotesWeeklies;
+use App\CoreBundle\Model\Game\HasStaminaInterface;
+use App\HoyoverseBundle\Model\Game\ZenlessZoneZeroEndgamesTrait;
+use App\CoreBundle\Model\GameNotes\GameNotesDailies;
+use App\CoreBundle\Model\GameNotes\GameNotesProgressMetric;
+use App\CoreBundle\Model\GameNotes\GameNotesStamina;
+use App\CoreBundle\Model\GameNotes\GameNotesStateMetric;
+use App\CoreBundle\Model\GameNotes\GameNotesWeeklies;
 use App\HoyoverseBundle\Model\Notes\ZenlessZoneZeroCafe;
 use App\HoyoverseBundle\Model\Notes\ZenlessZoneZeroCardSign;
 use App\HoyoverseBundle\Model\Notes\ZenlessZoneZeroNotes;
 use App\HoyoverseBundle\Model\Notes\ZenlessZoneZeroVhsSale;
+use App\CoreBundle\Model\Game\RuntimeAccountDataInterface;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AsAlias;
@@ -43,6 +45,7 @@ class ZenlessZoneZeroService extends GameService implements HasNotesInterface, H
     use NotesTrait;
     use DiaryTrait;
     use AutoCodeRedemptionTrait;
+    use ZenlessZoneZeroEndgamesTrait;
 
     public const string TYPE = "zenless-zone-zero";
     public const string GAME_BIZ = "nap_global";
@@ -176,7 +179,7 @@ class ZenlessZoneZeroService extends GameService implements HasNotesInterface, H
         return 300;
     }
 
-    public function getStaminaData(RuntimeAccountData $account): GameNotesStamina
+    public function getStaminaData(RuntimeAccountDataInterface $account): GameNotesStamina
     {
         $notes = $this->getNotes($account);
         return new GameNotesStamina()
@@ -185,7 +188,7 @@ class ZenlessZoneZeroService extends GameService implements HasNotesInterface, H
             ->setStaminaRecoverTime($notes->getEnergyRestore());
     }
 
-    public function getDailiesData(RuntimeAccountData $account): GameNotesDailies
+    public function getDailiesData(RuntimeAccountDataInterface $account): GameNotesDailies
     {
         $notes = $this->getNotes($account);
         return new GameNotesDailies()
@@ -209,7 +212,7 @@ class ZenlessZoneZeroService extends GameService implements HasNotesInterface, H
             );
     }
 
-    public function getWeekliesData(RuntimeAccountData $account): GameNotesWeeklies
+    public function getWeekliesData(RuntimeAccountDataInterface $account): GameNotesWeeklies
     {
         $notes = $this->getNotes($account);
         return new GameNotesWeeklies()

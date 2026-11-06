@@ -1,2 +1,14 @@
 gryphline:
     domain_name: 'gryphline.%domain_name%'
+    timezones:
+        EU: 'Europe/Paris'
+        CN: 'Asia/Shanghai'
+    tasks:
+        skport_check_in:
+            cron: '0 20 * * *'
+        stamina:
+            cron: '*/30 * * * *'
+        dailies_reminder:
+            cron: '0 21 * * *'
+        weeklies_reminder:
+            cron: '0 21 * * 0'

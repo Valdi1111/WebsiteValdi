@@ -3,7 +3,7 @@
 namespace App\HoyoverseBundle\MessageHandler\Profile;
 
 use App\HoyoverseBundle\Message\Profile\MimoCheckProfileMessage;
-use App\HoyoverseBundle\Message\Profile\ProfileTaskMessageInterface;
+use App\CoreBundle\Message\ProfileTaskMessageInterface;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasMimoInterface;
 use App\HoyoverseBundle\Model\RuntimeAccountData;

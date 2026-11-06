@@ -2,9 +2,10 @@
 
 namespace App\HoyoverseBundle\Model\Game;
 
+use App\CoreBundle\Model\Game\HasNotesInterface;
+use App\CoreBundle\Model\Game\RuntimeAccountDataInterface;
+use App\CoreBundle\Model\GameNotes\GameNotes;
 use App\HoyoverseBundle\Exception\RetrieveNotesDataException;
-use App\HoyoverseBundle\Model\Notes\GameNotes;
-use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -14,7 +15,7 @@ use Symfony\Component\HttpFoundation\Request;
 trait NotesTrait
 {
 
-    public function getNotes(RuntimeAccountData $account): GameNotes
+    public function getNotes(RuntimeAccountDataInterface $account): GameNotes
     {
         $profile = $account->getGameProfile();
 

@@ -1,0 +1,26 @@
+<?php
+
+namespace App\CoreBundle\Model\GameNotes;
+
+use Doctrine\Common\Collections\ArrayCollection;
+
+/**
+ * @extends ArrayCollection<int, GameNotesMetricInterface>
+ */
+class GameNotesDailies extends ArrayCollection
+{
+    public function addDaily(GameNotesMetricInterface $metric): self
+    {
+        $this->add($metric);
+        return $this;
+    }
+
+    public function allDone(): bool
+    {
+        if ($this->isEmpty()) {
+            return true;
+        }
+
+        return $this->forAll(static fn ($_, GameNotesMetricInterface $metric) => $metric->isDone());
+    }
+}

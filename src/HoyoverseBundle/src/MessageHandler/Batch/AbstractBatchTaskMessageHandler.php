@@ -2,10 +2,10 @@
 
 namespace App\HoyoverseBundle\MessageHandler\Batch;
 
-use App\HoyoverseBundle\Message\FeatureFlagMessageInterface;
-use App\HoyoverseBundle\Message\Profile\ProfileTaskMessageInterface;
-use App\HoyoverseBundle\Message\RegionalTaskMessageInterface;
-use App\HoyoverseBundle\Message\TaskMessageInterface;
+use App\CoreBundle\Message\FeatureFlagMessageInterface;
+use App\CoreBundle\Message\ProfileTaskMessageInterface;
+use App\CoreBundle\Message\RegionalTaskMessageInterface;
+use App\CoreBundle\Message\TaskMessageInterface;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Target;

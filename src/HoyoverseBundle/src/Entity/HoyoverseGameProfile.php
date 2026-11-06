@@ -2,6 +2,7 @@
 
 namespace App\HoyoverseBundle\Entity;
 
+use App\CoreBundle\Model\Game\GameProfileInterface;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -17,7 +18,7 @@ use Symfony\Component\Serializer\Attribute\Ignore;
 #[ORM\Index(name: 'FK_hoyoverse_game_profile_hoyoverse_account', columns: ['hoyoverse_account_id'])]
 #[ORM\Table(name: 'hoyoverse_game_profile')]
 #[ORM\Entity(repositoryClass: HoyoverseGameProfileRepository::class)]
-class HoyoverseGameProfile
+class HoyoverseGameProfile implements GameProfileInterface
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

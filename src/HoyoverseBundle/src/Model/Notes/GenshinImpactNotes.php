@@ -2,6 +2,8 @@
 
 namespace App\HoyoverseBundle\Model\Notes;
 
+use App\CoreBundle\Model\GameNotes\GameNotes;
+
 use Symfony\Component\Serializer\Attribute\SerializedName;
 use Symfony\Component\Serializer\Attribute\SerializedPath;
 

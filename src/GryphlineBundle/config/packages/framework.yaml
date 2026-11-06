@@ -1,0 +1,26 @@
+framework:
+    http_client:
+        scoped_clients:
+            gryphline.as.client:
+                base_uri: 'https://as.gryphline.com'
+                timeout: 30
+                retry_failed:
+                    max_retries: 3
+                    delay: 1000
+                    http_codes: [ 429, 500, 502, 503, 504 ]
+                headers:
+                    'Accept': 'application/json'
+                    'Content-Type': 'application/json'
+            gryphline.skport.client:
+                base_uri: 'https://zonai.skport.com'
+                timeout: 30
+                retry_failed:
+                    max_retries: 3
+                    delay: 1000
+                    http_codes: [ 429, 500, 502, 503, 504 ]
+                headers:
+                    'Accept': 'application/json'
+                    'platform': '3'
+                    'Origin': 'https://game.skport.com'
+                    'Referer': 'https://game.skport.com/'
+                    'User-Agent': 'Skport/0.7.0 (com.gryphline.skport; build:700089; Android 33; ) Okhttp/5.1.0'

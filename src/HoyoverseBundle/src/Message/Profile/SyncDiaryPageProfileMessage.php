@@ -2,6 +2,8 @@
 
 namespace App\HoyoverseBundle\Message\Profile;
 
+use App\CoreBundle\Message\ProfileTaskMessageInterface;
+
 use App\HoyoverseBundle\Model\Diary\GameDiaryCurrency;
 use Symfony\Component\Messenger\Attribute\AsMessage;
 

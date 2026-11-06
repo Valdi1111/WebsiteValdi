@@ -178,7 +178,7 @@ trait HoyolabTrait
      *
      * @template TException of HoyolabException
      *
-     * @param RuntimeAccountData|ParsedCookie $auth
+     * @param \App\CoreBundle\Model\Game\RuntimeAccountDataInterface|RuntimeAccountData|ParsedCookie $auth
      * @param class-string<TException>        $exceptionClass
      * @param list<int>                       $allowedRetcodes
      * @return array<string, mixed>
@@ -188,7 +188,7 @@ trait HoyolabTrait
     protected function requestHoyolab(
         string $method,
         string $url,
-        RuntimeAccountData|ParsedCookie $auth,
+        \App\CoreBundle\Model\Game\RuntimeAccountDataInterface|RuntimeAccountData|ParsedCookie $auth,
         array $query,
         string $exceptionClass,
         array $extraHeaders = [],

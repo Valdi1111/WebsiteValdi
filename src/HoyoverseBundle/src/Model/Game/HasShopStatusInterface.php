@@ -2,7 +2,9 @@
 
 namespace App\HoyoverseBundle\Model\Game;
 
-use App\HoyoverseBundle\Model\Notes\GameNotesStateMetric;
+use App\CoreBundle\Model\Game\HasNotesInterface;
+
+use App\CoreBundle\Model\GameNotes\GameNotesStateMetric;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 
 interface HasShopStatusInterface extends HasNotesInterface

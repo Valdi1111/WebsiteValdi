@@ -2,8 +2,8 @@
 
 namespace App\HoyoverseBundle\Message\Batch;
 
-use App\HoyoverseBundle\Message\FeatureFlagMessageInterface;
-use App\HoyoverseBundle\Message\RegionalTaskMessageInterface;
+use App\CoreBundle\Message\FeatureFlagMessageInterface;
+use App\CoreBundle\Message\RegionalTaskMessageInterface;
 use Symfony\Component\Messenger\Attribute\AsMessage;
 
 /**

@@ -277,6 +277,40 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  * }
  * @psalm-type GryphlineConfig = array{
  *     domain_name?: scalar|Param|null, // Default: null
+ *     timezones?: array{
+ *         EU?: string|Param, // Default: "Europe/Paris"
+ *         CN?: string|Param, // Default: "Asia/Shanghai"
+ *     },
+ *     tasks?: array{
+ *         skport_check_in?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: string|Param, // Default: "App\\GryphlineBundle\\Message\\Batch\\SkportCheckInBatchMessage"
+ *             cron?: string|Param, // Default: null
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *         stamina?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: string|Param, // Default: "App\\GryphlineBundle\\Message\\Batch\\StaminaCheckBatchMessage"
+ *             cron?: string|Param, // Default: null
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *         dailies_reminder?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: string|Param, // Default: "App\\GryphlineBundle\\Message\\Batch\\DailiesReminderBatchMessage"
+ *             cron?: string|Param, // Default: null
+ *             regional?: bool|Param, // Default: true
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *         weeklies_reminder?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: string|Param, // Default: "App\\GryphlineBundle\\Message\\Batch\\WeekliesReminderBatchMessage"
+ *             cron?: string|Param, // Default: null
+ *             regional?: bool|Param, // Default: true
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *     },
  * }
  * @psalm-type PasswordsConfig = array{
  *     domain_name?: scalar|Param|null, // Default: null

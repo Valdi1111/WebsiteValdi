@@ -5,7 +5,7 @@ namespace App\HoyoverseBundle\MessageHandler\Profile;
 use App\CoreBundle\Model\Notification\UniversalEmbed;
 use App\CoreBundle\Service\Notification\UnifiedNotificationService;
 use App\HoyoverseBundle\Exception\HoyolabException;
-use App\HoyoverseBundle\Message\Profile\ProfileTaskMessageInterface;
+use App\CoreBundle\Message\ProfileTaskMessageInterface;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;

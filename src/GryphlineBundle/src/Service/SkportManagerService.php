@@ -5,7 +5,7 @@ namespace App\GryphlineBundle\Service;
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
 use App\GryphlineBundle\Exception\SkportApiException;
-use App\GryphlineBundle\Model\Game\GryphlineGameInterface;
+use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Repository\GryphlineGameProfileRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -19,8 +19,8 @@ use Symfony\Contracts\Service\ServiceCollectionInterface;
 class SkportManagerService
 {
     /**
-     * @param ServiceCollectionInterface<GryphlineGameInterface> $locatorByGameBiz
-     * @param ServiceCollectionInterface<GryphlineGameInterface> $locatorByGameId
+     * @param ServiceCollectionInterface<GameInterface> $locatorByGameBiz
+     * @param ServiceCollectionInterface<GameInterface> $locatorByGameId
      */
     public function __construct(
         #[Target('gryphline')]

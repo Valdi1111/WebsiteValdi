@@ -6,7 +6,7 @@ use App\CoreBundle\Model\Notification\UniversalEmbed;
 use App\CoreBundle\Service\Notification\UnifiedNotificationService;
 use App\GryphlineBundle\Exception\GryphlineException;
 use App\CoreBundle\Message\ProfileTaskMessageInterface;
-use App\GryphlineBundle\Model\Game\GryphlineGameInterface;
+use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Model\RuntimeAccountData;
 use App\GryphlineBundle\Repository\GryphlineGameProfileRepository;
 use Psr\Log\LoggerInterface;
@@ -33,7 +33,7 @@ abstract class AbstractProfileTaskMessageHandler
      * @param T $message
      */
     abstract protected function processProfile(
-        GryphlineGameInterface $gameService,
+        GameInterface $gameService,
         RuntimeAccountData $accountData,
         ProfileTaskMessageInterface $message
     ): void;
@@ -65,7 +65,7 @@ abstract class AbstractProfileTaskMessageHandler
             return;
         }
 
-        /** @var GryphlineGameInterface $gameService */
+        /** @var GameInterface $gameService */
         $gameService = $this->locatorByGameBiz->get($gameProfile->getGameBiz());
 
         $accountData = (new RuntimeAccountData())

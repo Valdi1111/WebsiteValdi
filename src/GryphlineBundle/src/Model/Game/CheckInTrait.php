@@ -11,7 +11,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * @mixin GryphlineGameInterface
+ * @mixin GameInterface
  * @mixin HasCheckInInterface
  */
 trait CheckInTrait

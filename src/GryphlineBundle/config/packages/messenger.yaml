@@ -10,8 +10,3 @@ framework:
                     delay: 10000
                     multiplier: 2
                     max_delay: 60000
-        routing:
-            'App\GryphlineBundle\Message\Batch\SkportCheckInBatchMessage': gryphline
-            'App\GryphlineBundle\Message\Profile\SkportCheckInProfileMessage': gryphline
-            'App\GryphlineBundle\Message\Batch\StaminaCheckBatchMessage': gryphline
-            'App\GryphlineBundle\Message\Profile\StaminaCheckProfileMessage': gryphline

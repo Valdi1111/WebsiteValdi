@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * @mixin GryphlineGameInterface
+ * @mixin GameInterface
  * @mixin HasNotesInterface
  */
 trait NotesTrait

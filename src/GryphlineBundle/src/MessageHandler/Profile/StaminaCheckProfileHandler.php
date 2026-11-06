@@ -4,7 +4,7 @@ namespace App\GryphlineBundle\MessageHandler\Profile;
 
 use App\CoreBundle\Message\ProfileTaskMessageInterface;
 use App\GryphlineBundle\Message\Profile\StaminaCheckProfileMessage;
-use App\GryphlineBundle\Model\Game\GryphlineGameInterface;
+use App\GryphlineBundle\Model\Game\GameInterface;
 use App\CoreBundle\Model\Game\HasStaminaInterface;
 use App\GryphlineBundle\Model\RuntimeAccountData;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -21,7 +21,7 @@ class StaminaCheckProfileHandler extends AbstractProfileTaskMessageHandler
     }
 
     protected function processProfile(
-        GryphlineGameInterface $gameService,
+        GameInterface $gameService,
         RuntimeAccountData $accountData,
         ProfileTaskMessageInterface $message
     ): void {

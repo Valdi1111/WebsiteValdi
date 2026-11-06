@@ -6,7 +6,7 @@ use App\CoreBundle\Model\GameNotes\GameNotesDailies;
 use App\CoreBundle\Model\GameNotes\GameNotesProgressMetric;
 use App\CoreBundle\Model\GameNotes\GameNotesWeeklies;
 use App\GryphlineBundle\Model\Game\CheckInTrait;
-use App\GryphlineBundle\Model\Game\GryphlineGameInterface;
+use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Model\Game\HasCheckInInterface;
 use App\CoreBundle\Model\Game\HasDailiesInterface;
 use App\CoreBundle\Model\Game\HasNotesInterface;
@@ -29,7 +29,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 #[AutoconfigureTag(name: 'gryphline.game.biz', attributes: ['key' => self::GAME_BIZ])]
 #[AutoconfigureTag(name: 'gryphline.game.id', attributes: ['key' => self::GAME_ID])]
-class EndfieldService implements GryphlineGameInterface, HasCheckInInterface, HasNotesInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface
+class EndfieldService implements GameInterface, HasCheckInInterface, HasNotesInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface
 {
     use CheckInTrait;
     use NotesTrait;

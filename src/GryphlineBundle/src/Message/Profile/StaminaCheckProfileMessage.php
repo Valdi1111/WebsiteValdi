@@ -3,7 +3,12 @@
 namespace App\GryphlineBundle\Message\Profile;
 
 use App\CoreBundle\Message\ProfileTaskMessageInterface;
+use Symfony\Component\Messenger\Attribute\AsMessage;
 
+/**
+ * Check stamina threshold for a profile
+ */
+#[AsMessage('gryphline')]
 class StaminaCheckProfileMessage implements ProfileTaskMessageInterface
 {
     public function __construct(

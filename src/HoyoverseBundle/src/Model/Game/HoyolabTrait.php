@@ -162,14 +162,14 @@ trait HoyolabTrait
                 'raw_content' => $rawContent,
             ]));
 
-            throw (new $exceptionClass("Malformed JSON response: {$e->getMessage()}", 0, $e));
+            throw new $exceptionClass("Malformed JSON response: {$e->getMessage()}", 0, $e);
 
         } catch (HttpClientExceptionInterface $e) {
             $this->getLogger()->error("Network exception during API request: {$e->getMessage()}", array_merge($logContext, [
                 'exception' => $e,
             ]));
 
-            throw (new $exceptionClass("Network exception: {$e->getMessage()}", 0, $e));
+            throw new $exceptionClass("Network exception: {$e->getMessage()}", 0, $e);
         }
     }
 

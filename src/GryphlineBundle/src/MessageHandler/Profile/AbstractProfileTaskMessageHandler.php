@@ -68,7 +68,7 @@ abstract class AbstractProfileTaskMessageHandler
         /** @var GameInterface $gameService */
         $gameService = $this->locatorByGameBiz->get($gameProfile->getGameBiz());
 
-        $accountData = (new RuntimeAccountData())
+        $accountData = new RuntimeAccountData()
             ->setGameProfile($gameProfile);
 
         try {
@@ -103,7 +103,7 @@ abstract class AbstractProfileTaskMessageHandler
     {
         $gameProfile = $accountData->getGameProfile();
 
-        return (new UniversalEmbed())
+        return new UniversalEmbed()
             ->setTitle(sprintf('%s - %s', $gameProfile->getGameName(), $title))
             ->setColor(0x3498DB)
             ->setFooterText($gameProfile->getGameName())

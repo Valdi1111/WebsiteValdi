@@ -5,6 +5,7 @@ namespace App\GryphlineBundle\Service;
 use App\CoreBundle\Model\GameNotes\GameNotesDailies;
 use App\CoreBundle\Model\GameNotes\GameNotesProgressMetric;
 use App\CoreBundle\Model\GameNotes\GameNotesWeeklies;
+use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Model\Game\CheckInTrait;
 use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Model\Game\HasCheckInInterface;
@@ -120,7 +121,7 @@ class EndfieldService implements GameInterface, HasCheckInInterface, HasNotesInt
         /** @var EndfieldNotes $notes */
         $notes = $this->getNotes($account);
 
-        return (new GameNotesStamina())
+        return new GameNotesStamina()
             ->setCurrentStamina($notes->getCurStamina())
             ->setMaxStamina($notes->getMaxStamina() ?? $this->getMaxStamina())
             ->setStaminaRecoverTime($notes->getStaminaRecoveryTime());
@@ -131,9 +132,9 @@ class EndfieldService implements GameInterface, HasCheckInInterface, HasNotesInt
         /** @var EndfieldNotes $notes */
         $notes = $this->getNotes($account);
 
-        return (new GameNotesDailies())
+        return new GameNotesDailies()
             ->addDaily(
-                (new GameNotesProgressMetric())
+                new GameNotesProgressMetric()
                     ->setName('Daily Activation')
                     ->setCurrentValue($notes->getDailyActivation())
                     ->setMaxValue($notes->getMaxDailyActivation() ?? 100)
@@ -145,9 +146,9 @@ class EndfieldService implements GameInterface, HasCheckInInterface, HasNotesInt
         /** @var EndfieldNotes $notes */
         $notes = $this->getNotes($account);
 
-        return (new GameNotesWeeklies())
+        return new GameNotesWeeklies()
             ->addWeekly(
-                (new GameNotesProgressMetric())
+                new GameNotesProgressMetric()
                     ->setName('Weekly Mission')
                     ->setCurrentValue($notes->getWeeklyScore())
                     ->setMaxValue($notes->getWeeklyTotal() ?? 10)
@@ -156,6 +157,10 @@ class EndfieldService implements GameInterface, HasCheckInInterface, HasNotesInt
 
     public function ensureCredentials(RuntimeAccountDataInterface $account, bool $force = false): SkportSessionCredentials
     {
+        if (!$account instanceof RuntimeAccountData) {
+            throw new \InvalidArgumentException(sprintf('Expected %s, got %s', RuntimeAccountData::class, get_debug_type($account)));
+        }
+
         $creds = $account->getCredentials();
         if ($force || $creds === null || $creds->isExpired()) {
             $creds = $this->authService->getOrRefreshCredentials($account->getAccount(), force: $force);

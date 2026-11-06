@@ -46,13 +46,13 @@ trait NotesTrait
         }
 
         if ($response->getStatusCode() !== Response::HTTP_OK) {
-            throw (new SkportApiException('Notes HTTP error: ' . $response->getStatusCode()))
+            throw new SkportApiException('Notes HTTP error: ' . $response->getStatusCode())
                 ->setApiStatusCode($response->getStatusCode());
         }
 
         $body = $response->toArray(false);
         if (($body['code'] ?? -1) !== 0) {
-            throw (new SkportApiException('Notes request failed: ' . ($body['message'] ?? 'Error')))
+            throw new SkportApiException('Notes request failed: ' . ($body['message'] ?? 'Error'))
                 ->setApiCode($body['code'] ?? null)
                 ->setResponseBody($body);
         }

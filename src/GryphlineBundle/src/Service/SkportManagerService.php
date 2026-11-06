@@ -71,13 +71,13 @@ class SkportManagerService
         }
 
         if ($response->getStatusCode() !== Response::HTTP_OK) {
-            throw (new SkportApiException('Player Binding HTTP error: ' . $response->getStatusCode()))
+            throw new SkportApiException('Player Binding HTTP error: ' . $response->getStatusCode())
                 ->setApiStatusCode($response->getStatusCode());
         }
 
         $body = $response->toArray(false);
         if (($body['code'] ?? -1) !== 0) {
-            throw (new SkportApiException('Player Binding failed: ' . ($body['message'] ?? 'Error')))
+            throw new SkportApiException('Player Binding failed: ' . ($body['message'] ?? 'Error'))
                 ->setApiCode($body['code'] ?? null)
                 ->setResponseBody($body);
         }
@@ -114,7 +114,7 @@ class SkportManagerService
                     ]);
 
                     if (!$gameProfile) {
-                        $gameProfile = (new GryphlineGameProfile())
+                        $gameProfile = new GryphlineGameProfile()
                             ->setAccount($account)
                             ->setGameId($gameId)
                             ->setGameBiz($gameService::getGameBiz())

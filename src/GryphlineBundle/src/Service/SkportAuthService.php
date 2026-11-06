@@ -86,14 +86,14 @@ class SkportAuthService
         $infoResponse = $this->asClient->request(Request::METHOD_GET, $infoUrl);
 
         if ($infoResponse->getStatusCode() !== Response::HTTP_OK) {
-            throw (new SkportAuthException('OAuth Step 1 HTTP error: ' . $infoResponse->getStatusCode()))
+            throw new SkportAuthException('OAuth Step 1 HTTP error: ' . $infoResponse->getStatusCode())
                 ->setApiStatusCode($infoResponse->getStatusCode());
         }
 
         $infoData = $infoResponse->toArray(false);
         if (($infoData['status'] ?? -1) !== 0) {
             $msg = $infoData['msg'] ?? ('status ' . ($infoData['status'] ?? 'unknown'));
-            throw (new SkportAuthException('OAuth Step 1 failed: ' . $msg))
+            throw new SkportAuthException('OAuth Step 1 failed: ' . $msg)
                 ->setApiCode($infoData['status'] ?? null)
                 ->setResponseBody($infoData);
         }
@@ -111,14 +111,14 @@ class SkportAuthService
         ]);
 
         if ($grantResponse->getStatusCode() !== Response::HTTP_OK) {
-            throw (new SkportAuthException('OAuth Step 2 HTTP error: ' . $grantResponse->getStatusCode()))
+            throw new SkportAuthException('OAuth Step 2 HTTP error: ' . $grantResponse->getStatusCode())
                 ->setApiStatusCode($grantResponse->getStatusCode());
         }
 
         $grantData = $grantResponse->toArray(false);
         if (($grantData['status'] ?? -1) !== 0 || empty($grantData['data']['code'])) {
             $msg = $grantData['msg'] ?? ('status ' . ($grantData['status'] ?? 'unknown'));
-            throw (new SkportAuthException('OAuth Step 2 failed: ' . $msg))
+            throw new SkportAuthException('OAuth Step 2 failed: ' . $msg)
                 ->setApiCode($grantData['status'] ?? null)
                 ->setResponseBody($grantData);
         }
@@ -137,14 +137,14 @@ class SkportAuthService
         ]);
 
         if ($credResponse->getStatusCode() !== Response::HTTP_OK) {
-            throw (new SkportAuthException('OAuth Step 3 HTTP error: ' . $credResponse->getStatusCode()))
+            throw new SkportAuthException('OAuth Step 3 HTTP error: ' . $credResponse->getStatusCode())
                 ->setApiStatusCode($credResponse->getStatusCode());
         }
 
         $credData = $credResponse->toArray(false);
         if (($credData['code'] ?? -1) !== 0 || empty($credData['data']['cred'])) {
             $msg = $credData['message'] ?? ('code ' . ($credData['code'] ?? 'unknown'));
-            throw (new SkportAuthException('OAuth Step 3 failed: ' . $msg))
+            throw new SkportAuthException('OAuth Step 3 failed: ' . $msg)
                 ->setApiCode($credData['code'] ?? null)
                 ->setResponseBody($credData);
         }
@@ -152,7 +152,7 @@ class SkportAuthService
         $cred = $credData['data']['cred'];
         $salt = $credData['data']['token'];
         $userId = (string) ($credData['data']['userId'] ?? '');
-        $expiresAt = (new \DateTimeImmutable())->modify('+' . self::SESSION_TTL_SECONDS . ' seconds');
+        $expiresAt = new \DateTimeImmutable()->modify('+' . self::SESSION_TTL_SECONDS . ' seconds');
 
         return new SkportSessionCredentials(
             cred: $cred,

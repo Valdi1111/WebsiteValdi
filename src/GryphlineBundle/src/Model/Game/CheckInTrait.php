@@ -60,7 +60,7 @@ trait CheckInTrait
                 $awardId = $lastRecord['awardId'] ?? null;
                 if ($awardId && isset($resourceMap[$awardId])) {
                     $item = $resourceMap[$awardId];
-                    $lastAward = (new AwardData())
+                    $lastAward = new AwardData()
                         ->setId((string) $awardId)
                         ->setName((string) ($item['name'] ?? 'Reward'))
                         ->setCount((int) ($item['count'] ?? 1))
@@ -68,7 +68,7 @@ trait CheckInTrait
                 }
             }
 
-            return (new CheckInResult())
+            return new CheckInResult()
                 ->setStatus('already_claimed')
                 ->setAlreadySignedIn(true)
                 ->setTotalSignDay($totalSignDay)
@@ -99,7 +99,7 @@ trait CheckInTrait
             $awardId = is_array($firstAward) ? ($firstAward['id'] ?? null) : $firstAward;
             if ($awardId && isset($claimResourceMap[$awardId])) {
                 $item = $claimResourceMap[$awardId];
-                $claimedAward = (new AwardData())
+                $claimedAward = new AwardData()
                     ->setId((string) $awardId)
                     ->setName((string) ($item['name'] ?? 'Reward'))
                     ->setCount((int) ($item['count'] ?? 1))
@@ -115,7 +115,7 @@ trait CheckInTrait
             $totalSignDay
         ));
 
-        return (new CheckInResult())
+        return new CheckInResult()
             ->setStatus('claimed')
             ->setAlreadySignedIn(false)
             ->setTotalSignDay($totalSignDay)
@@ -145,13 +145,13 @@ trait CheckInTrait
         ]);
 
         if ($response->getStatusCode() !== Response::HTTP_OK) {
-            throw (new SkportApiException('Attendance check HTTP error: ' . $response->getStatusCode()))
+            throw new SkportApiException('Attendance check HTTP error: ' . $response->getStatusCode())
                 ->setApiStatusCode($response->getStatusCode());
         }
 
         $body = $response->toArray(false);
         if (($body['code'] ?? -1) !== 0) {
-            throw (new SkportApiException('Attendance check failed: ' . ($body['message'] ?? 'Error')))
+            throw new SkportApiException('Attendance check failed: ' . ($body['message'] ?? 'Error'))
                 ->setApiCode($body['code'] ?? null)
                 ->setResponseBody($body);
         }
@@ -180,13 +180,13 @@ trait CheckInTrait
         ]);
 
         if ($response->getStatusCode() !== Response::HTTP_OK) {
-            throw (new SkportApiException('Claim attendance HTTP error: ' . $response->getStatusCode()))
+            throw new SkportApiException('Claim attendance HTTP error: ' . $response->getStatusCode())
                 ->setApiStatusCode($response->getStatusCode());
         }
 
         $body = $response->toArray(false);
         if (($body['code'] ?? -1) !== 0) {
-            throw (new SkportApiException('Claim attendance failed: ' . ($body['message'] ?? 'Error')))
+            throw new SkportApiException('Claim attendance failed: ' . ($body['message'] ?? 'Error'))
                 ->setApiCode($body['code'] ?? null)
                 ->setResponseBody($body);
         }

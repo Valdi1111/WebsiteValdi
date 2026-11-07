@@ -38,6 +38,7 @@ class EndfieldService implements GameInterface, HasCheckInInterface, HasNotesInt
     public const int GAME_ID = 3;
     public const string GAME_BIZ = 'endfield';
     public const string GAME_NAME = 'Arknights: Endfield';
+    public const string GAME_ICON = 'https://static.skport.com/asset/game/endfield_d7c90672bc2f53dd8f3eb9fea06b3cfd.png';
 
     public function __construct(
         #[Target('gryphline.skport.client')]
@@ -64,6 +65,11 @@ class EndfieldService implements GameInterface, HasCheckInInterface, HasNotesInt
     public function getGameName(): string
     {
         return self::GAME_NAME;
+    }
+
+    public function getIcon(): ?string
+    {
+        return self::GAME_ICON;
     }
 
     public function getLogger(): LoggerInterface

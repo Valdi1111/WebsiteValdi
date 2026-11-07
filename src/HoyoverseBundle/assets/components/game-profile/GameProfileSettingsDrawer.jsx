@@ -1,10 +1,11 @@
 import { useBackendApi } from "@HoyoverseBundle/components/BackendApiContext";
+import SettingRow from "@CoreBundle/components/SettingRow";
+import ThresholdInput from "@CoreBundle/components/ThresholdInput";
 import React, { useState, useCallback } from "react";
 import {
     Drawer,
     Form,
     Switch,
-    InputNumber,
     Select,
     Button,
     Space,
@@ -16,80 +17,6 @@ import {
     Spin,
     ConfigProvider
 } from "antd";
-
-/**
- * Reusable layout row ensuring labels and input controls stay side-by-side
- * on both desktop and mobile screens without breaking onto multiple lines.
- */
-function SettingRow({ label, description, children }) {
-    return (
-        <div
-            style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 16,
-                gap: 12,
-            }}
-        >
-            <div style={{ flex: 1 }}>
-                <div>{label}</div>
-                {description && (
-                    <div style={{ color: "#8c8c8c", fontSize: 12, lineHeight: 1.3, marginTop: 2 }}>
-                        {description}
-                    </div>
-                )}
-            </div>
-            <div style={{ flexShrink: 0 }}>
-                {children}
-            </div>
-        </div>
-    );
-}
-
-/**
- * Number input with explicit visual indicator when threshold is disabled (-1).
- * Displays "Off" directly in the input when value is <= -1, with a "Turn off" button stacked underneath.
- */
-function ThresholdInput({ value, onChange, min = -1, max, step = 1, disabled, width = 110 }) {
-    const isOff = value === undefined || value === null || value <= -1;
-
-    return (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-            <InputNumber
-                min={min}
-                max={max}
-                step={step}
-                value={value}
-                onChange={onChange}
-                disabled={disabled}
-                style={{ width }}
-                formatter={(val) => {
-                    if (val === "" || val === undefined || val === null) return "";
-                    return Number(val) <= -1 ? "Off" : String(val);
-                }}
-                parser={(displayValue) => {
-                    if (!displayValue || displayValue.trim().toLowerCase() === "off") {
-                        return -1;
-                    }
-                    const parsed = parseInt(displayValue.replace(/[^\d-]/g, ""), 10);
-                    return isNaN(parsed) ? -1 : parsed;
-                }}
-            />
-            {!disabled && !isOff && (
-                <Button
-                    size="small"
-                    type="link"
-                    danger
-                    onClick={() => onChange?.(-1)}
-                    style={{ fontSize: 11, padding: 0, height: 18, marginTop: 2 }}
-                >
-                    Turn off
-                </Button>
-            )}
-        </div>
-    );
-}
 
 export default function GameProfileSettingsDrawer({ open, accountId, profileId, accountCanRedeemCodes, onClose, onSaved }) {
     const [form] = Form.useForm();
@@ -152,8 +79,8 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                 checkAndSet("mimo_reserve_points", -1);
                 checkAndSet("hilichurl_check", false);
                 checkAndSet("hilichurl_redeem", false);
-                checkAndSet("dailies_check", true);
-                checkAndSet("weeklies_check", true);
+                checkAndSet("dailies_check", false);
+                checkAndSet("weeklies_check", false);
                 checkAndSet("notification_platforms", []);
 
                 form.setFieldsValue(initialValues);
@@ -165,17 +92,11 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
 
     const handleFinish = (values) => {
         setSaving(true);
-        const payload = {};
-        for (const [key, val] of Object.entries(values)) {
-            if (supports(key)) {
-                payload[key] = val;
-            }
-        }
-
         api
+            .withLoadingMessage({ content: "Saving settings..." })
             .withErrorHandling()
             .gameProfiles()
-            .updateSettings(accountId, profileId, payload)
+            .updateSettings(accountId, profileId, values)
             .then(() => {
                 onSaved?.();
                 onClose();
@@ -188,8 +109,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
     return (
         <Drawer
             title="Profile Details & Settings"
-            placement="right"
-            size={540}
+            width={520}
             open={open}
             afterOpenChange={handleAfterOpenChange}
             onClose={onClose}
@@ -228,14 +148,14 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                             <h3 style={{ margin: 0 }}>
                                 {profile.nickname} {profile.level ? <Tag color="blue">Lv. {profile.level}</Tag> : null}
                             </h3>
-                            <div style={{ color: "#888" }}>{profile.game_name} ({profile.region_name || profile.region})</div>
+                            <div style={{ color: "#888" }}>{profile.game_name}</div>
                             <div style={{ fontSize: 12 }}>UID: <code>{profile.game_uid}</code></div>
                         </div>
                     </div>
 
                     <Descriptions column={2} size="small" bordered>
-                        <Descriptions.Item label="Region">{profile.parsed_region}</Descriptions.Item>
-                        <Descriptions.Item label="Timezone">{profile.parsed_timezone}</Descriptions.Item>
+                        <Descriptions.Item label="Region">{profile.region_name || profile.region}</Descriptions.Item>
+                        <Descriptions.Item label="Timezone">{profile.timezone || profile.parsed_timezone}</Descriptions.Item>
                         <Descriptions.Item label="Status">
                             <Tag color={isProfileActive ? "success" : "error"}>
                                 {isProfileActive ? "Active" : "Suspended"}
@@ -287,20 +207,26 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                             />
                         )}
 
-                        {/* Daily Check-In & Promo Codes */}
+                        {/* Hoyolab Check-In & Promo Codes */}
                         <Divider orientation="left">
-                            <strong>Daily Check-In & Promo Codes</strong>
+                            <strong>Hoyolab Check-In & Promo Codes</strong>
                         </Divider>
 
                         {supports("hoyolab_check_in") && (
-                            <SettingRow label="HoYoLAB Daily Check-In">
+                            <SettingRow
+                                label="HoYoLAB Daily Check-In"
+                                description="Automatically claim daily check-in rewards on HoYoLAB"
+                            >
                                 <Form.Item name="hoyolab_check_in" valuePropName="checked" noStyle>
                                     <Switch disabled={!isProfileActive} />
                                 </Form.Item>
                             </SettingRow>
                         )}
                         {supports("hoyolab_missed_check_in") && (
-                            <SettingRow label="Missed Check-In Make-Up">
+                            <SettingRow
+                                label="Missed Check-In Make-Up"
+                                description="Automatically make up for missed check-ins using check-in cards"
+                            >
                                 <Form.Item name="hoyolab_missed_check_in" valuePropName="checked" noStyle>
                                     <Switch disabled={!isProfileActive} />
                                 </Form.Item>
@@ -329,7 +255,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                         {supports("sync_diary") && (
                             <>
                                 <Divider orientation="left">
-                                    <strong>Resource Diary & History</strong>
+                                    <strong>Resource Diary</strong>
                                 </Divider>
                                 <SettingRow
                                     label="Sync Diary Logs"
@@ -349,21 +275,30 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                                     <strong>Stamina & Expeditions</strong>
                                 </Divider>
                                 {supports("stamina_check") && (
-                                    <SettingRow label="Stamina Alert">
+                                    <SettingRow
+                                        label="Stamina Alert"
+                                        description="Check stamina periodically and send alert when approaching threshold"
+                                    >
                                         <Form.Item name="stamina_check" valuePropName="checked" noStyle>
                                             <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
                                 {supports("stamina_threshold") && (
-                                    <SettingRow label="Stamina Threshold" description="Trigger alert when stamina reaches this amount">
+                                    <SettingRow
+                                        label="Stamina Threshold"
+                                        description="Trigger alert when stamina reaches this amount (Off = alert only at maximum capacity)"
+                                    >
                                         <Form.Item name="stamina_threshold" noStyle>
                                             <ThresholdInput min={-1} max={300} disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
                                 {supports("expeditions_check") && (
-                                    <SettingRow label="Expeditions Check">
+                                    <SettingRow
+                                        label="Expeditions Check"
+                                        description="Check dispatch expeditions periodically and alert when completed"
+                                    >
                                         <Form.Item name="expeditions_check" valuePropName="checked" noStyle>
                                             <Switch disabled={!isProfileActive} />
                                         </Form.Item>
@@ -376,17 +311,23 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                         {hasAny("realm_currency_check", "realm_currency_threshold") && (
                             <>
                                 <Divider orientation="left">
-                                    <strong>Realm Currency (Serenitea Pot)</strong>
+                                    <strong>Realm Currency (Serenita Pot)</strong>
                                 </Divider>
                                 {supports("realm_currency_check") && (
-                                    <SettingRow label="Realm Currency Alert">
+                                    <SettingRow
+                                        label="Realm Currency Alert"
+                                        description="Check teapot realm currency periodically and send alert when near limit"
+                                    >
                                         <Form.Item name="realm_currency_check" valuePropName="checked" noStyle>
                                             <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
                                 {supports("realm_currency_threshold") && (
-                                    <SettingRow label="Currency Threshold" description="Trigger alert when teapot coins reach this amount">
+                                    <SettingRow
+                                        label="Currency Threshold"
+                                        description="Trigger alert when teapot coins reach this amount (Off = alert only at maximum capacity)"
+                                    >
                                         <Form.Item name="realm_currency_threshold" noStyle>
                                             <ThresholdInput min={-1} step={100} width={120} disabled={!isProfileActive} />
                                         </Form.Item>
@@ -395,28 +336,37 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                             </>
                         )}
 
-                        {/* Daily / Weekly / Shop Tasks */}
+                        {/* Daily Tasks & Weeklies Tasks */}
                         {hasAny("shop_status_check", "dailies_check", "weeklies_check") && (
                             <>
                                 <Divider orientation="left">
-                                    <strong>Daily Tasks & Shop</strong>
+                                    <strong>Daily Tasks & Weeklies Tasks</strong>
                                 </Divider>
                                 {supports("shop_status_check") && (
-                                    <SettingRow label="Shop Status Check">
+                                    <SettingRow
+                                        label="Shop Status Check"
+                                        description="Check monthly reset status for Paimon's Bargains / in-game shop items"
+                                    >
                                         <Form.Item name="shop_status_check" valuePropName="checked" noStyle>
                                             <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
                                 {supports("dailies_check") && (
-                                    <SettingRow label="Dailies Check">
+                                    <SettingRow
+                                        label="Dailies Check"
+                                        description="Send alert when daily commission quests are not completed before daily reset"
+                                    >
                                         <Form.Item name="dailies_check" valuePropName="checked" noStyle>
                                             <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
                                 {supports("weeklies_check") && (
-                                    <SettingRow label="Weeklies Check">
+                                    <SettingRow
+                                        label="Weeklies Check"
+                                        description="Send alert when weekly bosses and Battle Pass missions remain uncompleted"
+                                    >
                                         <Form.Item name="weeklies_check" valuePropName="checked" noStyle>
                                             <Switch disabled={!isProfileActive} />
                                         </Form.Item>
@@ -432,35 +382,50 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                                     <strong>HoYoLAB Mimo Events</strong>
                                 </Divider>
                                 {supports("mimo_check") && (
-                                    <SettingRow label="Mimo Check">
+                                    <SettingRow
+                                        label="Mimo Check"
+                                        description="Perform daily check-in and missions on HoYoLAB Mimo events"
+                                    >
                                         <Form.Item name="mimo_check" valuePropName="checked" noStyle>
                                             <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
                                 {supports("mimo_redeem") && (
-                                    <SettingRow label="Mimo Redeem">
+                                    <SettingRow
+                                        label="Mimo Redeem"
+                                        description="Automatically redeem shop rewards using available Mimo points"
+                                    >
                                         <Form.Item name="mimo_redeem" valuePropName="checked" noStyle>
                                             <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
                                 {supports("mimo_redeem_draw") && (
-                                    <SettingRow label="Mimo Redeem Draw">
+                                    <SettingRow
+                                        label="Mimo Redeem Draw"
+                                        description="Automatically participate in point prize draws"
+                                    >
                                         <Form.Item name="mimo_redeem_draw" valuePropName="checked" noStyle>
                                             <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
                                 {supports("mimo_lottery") && (
-                                    <SettingRow label="Mimo Lottery">
+                                    <SettingRow
+                                        label="Mimo Lottery"
+                                        description="Enter periodic Mimo lottery events"
+                                    >
                                         <Form.Item name="mimo_lottery" valuePropName="checked" noStyle>
                                             <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
                                 {supports("mimo_reserve_points") && (
-                                    <SettingRow label="Mimo Reserve Points" description="Points to keep in reserve (Off = spend all)">
+                                    <SettingRow
+                                        label="Mimo Reserve Points"
+                                        description="Minimum points to keep in reserve (Off = spend all available points)"
+                                    >
                                         <Form.Item name="mimo_reserve_points" noStyle>
                                             <ThresholdInput min={-1} step={50} width={120} disabled={!isProfileActive} />
                                         </Form.Item>
@@ -476,14 +441,20 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                                     <strong>Hilichurl Treasure Events</strong>
                                 </Divider>
                                 {supports("hilichurl_check") && (
-                                    <SettingRow label="Hilichurl Check">
+                                    <SettingRow
+                                        label="Hilichurl Check"
+                                        description="Complete daily tasks on Hilichurl's Treasure Corner event"
+                                    >
                                         <Form.Item name="hilichurl_check" valuePropName="checked" noStyle>
                                             <Switch disabled={!isProfileActive} />
                                         </Form.Item>
                                     </SettingRow>
                                 )}
                                 {supports("hilichurl_redeem") && (
-                                    <SettingRow label="Hilichurl Redeem">
+                                    <SettingRow
+                                        label="Hilichurl Redeem"
+                                        description="Automatically redeem rewards in Hilichurl's Treasure Corner"
+                                    >
                                         <Form.Item name="hilichurl_redeem" valuePropName="checked" noStyle>
                                             <Switch disabled={!isProfileActive} />
                                         </Form.Item>

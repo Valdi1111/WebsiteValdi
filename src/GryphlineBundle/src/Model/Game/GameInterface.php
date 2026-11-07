@@ -13,6 +13,8 @@ interface GameInterface
 
     public function getGameName(): string;
 
+    public function getIcon(): ?string;
+
     public function getLogger(): LoggerInterface;
 
     public function getSkportUtils(): ?SkportUtilsService;

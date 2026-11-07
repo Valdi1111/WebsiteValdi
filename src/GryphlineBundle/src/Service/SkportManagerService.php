@@ -119,6 +119,7 @@ class SkportManagerService
                             ->setGameId($gameId)
                             ->setGameBiz($gameService::getGameBiz())
                             ->setGameName($gameService->getGameName())
+                            ->setIconUrl($gameService->getIcon())
                             ->setGameUid($roleId);
                     }
 

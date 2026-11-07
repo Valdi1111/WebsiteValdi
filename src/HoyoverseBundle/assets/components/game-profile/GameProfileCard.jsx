@@ -64,7 +64,7 @@ export default function GameProfileCard({ profile, accountId, accountCanRedeemCo
                     <div>
                         <div><strong>{profile.game_name}</strong></div>
                         <Text type="secondary" style={{ fontSize: 12 }}>
-                            UID: {profile.game_uid} | {profile.parsed_region || profile.region}
+                            UID: {profile.game_uid} | {profile.region_name || profile.region}
                         </Text>
                         <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 4 }}>
                             {!profile.active ? (

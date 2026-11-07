@@ -93,13 +93,19 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
     const handleFinish = (values) => {
         setSaving(true);
         api
-            .withLoadingMessage({ content: "Saving settings..." })
-            .withErrorHandling()
+            .withLoadingMessage({
+                key: "hoyoverse-profile-settings-saving",
+                loadingContent: "Saving settings...",
+                successContent: "Settings saved successfully",
+            })
             .gameProfiles()
             .updateSettings(accountId, profileId, values)
             .then(() => {
                 onSaved?.();
                 onClose();
+            })
+            .catch(() => {
+                // Error already displayed by withLoadingMessage
             })
             .finally(() => {
                 setSaving(false);
@@ -109,7 +115,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
     return (
         <Drawer
             title="Profile Details & Settings"
-            width={520}
+            size={520}
             open={open}
             afterOpenChange={handleAfterOpenChange}
             onClose={onClose}
@@ -164,7 +170,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                         <Descriptions.Item label="Account">#{accountId}</Descriptions.Item>
                     </Descriptions>
 
-                    <Divider orientation="left">
+                    <Divider titlePlacement="start">
                         <strong>Global Status</strong>
                     </Divider>
 
@@ -208,7 +214,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                         )}
 
                         {/* Hoyolab Check-In & Promo Codes */}
-                        <Divider orientation="left">
+                        <Divider titlePlacement="start">
                             <strong>Hoyolab Check-In & Promo Codes</strong>
                         </Divider>
 
@@ -254,7 +260,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                         {/* Resource Diary Sync */}
                         {supports("sync_diary") && (
                             <>
-                                <Divider orientation="left">
+                                <Divider titlePlacement="start">
                                     <strong>Resource Diary</strong>
                                 </Divider>
                                 <SettingRow
@@ -271,7 +277,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                         {/* Stamina & Expeditions */}
                         {hasAny("stamina_check", "stamina_threshold", "expeditions_check") && (
                             <>
-                                <Divider orientation="left">
+                                <Divider titlePlacement="start">
                                     <strong>Stamina & Expeditions</strong>
                                 </Divider>
                                 {supports("stamina_check") && (
@@ -310,7 +316,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                         {/* Realm Currency */}
                         {hasAny("realm_currency_check", "realm_currency_threshold") && (
                             <>
-                                <Divider orientation="left">
+                                <Divider titlePlacement="start">
                                     <strong>Realm Currency (Serenita Pot)</strong>
                                 </Divider>
                                 {supports("realm_currency_check") && (
@@ -339,7 +345,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                         {/* Daily Tasks & Weeklies Tasks */}
                         {hasAny("shop_status_check", "dailies_check", "weeklies_check") && (
                             <>
-                                <Divider orientation="left">
+                                <Divider titlePlacement="start">
                                     <strong>Daily Tasks & Weeklies Tasks</strong>
                                 </Divider>
                                 {supports("shop_status_check") && (
@@ -378,7 +384,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                         {/* Mimo Web Events */}
                         {hasAny("mimo_check", "mimo_redeem", "mimo_redeem_draw", "mimo_lottery", "mimo_reserve_points") && (
                             <>
-                                <Divider orientation="left">
+                                <Divider titlePlacement="start">
                                     <strong>HoYoLAB Mimo Events</strong>
                                 </Divider>
                                 {supports("mimo_check") && (
@@ -437,7 +443,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                         {/* Hilichurl Web Events */}
                         {hasAny("hilichurl_check", "hilichurl_redeem") && (
                             <>
-                                <Divider orientation="left">
+                                <Divider titlePlacement="start">
                                     <strong>Hilichurl Treasure Events</strong>
                                 </Divider>
                                 {supports("hilichurl_check") && (
@@ -466,7 +472,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                         {/* Notification Platforms */}
                         {supports("notification_platforms") && (
                             <>
-                                <Divider orientation="left">
+                                <Divider titlePlacement="start">
                                     <strong>Notification Platforms</strong>
                                 </Divider>
                                 <div style={{ marginBottom: 16 }}>

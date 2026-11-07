@@ -83,13 +83,19 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
     const handleFinish = (values) => {
         setSaving(true);
         api
-            .withLoadingMessage({ content: "Saving settings..." })
-            .withErrorHandling()
+            .withLoadingMessage({
+                key: "gryphline-profile-settings-saving",
+                loadingContent: "Saving settings...",
+                successContent: "Settings saved successfully",
+            })
             .gameProfiles()
             .updateSettings(accountId, profileId, values)
             .then(() => {
                 onSaved?.();
                 onClose();
+            })
+            .catch(() => {
+                // Error already displayed by withLoadingMessage
             })
             .finally(() => {
                 setSaving(false);
@@ -104,7 +110,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
             onClose={onClose}
             closable={{ placement: 'end' }}
             destroyOnHidden
-            width={520}
+            size={520}
             extra={
                 <Space>
                     <Button
@@ -169,7 +175,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                         <Descriptions.Item label="Account">#{accountId}</Descriptions.Item>
                     </Descriptions>
 
-                    <Divider orientation="left">
+                    <Divider titlePlacement="start">
                         <strong>Global Status</strong>
                     </Divider>
 
@@ -215,7 +221,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                         {/* SKPort Check-In & Promo Codes */}
                         {hasAny("skport_check_in", "skport_missed_check_in") && (
                             <>
-                                <Divider orientation="left">
+                                <Divider titlePlacement="start">
                                     <strong>SKPort Check-In & Promo Codes</strong>
                                 </Divider>
                                 {supports("skport_check_in") && (
@@ -244,7 +250,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                         {/* Stamina & Expeditions */}
                         {hasAny("stamina_check", "stamina_threshold") && (
                             <>
-                                <Divider orientation="left">
+                                <Divider titlePlacement="start">
                                     <strong>Stamina & Expeditions</strong>
                                 </Divider>
                                 {supports("stamina_check") && (
@@ -273,7 +279,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                         {/* Daily Tasks & Weeklies Tasks */}
                         {hasAny("dailies_check", "weeklies_check") && (
                             <>
-                                <Divider orientation="left">
+                                <Divider titlePlacement="start">
                                     <strong>Daily Tasks & Weeklies Tasks</strong>
                                 </Divider>
                                 {supports("dailies_check") && (
@@ -302,7 +308,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                         {/* Notification Platforms */}
                         {supports("notification_platforms") && (
                             <>
-                                <Divider orientation="left">
+                                <Divider titlePlacement="start">
                                     <strong>Notification Platforms</strong>
                                 </Divider>
                                 <div style={{ marginBottom: 16 }}>

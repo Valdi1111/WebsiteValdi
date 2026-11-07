@@ -119,11 +119,7 @@ class SkportManagerService
                             ->setGameId($gameId)
                             ->setGameBiz($gameService::getGameBiz())
                             ->setGameName($gameService->getGameName())
-                            ->setGameUid($roleId)
-                            ->setActive(true)
-                            ->setSkportCheckIn(true)
-                            ->setStaminaCheck(false)
-                            ->setStaminaThreshold(-1);
+                            ->setGameUid($roleId);
                     }
 
                     $gameProfile

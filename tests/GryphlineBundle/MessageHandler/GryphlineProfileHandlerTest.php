@@ -13,6 +13,8 @@ use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
 use App\GryphlineBundle\Message\Profile\DailiesReminderProfileMessage;
 use App\GryphlineBundle\Message\Profile\SkportCheckInProfileMessage;
+use App\GryphlineBundle\Message\Profile\SkportMissedCheckInProfileMessage;
+use App\GryphlineBundle\MessageHandler\Profile\SkportMissedCheckInProfileHandler;
 use App\GryphlineBundle\Message\Profile\StaminaCheckProfileMessage;
 use App\GryphlineBundle\Message\Profile\WeekliesReminderProfileMessage;
 use App\GryphlineBundle\MessageHandler\Profile\DailiesReminderProfileHandler;
@@ -271,5 +273,70 @@ class GryphlineProfileHandlerTest extends TestCase
 
         $handler = new SkportCheckInProfileHandler($repo, $locator, new NullLogger(), $notificationService);
         $handler(new SkportCheckInProfileMessage(1));
+    }
+
+    public function testSkportMissedCheckInProfileHandlerSendsNotificationWhenNotAlreadySignedIn(): void
+    {
+        $profile = $this->createProfileWithUser();
+        $repo = $this->createStub(GryphlineGameProfileRepository::class);
+        $repo->method("find")->willReturn($profile);
+
+        $award = new AwardData();
+        $award->setName("Oroberyl x100")->setCount(100);
+
+        $checkInResult = (new CheckInResult())
+            ->setStatus("success")
+            ->setAlreadySignedIn(false)
+            ->setResult("Missed check-in recovered successfully!")
+            ->setTotalSignDay(16)
+            ->setAwardData($award);
+
+        $endfieldService = $this->createStub(EndfieldService::class);
+        $endfieldService->method("checkIn")->willReturn($checkInResult);
+
+        $locator = $this->createStub(ServiceCollectionInterface::class);
+        $locator->method("has")->willReturn(true);
+        $locator->method("get")->willReturn($endfieldService);
+
+        $notificationService = $this->createMock(UnifiedNotificationService::class);
+        $notificationService->expects($this->once())
+            ->method("sendToUser")
+            ->with(
+                $this->isInstanceOf(User::class),
+                $this->callback(function (UniversalEmbed $embed) {
+                    $this->assertStringContainsString("Daily Check-In", $embed->getTitle());
+                    $this->assertStringContainsString("Missed check-in recovered successfully!", $embed->getDescription());
+                    return true;
+                }),
+                ["telegram"]
+            );
+
+        $handler = new SkportMissedCheckInProfileHandler($repo, $locator, new NullLogger(), $notificationService);
+        $handler(new SkportMissedCheckInProfileMessage(1));
+    }
+
+    public function testSkportMissedCheckInProfileHandlerSkipsNotificationWhenAlreadySignedIn(): void
+    {
+        $profile = $this->createProfileWithUser();
+        $repo = $this->createStub(GryphlineGameProfileRepository::class);
+        $repo->method("find")->willReturn($profile);
+
+        $checkInResult = (new CheckInResult())
+            ->setStatus("success")
+            ->setAlreadySignedIn(true)
+            ->setResult("Already signed in today.");
+
+        $endfieldService = $this->createStub(EndfieldService::class);
+        $endfieldService->method("checkIn")->willReturn($checkInResult);
+
+        $locator = $this->createStub(ServiceCollectionInterface::class);
+        $locator->method("has")->willReturn(true);
+        $locator->method("get")->willReturn($endfieldService);
+
+        $notificationService = $this->createMock(UnifiedNotificationService::class);
+        $notificationService->expects($this->never())->method("sendToUser");
+
+        $handler = new SkportMissedCheckInProfileHandler($repo, $locator, new NullLogger(), $notificationService);
+        $handler(new SkportMissedCheckInProfileMessage(1));
     }
 }

@@ -2,12 +2,13 @@
 
 namespace App\GryphlineBundle;
 
-use App\GryphlineBundle\Message\Batch\DailiesReminderBatchMessage;
-use App\GryphlineBundle\Message\Batch\SkportCheckInBatchMessage;
-use App\GryphlineBundle\Message\Batch\StaminaCheckBatchMessage;
-use App\GryphlineBundle\Message\Batch\WeekliesReminderBatchMessage;
 use App\CoreBundle\Message\RegionalTaskMessageInterface;
 use App\CoreBundle\Message\TaskMessageInterface;
+use App\GryphlineBundle\Message\Batch\DailiesReminderBatchMessage;
+use App\GryphlineBundle\Message\Batch\SkportCheckInBatchMessage;
+use App\GryphlineBundle\Message\Batch\SkportMissedCheckInBatchMessage;
+use App\GryphlineBundle\Message\Batch\StaminaCheckBatchMessage;
+use App\GryphlineBundle\Message\Batch\WeekliesReminderBatchMessage;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 use Symfony\Component\Config\Definition\Builder\NodeBuilder;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
@@ -18,6 +19,7 @@ use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
 
 class GryphlineBundle extends AbstractBundle
 {
+
     public function getPath(): string
     {
         return dirname(__DIR__ . '/src');
@@ -25,7 +27,6 @@ class GryphlineBundle extends AbstractBundle
 
     public function prependExtension(ContainerConfigurator $configurator, ContainerBuilder $container): void
     {
-        // Load configurations
         $configurator->import('./config/packages/');
     }
 
@@ -37,14 +38,18 @@ class GryphlineBundle extends AbstractBundle
         // Load parameters
         $configurator->parameters()->set('gryphline.domain_name', $config['domain_name'] ?? null);
         $configurator->parameters()->set('gryphline.timezones', $config['timezones'] ?? []);
+        $configurator->parameters()->set('gryphline.timezone.US_EU', $config['timezones']['US_EU']);
+        $configurator->parameters()->set('gryphline.timezone.SEA', $config['timezones']['SEA']);
 
         $gryphlineTasks = $config['tasks'] ?? [];
+
+        // Store root cron map configuration
         $configurator->parameters()->set('gryphline.tasks', $gryphlineTasks);
 
+        // Store flattened parameters for granular access
         foreach ($gryphlineTasks as $taskName => $taskOptions) {
             $class = $taskOptions['message_class'];
-            $isRegional = (bool) ($taskOptions['regional'] ?? false);
-
+            $isRegional = (bool) $taskOptions['regional'];
             if (!class_exists($class)) {
                 throw new InvalidConfigurationException(sprintf(
                     'Configured message class "%s" for task "%s" does not exist.',
@@ -72,7 +77,6 @@ class GryphlineBundle extends AbstractBundle
                     ));
                 }
             }
-
             foreach ($taskOptions as $optionKey => $optionValue) {
                 $configurator->parameters()->set(
                     sprintf('gryphline.task.%s.%s', $taskName, $optionKey),
@@ -84,6 +88,14 @@ class GryphlineBundle extends AbstractBundle
 
     public function configure(DefinitionConfigurator $definition): void
     {
+        /**
+         * @param NodeBuilder<ArrayNodeDefinition> $tasksNode
+         * @param string $nodeName
+         * @param string $defaultClass
+         * @param bool $isRegional
+         * @param int|null $defaultJitter
+         * @return mixed
+         */
         $addCronNode = function (
             NodeBuilder $tasksNode,
             string $nodeName,
@@ -108,10 +120,11 @@ class GryphlineBundle extends AbstractBundle
             ->children()
                 ->scalarNode('domain_name')->defaultNull()->end()
                 ->arrayNode('timezones')
+                    ->normalizeKeys(false)
                     ->addDefaultsIfNotSet()
                     ->children()
-                        ->stringNode('EU')->cannotBeEmpty()->defaultValue('Europe/Paris')->end()
-                        ->stringNode('CN')->cannotBeEmpty()->defaultValue('Asia/Shanghai')->end()
+                        ->stringNode('US_EU')->cannotBeEmpty()->defaultValue('Europe/Paris')->end()
+                        ->stringNode('SEA')->cannotBeEmpty()->defaultValue('Asia/Shanghai')->end()
                     ->end()
                 ->end()
                 ->arrayNode('tasks')
@@ -120,12 +133,13 @@ class GryphlineBundle extends AbstractBundle
 
         // 1. Global tasks
         $addCronNode($tasksNode, 'skport_check_in', SkportCheckInBatchMessage::class);
+        $addCronNode($tasksNode, 'skport_missed_check_in', SkportMissedCheckInBatchMessage::class);
         $addCronNode($tasksNode, 'stamina', StaminaCheckBatchMessage::class);
 
-        // 2. Regional tasks
+        // 2. Regional tasks (regional = true)
         $addCronNode($tasksNode, 'dailies_reminder', DailiesReminderBatchMessage::class, isRegional: true);
         $addCronNode($tasksNode, 'weeklies_reminder', WeekliesReminderBatchMessage::class, isRegional: true);
 
-        $tasksNode->end()->end()->end();
+        $tasksNode->end()->end();
     }
 }

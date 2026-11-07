@@ -70,6 +70,9 @@ class GryphlineGameProfile implements GameProfileInterface
     #[ORM\Column(options: ["default" => "1"])]
     private ?bool $skportCheckIn = true;
 
+    #[ORM\Column(options: ["default" => "1"])]
+    private ?bool $skportMissedCheckIn = true;
+
     #[ORM\Column(options: ["default" => "0"])]
     private ?bool $staminaCheck = false;
 
@@ -216,7 +219,7 @@ class GryphlineGameProfile implements GameProfileInterface
 
     public function getSkGameRole(): string
     {
-        return sprintf('%d_%s_%s', $this->gameId ?? 3, $this->gameUid, $this->serverId);
+        return sprintf('%d_%s_%s', $this->getGameId(), $this->getGameUid(), $this->getServerId());
     }
 
     public function getIconUrl(): ?string
@@ -243,11 +246,10 @@ class GryphlineGameProfile implements GameProfileInterface
 
     public function updateParsedRegion(): static
     {
-        $region = strtolower((string) ($this->getRegion() ?? ''));
+        $region = strtolower((string) ($this->getRegion() ?? ""));
         $this->parsedRegion = match ($region) {
-            'us', 'americas / europe', '3', 'eu', 'na' => 'EU',
-            'cn', 'zh', 'china', '1', '6' => 'CN',
-            default => 'EU',
+            'us', 'eu', 'na' => 'US_EU',
+            default => 'SEA',
         };
 
         return $this;
@@ -266,11 +268,10 @@ class GryphlineGameProfile implements GameProfileInterface
 
     public function updateParsedTimezone(): static
     {
-        $region = strtolower((string) ($this->getRegion() ?? ''));
+        $region = strtolower((string) ($this->getRegion() ?? ""));
         $this->parsedTimezone = match ($region) {
-            'us', 'americas / europe', '3', 'eu', 'na' => 'EU',
-            'cn', 'zh', 'china', '1', '6' => 'CN',
-            default => 'EU',
+            'us', 'eu', 'na' => 'US_EU',
+            default => 'SEA',
         };
 
         return $this;
@@ -284,6 +285,17 @@ class GryphlineGameProfile implements GameProfileInterface
     public function setSkportCheckIn(bool $skportCheckIn): static
     {
         $this->skportCheckIn = $skportCheckIn;
+        return $this;
+    }
+
+    public function isSkportMissedCheckIn(): ?bool
+    {
+        return $this->skportMissedCheckIn;
+    }
+
+    public function setSkportMissedCheckIn(?bool $skportMissedCheckIn): static
+    {
+        $this->skportMissedCheckIn = $skportMissedCheckIn;
         return $this;
     }
 

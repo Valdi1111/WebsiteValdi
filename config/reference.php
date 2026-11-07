@@ -278,13 +278,20 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  * @psalm-type GryphlineConfig = array{
  *     domain_name?: scalar|Param|null, // Default: null
  *     timezones?: array{
- *         EU?: string|Param, // Default: "Europe/Paris"
- *         CN?: string|Param, // Default: "Asia/Shanghai"
+ *         US_EU?: string|Param, // Default: "Europe/Paris"
+ *         SEA?: string|Param, // Default: "Asia/Shanghai"
  *     },
  *     tasks?: array{
  *         skport_check_in?: array{
  *             enabled?: bool|Param, // Default: true
  *             message_class?: string|Param, // Default: "App\\GryphlineBundle\\Message\\Batch\\SkportCheckInBatchMessage"
+ *             cron?: string|Param, // Default: null
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *         skport_missed_check_in?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: string|Param, // Default: "App\\GryphlineBundle\\Message\\Batch\\SkportMissedCheckInBatchMessage"
  *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null

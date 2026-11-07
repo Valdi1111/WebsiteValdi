@@ -4,6 +4,9 @@ namespace App\Tests\GryphlineBundle\MessageHandler;
 
 use App\GryphlineBundle\Message\Batch\DailiesReminderBatchMessage;
 use App\GryphlineBundle\Message\Batch\SkportCheckInBatchMessage;
+use App\GryphlineBundle\Message\Batch\SkportMissedCheckInBatchMessage;
+use App\GryphlineBundle\Message\Profile\SkportMissedCheckInProfileMessage;
+use App\GryphlineBundle\MessageHandler\Batch\SkportMissedCheckInBatchHandler;
 use App\GryphlineBundle\Message\Batch\StaminaCheckBatchMessage;
 use App\GryphlineBundle\Message\Batch\WeekliesReminderBatchMessage;
 use App\GryphlineBundle\Message\Profile\DailiesReminderProfileMessage;
@@ -130,5 +133,32 @@ class GryphlineBatchHandlerTest extends TestCase
         $this->assertCount(1, $dispatched);
         $this->assertInstanceOf(WeekliesReminderProfileMessage::class, $dispatched[0]);
         $this->assertSame(40, $dispatched[0]->getGameProfileId());
+    }
+
+    public function testSkportMissedCheckInBatchHandlerDispatchesProfileMessages(): void
+    {
+        $repo = $this->createMock(GryphlineGameProfileRepository::class);
+        $repo->expects($this->once())
+            ->method("findEligibleProfileIds")
+            ->with("skportMissedCheckIn", null)
+            ->willReturn([
+                ["id" => 50, "gameBiz" => "endfield"],
+            ]);
+
+        $dispatched = [];
+        $bus = $this->createMock(MessageBusInterface::class);
+        $bus->expects($this->once())
+            ->method("dispatch")
+            ->willReturnCallback(function ($msg) use (&$dispatched) {
+                $dispatched[] = $msg;
+                return new Envelope($msg);
+            });
+
+        $handler = new SkportMissedCheckInBatchHandler($repo, $bus, new NullLogger());
+        $handler(new SkportMissedCheckInBatchMessage());
+
+        $this->assertCount(1, $dispatched);
+        $this->assertInstanceOf(SkportMissedCheckInProfileMessage::class, $dispatched[0]);
+        $this->assertSame(50, $dispatched[0]->getGameProfileId());
     }
 }

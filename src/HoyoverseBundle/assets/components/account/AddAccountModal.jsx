@@ -25,8 +25,8 @@ export default function AddAccountModal({ open, onCancel, onSubmit, loading }) {
 
         const isValid = Boolean(tokens.ltoken_v2 && tokens.ltuid_v2 && tokens.ltmid_v2);
         const canRedeemCodes = Boolean(tokens.cookie_token_v2 && tokens.account_mid_v2 && tokens.account_id_v2);
-        // Check for presence of stoken or stoken_v2 required for automatic token renewal
-        const canAutoRenew = Boolean(tokens.stoken || tokens.stoken_v2);
+        // Check for presence of stoken_v2 required for automatic token renewal
+        const canAutoRenew = Boolean(tokens.stoken_v2);
 
         return { tokens, isValid, canRedeemCodes, canAutoRenew };
     }, [rawCookie]);
@@ -87,8 +87,8 @@ export default function AddAccountModal({ open, onCancel, onSubmit, loading }) {
 
                             <Descriptions.Item label={<strong>Auto Renewal Tokens</strong>}>
                                 <Space wrap>
-                                    <Tag color={(parsedTokens.tokens.stoken || parsedTokens.tokens.stoken_v2) ? "success" : "default"} icon={(parsedTokens.tokens.stoken || parsedTokens.tokens.stoken_v2) ? <CheckCircleOutlined /> : <CloseCircleOutlined />}>
-                                        stoken
+                                    <Tag color={parsedTokens.tokens.stoken_v2 ? "success" : "default"} icon={parsedTokens.tokens.stoken_v2 ? <CheckCircleOutlined /> : <CloseCircleOutlined />}>
+                                        stoken_v2
                                     </Tag>
                                 </Space>
                             </Descriptions.Item>
@@ -125,14 +125,14 @@ export default function AddAccountModal({ open, onCancel, onSubmit, loading }) {
                                             type="success"
                                             showIcon
                                             title="Auto-Renewal Enabled"
-                                            description="The 'stoken' token is present. The system will be able to refresh session cookies automatically."
+                                            description="The 'stoken_v2' token is present. The system will be able to refresh session cookies automatically."
                                         />
                                     ) : (
                                         <Alert
                                             type="warning"
                                             showIcon
                                             title="Auto-Renewal Unavailable"
-                                            description="Missing 'stoken'. Cookies will not refresh automatically and will expire over time."
+                                            description="Missing 'stoken_v2'. Cookies will not refresh automatically and will expire over time."
                                         />
                                     )}
 

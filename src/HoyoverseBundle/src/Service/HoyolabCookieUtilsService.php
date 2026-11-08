@@ -132,7 +132,7 @@ class HoyolabCookieUtilsService
      * Attempts to refresh authentication tokens by sending a request to the HoYoverse Passport API.
      * Updates the passed ParsedCookie instance in-place with fresh ltoken_v2 and cookie_token_v2 values.
      *
-     * @param ParsedCookie $cookie The cookie model containing the refresh stoken and account IDs.
+     * @param ParsedCookie $cookie The cookie model containing the refresh stoken_v2 and account IDs.
      *
      * @return bool True if tokens were successfully refreshed, false otherwise.
      */
@@ -224,11 +224,9 @@ class HoyolabCookieUtilsService
     {
         $parts = [];
 
-        $stoken = $cookie->getStoken();
+        $stoken = $cookie->getStokenV2();
         $parts[] = "stoken={$stoken}";
-        if (str_starts_with($stoken ?? '', 'v2_')) {
-            $parts[] = "stoken_v2={$stoken}";
-        }
+        $parts[] = "stoken_v2={$stoken}";
 
         $uid = $cookie->getAccountIdV2() ?? $cookie->getLtuidV2();
         if ($uid !== null && $uid !== '') {

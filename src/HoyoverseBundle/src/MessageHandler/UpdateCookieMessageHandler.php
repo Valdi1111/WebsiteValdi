@@ -61,7 +61,7 @@ class UpdateCookieMessageHandler
 
         $parsedCookie = $this->cookieUtils->parseCookie($rawCookie);
 
-        // Skip renewal if no renewal secret (stoken) is configured
+        // Skip renewal if no renewal secret (stoken_v2) is configured
         if (!$parsedCookie->canAutoRenew()) {
             return;
         }

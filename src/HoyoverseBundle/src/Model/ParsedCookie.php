@@ -24,8 +24,8 @@ class ParsedCookie implements \JsonSerializable, \Stringable
     #[SerializedName('account_id_v2')]
     private ?string $accountIdV2 = null;
 
-    #[SerializedName('stoken')]
-    private ?string $stoken = null;
+    #[SerializedName('stoken_v2')]
+    private ?string $stokenV2 = null;
 
     public function getLtokenV2(): ?string
     {
@@ -93,14 +93,14 @@ class ParsedCookie implements \JsonSerializable, \Stringable
         return $this;
     }
 
-    public function getStoken(): ?string
+    public function getStokenV2(): ?string
     {
-        return $this->stoken;
+        return $this->stokenV2;
     }
 
-    public function setStoken(?string $stoken): ParsedCookie
+    public function setStokenV2(?string $stokenV2): ParsedCookie
     {
-        $this->stoken = $stoken;
+        $this->stokenV2 = $stokenV2;
         return $this;
     }
 
@@ -116,7 +116,7 @@ class ParsedCookie implements \JsonSerializable, \Stringable
 
     public function canAutoRenew(): bool
     {
-        return !empty($this->getStoken());
+        return !empty($this->getStokenV2());
     }
 
     public function jsonSerialize(): array
@@ -149,7 +149,7 @@ class ParsedCookie implements \JsonSerializable, \Stringable
     {
         $json = $this->jsonSerialize();
         if ($this->canAutoRenew()) {
-            $json['stoken'] = $this->getStoken();
+            $json['stoken_v2'] = $this->getStokenV2();
         }
         return http_build_query(
             array_filter(

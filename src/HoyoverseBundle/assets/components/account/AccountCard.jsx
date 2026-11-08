@@ -43,7 +43,7 @@ export default function AccountCard({
                                     Auto-Renew Ready
                                 </Tag>
                             ) : (
-                                <Tooltip title="Account cookie is missing 'stoken'. Cookies cannot be automatically renewed and will expire.">
+                                <Tooltip title="Account cookie is missing 'stoken_v2'. Cookies cannot be automatically renewed and will expire.">
                                     <Tag color="warning" icon={<WarningOutlined />} style={{ margin: 0 }}>
                                         Auto-Renew Unavailable
                                     </Tag>

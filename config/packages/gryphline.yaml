@@ -14,3 +14,5 @@ gryphline:
             cron: '0 21 * * *'
         weeklies_reminder:
             cron: '0 21 * * 0'
+        sync_pulls:
+            cron: '0 1 * * *'

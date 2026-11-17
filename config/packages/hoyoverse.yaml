@@ -27,6 +27,8 @@ hoyoverse:
             jitter: 3
         sync_diary:
             cron: '0 0 2 * *'
+        sync_pulls:
+            cron: '0 1 * * *'
         update_cookie:
             cron: '0 */4 * * *'
         dailies_reminder:

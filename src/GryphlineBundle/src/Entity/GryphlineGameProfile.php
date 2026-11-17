@@ -4,6 +4,8 @@ namespace App\GryphlineBundle\Entity;
 
 use App\CoreBundle\Model\Game\GameProfileInterface;
 use App\GryphlineBundle\Repository\GryphlineGameProfileRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Schema\DefaultExpression\CurrentTimestamp;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -85,11 +87,26 @@ class GryphlineGameProfile implements GameProfileInterface
     #[ORM\Column(options: ["default" => "0"])]
     private ?bool $weekliesCheck = false;
 
+    #[ORM\Column(options: ["default" => "0"])]
+    private ?bool $syncPulls = false;
+
+    /**
+     * @var Collection<int, GryphlinePull>
+     */
+    #[Ignore]
+    #[ORM\OneToMany(targetEntity: GryphlinePull::class, mappedBy: 'gameProfile', cascade: ['persist', 'remove'])]
+    private Collection $pulls;
+
     #[ORM\Column]
     private array $notificationPlatforms = [];
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, insertable: false, updatable: false, options: ["default" => new CurrentTimestamp()])]
     private ?\DateTimeInterface $addedAt = null;
+
+    public function __construct()
+    {
+        $this->pulls = new ArrayCollection();
+    }
 
     public function getId(): ?int
     {
@@ -357,5 +374,46 @@ class GryphlineGameProfile implements GameProfileInterface
     public function getAddedAt(): ?\DateTimeInterface
     {
         return $this->addedAt;
+    }
+
+    public function isSyncPulls(): ?bool
+    {
+        return $this->syncPulls;
+    }
+
+    public function setSyncPulls(bool $syncPulls): static
+    {
+        $this->syncPulls = $syncPulls;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, GryphlinePull>
+     */
+    public function getPulls(): Collection
+    {
+        return $this->pulls;
+    }
+
+    public function addPull(GryphlinePull $pull): static
+    {
+        if (!$this->pulls->contains($pull)) {
+            $this->pulls->add($pull);
+            $pull->setGameProfile($this);
+        }
+
+        return $this;
+    }
+
+    public function removePull(GryphlinePull $pull): static
+    {
+        if ($this->pulls->removeElement($pull)) {
+            if ($pull->getGameProfile() === $this) {
+                $pull->setGameProfile(null);
+            }
+        }
+
+        return $this;
     }
 }

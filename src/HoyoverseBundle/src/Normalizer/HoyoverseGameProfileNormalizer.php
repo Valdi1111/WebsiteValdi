@@ -14,8 +14,11 @@ use App\HoyoverseBundle\Model\Game\HasExpeditionsInterface;
 use App\HoyoverseBundle\Model\Game\HasHilichurlInterface;
 use App\HoyoverseBundle\Model\Game\HasHoyolabCheckInInterface;
 use App\HoyoverseBundle\Model\Game\HasMimoInterface;
+use App\HoyoverseBundle\Model\Game\HasPowershellPullImportInterface;
+use App\HoyoverseBundle\Model\Game\HasPullTrackerInterface;
 use App\HoyoverseBundle\Model\Game\HasRealmCurrencyInterface;
 use App\HoyoverseBundle\Model\Game\HasShopStatusInterface;
+use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
@@ -36,6 +39,7 @@ class HoyoverseGameProfileNormalizer extends AbstractGameProfileNormalizer
         HasDailiesInterface::class => ['dailiesCheck'],
         HasWeekliesInterface::class => ['weekliesCheck'],
         HasDiaryInterface::class => ['syncDiary'],
+        HasStokenPullImportInterface::class => ['syncPulls'],
     ];
 
     /**
@@ -66,5 +70,22 @@ class HoyoverseGameProfileNormalizer extends AbstractGameProfileNormalizer
     protected function getTimezoneMap(): array
     {
         return $this->timezones;
+    }
+
+    public function normalize(mixed $data, ?string $format = null, array $context = []): array|string|int|float|bool|\ArrayObject|null
+    {
+        $result = parent::normalize($data, $format, $context);
+
+        if (is_array($result) && $data instanceof HoyoverseGameProfile) {
+            $gameId = (int) $data->getGameId();
+            if ($this->locatorByGameId->has($gameId)) {
+                $gameService = $this->locatorByGameId->get($gameId);
+                $result['supports_pulls'] = $gameService instanceof HasPullTrackerInterface;
+                $result['supports_stoken_pulls'] = $gameService instanceof HasStokenPullImportInterface;
+                $result['supports_powershell_pulls'] = $gameService instanceof HasPowershellPullImportInterface;
+            }
+        }
+
+        return $result;
     }
 }

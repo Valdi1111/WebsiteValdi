@@ -42,6 +42,12 @@ export default function (apiUrl, { message }) {
     api._gameProfiles.get = async (id) => axiosInstance.get(`/accounts/${id}/gameProfiles`);
     api._gameProfiles.getId = async (accountId, gameProfileId) => axiosInstance.get(`/accounts/${accountId}/gameProfiles/${gameProfileId}`);
     api._gameProfiles.updateSettings = async (accountId, gameProfileId, data) => axiosInstance.patch(`/accounts/${accountId}/gameProfiles/${gameProfileId}/settings`, data);
+    api._gameProfiles.syncPulls = async (accountId, gameProfileId) =>
+        axiosInstance.post(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls/sync`);
+    api._gameProfiles.getPullsOverview = async (accountId, gameProfileId) =>
+        axiosInstance.get(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls/overview`);
+    api._gameProfiles.getPulls = async (accountId, gameProfileId, params) =>
+        axiosInstance.get(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls`, { params });
 
     return {
         ...api,

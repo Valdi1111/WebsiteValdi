@@ -1,17 +1,26 @@
-import { SettingOutlined } from "@ant-design/icons";
+import { SettingOutlined, HistoryOutlined } from "@ant-design/icons";
 import { Card, Avatar, Tag, Tooltip, Typography, Space } from "antd";
-import React from "react";
+import { useNavigate } from "react-router";
+import React, { useState } from "react";
 
 const { Text } = Typography;
 
 export default function GameProfileCard({ profile, accountId, onOpenSettings }) {
-    const [imgError, setImgError] = React.useState(false);
+    const navigate = useNavigate();
+    const [imgError, setImgError] = useState(false);
 
     React.useEffect(() => {
         setImgError(false);
     }, [profile.icon_url]);
 
+    const supportsPulls = Boolean(profile.supports_pulls);
+
     const actions = [
+        supportsPulls ? (
+            <Tooltip title="View Pulls History" key="pulls">
+                <HistoryOutlined onClick={() => navigate(`/gryphline/accounts/${accountId}/profiles/${profile.id}/pulls`)} />
+            </Tooltip>
+        ) : null,
         <Tooltip title="Configure Settings" key="settings">
             <SettingOutlined onClick={() => onOpenSettings(profile.id)} />
         </Tooltip>,
@@ -81,6 +90,9 @@ export default function GameProfileCard({ profile, accountId, onOpenSettings }) 
                                     )}
                                     {"weeklies_check" in profile && profile.weeklies_check && (
                                         <Tag color="geekblue">Weeklies</Tag>
+                                    )}
+                                    {"sync_pulls" in profile && profile.sync_pulls && (
+                                        <Tag color="gold">Pulls Sync</Tag>
                                     )}
                                 </>
                             )}

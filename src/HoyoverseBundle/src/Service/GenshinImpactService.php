@@ -15,6 +15,9 @@ use App\HoyoverseBundle\Model\Game\HasExpeditionsInterface;
 use App\HoyoverseBundle\Model\Game\HasRealmCurrencyInterface;
 use App\CoreBundle\Model\Game\HasWeekliesInterface;
 use App\HoyoverseBundle\Model\Game\GameService;
+use App\HoyoverseBundle\Model\Game\HasPowershellPullImportInterface;
+use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
+use App\HoyoverseBundle\Model\Game\HoyoversePullTrait;
 use App\CoreBundle\Model\Game\HasNotesInterface;
 use App\HoyoverseBundle\Model\Game\NotesTrait;
 use App\CoreBundle\Model\Game\HasStaminaInterface;
@@ -40,12 +43,13 @@ use Symfony\Component\DependencyInjection\Attribute\Target;
 #[AsAlias(GameInterface::class, target: self::TYPE)]
 #[AutoconfigureTag(name: 'hoyoverse.game.id', attributes: ['key' => self::GAME_ID])]
 #[AutoconfigureTag(name: 'hoyoverse.game.biz', attributes: ['key' => self::GAME_BIZ])]
-class GenshinImpactService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasExpeditionsInterface, HasRealmCurrencyInterface
+class GenshinImpactService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasExpeditionsInterface, HasRealmCurrencyInterface, HasStokenPullImportInterface, HasPowershellPullImportInterface
 {
     use NotesTrait;
     use DiaryTrait;
     use AutoCodeRedemptionTrait;
     use GenshinImpactEndgamesTrait;
+    use HoyoversePullTrait;
 
     public const string TYPE = "genshin-impact";
     public const string GAME_BIZ = "hk4e_global";
@@ -234,5 +238,78 @@ class GenshinImpactService extends GameService implements HasNotesInterface, Has
             ->setCurrentCoin($notes->getCurrentHomeCoin())
             ->setMaxCoin($notes->getMaxHomeCoin())
             ->setCoinRecoverTime($notes->getHomeCoinRecoveryTime());
+    }
+
+    public function getAuthkeyGameBiz(): string
+    {
+        return self::GAME_BIZ;
+    }
+
+    public function getAuthkeyAppId(): string
+    {
+        return 'webview_gacha';
+    }
+
+    public function getPowershellGameFolderName(): string
+    {
+        return 'Genshin Impact';
+    }
+
+    public function getGachaEndpointUrl(): string
+    {
+        return 'https://public-operation-hk4e-sg.hoyoverse.com/gacha_info/api/getGachaLog';
+    }
+
+    public function getGachaBannerTypes(): array
+    {
+        return [
+            301 => 'Character Event Wish',
+            400 => 'Character Event Wish-2',
+            302 => 'Weapon Event Wish',
+            200 => 'Standard Wish',
+            100 => "Beginners' Wish",
+            500 => 'Chronicled Wish',
+        ];
+    }
+
+    public function getGachaBannerGroups(): array
+    {
+        return [
+            '301' => [
+                'key' => '301',
+                'name' => 'Character Event Wish',
+                'gacha_types' => ['301', '400'],
+                's_max_pity' => 90,
+                'a_max_pity' => 10,
+            ],
+            '302' => [
+                'key' => '302',
+                'name' => 'Weapon Event Wish',
+                'gacha_types' => ['302'],
+                's_max_pity' => 80,
+                'a_max_pity' => 10,
+            ],
+            '200' => [
+                'key' => '200',
+                'name' => 'Standard Wish',
+                'gacha_types' => ['200'],
+                's_max_pity' => 90,
+                'a_max_pity' => 10,
+            ],
+            '500' => [
+                'key' => '500',
+                'name' => 'Chronicled Wish',
+                'gacha_types' => ['500'],
+                's_max_pity' => 90,
+                'a_max_pity' => 10,
+            ],
+            '100' => [
+                'key' => '100',
+                'name' => "Beginners' Wish",
+                'gacha_types' => ['100'],
+                's_max_pity' => 20,
+                'a_max_pity' => 10,
+            ],
+        ];
     }
 }

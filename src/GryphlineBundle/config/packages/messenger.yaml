@@ -10,3 +10,13 @@ framework:
                     delay: 10000
                     multiplier: 2
                     max_delay: 60000
+            # Paginated gacha/pulls history synchronization
+            gryphline_pulls:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    queue_name: gryphline_pulls
+                retry_strategy:
+                    max_retries: 3
+                    delay: 60000    # Initial backoff: 1 minute
+                    multiplier: 2
+                    max_delay: 300000

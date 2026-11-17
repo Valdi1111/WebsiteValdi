@@ -13,6 +13,8 @@ use App\HoyoverseBundle\Model\Game\DiaryTrait;
 use App\HoyoverseBundle\Model\Game\HasExpeditionsInterface;
 use App\CoreBundle\Model\Game\HasWeekliesInterface;
 use App\HoyoverseBundle\Model\Game\GameService;
+use App\HoyoverseBundle\Model\Game\HasPowershellPullImportInterface;
+use App\HoyoverseBundle\Model\Game\HoyoversePullTrait;
 use App\CoreBundle\Model\Game\HasNotesInterface;
 use App\HoyoverseBundle\Model\Game\HonkaiStarRailEndgamesTrait;
 use App\HoyoverseBundle\Model\Game\NotesTrait;
@@ -38,12 +40,13 @@ use Symfony\Component\DependencyInjection\Attribute\Target;
 #[AsAlias(GameInterface::class, target: self::TYPE)]
 #[AutoconfigureTag(name: 'hoyoverse.game.id', attributes: ['key' => self::GAME_ID])]
 #[AutoconfigureTag(name: 'hoyoverse.game.biz', attributes: ['key' => self::GAME_BIZ])]
-class HonkaiStarRailService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasExpeditionsInterface
+class HonkaiStarRailService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasExpeditionsInterface, HasPowershellPullImportInterface
 {
     use NotesTrait;
     use DiaryTrait;
     use AutoCodeRedemptionTrait;
     use HonkaiStarRailEndgamesTrait;
+    use HoyoversePullTrait;
 
     public const string TYPE = "honkai-star-rail";
     public const string GAME_BIZ = "hkrpg_global";
@@ -229,5 +232,59 @@ class HonkaiStarRailService extends GameService implements HasNotesInterface, Ha
             );
         }
         return $expeditions;
+    }
+
+    public function getPowershellGameFolderName(): string
+    {
+        return 'StarRail';
+    }
+
+    public function getGachaEndpointUrl(): string
+    {
+        return 'https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getGachaLog';
+    }
+
+    public function getGachaBannerTypes(): array
+    {
+        return [
+            11 => 'Character Event Warp',
+            12 => 'Light Cone Event Warp',
+            1 => 'Regular Warp',
+            2 => 'Departure Warp',
+        ];
+    }
+
+    public function getGachaBannerGroups(): array
+    {
+        return [
+            '11' => [
+                'key' => '11',
+                'name' => 'Character Event Warp',
+                'gacha_types' => ['11'],
+                's_max_pity' => 90,
+                'a_max_pity' => 10,
+            ],
+            '12' => [
+                'key' => '12',
+                'name' => 'Light Cone Event Warp',
+                'gacha_types' => ['12'],
+                's_max_pity' => 80,
+                'a_max_pity' => 10,
+            ],
+            '1' => [
+                'key' => '1',
+                'name' => 'Regular Warp',
+                'gacha_types' => ['1'],
+                's_max_pity' => 90,
+                'a_max_pity' => 10,
+            ],
+            '2' => [
+                'key' => '2',
+                'name' => 'Departure Warp',
+                'gacha_types' => ['2'],
+                's_max_pity' => 50,
+                'a_max_pity' => 10,
+            ],
+        ];
     }
 }

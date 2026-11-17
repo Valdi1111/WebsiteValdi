@@ -13,6 +13,8 @@ use App\CoreBundle\Model\Game\HasDailiesInterface;
 use App\CoreBundle\Model\Game\HasNotesInterface;
 use App\CoreBundle\Model\Game\HasStaminaInterface;
 use App\CoreBundle\Model\Game\HasWeekliesInterface;
+use App\GryphlineBundle\Model\Game\GryphlinePullTrait;
+use App\GryphlineBundle\Model\Game\HasAutoPullImportInterface;
 use App\GryphlineBundle\Model\Game\NotesTrait;
 use App\GryphlineBundle\Model\Notes\EndfieldNotes;
 use App\CoreBundle\Model\GameNotes\GameNotesStamina;
@@ -22,6 +24,7 @@ use App\GryphlineBundle\Model\SkportSessionCredentials;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\Target;
+use Symfony\Component\ObjectMapper\ObjectMapperInterface;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
@@ -30,10 +33,11 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 #[AutoconfigureTag(name: 'gryphline.game.biz', attributes: ['key' => self::GAME_BIZ])]
 #[AutoconfigureTag(name: 'gryphline.game.id', attributes: ['key' => self::GAME_ID])]
-class EndfieldService implements GameInterface, HasCheckInInterface, HasNotesInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface
+class EndfieldService implements GameInterface, HasCheckInInterface, HasNotesInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasAutoPullImportInterface
 {
     use CheckInTrait;
     use NotesTrait;
+    use GryphlinePullTrait;
 
     public const int GAME_ID = 3;
     public const string GAME_BIZ = 'endfield';
@@ -43,10 +47,12 @@ class EndfieldService implements GameInterface, HasCheckInInterface, HasNotesInt
     public function __construct(
         #[Target('gryphline.skport.client')]
         private readonly HttpClientInterface $skportClient,
+        private readonly HttpClientInterface $httpClient,
         private readonly SkportSignerService $signerService,
         private readonly SkportAuthService $authService,
         private readonly SkportUtilsService $skportUtils,
         private readonly DenormalizerInterface $denormalizer,
+        private readonly ObjectMapperInterface $objectMapper,
         #[Target('gryphline.endfield')]
         private readonly LoggerInterface $logger,
     ) {
@@ -174,5 +180,15 @@ class EndfieldService implements GameInterface, HasCheckInInterface, HasNotesInt
         }
 
         return $creds;
+    }
+
+    public function getHttpClient(): HttpClientInterface
+    {
+        return $this->httpClient;
+    }
+
+    public function getObjectMapper(): ObjectMapperInterface
+    {
+        return $this->objectMapper;
     }
 }

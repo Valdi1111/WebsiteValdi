@@ -2,7 +2,9 @@
 
 namespace App\HoyoverseBundle\Service;
 
+use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Exception\ConfigurationException;
+use App\HoyoverseBundle\Exception\HoyolabException;
 use App\HoyoverseBundle\Model\ParsedCookie;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Target;
@@ -23,6 +25,11 @@ class HoyolabCookieUtilsService
     private const string REFRESH_API = 'https://sg-public-api.hoyoverse.com/account/ma-passport/token/getBySToken';
 
     /**
+     * Endpoint used to obtain gacha authkey via stoken.
+     */
+    private const string GEN_AUTHKEY_API = 'https://api-os-takumi.hoyoverse.com/binding/api/genAuthKey';
+
+    /**
      * HoYoLAB Application identifier required by the passport API.
      */
     private const string APP_ID = 'c9oqaq3s3gu8';
@@ -36,7 +43,8 @@ class HoyolabCookieUtilsService
         private readonly HttpClientInterface   $httpClient,
         #[Target('hoyoverse')]
         private readonly LoggerInterface       $logger,
-        private readonly DenormalizerInterface $denormalizer
+        private readonly DenormalizerInterface $denormalizer,
+        private readonly HoyolabUtilsService   $hoyolabUtils,
     ) {
     }
 
@@ -169,6 +177,7 @@ class HoyolabCookieUtilsService
             $payload = $response->toArray(false);
 
             if (($payload['retcode'] ?? -1) !== 0 || !isset($payload['data']['tokens']) || !is_array($payload['data']['tokens'])) {
+                // Attenzione a retcode -100, chiede il relogin
                 $this->getLogger()->error('HoYoAuth: Invalid API response or HoYoLAB error', [
                     'retcode' => $payload['retcode'] ?? null,
                     'message' => $payload['message'] ?? 'Unknown error',
@@ -268,4 +277,76 @@ class HoyolabCookieUtilsService
         return sprintf('%d,%s,%s', $timestamp, $random, $hash);
     }
 
+    /**
+     * Generates a temporary gacha authkey for the given game profile using stoken_v2.
+     *
+     * @throws ConfigurationException
+     * @throws HoyolabException
+     */
+    public function generateAuthKey(
+        HoyoverseGameProfile $profile,
+        string $authAppId = 'webview_gacha'
+    ): string {
+        $account = $profile->getAccount();
+        if ($account === null) {
+            throw new ConfigurationException('GameProfile does not have an associated HoyoverseAccount.');
+        }
+
+        $parsedCookie = $this->parseCookie((string) $account->getCookie());
+        $stoken = $parsedCookie->getStokenV2();
+        $mid = $parsedCookie->getLtmidV2();
+
+        if (empty($stoken)) {
+            throw new ConfigurationException(sprintf(
+                'HoyoverseAccount ID %d is missing an stoken. Cannot generate gacha authkey.',
+                $account->getId()
+            ));
+        }
+
+        $body = [
+            'auth_appid' => $authAppId,
+            'game_biz' => $profile->getGameBiz(),
+            'game_uid' => (int) $profile->getGameUid(),
+            'region' => $profile->getRegion(),
+        ];
+
+        $ds = $this->hoyolabUtils->generateDsV2([], $body);
+
+        $cookieHeader = "stoken={$stoken};";
+        if (!empty($mid)) {
+            $cookieHeader .= " mid={$mid};";
+        }
+
+        try {
+            $response = $this->httpClient->request(Request::METHOD_POST, self::GEN_AUTHKEY_API, [
+                'headers' => [
+                    'Cookie' => $cookieHeader,
+                    'DS' => $ds,
+                    'x-rpc-app_version' => '2.40.1',
+                    'x-rpc-client_type' => '5',
+                    'Content-Type' => 'application/json',
+                ],
+                'json' => $body,
+            ]);
+
+            $data = $response->toArray(false);
+        } catch (\Throwable $e) {
+            throw new HoyolabException('HTTP request failed while generating authkey: ' . $e->getMessage(), 0, $e);
+        }
+
+        if (($data['retcode'] ?? -1) !== 0) {
+            throw new HoyolabException(sprintf(
+                'Failed to generate authkey for profile %s: %s (retcode: %d)',
+                $profile->getNickname(),
+                $data['message'] ?? 'Unknown error',
+                $data['retcode'] ?? -1
+            ));
+        }
+
+        if (empty($data['data']['authkey'])) {
+            throw new HoyolabException('Authkey response did not contain an authkey.');
+        }
+
+        return (string) $data['data']['authkey'];
+    }
 }

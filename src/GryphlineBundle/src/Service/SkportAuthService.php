@@ -15,6 +15,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 class SkportAuthService
 {
     public const string APP_CODE = '6eb76d4e13aa36e6';
+    public const string ENDFIELD_APP_CODE = '3dacefa138426cfe';
+    public const string BINDING_BASE_URL = 'https://binding-api-account-prod.gryphline.com';
     public const int SESSION_TTL_SECONDS = 2700; // 45 minutes
 
     public function __construct(
@@ -22,6 +24,7 @@ class SkportAuthService
         private readonly HttpClientInterface $asClient,
         #[Target('gryphline.skport.client')]
         private readonly HttpClientInterface $skportClient,
+        private readonly HttpClientInterface $httpClient,
         private readonly EntityManagerInterface $entityManager,
         #[Target('gryphline')]
         private readonly LoggerInterface $logger,
@@ -162,5 +165,96 @@ class SkportAuthService
             nickname: $nickname,
             expiresAt: $expiresAt
         );
+    }
+
+    /**
+     * Obtains the U8 token required for Endfield webview record APIs.
+     *
+     * @throws SkportAuthException
+     */
+    public function getEndfieldU8Token(GryphlineAccount $account, ?string $roleId = null): string
+    {
+        $token = rawurldecode(trim((string) $account->getAccountToken()));
+        if (empty($token)) {
+            throw new SkportAuthException(sprintf('GryphlineAccount ID %d does not have an accountToken configured.', $account->getId()));
+        }
+
+        // Step 1: Request OAuth Grant Token for Endfield (type: 1 returns 'token' inside data)
+        $grantResponse = $this->asClient->request(Request::METHOD_POST, '/user/oauth2/v2/grant', [
+            'json' => [
+                'token' => $token,
+                'appCode' => self::ENDFIELD_APP_CODE,
+                'type' => 1,
+            ],
+        ]);
+
+        $grantData = $grantResponse->toArray(false);
+        $oauthToken = $grantData['data']['token'] ?? '';
+        if (($grantData['status'] ?? -1) !== 0 || $oauthToken === '') {
+            throw new SkportAuthException('Endfield OAuth grant failed: ' . ($grantData['msg'] ?? 'no token'));
+        }
+
+        // Step 2: Fetch Binding List to get the Endfield binding UID
+        $bindingResponse = $this->httpClient->request(Request::METHOD_GET, self::BINDING_BASE_URL . '/account/binding/v1/binding_list', [
+            'query' => [
+                'token' => $oauthToken,
+                'appCode' => 'endfield',
+            ],
+            'headers' => [
+                'token' => $oauthToken,
+                'Accept' => 'application/json',
+            ],
+        ]);
+
+        $bindingData = $bindingResponse->toArray(false);
+        if (($bindingData['status'] ?? -1) !== 0 || empty($bindingData['data']['list'])) {
+            throw new SkportAuthException('Endfield binding list request failed: ' . ($bindingData['msg'] ?? 'empty list'));
+        }
+
+        $endfieldUid = null;
+        foreach ($bindingData['data']['list'] as $appItem) {
+            if (($appItem['appCode'] ?? '') !== 'endfield' && ($appItem['appCode'] ?? '') !== self::ENDFIELD_APP_CODE) {
+                continue;
+            }
+
+            foreach ($appItem['bindingList'] ?? [] as $binding) {
+                if ($roleId !== null && $roleId !== '') {
+                    foreach ($binding['roles'] ?? [] as $role) {
+                        if ((string) ($role['roleId'] ?? '') === $roleId) {
+                            $endfieldUid = (string) ($binding['uid'] ?? '');
+                            break 3;
+                        }
+                    }
+                }
+
+                if ($endfieldUid === null && !empty($binding['uid'])) {
+                    $endfieldUid = (string) $binding['uid'];
+                }
+            }
+        }
+
+        if (empty($endfieldUid)) {
+            throw new SkportAuthException('Could not find Endfield UID in binding list.');
+        }
+
+        // Step 3: Get U8 Token by UID
+        $u8Response = $this->httpClient->request(Request::METHOD_POST, self::BINDING_BASE_URL . '/account/binding/v1/u8_token_by_uid', [
+            'headers' => [
+                'token' => $oauthToken,
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+            ],
+            'json' => [
+                'token' => $oauthToken,
+                'uid' => $endfieldUid,
+            ],
+        ]);
+
+        $u8Data = $u8Response->toArray(false);
+        if (($u8Data['status'] ?? -1) !== 0 || empty($u8Data['data']['token'])) {
+            throw new SkportAuthException('Failed to retrieve Endfield u8_token: ' . ($u8Data['msg'] ?? 'unknown error'));
+        }
+
+        return (string) $u8Data['data']['token'];
     }
 }

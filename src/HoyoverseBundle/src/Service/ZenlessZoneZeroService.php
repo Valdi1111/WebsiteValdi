@@ -10,6 +10,9 @@ use App\HoyoverseBundle\Model\Game\HasAutoCodeRedemptionInterface;
 use App\CoreBundle\Model\Game\HasDailiesInterface;
 use App\HoyoverseBundle\Model\Game\HasDiaryInterface;
 use App\HoyoverseBundle\Model\Game\DiaryTrait;
+use App\HoyoverseBundle\Model\Game\HasPowershellPullImportInterface;
+use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
+use App\HoyoverseBundle\Model\Game\HoyoversePullTrait;
 use App\HoyoverseBundle\Model\Game\HasShopStatusInterface;
 use App\CoreBundle\Model\Game\HasWeekliesInterface;
 use App\HoyoverseBundle\Model\Game\GameService;
@@ -40,12 +43,13 @@ use Symfony\Component\DependencyInjection\Attribute\Target;
 #[AsAlias(GameInterface::class, target: self::TYPE)]
 #[AutoconfigureTag(name: 'hoyoverse.game.id', attributes: ['key' => self::GAME_ID])]
 #[AutoconfigureTag(name: 'hoyoverse.game.biz', attributes: ['key' => self::GAME_BIZ])]
-class ZenlessZoneZeroService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasShopStatusInterface
+class ZenlessZoneZeroService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasShopStatusInterface, HasStokenPullImportInterface, HasPowershellPullImportInterface
 {
     use NotesTrait;
     use DiaryTrait;
     use AutoCodeRedemptionTrait;
     use ZenlessZoneZeroEndgamesTrait;
+    use HoyoversePullTrait;
 
     public const string TYPE = "zenless-zone-zero";
     public const string GAME_BIZ = "nap_global";
@@ -239,5 +243,85 @@ class ZenlessZoneZeroService extends GameService implements HasNotesInterface, H
             ->setName("Shop Status")
             ->setCurrentValue($notes->getVhsSaleState())
             ->setTargetValue(ZenlessZoneZeroVhsSale::DONE);
+    }
+
+    public function getAuthkeyGameBiz(): string
+    {
+        return self::GAME_BIZ;
+    }
+
+    public function getAuthkeyAppId(): string
+    {
+        return 'webview_gacha';
+    }
+
+    public function getPowershellGameFolderName(): string
+    {
+        return 'ZenlessZoneZero';
+    }
+
+    public function getGachaEndpointUrl(): string
+    {
+        return 'https://public-operation-nap-sg.hoyoverse.com/common/gacha_record/api/getGachaLog';
+    }
+
+    public function getGachaBannerTypes(): array
+    {
+        return [
+            1 => 'Exclusive Channel',
+            2 => 'W-Engine Channel',
+            3 => 'Standard Channel',
+            5 => 'Bangboo Channel',
+        ];
+    }
+
+    public function getGachaBannerGroups(): array
+    {
+        return [
+            '1' => [
+                'key' => '1',
+                'name' => 'Exclusive Channel',
+                'gacha_types' => ['1'],
+                's_max_pity' => 90,
+                'a_max_pity' => 10,
+            ],
+            '2' => [
+                'key' => '2',
+                'name' => 'W-Engine Channel',
+                'gacha_types' => ['2'],
+                's_max_pity' => 80,
+                'a_max_pity' => 10,
+            ],
+            '3' => [
+                'key' => '3',
+                'name' => 'Standard Channel',
+                'gacha_types' => ['3'],
+                's_max_pity' => 90,
+                'a_max_pity' => 10,
+            ],
+            '5' => [
+                'key' => '5',
+                'name' => 'Bangboo Channel',
+                'gacha_types' => ['5'],
+                's_max_pity' => 80,
+                'a_max_pity' => 10,
+            ],
+        ];
+    }
+
+    public function getRarityConfig(): array
+    {
+        return [
+            's_rarity' => 4,
+            's_label' => 'S-Rank',
+            's_short' => 'S',
+            'a_rarity' => 3,
+            'a_label' => 'A-Rank',
+            'a_short' => 'A',
+            'b_rarity' => 2,
+            'b_label' => 'B-Rank',
+            'b_short' => 'B',
+            'pull_label' => 'Signals',
+        ];
     }
 }

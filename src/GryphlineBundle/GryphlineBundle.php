@@ -8,6 +8,7 @@ use App\GryphlineBundle\Message\Batch\DailiesReminderBatchMessage;
 use App\GryphlineBundle\Message\Batch\SkportCheckInBatchMessage;
 use App\GryphlineBundle\Message\Batch\SkportMissedCheckInBatchMessage;
 use App\GryphlineBundle\Message\Batch\StaminaCheckBatchMessage;
+use App\GryphlineBundle\Message\Batch\SyncPullsBatchMessage;
 use App\GryphlineBundle\Message\Batch\WeekliesReminderBatchMessage;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 use Symfony\Component\Config\Definition\Builder\NodeBuilder;
@@ -135,6 +136,7 @@ class GryphlineBundle extends AbstractBundle
         $addCronNode($tasksNode, 'skport_check_in', SkportCheckInBatchMessage::class);
         $addCronNode($tasksNode, 'skport_missed_check_in', SkportMissedCheckInBatchMessage::class);
         $addCronNode($tasksNode, 'stamina', StaminaCheckBatchMessage::class);
+        $addCronNode($tasksNode, 'sync_pulls', SyncPullsBatchMessage::class);
 
         // 2. Regional tasks (regional = true)
         $addCronNode($tasksNode, 'dailies_reminder', DailiesReminderBatchMessage::class, isRegional: true);

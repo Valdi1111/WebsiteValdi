@@ -245,6 +245,13 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null
  *         },
+ *         sync_pulls?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\Batch\\SyncPullsBatchMessage"
+ *             cron?: string|Param, // Default: null
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: null
+ *         },
  *         update_cookie?: array{
  *             enabled?: bool|Param, // Default: true
  *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\UpdateCookieMessage"
@@ -299,6 +306,13 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         stamina?: array{
  *             enabled?: bool|Param, // Default: true
  *             message_class?: string|Param, // Default: "App\\GryphlineBundle\\Message\\Batch\\StaminaCheckBatchMessage"
+ *             cron?: string|Param, // Default: null
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *         sync_pulls?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: string|Param, // Default: "App\\GryphlineBundle\\Message\\Batch\\SyncPullsBatchMessage"
  *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null

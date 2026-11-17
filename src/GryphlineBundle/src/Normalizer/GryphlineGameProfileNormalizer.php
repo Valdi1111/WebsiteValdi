@@ -8,6 +8,7 @@ use App\CoreBundle\Model\Game\HasWeekliesInterface;
 use App\CoreBundle\Normalizer\AbstractGameProfileNormalizer;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
 use App\GryphlineBundle\Model\Game\GameInterface;
+use App\GryphlineBundle\Model\Game\HasAutoPullImportInterface;
 use App\GryphlineBundle\Model\Game\HasCheckInInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
@@ -22,6 +23,7 @@ class GryphlineGameProfileNormalizer extends AbstractGameProfileNormalizer
         HasStaminaInterface::class => ['staminaCheck', 'staminaThreshold'],
         HasDailiesInterface::class => ['dailiesCheck'],
         HasWeekliesInterface::class => ['weekliesCheck'],
+        HasAutoPullImportInterface::class => ['syncPulls'],
     ];
 
     /**
@@ -52,5 +54,20 @@ class GryphlineGameProfileNormalizer extends AbstractGameProfileNormalizer
     protected function getTimezoneMap(): array
     {
         return $this->timezones;
+    }
+
+    public function normalize(mixed $data, ?string $format = null, array $context = []): array|string|int|float|bool|\ArrayObject|null
+    {
+        $result = parent::normalize($data, $format, $context);
+
+        if (is_array($result) && $data instanceof GryphlineGameProfile) {
+            $gameId = (int) $data->getGameId();
+            if ($this->locatorByGameId->has($gameId)) {
+                $gameService = $this->locatorByGameId->get($gameId);
+                $result['supports_pulls'] = $gameService instanceof HasAutoPullImportInterface;
+            }
+        }
+
+        return $result;
     }
 }

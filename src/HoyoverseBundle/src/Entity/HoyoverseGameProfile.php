@@ -129,6 +129,9 @@ class HoyoverseGameProfile implements GameProfileInterface
     #[ORM\Column(options: ["default" => "0"])]
     private ?bool $syncDiary = false;
 
+    #[ORM\Column(options: ["default" => "0"])]
+    private ?bool $syncPulls = false;
+
     #[ORM\Column]
     private array $notificationPlatforms = [];
 
@@ -142,9 +145,17 @@ class HoyoverseGameProfile implements GameProfileInterface
     #[ORM\OneToMany(targetEntity: HoyoverseDiaryEntry::class, mappedBy: 'gameProfile', cascade: ['persist', 'remove'])]
     private Collection $diaryEntries;
 
+    /**
+     * @var Collection<int, HoyoversePull>
+     */
+    #[Ignore]
+    #[ORM\OneToMany(targetEntity: HoyoversePull::class, mappedBy: 'gameProfile', cascade: ['persist', 'remove'])]
+    private Collection $pulls;
+
     public function __construct()
     {
         $this->diaryEntries = new ArrayCollection();
+        $this->pulls = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -624,5 +635,46 @@ class HoyoverseGameProfile implements GameProfileInterface
             "usa01", "os_usa", "prod_gf_us", "prod_official_usa" => "NA",
             default => "Unknown",
         });
+    }
+
+    public function isSyncPulls(): ?bool
+    {
+        return $this->syncPulls;
+    }
+
+    public function setSyncPulls(bool $syncPulls): static
+    {
+        $this->syncPulls = $syncPulls;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, HoyoversePull>
+     */
+    public function getPulls(): Collection
+    {
+        return $this->pulls;
+    }
+
+    public function addPull(HoyoversePull $pull): static
+    {
+        if (!$this->pulls->contains($pull)) {
+            $this->pulls->add($pull);
+            $pull->setGameProfile($this);
+        }
+
+        return $this;
+    }
+
+    public function removePull(HoyoversePull $pull): static
+    {
+        if ($this->pulls->removeElement($pull)) {
+            if ($pull->getGameProfile() === $this) {
+                $pull->setGameProfile(null);
+            }
+        }
+
+        return $this;
     }
 }

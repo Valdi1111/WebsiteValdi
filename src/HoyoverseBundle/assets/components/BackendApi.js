@@ -55,6 +55,16 @@ export default function (apiUrl, { message }) {
     api._gameProfiles.getDiaryEntries = async (accountId, gameProfileId, params) =>
         axiosInstance.get(`/accounts/${accountId}/gameProfiles/${gameProfileId}/diary/entries`, { params });
 
+    // Pulls routes
+    api._gameProfiles.syncPulls = async (accountId, gameProfileId) =>
+        axiosInstance.post(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls/sync`);
+    api._gameProfiles.importPowershellPulls = async (accountId, gameProfileId, data) =>
+        axiosInstance.post(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls/import-powershell`, data);
+    api._gameProfiles.getPullsOverview = async (accountId, gameProfileId) =>
+        axiosInstance.get(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls/overview`);
+    api._gameProfiles.getPulls = async (accountId, gameProfileId, params) =>
+        axiosInstance.get(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls`, { params });
+
     return {
         ...api,
         accounts: () => api._accounts,

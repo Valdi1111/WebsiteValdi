@@ -14,6 +14,7 @@ use App\HoyoverseBundle\Message\Batch\RealmCurrencyCheckBatchMessage;
 use App\HoyoverseBundle\Message\Batch\ShopStatusCheckBatchMessage;
 use App\HoyoverseBundle\Message\Batch\StaminaCheckBatchMessage;
 use App\HoyoverseBundle\Message\Batch\SyncDiaryBatchMessage;
+use App\HoyoverseBundle\Message\Batch\SyncPullsBatchMessage;
 use App\HoyoverseBundle\Message\Batch\WeekliesReminderBatchMessage;
 use App\CoreBundle\Message\RegionalTaskMessageInterface;
 use App\CoreBundle\Message\TaskMessageInterface;
@@ -150,6 +151,7 @@ class HoyoverseBundle extends AbstractBundle
         $addCronNode($tasksNode, 'mimo', MimoCheckBatchMessage::class, defaultJitter: 3);
         $addCronNode($tasksNode, 'hilichurl', HilichurlCheckBatchMessage::class, defaultJitter: 3);
         $addCronNode($tasksNode, 'sync_diary', SyncDiaryBatchMessage::class);
+        $addCronNode($tasksNode, 'sync_pulls', SyncPullsBatchMessage::class);
         $addCronNode($tasksNode, 'update_cookie', UpdateCookieMessage::class);
 
         // 2. Regional tasks (regional = true)

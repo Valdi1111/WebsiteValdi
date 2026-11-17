@@ -6,12 +6,19 @@ use App\CoreBundle\Attribute\ResolveEntityFromRoute;
 use App\CoreBundle\Entity\User;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
+use App\HoyoverseBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\HoyoverseBundle\Model\Diary\GameDiaryCurrency;
 use App\HoyoverseBundle\Model\Game\GameInterface;
+use App\HoyoverseBundle\Model\Game\HasPowershellPullImportInterface;
+use App\HoyoverseBundle\Model\Game\HasPullTrackerInterface;
+use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
 use App\HoyoverseBundle\Repository\HoyoverseDiaryEntryRepository;
+use App\HoyoverseBundle\Repository\HoyoversePullRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\HttpFoundation\Request;
@@ -264,6 +271,217 @@ class ApiGameProfilesController extends AbstractController
             ], $result['items']),
             'total' => $result['total'],
             'filtered_amount' => $result['filteredTotalAmount'],
+            'page' => $page,
+            'limit' => $limit,
+        ]);
+    }
+
+    #[Route('/gameProfiles/{gameProfile}/pulls/sync', name: 'pulls_sync', requirements: ['gameProfile' => '\d+'], methods: ['POST'])]
+    public function apiGameProfilePullsSync(
+        #[CurrentUser] User $user,
+        #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
+        MessageBusInterface $bus
+    ): Response {
+        $this->checkAccountOwnership($user);
+
+        if ($gameProfile->getAccount() !== $this->getAccount()) {
+            throw new BadRequestHttpException("Game profile does not belong to this account.");
+        }
+
+        if (!$this->locatorByGameId->has($gameProfile->getGameId())) {
+            throw new BadRequestHttpException("Unsupported game service.");
+        }
+
+        $gameService = $this->locatorByGameId->get($gameProfile->getGameId());
+        if (!$gameService instanceof HasStokenPullImportInterface) {
+            throw new BadRequestHttpException("This game profile does not support automated SToken pull synchronization.");
+        }
+
+        $delaySeconds = 0;
+        foreach (array_keys($gameService->getGachaBannerTypes()) as $gachaType) {
+            $stamps = $delaySeconds > 0 ? [new DelayStamp($delaySeconds * 1000)] : [];
+            $bus->dispatch(
+                new SyncPullsPageProfileMessage($gameProfile->getId(), (string) $gachaType, '0'),
+                $stamps
+            );
+            $delaySeconds += 15;
+        }
+
+        return $this->json([
+            'success' => true,
+            'message' => 'Pulls synchronization queued in background.',
+        ]);
+    }
+
+    #[Route('/gameProfiles/{gameProfile}/pulls/import-powershell', name: 'pulls_import_powershell', requirements: ['gameProfile' => '\d+'], methods: ['POST'])]
+    public function apiGameProfilePullsImportPowershell(
+        Request $req,
+        #[CurrentUser] User $user,
+        #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
+        MessageBusInterface $bus
+    ): Response {
+        $this->checkAccountOwnership($user);
+
+        if ($gameProfile->getAccount() !== $this->getAccount()) {
+            throw new BadRequestHttpException("Game profile does not belong to this account.");
+        }
+
+        if (!$this->locatorByGameId->has($gameProfile->getGameId())) {
+            throw new BadRequestHttpException("Unsupported game service.");
+        }
+
+        $gameService = $this->locatorByGameId->get($gameProfile->getGameId());
+        if (!$gameService instanceof HasPowershellPullImportInterface || !$gameService instanceof HasPullTrackerInterface) {
+            throw new BadRequestHttpException("This game profile does not support PowerShell pull import.");
+        }
+
+        $payload = json_decode($req->getContent(), true);
+        $url = trim((string) ($payload['url'] ?? ''));
+
+        if (empty($url) || !filter_var($url, FILTER_VALIDATE_URL)) {
+            throw new BadRequestHttpException("Invalid URL provided.");
+        }
+
+        $parsedUrl = parse_url($url);
+        $extractedParams = [];
+        if (!empty($parsedUrl['query'])) {
+            parse_str($parsedUrl['query'], $extractedParams);
+        }
+
+        if (empty($extractedParams['authkey'])) {
+            throw new BadRequestHttpException("The provided URL does not contain an authkey parameter.");
+        }
+
+        $authkey = (string) $extractedParams['authkey'];
+        unset($extractedParams['authkey'], $extractedParams['gacha_type'], $extractedParams['page'], $extractedParams['size'], $extractedParams['end_id']);
+
+        $delaySeconds = 0;
+        foreach (array_keys($gameService->getGachaBannerTypes()) as $gachaType) {
+            $stamps = $delaySeconds > 0 ? [new DelayStamp($delaySeconds * 1000)] : [];
+            $bus->dispatch(
+                new SyncPullsPageProfileMessage(
+                    $gameProfile->getId(),
+                    (string) $gachaType,
+                    '0',
+                    $authkey,
+                    $extractedParams
+                ),
+                $stamps
+            );
+            $delaySeconds += 15;
+        }
+
+        return $this->json([
+            'success' => true,
+            'message' => 'PowerShell pulls import queued in background.',
+        ]);
+    }
+
+    #[Route('/gameProfiles/{gameProfile}/pulls/overview', name: 'pulls_overview', requirements: ['gameProfile' => '\d+'], methods: ['GET'])]
+    public function apiGameProfilePullsOverview(
+        #[CurrentUser] User $user,
+        #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
+        HoyoversePullRepository $pullRepo
+    ): Response {
+        $this->checkAccountOwnership($user);
+
+        if ($gameProfile->getAccount() !== $this->getAccount()) {
+            throw new BadRequestHttpException("Game profile does not belong to this account.");
+        }
+
+        if (!$this->locatorByGameId->has($gameProfile->getGameId())) {
+            throw new BadRequestHttpException("Unsupported game service.");
+        }
+
+        $gameService = $this->locatorByGameId->get($gameProfile->getGameId());
+        if (!$gameService instanceof HasPullTrackerInterface) {
+            throw new BadRequestHttpException("This game profile does not support pull tracking.");
+        }
+
+        $bannerGroups = $gameService->getGachaBannerGroups();
+        $rarityConfig = $gameService->getRarityConfig();
+        $overview = $pullRepo->buildOverview($gameProfile, $bannerGroups, $rarityConfig);
+
+        return $this->json([
+            'profile' => $gameProfile,
+            'rarity_config' => $rarityConfig,
+            'total_pulls' => $overview['total_pulls'],
+            'banners' => $overview['banners'],
+            'monthly_timeline' => $overview['monthly_timeline'],
+        ]);
+    }
+
+    #[Route('/gameProfiles/{gameProfile}/pulls', name: 'pulls_list', requirements: ['gameProfile' => '\d+'], methods: ['GET'])]
+    public function apiGameProfilePullsList(
+        Request $req,
+        #[CurrentUser] User $user,
+        #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
+        HoyoversePullRepository $pullRepo
+    ): Response {
+        $this->checkAccountOwnership($user);
+
+        if ($gameProfile->getAccount() !== $this->getAccount()) {
+            throw new BadRequestHttpException("Game profile does not belong to this account.");
+        }
+
+        if (!$this->locatorByGameId->has($gameProfile->getGameId())) {
+            throw new BadRequestHttpException("Unsupported game service.");
+        }
+
+        $gameService = $this->locatorByGameId->get($gameProfile->getGameId());
+        if (!$gameService instanceof HasPullTrackerInterface) {
+            throw new BadRequestHttpException("This game profile does not support pull tracking.");
+        }
+
+        $bannerGroups = $gameService->getGachaBannerGroups();
+        $rarityConfig = $gameService->getRarityConfig();
+
+        $bannerKey = $req->query->getString('banner', $req->query->getString('gacha_type'));
+        if ($bannerKey === '' || !isset($bannerGroups[$bannerKey])) {
+            $firstKey = array_key_first($bannerGroups);
+            $bannerGroup = $firstKey !== null ? $bannerGroups[$firstKey] : [
+                'key' => 'all',
+                'name' => 'All Banners',
+                'gacha_types' => [],
+                's_max_pity' => 90,
+                'a_max_pity' => 10,
+            ];
+        } else {
+            $bannerGroup = $bannerGroups[$bannerKey];
+        }
+
+        $raritiesParam = $req->query->getString('rarities');
+        $rarities = [];
+        if ($raritiesParam !== '') {
+            foreach (explode(',', $raritiesParam) as $r) {
+                $rInt = (int) trim($r);
+                if ($rInt > 0) {
+                    $rarities[] = $rInt;
+                }
+            }
+        } elseif ($req->query->has('rarity') && $req->query->getInt('rarity') > 0) {
+            $rarities[] = $req->query->getInt('rarity');
+        }
+
+        $search = $req->query->getString('search');
+        $page = max(1, $req->query->getInt('page', 1));
+        $limit = min(100, max(5, $req->query->getInt('limit', 15)));
+
+        $result = $pullRepo->findBannerDetailWithPity(
+            $gameProfile,
+            $bannerGroup,
+            $rarityConfig,
+            $rarities,
+            $search ?: null,
+            $page,
+            $limit
+        );
+
+        return $this->json([
+            'banner' => $result['banner'],
+            'rarity_config' => $rarityConfig,
+            'items' => $result['items'],
+            'total' => $result['total'],
             'page' => $page,
             'limit' => $limit,
         ]);

@@ -66,6 +66,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                 checkAndSet("hoyolab_missed_check_in", true);
                 checkAndSet("code_redeem", true);
                 checkAndSet("sync_diary", false);
+                checkAndSet("sync_pulls", false);
                 checkAndSet("stamina_check", false);
                 checkAndSet("stamina_threshold", -1);
                 checkAndSet("expeditions_check", true);
@@ -268,6 +269,23 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                                     description="Download and synchronize resource acquisition logs for charts and historical tracking"
                                 >
                                     <Form.Item name="sync_diary" valuePropName="checked" noStyle>
+                                        <Switch disabled={!isProfileActive} />
+                                    </Form.Item>
+                                </SettingRow>
+                            </>
+                        )}
+
+                        {/* Gacha / Warp Tracker Sync */}
+                        {supports("sync_pulls") && (
+                            <>
+                                <Divider titlePlacement="start">
+                                    <strong>Gacha / Warp Tracker</strong>
+                                </Divider>
+                                <SettingRow
+                                    label="Auto Pulls Synchronization"
+                                    description="Periodically download and synchronize new gacha pulls using SToken"
+                                >
+                                    <Form.Item name="sync_pulls" valuePropName="checked" noStyle>
                                         <Switch disabled={!isProfileActive} />
                                     </Form.Item>
                                 </SettingRow>

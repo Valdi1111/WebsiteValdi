@@ -71,6 +71,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                 checkAndSet("stamina_threshold", -1);
                 checkAndSet("dailies_check", false);
                 checkAndSet("weeklies_check", false);
+                checkAndSet("sync_pulls", false);
                 checkAndSet("notification_platforms", []);
 
                 form.setFieldsValue(initialValues);
@@ -302,6 +303,23 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                                         </Form.Item>
                                     </SettingRow>
                                 )}
+                            </>
+                        )}
+
+                        {/* Headhunting / Pulls Tracker */}
+                        {supports("sync_pulls") && (
+                            <>
+                                <Divider titlePlacement="start">
+                                    <strong>Headhunting / Pulls Tracker</strong>
+                                </Divider>
+                                <SettingRow
+                                    label="Auto Pulls Synchronization"
+                                    description="Periodically download and synchronize new headhunting pulls using account token"
+                                >
+                                    <Form.Item name="sync_pulls" valuePropName="checked" noStyle>
+                                        <Switch disabled={!isProfileActive} />
+                                    </Form.Item>
+                                </SettingRow>
                             </>
                         )}
 

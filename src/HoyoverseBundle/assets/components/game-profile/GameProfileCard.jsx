@@ -1,4 +1,10 @@
-import { SettingOutlined, LinkOutlined, WarningOutlined, AreaChartOutlined } from "@ant-design/icons";
+import {
+    SettingOutlined,
+    LinkOutlined,
+    WarningOutlined,
+    AreaChartOutlined,
+    HistoryOutlined,
+} from "@ant-design/icons";
 import { Card, Avatar, Tag, Tooltip, Typography, Space } from "antd";
 import { useNavigate } from "react-router";
 import React from "react";
@@ -15,6 +21,11 @@ export default function GameProfileCard({ profile, accountId, accountCanRedeemCo
         supportsDiary ? (
             <Tooltip title="View Resource Diary" key="diary">
                 <AreaChartOutlined onClick={() => navigate(`/hoyoverse/accounts/${accountId}/profiles/${profile.id}/diary`)} />
+            </Tooltip>
+        ) : null,
+        profile.supports_pulls ? (
+            <Tooltip title="View Pulls History" key="pulls">
+                <HistoryOutlined onClick={() => navigate(`/hoyoverse/accounts/${accountId}/profiles/${profile.id}/pulls`)} />
             </Tooltip>
         ) : null,
         <Tooltip title="Configure Settings" key="settings">
@@ -91,6 +102,9 @@ export default function GameProfileCard({ profile, accountId, accountCanRedeemCo
                                     )}
                                     {supportsDiary && profile.sync_diary && (
                                         <Tag color="geekblue">Diary Sync</Tag>
+                                    )}
+                                    {"sync_pulls" in profile && profile.sync_pulls && (
+                                        <Tag color="gold">Pulls Sync</Tag>
                                     )}
                                 </>
                             )}

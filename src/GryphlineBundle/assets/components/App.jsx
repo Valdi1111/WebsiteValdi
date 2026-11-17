@@ -1,4 +1,5 @@
 import AccountsPage from "@GryphlineBundle/components/account/AccountsPage";
+import PullsPage from "@GryphlineBundle/components/pulls/PullsPage";
 import MainLayout from "@GryphlineBundle/components/MainLayout";
 import NotFoundComponent from "@CoreBundle/components/NotFoundComponent";
 import BackendApiContext from "@GryphlineBundle/components/BackendApiContext";
@@ -20,6 +21,11 @@ export default function App() {
                     <Route path="/gryphline" element={
                         <MainLayout>
                             <AccountsPage />
+                        </MainLayout>
+                    } />
+                    <Route path="/gryphline/accounts/:accountId/profiles/:gameProfileId/pulls" element={
+                        <MainLayout>
+                            <PullsPage />
                         </MainLayout>
                     } />
                     <Route path="*" element={

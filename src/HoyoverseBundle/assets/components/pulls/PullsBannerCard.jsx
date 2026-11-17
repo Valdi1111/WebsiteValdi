@@ -30,7 +30,7 @@ function getInitials(name) {
     return (words[0][0] + words[1][0]).toUpperCase();
 }
 
-export function PullsRecentBadge({ pull, maxPity = 90 }) {
+export function PullsRecentBadge({ pull, maxPity = 90, pullSingularLabel = "Pull" }) {
     const colorScheme = getPityColor(pull.pity, maxPity);
 
     return (
@@ -38,7 +38,7 @@ export function PullsRecentBadge({ pull, maxPity = 90 }) {
             title={
                 <div style={{ fontSize: 12 }}>
                     <div style={{ fontWeight: 600 }}>{pull.name}</div>
-                    <div>Pity: {pull.pity} (Pull #{pull.pull_number})</div>
+                    <div>Pity: {pull.pity} ({pullSingularLabel} #{pull.pull_number})</div>
                     <div style={{ opacity: 0.8 }}>{pull.pulled_at}</div>
                 </div>
             }
@@ -106,9 +106,12 @@ export function PullsRecentBadge({ pull, maxPity = 90 }) {
 }
 
 export default function PullsBannerCard({ banner, rarityConfig, onViewDetails }) {
-    const sLabel = rarityConfig?.s_short || "5★";
-    const aLabel = rarityConfig?.a_short || "4★";
+    const sLabel = rarityConfig?.s?.label || "5★";
+    const sShort = rarityConfig?.s?.short || "5★";
+    const aLabel = rarityConfig?.a?.label || "4★";
+    const aShort = rarityConfig?.a?.short || "4★";
     const pullLabel = rarityConfig?.pull_label || "Pulls";
+    const pullSingularLabel = rarityConfig?.pull_singular_label || "Pull";
 
     const sPityPercent = Math.min(100, Math.round((banner.s_pity / (banner.s_max_pity || 90)) * 100));
     const aPityPercent = Math.min(100, Math.round((banner.a_pity / (banner.a_max_pity || 10)) * 100));
@@ -174,13 +177,13 @@ export default function PullsBannerCard({ banner, rarityConfig, onViewDetails })
 
                         <Tooltip title={`${sLabel} Pity Counter`}>
                             <span style={{ fontSize: 13, fontWeight: 700, color: "#fa8c16" }}>
-                                {sLabel} {banner.s_pity}/{banner.s_max_pity}
+                                {sShort} {banner.s_pity}/{banner.s_max_pity}
                             </span>
                         </Tooltip>
 
                         <Tooltip title={`${aLabel} Pity Counter`}>
                             <span style={{ fontSize: 13, fontWeight: 700, color: "#722ed1" }}>
-                                {aLabel} {banner.a_pity}/{banner.a_max_pity}
+                                {aShort} {banner.a_pity}/{banner.a_max_pity}
                             </span>
                         </Tooltip>
                     </div>
@@ -237,6 +240,7 @@ export default function PullsBannerCard({ banner, rarityConfig, onViewDetails })
                                     key={pull.id}
                                     pull={pull}
                                     maxPity={banner.s_max_pity}
+                                    pullSingularLabel={pullSingularLabel}
                                 />
                             ))}
                         </div>

@@ -38,13 +38,16 @@ export default function PullsBannerDetail({
     const screens = useBreakpoint();
     const isMobile = !screens.sm;
 
-    const sRarity = rarityConfig?.s_rarity ?? 5;
-    const aRarity = rarityConfig?.a_rarity ?? 4;
-    const bRarity = rarityConfig?.b_rarity ?? 3;
-    const sShort = rarityConfig?.s_short || "5★";
-    const aShort = rarityConfig?.a_short || "4★";
-    const bShort = rarityConfig?.b_short || "3★";
+    const sRarity = rarityConfig?.s?.rarity ?? 5;
+    const aRarity = rarityConfig?.a?.rarity ?? 4;
+    const bRarity = rarityConfig?.b?.rarity ?? 3;
+    const sLabel = rarityConfig?.s?.label || "5★";
+    const aLabel = rarityConfig?.a?.label || "4★";
+    const sShort = rarityConfig?.s?.short || "5★";
+    const aShort = rarityConfig?.a?.short || "4★";
+    const bShort = rarityConfig?.b?.short || "3★";
     const pullLabel = rarityConfig?.pull_label || "Pulls";
+    const pullSingularLabel = rarityConfig?.pull_singular_label || "Pull";
 
     const cardStyles = {
         body: {
@@ -182,7 +185,7 @@ export default function PullsBannerDetail({
                 <Col xs={12} sm={8} md={5}>
                     <Card variant="borderless" styles={cardStyles}>
                         <Statistic
-                            title={`${sShort} ${pullLabel}`}
+                            title={`${sLabel} ${pullLabel}`}
                             value={banner?.s_count || 0}
                             suffix={
                                 <Text type="secondary" style={{ fontSize: 13 }}>
@@ -196,7 +199,7 @@ export default function PullsBannerDetail({
                 <Col xs={12} sm={8} md={5}>
                     <Card variant="borderless" styles={cardStyles}>
                         <Statistic
-                            title={`${aShort} ${pullLabel}`}
+                            title={`${aLabel} ${pullLabel}`}
                             value={banner?.a_count || 0}
                             suffix={
                                 <Text type="secondary" style={{ fontSize: 13 }}>
@@ -210,7 +213,7 @@ export default function PullsBannerDetail({
                 <Col xs={12} sm={12} md={5}>
                     <Card variant="borderless" styles={cardStyles}>
                         <Statistic
-                            title={`Avg ${sShort} Pity`}
+                            title={`Avg ${sLabel} Pity`}
                             value={banner?.avg_s_pity || 0}
                             precision={2}
                             styles={{ content: { color: "#d48806", fontWeight: "bold" } }}
@@ -220,7 +223,7 @@ export default function PullsBannerDetail({
                 <Col xs={12} sm={12} md={5}>
                     <Card variant="borderless" styles={cardStyles}>
                         <Statistic
-                            title={`Avg ${aShort} Pity`}
+                            title={`Avg ${aLabel} Pity`}
                             value={banner?.avg_a_pity || 0}
                             precision={2}
                             styles={{ content: { color: "#531dab", fontWeight: "bold" } }}
@@ -231,7 +234,7 @@ export default function PullsBannerDetail({
 
             {/* Recent S / 5* / 6* Signals Section */}
             <Card
-                title={`Recent ${sShort} ${pullLabel} (${recentSPulls.length})`}
+                title={`Recent ${sLabel} ${pullLabel} (${recentSPulls.length})`}
                 styles={{
                     header: { padding: isMobile ? "12px 14px" : "14px 20px" },
                     body: { padding: isMobile ? "12px 14px" : "18px 20px" },
@@ -244,11 +247,12 @@ export default function PullsBannerDetail({
                                 key={pull.id}
                                 pull={pull}
                                 maxPity={banner?.s_max_pity || 90}
+                                pullSingularLabel={pullSingularLabel}
                             />
                         ))}
                     </div>
                 ) : (
-                    <Empty description={`No ${sShort} ${pullLabel} found in this banner`} />
+                    <Empty description={`No ${sLabel} ${pullLabel} found in this banner`} />
                 )}
             </Card>
 
@@ -343,7 +347,7 @@ export default function PullsBannerDetail({
                         pageSizeOptions: [10, 15, 25, 50, 100],
                         showTotal: isMobile
                             ? undefined
-                            : (totalCount, range) => `${range[0]}-${range[1]} of ${totalCount} pulls`,
+                            : (totalCount, range) => `${range[0]}-${range[1]} of ${totalCount} ${pullLabel.toLowerCase()}`,
                         scrollToFirstRowOnChange: false,
                     }}
                 />

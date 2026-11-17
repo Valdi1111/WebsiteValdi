@@ -4,7 +4,6 @@ namespace App\HoyoverseBundle\MessageHandler\Batch;
 
 use App\HoyoverseBundle\Message\Batch\SyncDiaryBatchMessage;
 use App\HoyoverseBundle\Message\Profile\SyncDiaryPageProfileMessage;
-use App\HoyoverseBundle\Model\Diary\GameDiaryCurrency;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasDiaryInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
@@ -82,7 +81,7 @@ class SyncDiaryBatchHandler extends AbstractBatchTaskMessageHandler
 
         $serviceClass = $gameService::class;
         $month = $gameService->getDiaryPeriod($this->targetDate);
-        $currencies = GameDiaryCurrency::forGameService($serviceClass);
+        $currencies = $gameService->getDiaryCurrencies();
 
         // Initialize delay offset for this specific game service if not present
         if (!isset($this->serviceDelays[$serviceClass])) {

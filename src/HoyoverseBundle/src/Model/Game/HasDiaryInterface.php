@@ -31,6 +31,11 @@ interface HasDiaryInterface
     public function getDiaryPeriod(\DateTimeInterface $date): string;
 
     /**
+     * @return list<GameDiaryCurrency>
+     */
+    public function getDiaryCurrencies(): array;
+
+    /**
      * @return N
      */
     public function getDiaryInfo(RuntimeAccountData $account, string $month): GameDiaryInfoInterface;

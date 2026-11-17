@@ -12,8 +12,10 @@ export default function PullsMonthlyChart({ monthlyTimeline, rarityConfig }) {
     const canvasRef = useRef(null);
     const chartInstanceRef = useRef(null);
 
-    const sLabel = rarityConfig?.s_short || "5★";
-    const aLabel = rarityConfig?.a_short || "4★";
+    const sLabel = rarityConfig?.s?.label || "5★";
+    const aLabel = rarityConfig?.a?.label || "4★";
+    const pullLabel = rarityConfig?.pull_label || "Pulls";
+    const pullSingularLabel = rarityConfig?.pull_singular_label || "Pull";
 
     useEffect(() => {
         if (!canvasRef.current || !monthlyTimeline || monthlyTimeline.length === 0) {
@@ -36,7 +38,7 @@ export default function PullsMonthlyChart({ monthlyTimeline, rarityConfig }) {
                 labels,
                 datasets: [
                     {
-                        label: `${sLabel} pulls`,
+                        label: sLabel,
                         data: sData,
                         borderColor: "#faad14",
                         backgroundColor: "rgba(250, 173, 20, 0.30)",
@@ -48,7 +50,7 @@ export default function PullsMonthlyChart({ monthlyTimeline, rarityConfig }) {
                         fill: true,
                     },
                     {
-                        label: `${aLabel} pulls`,
+                        label: aLabel,
                         data: aData,
                         borderColor: "#b37feb",
                         backgroundColor: "rgba(179, 127, 235, 0.30)",
@@ -60,7 +62,7 @@ export default function PullsMonthlyChart({ monthlyTimeline, rarityConfig }) {
                         fill: true,
                     },
                     {
-                        label: "Total pulls",
+                        label: "Total",
                         data: totalData,
                         borderColor: "#69b1ff",
                         backgroundColor: "rgba(105, 177, 255, 0.28)",
@@ -139,7 +141,7 @@ export default function PullsMonthlyChart({ monthlyTimeline, rarityConfig }) {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <Space>
                         <AreaChartOutlined />
-                        <span>Monthly Pulls Distribution</span>
+                        <span>Monthly {pullLabel} Distribution</span>
                     </Space>
                     <Text type="secondary" style={{ fontSize: 12, fontWeight: "normal" }}>
                         Hover to inspect monthly breakdown
@@ -153,7 +155,7 @@ export default function PullsMonthlyChart({ monthlyTimeline, rarityConfig }) {
                 </div>
             ) : (
                 <div style={{ height: 220, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <Empty description="No monthly pull history available" />
+                    <Empty description={`No monthly ${pullSingularLabel.toLowerCase()} history available`} />
                 </div>
             )}
         </Card>

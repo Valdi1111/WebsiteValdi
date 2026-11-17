@@ -2,9 +2,14 @@
 
 namespace App\HoyoverseBundle\Service;
 
+use App\HoyoverseBundle\Model\Diary\GameDiaryCurrency;
 use App\HoyoverseBundle\Model\Diary\HonkaiStarRailDiaryInfo;
 use App\HoyoverseBundle\Model\Diary\HonkaiStarRailDiaryItem;
 use App\HoyoverseBundle\Model\Game\AutoCodeRedemptionTrait;
+use App\CoreBundle\Model\Game\GachaBannerConfig;
+use App\CoreBundle\Model\Game\GachaConfig;
+use App\CoreBundle\Model\Game\RarityConfig;
+use App\CoreBundle\Model\Game\RarityTierConfig;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasAutoCodeRedemptionInterface;
 use App\CoreBundle\Model\Game\HasDailiesInterface;
@@ -156,6 +161,11 @@ class HonkaiStarRailService extends GameService implements HasNotesInterface, Ha
         return $date->format("Ym");
     }
 
+    public function getDiaryCurrencies(): array
+    {
+        return [GameDiaryCurrency::STELLAR_JADE, GameDiaryCurrency::STAR_RAIL_PASS];
+    }
+
     public function getUrlFetchRedeemableCodes(): string
     {
         return "https://api.ennead.cc/mihoyo/starrail/codes";
@@ -245,52 +255,32 @@ class HonkaiStarRailService extends GameService implements HasNotesInterface, Ha
         );
     }
 
-    public function getGachaEndpointUrl(): string
+    private const string GACHA_ENDPOINT_URL = 'https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getGachaLog';
+    private const string COLLAB_GACHA_ENDPOINT_URL = 'https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getLdGachaLog';
+
+    public function getGachaConfig(): GachaConfig
     {
-        return 'https://public-operation-hkrpg-sg.hoyoverse.com/common/hkrpg_gacha_record/api/getGachaLog';
+        return new GachaConfig(
+            defaultEndpointUrl: self::GACHA_ENDPOINT_URL,
+            banners: [
+                new GachaBannerConfig('11', 'Character Event Warp', ['11'], 90, 10),
+                new GachaBannerConfig('12', 'Light Cone Event Warp', ['12'], 80, 10),
+                new GachaBannerConfig('21', 'Collaboration Character Warp', ['21'], 90, 10, self::COLLAB_GACHA_ENDPOINT_URL),
+                new GachaBannerConfig('22', 'Collaboration Light Cone Warp', ['22'], 80, 10, self::COLLAB_GACHA_ENDPOINT_URL),
+                new GachaBannerConfig('1', 'Regular Warp', ['1'], 90, 10),
+                new GachaBannerConfig('2', 'Departure Warp', ['2'], 50, 10),
+            ],
+        );
     }
 
-    public function getGachaBannerTypes(): array
+    public function getRarityConfig(): RarityConfig
     {
-        return [
-            11 => 'Character Event Warp',
-            12 => 'Light Cone Event Warp',
-            1 => 'Regular Warp',
-            2 => 'Departure Warp',
-        ];
-    }
-
-    public function getGachaBannerGroups(): array
-    {
-        return [
-            '11' => [
-                'key' => '11',
-                'name' => 'Character Event Warp',
-                'gacha_types' => ['11'],
-                's_max_pity' => 90,
-                'a_max_pity' => 10,
-            ],
-            '12' => [
-                'key' => '12',
-                'name' => 'Light Cone Event Warp',
-                'gacha_types' => ['12'],
-                's_max_pity' => 80,
-                'a_max_pity' => 10,
-            ],
-            '1' => [
-                'key' => '1',
-                'name' => 'Regular Warp',
-                'gacha_types' => ['1'],
-                's_max_pity' => 90,
-                'a_max_pity' => 10,
-            ],
-            '2' => [
-                'key' => '2',
-                'name' => 'Departure Warp',
-                'gacha_types' => ['2'],
-                's_max_pity' => 50,
-                'a_max_pity' => 10,
-            ],
-        ];
+        return new RarityConfig(
+            s: new RarityTierConfig(5, '5-Star', '5★'),
+            a: new RarityTierConfig(4, '4-Star', '4★'),
+            b: new RarityTierConfig(3, '3-Star', '3★'),
+            pullLabel: 'Warps',
+            pullSingularLabel: 'Warp',
+        );
     }
 }

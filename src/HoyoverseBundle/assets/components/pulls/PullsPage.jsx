@@ -67,8 +67,8 @@ export default function PullsPage() {
                 if (data.rarity_config && selectedRarities.length === 0) {
                     // By default, enable S and A rarities and hide B / 3★ rarity
                     setSelectedRarities([
-                        data.rarity_config.s_rarity,
-                        data.rarity_config.a_rarity,
+                        data.rarity_config.s.rarity,
+                        data.rarity_config.a.rarity,
                     ]);
                 }
             })
@@ -118,7 +118,7 @@ export default function PullsPage() {
 
     const handleSelectBanner = (bannerKey) => {
         const defaultRarities = overview?.rarity_config
-            ? [overview.rarity_config.s_rarity, overview.rarity_config.a_rarity]
+            ? [overview.rarity_config.s.rarity, overview.rarity_config.a.rarity]
             : [5, 4];
         setSelectedBannerKey(bannerKey);
         setSelectedRarities(defaultRarities);
@@ -153,7 +153,7 @@ export default function PullsPage() {
 
     const handleResetFilters = () => {
         const defaultRarities = overview?.rarity_config
-            ? [overview.rarity_config.s_rarity, overview.rarity_config.a_rarity]
+            ? [overview.rarity_config.s.rarity, overview.rarity_config.a.rarity]
             : [5, 4];
         setSelectedRarities(defaultRarities);
         setSearch("");

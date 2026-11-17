@@ -2,6 +2,7 @@
 
 namespace App\GryphlineBundle\Repository;
 
+use App\CoreBundle\Model\Game\RarityConfig;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
 use App\GryphlineBundle\Entity\GryphlinePull;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -44,12 +45,6 @@ class GryphlinePullRepository extends ServiceEntityRepository
      *     s_max_pity: int,
      *     a_max_pity: int
      * }> $bannerGroups
-     * @param array{
-     *     s_rarity: int,
-     *     a_rarity: int,
-     *     b_rarity: int
-     * } $rarityConfig
-     *
      * @return array{
      *     total_pulls: int,
      *     banners: array<int, array<string, mixed>>,
@@ -59,7 +54,7 @@ class GryphlinePullRepository extends ServiceEntityRepository
     public function buildOverview(
         GryphlineGameProfile $profile,
         array $bannerGroups,
-        array $rarityConfig
+        RarityConfig $rarityConfig
     ): array {
         $rows = $this->createQueryBuilder('p')
             ->select('p.id, p.seqId, p.poolType, p.poolCategory, p.poolId, p.poolName, p.itemId, p.name, p.rarity, p.pulledAt')
@@ -71,8 +66,8 @@ class GryphlinePullRepository extends ServiceEntityRepository
 
         usort($rows, static fn (array $a, array $b): int => ($a['pulledAt'] <=> $b['pulledAt']) ?: (((int) $a['seqId']) <=> ((int) $b['seqId'])));
 
-        $sRarity = $rarityConfig['s_rarity'];
-        $aRarity = $rarityConfig['a_rarity'];
+        $sRarity = $rarityConfig->getS()->getRarity();
+        $aRarity = $rarityConfig->getA()->getRarity();
 
         $catToGroupKey = [];
         foreach ($bannerGroups as $key => $group) {
@@ -154,12 +149,6 @@ class GryphlinePullRepository extends ServiceEntityRepository
      *     s_max_pity: int,
      *     a_max_pity: int
      * } $bannerGroup
-     * @param array{
-     *     s_rarity: int,
-     *     a_rarity: int,
-     *     b_rarity: int
-     * } $rarityConfig
-     *
      * @return array{
      *     banner: array<string, mixed>,
      *     items: array<int, array<string, mixed>>,
@@ -169,7 +158,7 @@ class GryphlinePullRepository extends ServiceEntityRepository
     public function findBannerDetailWithPity(
         GryphlineGameProfile $profile,
         array $bannerGroup,
-        array $rarityConfig,
+        RarityConfig $rarityConfig,
         array $rarities = [],
         ?string $search = null,
         int $page = 1,
@@ -191,8 +180,8 @@ class GryphlinePullRepository extends ServiceEntityRepository
 
         usort($rows, static fn (array $a, array $b): int => ($a['pulledAt'] <=> $b['pulledAt']) ?: (((int) $a['seqId']) <=> ((int) $b['seqId'])));
 
-        $sRarity = $rarityConfig['s_rarity'];
-        $aRarity = $rarityConfig['a_rarity'];
+        $sRarity = $rarityConfig->getS()->getRarity();
+        $aRarity = $rarityConfig->getA()->getRarity();
 
         $computed = $this->computeBannerStats($rows, $bannerGroup, $sRarity, $aRarity);
 

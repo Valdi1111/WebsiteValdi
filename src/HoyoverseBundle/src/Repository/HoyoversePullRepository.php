@@ -2,6 +2,7 @@
 
 namespace App\HoyoverseBundle\Repository;
 
+use App\CoreBundle\Model\Game\RarityConfig;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Entity\HoyoversePull;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -38,12 +39,6 @@ class HoyoversePullRepository extends ServiceEntityRepository
      *     s_max_pity: int,
      *     a_max_pity: int
      * }> $bannerGroups
-     * @param array{
-     *     s_rarity: int,
-     *     a_rarity: int,
-     *     b_rarity: int
-     * } $rarityConfig
-     *
      * @return array{
      *     total_pulls: int,
      *     banners: array<int, array<string, mixed>>,
@@ -53,7 +48,7 @@ class HoyoversePullRepository extends ServiceEntityRepository
     public function buildOverview(
         HoyoverseGameProfile $profile,
         array $bannerGroups,
-        array $rarityConfig
+        RarityConfig $rarityConfig
     ): array {
         $rows = $this->createQueryBuilder('p')
             ->select('p.id, p.pullId, p.gachaType, p.gachaName, p.itemType, p.itemId, p.name, p.rarity, p.pulledAt')
@@ -64,8 +59,8 @@ class HoyoversePullRepository extends ServiceEntityRepository
             ->getQuery()
             ->getArrayResult();
 
-        $sRarity = $rarityConfig['s_rarity'];
-        $aRarity = $rarityConfig['a_rarity'];
+        $sRarity = $rarityConfig->getS()->getRarity();
+        $aRarity = $rarityConfig->getA()->getRarity();
 
         // Map gacha_type => banner group key
         $typeToGroupKey = [];
@@ -149,12 +144,6 @@ class HoyoversePullRepository extends ServiceEntityRepository
      *     s_max_pity: int,
      *     a_max_pity: int
      * } $bannerGroup
-     * @param array{
-     *     s_rarity: int,
-     *     a_rarity: int,
-     *     b_rarity: int
-     * } $rarityConfig
-     *
      * @return array{
      *     banner: array<string, mixed>,
      *     items: array<int, array<string, mixed>>,
@@ -164,7 +153,7 @@ class HoyoversePullRepository extends ServiceEntityRepository
     public function findBannerDetailWithPity(
         HoyoverseGameProfile $profile,
         array $bannerGroup,
-        array $rarityConfig,
+        RarityConfig $rarityConfig,
         array $rarities = [],
         ?string $search = null,
         int $page = 1,
@@ -185,8 +174,8 @@ class HoyoversePullRepository extends ServiceEntityRepository
             ->getQuery()
             ->getArrayResult();
 
-        $sRarity = $rarityConfig['s_rarity'];
-        $aRarity = $rarityConfig['a_rarity'];
+        $sRarity = $rarityConfig->getS()->getRarity();
+        $aRarity = $rarityConfig->getA()->getRarity();
 
         $computed = $this->computeBannerStats($rows, $bannerGroup, $sRarity, $aRarity);
 

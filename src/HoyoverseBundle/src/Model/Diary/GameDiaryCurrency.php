@@ -5,10 +5,6 @@ declare(strict_types=1);
 namespace App\HoyoverseBundle\Model\Diary;
 
 use App\CoreBundle\Model\LabeledInterface;
-use App\HoyoverseBundle\Model\Game\GameInterface;
-use App\HoyoverseBundle\Service\GenshinImpactService;
-use App\HoyoverseBundle\Service\HonkaiStarRailService;
-use App\HoyoverseBundle\Service\ZenlessZoneZeroService;
 
 /**
  * Represents trackable in-game currencies and resources provided by the HoYoverse Diary APIs.
@@ -56,26 +52,6 @@ enum GameDiaryCurrency: string implements LabeledInterface
         return match ($this) {
             self::PRIMOGEM, self::STELLAR_JADE, self::POLYCHROME => 1,
             self::MORA, self::STAR_RAIL_PASS, self::MASTER_TAPE => 2,
-        };
-    }
-
-    /**
-     * Returns all trackable currencies for a given game.
-     *
-     * @param GameInterface|class-string<GameInterface> $gameService game service class
-     *
-     * @return list<self>
-     */
-    public static function forGameService(GameInterface|string $gameService): array
-    {
-        if ($gameService instanceof GameInterface) {
-            $gameService = $gameService::class;
-        }
-        return match ($gameService) {
-            GenshinImpactService::class => [self::PRIMOGEM, self::MORA],
-            HonkaiStarRailService::class => [self::STELLAR_JADE, self::STAR_RAIL_PASS],
-            ZenlessZoneZeroService::class => [self::POLYCHROME, self::MASTER_TAPE],
-            default => [],
         };
     }
 }

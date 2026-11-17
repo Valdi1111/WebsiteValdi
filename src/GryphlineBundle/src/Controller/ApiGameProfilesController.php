@@ -126,7 +126,7 @@ class ApiGameProfilesController extends AbstractController
         }
 
         $delaySeconds = 0;
-        foreach ($gameService->getPullPoolCategories() as $category) {
+        foreach (array_keys($gameService->getGachaConfig()->getBannerTypes()) as $category) {
             $stamps = $delaySeconds > 0 ? [new DelayStamp($delaySeconds * 1000)] : [];
             $bus->dispatch(
                 new SyncPullsPageProfileMessage($gameProfile->getId(), $category, null),
@@ -162,7 +162,7 @@ class ApiGameProfilesController extends AbstractController
             throw new BadRequestHttpException("This game profile does not support pull tracking.");
         }
 
-        $bannerGroups = $gameService->getGachaBannerGroups();
+        $bannerGroups = $gameService->getGachaConfig()->getBannerGroups('categories');
         $rarityConfig = $gameService->getRarityConfig();
         $overview = $pullRepo->buildOverview($gameProfile, $bannerGroups, $rarityConfig);
 
@@ -197,7 +197,7 @@ class ApiGameProfilesController extends AbstractController
             throw new BadRequestHttpException("This game profile does not support pull tracking.");
         }
 
-        $bannerGroups = $gameService->getGachaBannerGroups();
+        $bannerGroups = $gameService->getGachaConfig()->getBannerGroups('categories');
         $rarityConfig = $gameService->getRarityConfig();
 
         $bannerKey = $req->query->getString('banner', $req->query->getString('category'));

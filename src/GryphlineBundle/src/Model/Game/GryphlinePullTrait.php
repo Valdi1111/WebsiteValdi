@@ -2,6 +2,10 @@
 
 namespace App\GryphlineBundle\Model\Game;
 
+use App\CoreBundle\Model\Game\GachaBannerConfig;
+use App\CoreBundle\Model\Game\GachaConfig;
+use App\CoreBundle\Model\Game\RarityConfig;
+use App\CoreBundle\Model\Game\RarityTierConfig;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
 use App\GryphlineBundle\Entity\GryphlinePull;
 use App\GryphlineBundle\Exception\SkportApiException;
@@ -14,67 +18,31 @@ use Symfony\Component\HttpFoundation\Request;
  */
 trait GryphlinePullTrait
 {
-    /**
-     * @return array<string>
-     */
-    public function getPullPoolCategories(): array
+    private const string CHAR_RECORD_ENDPOINT_URL = 'https://ef-webview.gryphline.com/api/record/char';
+    private const string WEAPON_RECORD_ENDPOINT_URL = 'https://ef-webview.gryphline.com/api/record/weapon';
+
+    public function getGachaConfig(): GachaConfig
     {
-        return [
-            'E_CharacterGachaPoolType_Special',
-            'E_CharacterGachaPoolType_Standard',
-            'E_CharacterGachaPoolType_Beginner',
-            'E_WeaponGachaPoolType_Standard',
-        ];
+        return new GachaConfig(
+            self::CHAR_RECORD_ENDPOINT_URL,
+            [
+                new GachaBannerConfig('E_CharacterGachaPoolType_Special', 'Chartered Headhunting', ['E_CharacterGachaPoolType_Special'], 80, 10),
+                new GachaBannerConfig('E_CharacterGachaPoolType_Standard', 'Basic Headhunting', ['E_CharacterGachaPoolType_Standard'], 80, 10),
+                new GachaBannerConfig('E_WeaponGachaPoolType_Standard', 'Weapon Headhunting', ['E_WeaponGachaPoolType_Standard'], 40, 10, self::WEAPON_RECORD_ENDPOINT_URL),
+                new GachaBannerConfig('E_CharacterGachaPoolType_Beginner', 'Beginner Headhunting', ['E_CharacterGachaPoolType_Beginner'], 50, 10),
+            ]
+        );
     }
 
-    public function getGachaBannerGroups(): array
+    public function getRarityConfig(): RarityConfig
     {
-        return [
-            'E_CharacterGachaPoolType_Special' => [
-                'key' => 'E_CharacterGachaPoolType_Special',
-                'name' => 'Chartered Headhunting',
-                'categories' => ['E_CharacterGachaPoolType_Special'],
-                's_max_pity' => 80,
-                'a_max_pity' => 10,
-            ],
-            'E_CharacterGachaPoolType_Standard' => [
-                'key' => 'E_CharacterGachaPoolType_Standard',
-                'name' => 'Basic Headhunting',
-                'categories' => ['E_CharacterGachaPoolType_Standard'],
-                's_max_pity' => 80,
-                'a_max_pity' => 10,
-            ],
-            'E_WeaponGachaPoolType_Standard' => [
-                'key' => 'E_WeaponGachaPoolType_Standard',
-                'name' => 'Weapon Headhunting',
-                'categories' => ['E_WeaponGachaPoolType_Standard'],
-                's_max_pity' => 80,
-                'a_max_pity' => 10,
-            ],
-            'E_CharacterGachaPoolType_Beginner' => [
-                'key' => 'E_CharacterGachaPoolType_Beginner',
-                'name' => 'Beginner Headhunting',
-                'categories' => ['E_CharacterGachaPoolType_Beginner'],
-                's_max_pity' => 50,
-                'a_max_pity' => 10,
-            ],
-        ];
-    }
-
-    public function getRarityConfig(): array
-    {
-        return [
-            's_rarity' => 6,
-            's_label' => '6★',
-            's_short' => '6★',
-            'a_rarity' => 5,
-            'a_label' => '5★',
-            'a_short' => '5★',
-            'b_rarity' => 4,
-            'b_label' => '4★',
-            'b_short' => '4★',
-            'pull_label' => 'Headhunts',
-        ];
+        return new RarityConfig(
+            s: new RarityTierConfig(6, '6-Star', '6★'),
+            a: new RarityTierConfig(5, '5-Star', '5★'),
+            b: new RarityTierConfig(4, '4-Star', '4★'),
+            pullLabel: 'Headhunts',
+            pullSingularLabel: 'Headhunt',
+        );
     }
 
     /**
@@ -107,7 +75,7 @@ trait GryphlinePullTrait
             $query['seq_id'] = $seqId;
         }
 
-        $url = sprintf('https://ef-webview.gryphline.com/api/record/%s', $endpointType);
+        $url = $this->getGachaConfig()->getEndpointUrlForBanner($poolType);
 
         try {
             $response = $this->getHttpClient()->request(Request::METHOD_GET, $url, [
@@ -123,12 +91,25 @@ trait GryphlinePullTrait
             throw new SkportApiException(sprintf('Failed to fetch Endfield pulls for pool %s: %s', $poolType, $e->getMessage()), 0, $e);
         }
 
-        if (($data['code'] ?? -1) !== 0) {
+        $code = (int) ($data['code'] ?? -1);
+        if ($code === 50000) {
+            // Gryphline returns 50000 ("save seq id unavailable") when a pool currently has no active/cached history window.
+            $this->getLogger()->info(sprintf(
+                'Endfield pool %s returned code 50000 (%s) for %s; treating as empty.',
+                $poolType,
+                $data['msg'] ?? $data['message'] ?? 'save seq id unavailable',
+                $profile->getNickname()
+            ));
+
+            return [];
+        }
+
+        if ($code !== 0) {
             throw new SkportApiException(sprintf(
                 'Endfield gacha API error for pool %s: %s (code: %d)',
                 $poolType,
                 $data['msg'] ?? $data['message'] ?? 'Unknown error',
-                $data['code'] ?? -1
+                $code
             ));
         }
 

@@ -62,8 +62,8 @@ export default function PullsPage() {
                 if (data.rarity_config && selectedRarities.length === 0) {
                     // Default: show 6★ and 5★, hide 4★ base rarity
                     setSelectedRarities([
-                        data.rarity_config.s_rarity,
-                        data.rarity_config.a_rarity,
+                        data.rarity_config.s.rarity,
+                        data.rarity_config.a.rarity,
                     ]);
                 }
             })
@@ -113,7 +113,7 @@ export default function PullsPage() {
 
     const handleSelectBanner = (bannerKey) => {
         const defaultRarities = overview?.rarity_config
-            ? [overview.rarity_config.s_rarity, overview.rarity_config.a_rarity]
+            ? [overview.rarity_config.s.rarity, overview.rarity_config.a.rarity]
             : [6, 5];
         setSelectedBannerKey(bannerKey);
         setSelectedRarities(defaultRarities);
@@ -147,7 +147,7 @@ export default function PullsPage() {
 
     const handleResetFilters = () => {
         const defaultRarities = overview?.rarity_config
-            ? [overview.rarity_config.s_rarity, overview.rarity_config.a_rarity]
+            ? [overview.rarity_config.s.rarity, overview.rarity_config.a.rarity]
             : [6, 5];
         setSelectedRarities(defaultRarities);
         setSearch("");

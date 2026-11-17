@@ -35,6 +35,8 @@ trait HoyoversePullTrait
             }
         }
 
+        $gachaConfig = $this->getGachaConfig();
+
         $query = array_merge([
             'authkey_ver' => '1',
             'sign_type' => '2',
@@ -51,7 +53,7 @@ trait HoyoversePullTrait
         try {
             $response = $this->getHoyolabClient()->request(
                 Request::METHOD_GET,
-                $this->getGachaEndpointUrl(),
+                $gachaConfig->getEndpointUrlForBanner($gachaType),
                 ['query' => $query]
             );
 
@@ -84,8 +86,7 @@ trait HoyoversePullTrait
             HoyoversePullItem::class . '[]'
         );
 
-        $bannerTypes = $this->getGachaBannerTypes();
-        $defaultBannerName = $bannerTypes[$gachaType] ?? null;
+        $defaultBannerName = $gachaConfig->getBanner($gachaType)?->getName();
         $pulls = [];
 
         foreach ($pullItems as $index => $item) {
@@ -93,9 +94,8 @@ trait HoyoversePullTrait
             $pull = $this->getObjectMapper()->map($item, HoyoversePull::class);
             $pull->setGameProfile($profile);
             $itemGachaType = $pull->getGachaType();
-            $resolvedName = ($itemGachaType !== null && isset($bannerTypes[$itemGachaType]))
-                ? $bannerTypes[$itemGachaType]
-                : $defaultBannerName;
+            $resolvedName = ($itemGachaType !== null ? $gachaConfig->getBanner($itemGachaType)?->getName() : null)
+                ?? $defaultBannerName;
             if ($resolvedName !== null) {
                 $pull->setGachaName($resolvedName);
             }
@@ -104,21 +104,5 @@ trait HoyoversePullTrait
         }
 
         return $pulls;
-    }
-
-    public function getRarityConfig(): array
-    {
-        return [
-            's_rarity' => 5,
-            's_label' => '5★',
-            's_short' => '5★',
-            'a_rarity' => 4,
-            'a_label' => '4★',
-            'a_short' => '4★',
-            'b_rarity' => 3,
-            'b_label' => '3★',
-            'b_short' => '3★',
-            'pull_label' => 'Pulls',
-        ];
     }
 }

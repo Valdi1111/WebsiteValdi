@@ -9,6 +9,7 @@ use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\HoyoverseBundle\Model\Diary\GameDiaryCurrency;
 use App\HoyoverseBundle\Model\Game\GameInterface;
+use App\HoyoverseBundle\Model\Game\HasDiaryInterface;
 use App\HoyoverseBundle\Model\Game\HasPowershellPullImportInterface;
 use App\HoyoverseBundle\Model\Game\HasPullTrackerInterface;
 use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
@@ -123,15 +124,15 @@ class ApiGameProfilesController extends AbstractController
 
         $currencies = [];
         if ($this->locatorByGameId->has($gameProfile->getGameId())) {
-            /** @var GameInterface $gameService */
             $gameService = $this->locatorByGameId->get($gameProfile->getGameId());
-            $currenciesEnum = GameDiaryCurrency::forGameService($gameService);
-            foreach ($currenciesEnum as $curr) {
-                $currencies[] = [
-                    'value' => $curr->value,
-                    'label' => $curr->getLabel(),
-                    'api_type' => $curr->getApiType(),
-                ];
+            if ($gameService instanceof HasDiaryInterface) {
+                foreach ($gameService->getDiaryCurrencies() as $curr) {
+                    $currencies[] = [
+                        'value' => $curr->value,
+                        'label' => $curr->getLabel(),
+                        'api_type' => $curr->getApiType(),
+                    ];
+                }
             }
         }
 
@@ -298,7 +299,7 @@ class ApiGameProfilesController extends AbstractController
         }
 
         $delaySeconds = 0;
-        foreach (array_keys($gameService->getGachaBannerTypes()) as $gachaType) {
+        foreach (array_keys($gameService->getGachaConfig()->getBannerTypes()) as $gachaType) {
             $stamps = $delaySeconds > 0 ? [new DelayStamp($delaySeconds * 1000)] : [];
             $bus->dispatch(
                 new SyncPullsPageProfileMessage($gameProfile->getId(), (string) $gachaType, '0'),
@@ -364,7 +365,7 @@ class ApiGameProfilesController extends AbstractController
         unset($extractedParams['authkey'], $extractedParams['gacha_type'], $extractedParams['real_gacha_type'], $extractedParams['page'], $extractedParams['size'], $extractedParams['end_id']);
 
         $delaySeconds = 0;
-        foreach (array_keys($gameService->getGachaBannerTypes()) as $gachaType) {
+        foreach (array_keys($gameService->getGachaConfig()->getBannerTypes()) as $gachaType) {
             $stamps = $delaySeconds > 0 ? [new DelayStamp($delaySeconds * 1000)] : [];
             $bus->dispatch(
                 new SyncPullsPageProfileMessage(
@@ -406,7 +407,7 @@ class ApiGameProfilesController extends AbstractController
             throw new BadRequestHttpException("This game profile does not support pull tracking.");
         }
 
-        $bannerGroups = $gameService->getGachaBannerGroups();
+        $bannerGroups = $gameService->getGachaConfig()->getBannerGroups();
         $rarityConfig = $gameService->getRarityConfig();
         $overview = $pullRepo->buildOverview($gameProfile, $bannerGroups, $rarityConfig);
 
@@ -441,7 +442,7 @@ class ApiGameProfilesController extends AbstractController
             throw new BadRequestHttpException("This game profile does not support pull tracking.");
         }
 
-        $bannerGroups = $gameService->getGachaBannerGroups();
+        $bannerGroups = $gameService->getGachaConfig()->getBannerGroups();
         $rarityConfig = $gameService->getRarityConfig();
 
         $bannerKey = $req->query->getString('banner', $req->query->getString('gacha_type'));

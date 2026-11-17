@@ -2,9 +2,14 @@
 
 namespace App\HoyoverseBundle\Service;
 
+use App\HoyoverseBundle\Model\Diary\GameDiaryCurrency;
 use App\HoyoverseBundle\Model\Diary\GenshinImpactDiaryInfo;
 use App\HoyoverseBundle\Model\Diary\GenshinImpactDiaryItem;
 use App\HoyoverseBundle\Model\Game\AutoCodeRedemptionTrait;
+use App\CoreBundle\Model\Game\GachaBannerConfig;
+use App\CoreBundle\Model\Game\GachaConfig;
+use App\CoreBundle\Model\Game\RarityConfig;
+use App\CoreBundle\Model\Game\RarityTierConfig;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\GenshinImpactEndgamesTrait;
 use App\HoyoverseBundle\Model\Game\HasAutoCodeRedemptionInterface;
@@ -159,6 +164,11 @@ class GenshinImpactService extends GameService implements HasNotesInterface, Has
         return $date->format("m");
     }
 
+    public function getDiaryCurrencies(): array
+    {
+        return [GameDiaryCurrency::PRIMOGEM, GameDiaryCurrency::MORA];
+    }
+
     public function getUrlFetchRedeemableCodes(): string
     {
         return "https://api.ennead.cc/mihoyo/genshin/codes";
@@ -261,60 +271,30 @@ class GenshinImpactService extends GameService implements HasNotesInterface, Has
         );
     }
 
-    public function getGachaEndpointUrl(): string
+    private const string GACHA_ENDPOINT_URL = 'https://public-operation-hk4e-sg.hoyoverse.com/gacha_info/api/getGachaLog';
+
+    public function getGachaConfig(): GachaConfig
     {
-        return 'https://public-operation-hk4e-sg.hoyoverse.com/gacha_info/api/getGachaLog';
+        return new GachaConfig(
+            defaultEndpointUrl: self::GACHA_ENDPOINT_URL,
+            banners: [
+                new GachaBannerConfig('301', 'Character Event Wish', ['301', '400'], 90, 10),
+                new GachaBannerConfig('302', 'Weapon Event Wish', ['302'], 80, 10),
+                new GachaBannerConfig('200', 'Standard Wish', ['200'], 90, 10),
+                new GachaBannerConfig('100', "Beginners' Wish", ['100'], 20, 10),
+                new GachaBannerConfig('500', 'Chronicled Wish', ['500'], 90, 10),
+            ],
+        );
     }
 
-    public function getGachaBannerTypes(): array
+    public function getRarityConfig(): RarityConfig
     {
-        return [
-            301 => 'Character Event Wish',
-            302 => 'Weapon Event Wish',
-            200 => 'Standard Wish',
-            100 => "Beginners' Wish",
-            500 => 'Chronicled Wish',
-        ];
-    }
-
-    public function getGachaBannerGroups(): array
-    {
-        return [
-            '301' => [
-                'key' => '301',
-                'name' => 'Character Event Wish',
-                'gacha_types' => ['301', '400'],
-                's_max_pity' => 90,
-                'a_max_pity' => 10,
-            ],
-            '302' => [
-                'key' => '302',
-                'name' => 'Weapon Event Wish',
-                'gacha_types' => ['302'],
-                's_max_pity' => 80,
-                'a_max_pity' => 10,
-            ],
-            '200' => [
-                'key' => '200',
-                'name' => 'Standard Wish',
-                'gacha_types' => ['200'],
-                's_max_pity' => 90,
-                'a_max_pity' => 10,
-            ],
-            '500' => [
-                'key' => '500',
-                'name' => 'Chronicled Wish',
-                'gacha_types' => ['500'],
-                's_max_pity' => 90,
-                'a_max_pity' => 10,
-            ],
-            '100' => [
-                'key' => '100',
-                'name' => "Beginners' Wish",
-                'gacha_types' => ['100'],
-                's_max_pity' => 20,
-                'a_max_pity' => 10,
-            ],
-        ];
+        return new RarityConfig(
+            s: new RarityTierConfig(5, '5-Star', '5★'),
+            a: new RarityTierConfig(4, '4-Star', '4★'),
+            b: new RarityTierConfig(3, '3-Star', '3★'),
+            pullLabel: 'Wishes',
+            pullSingularLabel: 'Wish',
+        );
     }
 }

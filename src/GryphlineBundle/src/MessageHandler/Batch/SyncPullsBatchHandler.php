@@ -74,7 +74,7 @@ class SyncPullsBatchHandler extends AbstractBatchTaskMessageHandler
         }
 
         $serviceClass = $gameService::class;
-        $categories = $gameService->getPullPoolCategories();
+        $categories = array_keys($gameService->getGachaConfig()->getBannerTypes());
 
         // Initialize delay offset for this specific game service if not present
         if (!isset($this->serviceDelays[$serviceClass])) {

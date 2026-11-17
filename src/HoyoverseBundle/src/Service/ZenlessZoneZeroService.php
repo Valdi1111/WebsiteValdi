@@ -2,9 +2,14 @@
 
 namespace App\HoyoverseBundle\Service;
 
+use App\HoyoverseBundle\Model\Diary\GameDiaryCurrency;
 use App\HoyoverseBundle\Model\Diary\ZenlessZoneZeroDiaryInfo;
 use App\HoyoverseBundle\Model\Diary\ZenlessZoneZeroDiaryItem;
 use App\HoyoverseBundle\Model\Game\AutoCodeRedemptionTrait;
+use App\CoreBundle\Model\Game\GachaBannerConfig;
+use App\CoreBundle\Model\Game\GachaConfig;
+use App\CoreBundle\Model\Game\RarityConfig;
+use App\CoreBundle\Model\Game\RarityTierConfig;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasAutoCodeRedemptionInterface;
 use App\CoreBundle\Model\Game\HasDailiesInterface;
@@ -159,6 +164,11 @@ class ZenlessZoneZeroService extends GameService implements HasNotesInterface, H
         return $date->format("Ym");
     }
 
+    public function getDiaryCurrencies(): array
+    {
+        return [GameDiaryCurrency::POLYCHROME, GameDiaryCurrency::MASTER_TAPE];
+    }
+
     public function getUrlFetchRedeemableCodes(): string
     {
         return "https://api.ennead.cc/mihoyo/zenless/codes";
@@ -266,68 +276,29 @@ class ZenlessZoneZeroService extends GameService implements HasNotesInterface, H
         );
     }
 
-    public function getGachaEndpointUrl(): string
+    private const string GACHA_ENDPOINT_URL = 'https://public-operation-nap-sg.hoyoverse.com/common/gacha_record/api/getGachaLog';
+
+    public function getGachaConfig(): GachaConfig
     {
-        return 'https://public-operation-nap-sg.hoyoverse.com/common/gacha_record/api/getGachaLog';
+        return new GachaConfig(
+            defaultEndpointUrl: self::GACHA_ENDPOINT_URL,
+            banners: [
+                new GachaBannerConfig('2', 'Exclusive Channel', ['2'], 90, 10),
+                new GachaBannerConfig('3', 'W-Engine Channel', ['3'], 80, 10),
+                new GachaBannerConfig('1', 'Standard Channel', ['1'], 90, 10),
+                new GachaBannerConfig('5', 'Bangboo Channel', ['5'], 80, 10),
+            ],
+        );
     }
 
-    public function getGachaBannerTypes(): array
+    public function getRarityConfig(): RarityConfig
     {
-        return [
-            1 => 'Exclusive Channel',
-            2 => 'W-Engine Channel',
-            3 => 'Standard Channel',
-            5 => 'Bangboo Channel',
-        ];
-    }
-
-    public function getGachaBannerGroups(): array
-    {
-        return [
-            '1' => [
-                'key' => '1',
-                'name' => 'Exclusive Channel',
-                'gacha_types' => ['1'],
-                's_max_pity' => 90,
-                'a_max_pity' => 10,
-            ],
-            '2' => [
-                'key' => '2',
-                'name' => 'W-Engine Channel',
-                'gacha_types' => ['2'],
-                's_max_pity' => 80,
-                'a_max_pity' => 10,
-            ],
-            '3' => [
-                'key' => '3',
-                'name' => 'Standard Channel',
-                'gacha_types' => ['3'],
-                's_max_pity' => 90,
-                'a_max_pity' => 10,
-            ],
-            '5' => [
-                'key' => '5',
-                'name' => 'Bangboo Channel',
-                'gacha_types' => ['5'],
-                's_max_pity' => 80,
-                'a_max_pity' => 10,
-            ],
-        ];
-    }
-
-    public function getRarityConfig(): array
-    {
-        return [
-            's_rarity' => 4,
-            's_label' => 'S-Rank',
-            's_short' => 'S',
-            'a_rarity' => 3,
-            'a_label' => 'A-Rank',
-            'a_short' => 'A',
-            'b_rarity' => 2,
-            'b_label' => 'B-Rank',
-            'b_short' => 'B',
-            'pull_label' => 'Signals',
-        ];
+        return new RarityConfig(
+            s: new RarityTierConfig(4, 'S-Rank', 'S'),
+            a: new RarityTierConfig(3, 'A-Rank', 'A'),
+            b: new RarityTierConfig(2, 'B-Rank', 'B'),
+            pullLabel: 'Signals',
+            pullSingularLabel: 'Signal',
+        );
     }
 }

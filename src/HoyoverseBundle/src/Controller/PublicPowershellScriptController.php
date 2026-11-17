@@ -55,8 +55,9 @@ class PublicPowershellScriptController extends AbstractController
         ));
         $psTitle = str_replace("'", "''", $gameService->getGameName());
         $psUrlRegex = str_replace("'", "''", $config->getUrlRegex());
-        $psGachaEndpointUrl = str_replace("'", "''", $gameService->getGachaEndpointUrl());
-        $firstBannerType = array_key_first($gameService->getGachaBannerTypes());
+        $gachaConfig = $gameService->getGachaConfig();
+        $psGachaEndpointUrl = str_replace("'", "''", $gachaConfig->getDefaultEndpointUrl());
+        $firstBannerType = array_key_first($gachaConfig->getBannerTypes());
         $psTestGachaType = $firstBannerType !== null ? str_replace("'", "''", (string) $firstBannerType) : '';
 
         $script = strtr($template, [

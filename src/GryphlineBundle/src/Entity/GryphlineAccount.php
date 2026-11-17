@@ -31,9 +31,11 @@ class GryphlineAccount implements GameAccountInterface
     #[ORM\Column(type: Types::TEXT)]
     private ?string $accountToken = null;
 
+    #[Ignore]
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $sessionCred = null;
 
+    #[Ignore]
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $sessionSalt = null;
 

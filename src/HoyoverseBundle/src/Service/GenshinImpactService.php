@@ -295,6 +295,7 @@ class GenshinImpactService extends GameService implements HasNotesInterface, Has
             b: new RarityTierConfig(3, '3-Star', '3★'),
             pullLabel: 'Wishes',
             pullSingularLabel: 'Wish',
+            sResetsAPity: false,
         );
     }
 }

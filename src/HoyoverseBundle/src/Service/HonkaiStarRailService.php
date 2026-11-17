@@ -281,6 +281,7 @@ class HonkaiStarRailService extends GameService implements HasNotesInterface, Ha
             b: new RarityTierConfig(3, '3-Star', '3★'),
             pullLabel: 'Warps',
             pullSingularLabel: 'Warp',
+            sResetsAPity: false,
         );
     }
 }

@@ -123,7 +123,7 @@ class HoyoversePullRepository extends ServiceEntityRepository
         $bannersOutput = [];
         foreach ($bannerGroups as $key => $group) {
             $bRows = $groupedRows[(string) $key] ?? [];
-            $computed = $this->computeBannerStats($bRows, $group, $sRarity, $aRarity);
+            $computed = $this->computeBannerStats($bRows, $group, $rarityConfig);
             $bannersOutput[] = $computed['summary'];
         }
 
@@ -174,10 +174,7 @@ class HoyoversePullRepository extends ServiceEntityRepository
             ->getQuery()
             ->getArrayResult();
 
-        $sRarity = $rarityConfig->getS()->getRarity();
-        $aRarity = $rarityConfig->getA()->getRarity();
-
-        $computed = $this->computeBannerStats($rows, $bannerGroup, $sRarity, $aRarity);
+        $computed = $this->computeBannerStats($rows, $bannerGroup, $rarityConfig);
 
         // Reverse annotated items so newest pull (#N) is first
         $annotatedDesc = array_reverse($computed['items']);
@@ -222,8 +219,12 @@ class HoyoversePullRepository extends ServiceEntityRepository
      *     items: array<int, array<string, mixed>>
      * }
      */
-    private function computeBannerStats(array $rows, array $bannerGroup, int $sRarity, int $aRarity): array
+    private function computeBannerStats(array $rows, array $bannerGroup, RarityConfig $rarityConfig): array
     {
+        $sRarity = $rarityConfig->getS()->getRarity();
+        $aRarity = $rarityConfig->getA()->getRarity();
+        $sResetsAPity = $rarityConfig->isSResetsAPity();
+
         $sPity = 0;
         $aPity = 0;
         $sCount = 0;
@@ -260,6 +261,9 @@ class HoyoversePullRepository extends ServiceEntityRepository
                     'pulled_at' => $pulledAtFormatted,
                 ];
                 $sPity = 0;
+                if ($sResetsAPity) {
+                    $aPity = 0;
+                }
             } elseif ($rarity === $aRarity) {
                 $itemPity = $aPity;
                 $aCount++;

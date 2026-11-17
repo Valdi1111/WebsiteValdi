@@ -299,6 +299,7 @@ class ZenlessZoneZeroService extends GameService implements HasNotesInterface, H
             b: new RarityTierConfig(2, 'B-Rank', 'B'),
             pullLabel: 'Signals',
             pullSingularLabel: 'Signal',
+            sResetsAPity: true,
         );
     }
 }

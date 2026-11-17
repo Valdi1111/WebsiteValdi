@@ -16,6 +16,8 @@ class RarityConfig
         private string $pullLabel,
         #[SerializedName('pull_singular_label')]
         private string $pullSingularLabel,
+        #[SerializedName('s_resets_a_pity')]
+        private bool $sResetsAPity,
     ) {
     }
 
@@ -75,6 +77,18 @@ class RarityConfig
     public function setPullSingularLabel(string $pullSingularLabel): static
     {
         $this->pullSingularLabel = $pullSingularLabel;
+
+        return $this;
+    }
+
+    public function isSResetsAPity(): bool
+    {
+        return $this->sResetsAPity;
+    }
+
+    public function setSResetsAPity(bool $sResetsAPity): static
+    {
+        $this->sResetsAPity = $sResetsAPity;
 
         return $this;
     }

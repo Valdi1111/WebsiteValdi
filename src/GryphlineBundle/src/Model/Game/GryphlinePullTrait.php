@@ -42,6 +42,7 @@ trait GryphlinePullTrait
             b: new RarityTierConfig(4, '4-Star', '4★'),
             pullLabel: 'Headhunts',
             pullSingularLabel: 'Headhunt',
+            sResetsAPity: true,
         );
     }
 

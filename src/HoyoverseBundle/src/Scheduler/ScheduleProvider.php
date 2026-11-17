@@ -26,10 +26,10 @@ class ScheduleProvider implements ScheduleProviderInterface
     {
         $schedule = new Schedule();
 
-        /** @var array<string, array{enabled: bool, message_class: string, cron: string, regional: bool, jitter?: int}> $crons */
+        /** @var array<string, array{enabled: bool, message_class: string, cron: ?string, regional: bool, jitter?: int}> $crons */
         $crons = $this->params->get('hoyoverse.tasks');
         foreach ($crons as $taskConfig) {
-            if (!$taskConfig['enabled']) {
+            if (!$taskConfig['enabled'] || empty($taskConfig['cron'])) {
                 continue;
             }
 

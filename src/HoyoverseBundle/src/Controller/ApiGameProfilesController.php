@@ -352,8 +352,16 @@ class ApiGameProfilesController extends AbstractController
             throw new BadRequestHttpException("The provided URL does not contain an authkey parameter.");
         }
 
+        if (!empty($extractedParams['game_biz']) && $extractedParams['game_biz'] !== $gameProfile->getGameBiz()) {
+            throw new BadRequestHttpException(sprintf(
+                'The provided URL belongs to "%s" and does not match this profile ("%s").',
+                (string) $extractedParams['game_biz'],
+                (string) $gameProfile->getGameBiz()
+            ));
+        }
+
         $authkey = (string) $extractedParams['authkey'];
-        unset($extractedParams['authkey'], $extractedParams['gacha_type'], $extractedParams['page'], $extractedParams['size'], $extractedParams['end_id']);
+        unset($extractedParams['authkey'], $extractedParams['gacha_type'], $extractedParams['real_gacha_type'], $extractedParams['page'], $extractedParams['size'], $extractedParams['end_id']);
 
         $delaySeconds = 0;
         foreach (array_keys($gameService->getGachaBannerTypes()) as $gachaType) {

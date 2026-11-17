@@ -270,7 +270,6 @@ class GenshinImpactService extends GameService implements HasNotesInterface, Has
     {
         return [
             301 => 'Character Event Wish',
-            400 => 'Character Event Wish-2',
             302 => 'Weapon Event Wish',
             200 => 'Standard Wish',
             100 => "Beginners' Wish",

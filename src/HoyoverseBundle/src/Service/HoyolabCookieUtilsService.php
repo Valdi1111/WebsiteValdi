@@ -294,7 +294,6 @@ class HoyolabCookieUtilsService
 
         $parsedCookie = $this->parseCookie((string) $account->getCookie());
         $stoken = $parsedCookie->getStokenV2();
-        $mid = $parsedCookie->getLtmidV2();
 
         if (empty($stoken)) {
             throw new ConfigurationException(sprintf(
@@ -311,11 +310,7 @@ class HoyolabCookieUtilsService
         ];
 
         $ds = $this->hoyolabUtils->generateDsV2([], $body);
-
-        $cookieHeader = "stoken={$stoken};";
-        if (!empty($mid)) {
-            $cookieHeader .= " mid={$mid};";
-        }
+        $cookieHeader = $this->buildCookieHeader($parsedCookie);
 
         try {
             $response = $this->httpClient->request(Request::METHOD_POST, self::GEN_AUTHKEY_API, [

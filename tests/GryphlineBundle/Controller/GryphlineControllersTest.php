@@ -12,6 +12,7 @@ use App\GryphlineBundle\Service\SkportManagerService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\Container;
+use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
@@ -153,7 +154,7 @@ class GryphlineControllersTest extends TestCase
         $account->addGameProfile($profile);
 
         $em = $this->createStub(EntityManagerInterface::class);
-        $controller = new ApiGameProfilesController($em);
+        $controller = new ApiGameProfilesController($em, $this->createStub(ServiceLocator::class));
         $controller->setAccount($account);
         $this->attachMockContainer($controller);
 
@@ -173,7 +174,7 @@ class GryphlineControllersTest extends TestCase
         $denormalizer = $this->createMock(DenormalizerInterface::class);
         $denormalizer->expects($this->once())->method('denormalize');
 
-        $controller = new ApiGameProfilesController($em);
+        $controller = new ApiGameProfilesController($em, $this->createStub(ServiceLocator::class));
         $controller->setAccount($account);
         $this->attachMockContainer($controller);
 
@@ -201,7 +202,7 @@ class GryphlineControllersTest extends TestCase
         $em = $this->createStub(EntityManagerInterface::class);
         $denormalizer = $this->createStub(DenormalizerInterface::class);
 
-        $controller = new ApiGameProfilesController($em);
+        $controller = new ApiGameProfilesController($em, $this->createStub(ServiceLocator::class));
         $controller->setAccount($account1);
         $this->attachMockContainer($controller);
 

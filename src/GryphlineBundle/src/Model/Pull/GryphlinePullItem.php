@@ -24,9 +24,11 @@ class GryphlinePullItem
     private ?string $poolName = null;
 
     #[Map(target: 'itemId')]
+    #[SerializedName('itemId')]
     private ?string $itemId = null;
 
     #[Map(target: 'name')]
+    #[SerializedName('itemName')]
     private ?string $itemName = null;
 
     #[Map(target: 'rarity')]

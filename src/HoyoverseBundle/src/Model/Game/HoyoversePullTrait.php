@@ -40,7 +40,9 @@ trait HoyoversePullTrait
             'sign_type' => '2',
             'lang' => 'en',
             'authkey' => $authkey,
+            'game_biz' => $profile->getGameBiz(),
             'gacha_type' => (string) $gachaType,
+            'real_gacha_type' => (string) $gachaType,
             'size' => $size,
             'end_id' => $endId ?? '0',
         ], $extraQueryParams);

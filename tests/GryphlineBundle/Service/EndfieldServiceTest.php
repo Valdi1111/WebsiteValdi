@@ -15,24 +15,29 @@ use App\GryphlineBundle\Service\SkportSignerService;
 use App\GryphlineBundle\Service\SkportUtilsService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use Symfony\Component\ObjectMapper\ObjectMapperInterface;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class EndfieldServiceTest extends TestCase
 {
     private function createService(
-        ?HttpClientInterface $client = null,
+        ?HttpClientInterface $skportClient = null,
+        ?HttpClientInterface $httpClient = null,
         ?SkportSignerService $signer = null,
         ?SkportAuthService $auth = null,
         ?SkportUtilsService $utils = null,
-        ?DenormalizerInterface $denormalizer = null
+        ?DenormalizerInterface $denormalizer = null,
+        ?ObjectMapperInterface $objectMapper = null
     ): EndfieldService {
         return new EndfieldService(
-            $client ?? $this->createStub(HttpClientInterface::class),
+            $skportClient ?? $this->createStub(HttpClientInterface::class),
+            $httpClient ?? $this->createStub(HttpClientInterface::class),
             $signer ?? $this->createStub(SkportSignerService::class),
             $auth ?? $this->createStub(SkportAuthService::class),
             $utils ?? $this->createStub(SkportUtilsService::class),
             $denormalizer ?? $this->createStub(DenormalizerInterface::class),
+            $objectMapper ?? $this->createStub(ObjectMapperInterface::class),
             new NullLogger()
         );
     }

@@ -18,6 +18,7 @@ use App\HoyoverseBundle\Model\Game\GameService;
 use App\HoyoverseBundle\Model\Game\HasPowershellPullImportInterface;
 use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
 use App\HoyoverseBundle\Model\Game\HoyoversePullTrait;
+use App\HoyoverseBundle\Model\Game\PowershellPullConfig;
 use App\CoreBundle\Model\Game\HasNotesInterface;
 use App\HoyoverseBundle\Model\Game\NotesTrait;
 use App\CoreBundle\Model\Game\HasStaminaInterface;
@@ -250,9 +251,14 @@ class GenshinImpactService extends GameService implements HasNotesInterface, Has
         return 'webview_gacha';
     }
 
-    public function getPowershellGameFolderName(): string
+    public function getPowershellPullConfig(): PowershellPullConfig
     {
-        return 'Genshin Impact';
+        return new PowershellPullConfig(
+            localLowFolders: ['miHoYo\\Genshin Impact', 'miHoYo\\原神'],
+            logFiles: ['output_log.txt', 'output_log.txt.last', 'Player.log', 'Player-prev.log'],
+            dataFolderPattern: 'GenshinImpact_Data|YuanShen_Data',
+            urlRegex: '/gacha_info/api/getGachaLog|game_biz=hk4e_|/genshin/',
+        );
     }
 
     public function getGachaEndpointUrl(): string

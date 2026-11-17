@@ -1,6 +1,6 @@
 import { useBackendApi } from "@HoyoverseBundle/components/BackendApiContext";
 import { CopyOutlined, CheckOutlined, SnippetsOutlined, WindowsOutlined } from "@ant-design/icons";
-import { Modal, Input, Button, Typography, Space, Alert, Steps, message } from "antd";
+import { Modal, Input, Button, Typography, Space, Alert, Steps, App } from "antd";
 import React, { useState } from "react";
 
 const { Text } = Typography;
@@ -9,10 +9,15 @@ export default function PowershellPullImportModal({ open, profile, accountId, pr
     const [url, setUrl] = useState("");
     const [loading, setLoading] = useState(false);
     const [copied, setCopied] = useState(false);
+    const { message } = App.useApp();
     const api = useBackendApi();
 
     const resolvedProfileId = profile?.id ?? profileId;
-    const scriptCommand = `irm "${window.location.origin}/api/pulls/script/powershell" | iex`;
+    const scriptUrl = new URL("/api/pulls/script/powershell", window.location.origin);
+    if (profile?.game_id !== undefined && profile?.game_id !== null) {
+        scriptUrl.searchParams.set("gameId", String(profile.game_id));
+    }
+    const scriptCommand = `[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12; Invoke-Expression (New-Object Net.WebClient).DownloadString("${scriptUrl.toString()}")`;
 
     const handleCopyCommand = () => {
         navigator.clipboard.writeText(scriptCommand).then(() => {
@@ -102,18 +107,18 @@ export default function PowershellPullImportModal({ open, profile, accountId, pr
                 type="info"
                 showIcon
                 style={{ marginBottom: 20 }}
-                message="How link extraction works"
+                title="How link extraction works"
                 description="Honkai: Star Rail and other clients require an authentication key generated directly by the game client. This command reads your local session cache in read-only mode and automatically copies the URL to your clipboard."
             />
 
             <Steps
-                direction="vertical"
+                orientation="vertical"
                 size="small"
                 current={url ? 2 : 1}
                 items={[
                     {
                         title: "1. Open the in-game history screen",
-                        description: (
+                        content: (
                             <Text type="secondary">
                                 Launch <strong>{profile?.game_name || "the game"}</strong> on your PC, press ESC, and open the <strong>Warp / Wish / Signal Search History</strong> screen in the Gacha menu.
                             </Text>
@@ -121,7 +126,7 @@ export default function PowershellPullImportModal({ open, profile, accountId, pr
                     },
                     {
                         title: "2. Run the command in PowerShell",
-                        description: (
+                        content: (
                             <div style={{ marginTop: 8 }}>
                                 <Text type="secondary">
                                     Open <strong>Windows PowerShell</strong> on your PC and run the following command:
@@ -155,7 +160,7 @@ export default function PowershellPullImportModal({ open, profile, accountId, pr
                     },
                     {
                         title: "3. Paste the extracted link",
-                        description: (
+                        content: (
                             <div style={{ marginTop: 8 }}>
                                 <Text type="secondary">
                                     The script will extract the link containing your authkey and automatically copy it to your clipboard. Paste it below:

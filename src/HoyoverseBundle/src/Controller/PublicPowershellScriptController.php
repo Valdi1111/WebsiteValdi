@@ -2,73 +2,72 @@
 
 namespace App\HoyoverseBundle\Controller;
 
+use App\HoyoverseBundle\Model\Game\GameInterface;
+use App\HoyoverseBundle\Model\Game\HasPowershellPullImportInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
+use Symfony\Component\DependencyInjection\ServiceLocator;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 
 class PublicPowershellScriptController extends AbstractController
 {
+    private const string SCRIPT_TEMPLATE_PATH = __DIR__ . '/../../resources/scripts/extract_pulls.ps1';
+
+    /**
+     * @param ServiceLocator<GameInterface> $locatorByGameId
+     */
+    public function __construct(
+        #[AutowireLocator(services: 'hoyoverse.game.id', indexAttribute: 'key')]
+        private readonly ServiceLocator $locatorByGameId,
+    ) {
+    }
+
     #[Route('/api/pulls/script/powershell', name: 'public_pulls_script_powershell', methods: ['GET'])]
-    public function getPowershellScript(): Response
+    public function getPowershellScript(Request $request): Response
     {
-        $script = <<<'POWERSHELL'
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "   HoYoverse Gacha / Warp Link Extractor                  " -ForegroundColor Yellow
-Write-Host "==========================================================" -ForegroundColor Cyan
-
-$foundUrl = $null
-
-# 1. Search in AppData\LocalLow webCaches data_2 files
-$cacheFiles = Get-ChildItem -Path "$env:USERPROFILE\AppData\LocalLow" -Filter "data_2" -Recurse -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
-
-foreach ($file in $cacheFiles) {
-    try {
-        $tempCopy = [System.IO.Path]::GetTempFileName()
-        Copy-Item -Path $file.FullName -Destination $tempCopy -Force
-        $content = [System.IO.File]::ReadAllText($tempCopy)
-        Remove-Item -Path $tempCopy -Force -ErrorAction SilentlyContinue
-
-        if ($content -match '(https://[^\s"''<>]*/(?:common/hkrpg_gacha_record|gacha_info|common/gacha_record|common/nap_gacha_record)/api/getGachaLog\?[^\s"''<>]*authkey=[^\s"''<>]*)') {
-            $foundUrl = $matches[1]
-            break
+        $gameId = $request->query->getInt('gameId');
+        if (!$this->locatorByGameId->has($gameId)) {
+            throw new BadRequestHttpException('Unsupported game service.');
         }
-    } catch {
-        continue
-    }
-}
 
-# 2. Search in Unity Player.log / output_log.txt if not found in cache
-if (-not $foundUrl) {
-    $logFiles = Get-ChildItem -Path "$env:USERPROFILE\AppData\LocalLow" -Include "Player.log","output_log.txt" -Recurse -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
-    foreach ($log in $logFiles) {
-        try {
-            $content = Get-Content -Path $log.FullName -Tail 500 -ErrorAction SilentlyContinue
-            foreach ($line in $content) {
-                if ($line -match '(https://[^\s"''<>]*/(?:common/hkrpg_gacha_record|gacha_info|common/gacha_record|common/nap_gacha_record)/api/getGachaLog\?[^\s"''<>]*authkey=[^\s"''<>]*)') {
-                    $foundUrl = $matches[1]
-                    break
-                }
-            }
-            if ($foundUrl) { break }
-        } catch {
-            continue
+        $gameService = $this->locatorByGameId->get($gameId);
+        if (!$gameService instanceof HasPowershellPullImportInterface) {
+            throw new BadRequestHttpException('This game does not support PowerShell pull import.');
         }
-    }
-}
 
-if ($foundUrl) {
-    Set-Clipboard -Value $foundUrl
-    Write-Host "`n[SUCCESS] Gacha link found and automatically copied to clipboard!" -ForegroundColor Green
-    Write-Host "Return to the web application and paste it into the import modal.`n" -ForegroundColor White
-} else {
-    Write-Host "`n[ERROR] Could not find the gacha history link." -ForegroundColor Red
-    Write-Host "Please make sure to:" -ForegroundColor Yellow
-    Write-Host " 1. Launch the game (Honkai: Star Rail, Genshin Impact, or Zenless Zone Zero)." -ForegroundColor Yellow
-    Write-Host " 2. Open the in-game Warp / Wish / Signal Search History screen." -ForegroundColor Yellow
-    Write-Host " 3. Re-run this command in PowerShell.`n" -ForegroundColor Yellow
-}
-POWERSHELL;
+        $template = file_get_contents(self::SCRIPT_TEMPLATE_PATH);
+        if ($template === false) {
+            throw new \RuntimeException('PowerShell script template not found.');
+        }
+
+        $config = $gameService->getPowershellPullConfig();
+
+        $psFolders = implode(', ', array_map(
+            static fn (string $f): string => "'" . str_replace("'", "''", $f) . "'",
+            $config->getLocalLowFolders()
+        ));
+        $psLogFiles = implode(', ', array_map(
+            static fn (string $f): string => "'" . str_replace("'", "''", $f) . "'",
+            $config->getLogFiles()
+        ));
+        $psTitle = str_replace("'", "''", $gameService->getGameName());
+        $psUrlRegex = str_replace("'", "''", $config->getUrlRegex());
+        $psGachaEndpointUrl = str_replace("'", "''", $gameService->getGachaEndpointUrl());
+        $firstBannerType = array_key_first($gameService->getGachaBannerTypes());
+        $psTestGachaType = $firstBannerType !== null ? str_replace("'", "''", (string) $firstBannerType) : '';
+
+        $script = strtr($template, [
+            '__TITLE__' => $psTitle,
+            '__FOLDERS__' => $psFolders,
+            '__LOG_FILES__' => $psLogFiles,
+            '__DATA_FOLDER_PATTERN__' => $config->getDataFolderPattern(),
+            '__URL_REGEX__' => $psUrlRegex,
+            '__GACHA_ENDPOINT_URL__' => $psGachaEndpointUrl,
+            '__TEST_GACHA_TYPE__' => $psTestGachaType,
+        ]);
 
         return new Response($script, Response::HTTP_OK, [
             'Content-Type' => 'text/plain; charset=utf-8',

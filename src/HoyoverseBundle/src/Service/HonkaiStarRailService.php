@@ -15,6 +15,7 @@ use App\CoreBundle\Model\Game\HasWeekliesInterface;
 use App\HoyoverseBundle\Model\Game\GameService;
 use App\HoyoverseBundle\Model\Game\HasPowershellPullImportInterface;
 use App\HoyoverseBundle\Model\Game\HoyoversePullTrait;
+use App\HoyoverseBundle\Model\Game\PowershellPullConfig;
 use App\CoreBundle\Model\Game\HasNotesInterface;
 use App\HoyoverseBundle\Model\Game\HonkaiStarRailEndgamesTrait;
 use App\HoyoverseBundle\Model\Game\NotesTrait;
@@ -234,9 +235,14 @@ class HonkaiStarRailService extends GameService implements HasNotesInterface, Ha
         return $expeditions;
     }
 
-    public function getPowershellGameFolderName(): string
+    public function getPowershellPullConfig(): PowershellPullConfig
     {
-        return 'StarRail';
+        return new PowershellPullConfig(
+            localLowFolders: ['Cognosphere\\Star Rail', 'miHoYo\\崩坏：星穹铁道', 'miHoYo\\Star Rail', 'miHoYo\\StarRail'],
+            logFiles: ['Player.log', 'Player-prev.log', 'output_log.txt'],
+            dataFolderPattern: 'StarRail_Data',
+            urlRegex: '/common/hkrpg_gacha_record/api/get(?:Ld)?GachaLog|game_biz=hkrpg_',
+        );
     }
 
     public function getGachaEndpointUrl(): string

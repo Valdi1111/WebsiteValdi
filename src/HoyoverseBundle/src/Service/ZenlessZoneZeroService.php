@@ -13,6 +13,7 @@ use App\HoyoverseBundle\Model\Game\DiaryTrait;
 use App\HoyoverseBundle\Model\Game\HasPowershellPullImportInterface;
 use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
 use App\HoyoverseBundle\Model\Game\HoyoversePullTrait;
+use App\HoyoverseBundle\Model\Game\PowershellPullConfig;
 use App\HoyoverseBundle\Model\Game\HasShopStatusInterface;
 use App\CoreBundle\Model\Game\HasWeekliesInterface;
 use App\HoyoverseBundle\Model\Game\GameService;
@@ -255,9 +256,14 @@ class ZenlessZoneZeroService extends GameService implements HasNotesInterface, H
         return 'webview_gacha';
     }
 
-    public function getPowershellGameFolderName(): string
+    public function getPowershellPullConfig(): PowershellPullConfig
     {
-        return 'ZenlessZoneZero';
+        return new PowershellPullConfig(
+            localLowFolders: ['miHoYo\\ZenlessZoneZero', 'miHoYo\\绝区零', 'Cognosphere\\ZenlessZoneZero'],
+            logFiles: ['Player.log', 'Player-prev.log', 'output_log.txt'],
+            dataFolderPattern: 'ZenlessZoneZero_Data',
+            urlRegex: '/common/(?:nap_)?gacha_record/api/getGachaLog|game_biz=nap_',
+        );
     }
 
     public function getGachaEndpointUrl(): string

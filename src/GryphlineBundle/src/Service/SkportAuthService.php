@@ -39,6 +39,7 @@ class SkportAuthService
                 cred: $account->getSessionCred(),
                 salt: $account->getSessionSalt(),
                 userId: '',
+                hgId: $account->getAccountUid(),
                 expiresAt: \DateTimeImmutable::createFromInterface($account->getSessionExpiresAt())
             );
         }
@@ -53,6 +54,9 @@ class SkportAuthService
         try {
             $credentials = $this->performOAuthFlow($token);
 
+            if ($credentials->getHgId() !== null && $credentials->getHgId() !== '') {
+                $account->setAccountUid((string) $credentials->getHgId());
+            }
             $account->setSessionCred($credentials->getCred());
             $account->setSessionSalt($credentials->getSalt());
             $account->setSessionExpiresAt($credentials->getExpiresAt());

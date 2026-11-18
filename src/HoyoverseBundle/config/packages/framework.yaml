@@ -16,3 +16,16 @@ framework:
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
             hoyoverse.redeemable_codes.client:
                 base_uri: 'https://api.ennead.cc'
+            hoyoverse.passport.client:
+                base_uri: 'https://sg-public-api.hoyoverse.com'
+                timeout: 30
+                headers:
+                    'x-rpc-app_id': 'c9oqaq3s3gu8'
+                    'x-rpc-client_type': '2'
+                    'x-rpc-aigis_v4': 'true'
+                    'x-rpc-app_version': '4.8.0'
+                    'x-rpc-sdk_version': '2.2.0'
+                    'x-rpc-device_name': 'Hoyoverse Integration'
+                    'x-rpc-device_model': 'WebsiteValdi'
+                    'Content-Type': 'application/json'
+

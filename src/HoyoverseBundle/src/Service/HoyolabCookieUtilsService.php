@@ -32,12 +32,12 @@ class HoyolabCookieUtilsService
     /**
      * HoYoLAB Application identifier required by the passport API.
      */
-    private const string APP_ID = 'c9oqaq3s3gu8';
+    public const string APP_ID = 'c9oqaq3s3gu8';
 
     /**
      * Static cryptographic salt used to generate the v1 Dynamic Secret (DS) header.
      */
-    private const string APP_LOGIN_SALT = 'IZPgfb0dRPtBeLuFkdDznSZ6f4wWt6y2';
+    public const string APP_LOGIN_SALT = 'IZPgfb0dRPtBeLuFkdDznSZ6f4wWt6y2';
 
     public function __construct(
         private readonly HttpClientInterface   $httpClient,
@@ -134,6 +134,17 @@ class HoyolabCookieUtilsService
         }
 
         return $map;
+    }
+
+    /**
+     * Extracts the HoYoverse account UID (ltuid_v2 / account_id_v2 / ltuid / account_id) from a raw cookie string.
+     */
+    public function extractAccountUid(string $cookieString): ?string
+    {
+        $map = $this->toMap($cookieString);
+        $uid = $map['ltuid_v2'] ?? $map['account_id_v2'] ?? $map['ltuid'] ?? $map['account_id'] ?? null;
+
+        return ($uid !== null && trim((string) $uid) !== '') ? trim((string) $uid) : null;
     }
 
     /**

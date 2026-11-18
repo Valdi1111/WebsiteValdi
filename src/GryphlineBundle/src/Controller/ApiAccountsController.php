@@ -45,14 +45,43 @@ class ApiAccountsController extends AbstractController
             throw new BadRequestHttpException("Parameter 'account_token' cannot be empty.");
         }
 
-        $account = new GryphlineAccount()
-            ->setAccountToken($token)
-            ->setUser($user);
+        $accountId = $payload->get('account_id') ?? $payload->get('accountId');
+        if ($accountId !== null && $accountId !== '') {
+            $account = $this->accountRepository->find((int) $accountId);
+            if ($account === null) {
+                throw $this->createNotFoundException('Account not found.');
+            }
+            if ($account->getUser() !== $user) {
+                throw $this->createAccessDeniedException('Cannot update an account belonging to another user.');
+            }
+            $account->setAccountToken($token)
+                ->setTokenRefreshFailed(false)
+                ->setSessionExpiresAt(null);
+            $statusCode = Response::HTTP_OK;
+        } else {
+            $existingAccount = $this->accountRepository->findOneBy([
+                'user' => $user,
+                'accountToken' => $token,
+            ]);
 
-        $this->entityManager->persist($account);
+            if ($existingAccount !== null) {
+                $account = $existingAccount;
+                $account->setAccountToken($token)
+                    ->setTokenRefreshFailed(false)
+                    ->setSessionExpiresAt(null);
+                $statusCode = Response::HTTP_OK;
+            } else {
+                $account = (new GryphlineAccount())
+                    ->setAccountToken($token)
+                    ->setUser($user);
+                $this->entityManager->persist($account);
+                $statusCode = Response::HTTP_CREATED;
+            }
+        }
+
         $this->entityManager->flush();
 
-        return $this->json($account, Response::HTTP_CREATED, context: [
+        return $this->json($account, $statusCode, context: [
             AbstractNormalizer::IGNORED_ATTRIBUTES => ['gameProfiles'],
         ]);
     }

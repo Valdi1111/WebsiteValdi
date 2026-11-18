@@ -41,6 +41,12 @@ export default function (apiUrl, { message }) {
     api._accounts.add = async (data) => axiosInstance.post(`/accounts`, data);
     api._accounts.sync = async (id) => axiosInstance.post(`/accounts/${id}/sync`);
     api._accounts.delete = async (id) => axiosInstance.delete(`/accounts/${id}`);
+    api._accounts.loginStart = async (data) => axiosInstance.post(`/accounts/login/start`, data);
+    api._accounts.reloginStart = async (accountId, data) => axiosInstance.post(`/accounts/${accountId}/relogin/start`, data);
+    api._accounts.loginCaptcha = async (data) => axiosInstance.post(`/accounts/login/captcha`, data);
+    api._accounts.loginVerifyEmail = async (data) => axiosInstance.post(`/accounts/login/verify-email`, data);
+    api._accounts.loginResendEmail = async (data) => axiosInstance.post(`/accounts/login/resend-email`, data);
+    api._accounts.getGeetestFrameUrl = (loginSessionId) => `${apiUrl}/accounts/login/geetest-frame?login_session_id=${encodeURIComponent(loginSessionId)}`;
 
     api._gameProfiles = {};
     api._gameProfiles.get = async (id) => axiosInstance.get(`/accounts/${id}/gameProfiles`);

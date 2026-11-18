@@ -4,3 +4,6 @@ framework:
         pools:
             core.security_hierarchy.cache:
                 adapter: cache.adapter.filesystem
+            core.geetest.cache:
+                adapter: cache.adapter.filesystem
+                default_lifetime: 86400

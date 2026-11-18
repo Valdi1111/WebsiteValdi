@@ -1,4 +1,13 @@
-import { UserOutlined, SyncOutlined, DeleteOutlined, GiftOutlined, WarningOutlined, ReloadOutlined } from "@ant-design/icons";
+import {
+    UserOutlined,
+    SyncOutlined,
+    DeleteOutlined,
+    GiftOutlined,
+    WarningOutlined,
+    ReloadOutlined,
+    KeyOutlined,
+    CloseCircleOutlined,
+} from "@ant-design/icons";
 import { Card, Space, Button, Popconfirm, Typography, Row, Col, Empty, Tag, Tooltip } from "antd";
 import GameProfileCard from "@HoyoverseBundle/components/game-profile/GameProfileCard";
 import React from "react";
@@ -6,15 +15,18 @@ import React from "react";
 const { Text } = Typography;
 
 export default function AccountCard({
-                                        account,
-                                        isSyncing,
-                                        onSync,
-                                        onDelete,
-                                        onOpenProfileSettings
-                                    }) {
+    account,
+    isSyncing,
+    onSync,
+    onRelogin,
+    onDelete,
+    onOpenProfileSettings,
+}) {
     const hasProfiles = account.game_profiles && account.game_profiles.length > 0;
     const canRedeemCodes = Boolean(account.can_redeem_codes);
     const canAutoRenew = Boolean(account.can_auto_renew);
+    const cookieRefreshFailed = Boolean(account.cookie_refresh_failed);
+    const needsReloginHighlight = !canAutoRenew || cookieRefreshFailed;
 
     return (
         <Card
@@ -61,11 +73,29 @@ export default function AccountCard({
                                     </Tag>
                                 </Tooltip>
                             )}
+
+                            {cookieRefreshFailed && (
+                                <Tooltip title="Automatic cookie refresh failed. Please re-login to renew your HoYoverse tokens.">
+                                    <Tag color="error" icon={<CloseCircleOutlined />} style={{ margin: 0 }}>
+                                        Refresh Failed
+                                    </Tag>
+                                </Tooltip>
+                            )}
                         </Space>
                     </div>
 
                     {/* Right section: Action Buttons */}
-                    <Space size="small" style={{ flexShrink: 0, alignSelf: "center" }}>
+                    <Space size="small" style={{ flexShrink: 0, alignSelf: "center" }} wrap>
+                        {onRelogin && (
+                            <Button
+                                type={needsReloginHighlight ? "primary" : "default"}
+                                danger={cookieRefreshFailed}
+                                icon={<KeyOutlined />}
+                                onClick={() => onRelogin(account)}
+                            >
+                                Re-login
+                            </Button>
+                        )}
                         <Button
                             icon={<SyncOutlined spin={isSyncing} />}
                             loading={isSyncing}

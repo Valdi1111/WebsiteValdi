@@ -13,6 +13,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Ignore;
 
 #[ORM\Index(name: 'FK_hoyoverse_account_user', columns: ['user_id'])]
+#[ORM\Index(name: 'IDX_hoyoverse_account_user_uid', columns: ['user_id', 'account_uid'])]
 #[ORM\Table(name: 'hoyoverse_account')]
 #[ORM\Entity(repositoryClass: HoyoverseAccountRepository::class)]
 class HoyoverseAccount implements GameAccountInterface
@@ -39,6 +40,14 @@ class HoyoverseAccount implements GameAccountInterface
 
     #[ORM\Column(options: ["default" => "0"])]
     private ?bool $cookieRefreshFailed = false;
+
+    #[Ignore]
+    #[ORM\Column(length: 16, nullable: true)]
+    private ?string $deviceId = null;
+
+    #[Ignore]
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $accountUid = null;
 
     /**
      * @var Collection<int, HoyoverseGameProfile>
@@ -80,9 +89,33 @@ class HoyoverseAccount implements GameAccountInterface
         return $this;
     }
 
-    public function getAddedAt(): \DateTimeInterface
+    public function getAddedAt(): ?\DateTimeInterface
     {
         return $this->addedAt;
+    }
+
+    public function getDeviceId(): ?string
+    {
+        return $this->deviceId;
+    }
+
+    public function setDeviceId(?string $deviceId): static
+    {
+        $this->deviceId = $deviceId;
+
+        return $this;
+    }
+
+    public function getAccountUid(): ?string
+    {
+        return $this->accountUid;
+    }
+
+    public function setAccountUid(?string $accountUid): static
+    {
+        $this->accountUid = $accountUid !== null && trim($accountUid) !== '' ? trim($accountUid) : null;
+
+        return $this;
     }
 
     public function getLastCookieRefreshedAt(): ?\DateTimeInterface

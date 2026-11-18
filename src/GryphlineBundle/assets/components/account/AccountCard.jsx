@@ -1,4 +1,12 @@
-import { UserOutlined, SyncOutlined, DeleteOutlined, WarningOutlined, CheckCircleOutlined, CloseCircleOutlined } from "@ant-design/icons";
+import {
+    UserOutlined,
+    SyncOutlined,
+    DeleteOutlined,
+    WarningOutlined,
+    CheckCircleOutlined,
+    CloseCircleOutlined,
+    KeyOutlined,
+} from "@ant-design/icons";
 import { Card, Space, Button, Popconfirm, Typography, Row, Col, Empty, Tag, Tooltip } from "antd";
 import GameProfileCard from "@GryphlineBundle/components/game-profile/GameProfileCard";
 import React from "react";
@@ -9,8 +17,9 @@ export default function AccountCard({
     account,
     isSyncing,
     onSync,
+    onRelogin,
     onDelete,
-    onOpenProfileSettings
+    onOpenProfileSettings,
 }) {
     const hasProfiles = account.game_profiles && account.game_profiles.length > 0;
     const isSessionValid = Boolean(account.is_session_valid ?? account.session_valid);
@@ -51,7 +60,7 @@ export default function AccountCard({
                             )}
 
                             {tokenRefreshFailed && (
-                                <Tooltip title="Automatic credential refresh failed. Please check your account_token or update it if it has been revoked.">
+                                <Tooltip title="Automatic credential refresh failed. Please click Re-login to renew your Gryphline account token.">
                                     <Tag color="error" icon={<CloseCircleOutlined />} style={{ margin: 0 }}>
                                         Token Refresh Failed
                                     </Tag>
@@ -61,7 +70,17 @@ export default function AccountCard({
                     </div>
 
                     {/* Right section: Action Buttons */}
-                    <Space size="small" style={{ flexShrink: 0, alignSelf: "center" }}>
+                    <Space size="small" style={{ flexShrink: 0, alignSelf: "center" }} wrap>
+                        {onRelogin && (
+                            <Button
+                                type={tokenRefreshFailed ? "primary" : "default"}
+                                danger={tokenRefreshFailed}
+                                icon={<KeyOutlined />}
+                                onClick={() => onRelogin(account)}
+                            >
+                                Re-login
+                            </Button>
+                        )}
                         <Button
                             icon={<SyncOutlined spin={isSyncing} />}
                             loading={isSyncing}

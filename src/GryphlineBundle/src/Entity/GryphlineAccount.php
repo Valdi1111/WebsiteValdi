@@ -13,6 +13,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Attribute\Ignore;
 
 #[ORM\Index(name: 'FK_gryphline_account_user', columns: ['user_id'])]
+#[ORM\Index(name: 'IDX_gryphline_account_user_uid', columns: ['user_id', 'account_uid'])]
 #[ORM\Table(name: 'gryphline_account')]
 #[ORM\Entity(repositoryClass: GryphlineAccountRepository::class)]
 class GryphlineAccount implements GameAccountInterface
@@ -30,6 +31,10 @@ class GryphlineAccount implements GameAccountInterface
     #[Ignore]
     #[ORM\Column(type: Types::TEXT)]
     private ?string $accountToken = null;
+
+    #[Ignore]
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $accountUid = null;
 
     #[Ignore]
     #[ORM\Column(length: 255, nullable: true)]
@@ -89,6 +94,17 @@ class GryphlineAccount implements GameAccountInterface
         return $this;
     }
 
+    public function getAccountUid(): ?string
+    {
+        return $this->accountUid;
+    }
+
+    public function setAccountUid(?string $accountUid): static
+    {
+        $this->accountUid = $accountUid !== null && trim($accountUid) !== '' ? trim($accountUid) : null;
+        return $this;
+    }
+
     public function getSessionCred(): ?string
     {
         return $this->sessionCred;
@@ -131,7 +147,7 @@ class GryphlineAccount implements GameAccountInterface
         return $this->sessionExpiresAt > new \DateTimeImmutable();
     }
 
-    public function getAddedAt(): \DateTimeInterface
+    public function getAddedAt(): ?\DateTimeInterface
     {
         return $this->addedAt;
     }

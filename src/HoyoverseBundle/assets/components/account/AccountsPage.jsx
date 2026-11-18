@@ -18,6 +18,7 @@ export default function AccountsPage() {
     const [loading, setLoading] = useState(false);
     const [syncingAccountId, setSyncingAccountId] = useState(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [reloginAccount, setReloginAccount] = useState(null);
     const [submittingAccount, setSubmittingAccount] = useState(false);
     const [selectedTarget, setSelectedTarget] = useState(null);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -50,12 +51,29 @@ export default function AccountsPage() {
             .add(values)
             .then(() => {
                 setIsAddModalOpen(false);
+                setReloginAccount(null);
                 onSuccess?.();
                 loadAccounts();
             })
             .finally(() => {
                 setSubmittingAccount(false);
             });
+    };
+
+    const handleLoginSuccess = () => {
+        setIsAddModalOpen(false);
+        setReloginAccount(null);
+        loadAccounts();
+    };
+
+    const handleOpenRelogin = (account) => {
+        setReloginAccount(account);
+        setIsAddModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setIsAddModalOpen(false);
+        setReloginAccount(null);
     };
 
     const handleSyncAccount = (accountId) => {
@@ -117,7 +135,10 @@ export default function AccountsPage() {
                 <Button
                     type="primary"
                     icon={<PlusOutlined />}
-                    onClick={() => setIsAddModalOpen(true)}
+                    onClick={() => {
+                        setReloginAccount(null);
+                        setIsAddModalOpen(true);
+                    }}
                     style={{ alignSelf: isMobile ? "flex-start" : "auto" }}
                 >
                     Add Account
@@ -138,6 +159,7 @@ export default function AccountsPage() {
                             account={acc}
                             isSyncing={syncingAccountId === acc.id}
                             onSync={handleSyncAccount}
+                            onRelogin={handleOpenRelogin}
                             onDelete={handleDeleteAccount}
                             onOpenProfileSettings={handleOpenSettings}
                         />
@@ -148,8 +170,10 @@ export default function AccountsPage() {
             <AddAccountModal
                 open={isAddModalOpen}
                 loading={submittingAccount}
-                onCancel={() => setIsAddModalOpen(false)}
+                reloginAccount={reloginAccount}
+                onCancel={handleCloseModal}
                 onSubmit={handleCreateAccount}
+                onLoginSuccess={handleLoginSuccess}
             />
 
             <GameProfileSettingsDrawer

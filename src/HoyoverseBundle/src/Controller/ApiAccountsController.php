@@ -38,25 +38,80 @@ class ApiAccountsController extends AbstractController
     #[Route('', name: 'add', methods: ['POST'])]
     public function apiAccountsAdd(Request $req, #[CurrentUser] User $user): Response
     {
-        if (!$req->getPayload()->has('cookie')) {
+        $payload = $req->getPayload();
+        if (!$payload->has('cookie')) {
             throw new BadRequestHttpException("Parameter 'cookie' not found.");
         }
 
-        $cookie = trim($req->getPayload()->getString('cookie'));
+        $cookie = trim($payload->getString('cookie'));
         if ($cookie === '') {
             throw new BadRequestHttpException("Parameter 'cookie' cannot be empty.");
         }
 
-        $account = new HoyoverseAccount()
-            ->setCookie($cookie)
-            ->setUser($user);
+        $accountId = $payload->get('account_id') ?? $payload->get('accountId');
+        $extractedUid = $this->extractAccountUidFromCookie($cookie);
 
-        $this->entityManager->persist($account);
+        if ($accountId !== null && $accountId !== '') {
+            $account = $this->accountRepository->find((int) $accountId);
+            if ($account === null) {
+                throw $this->createNotFoundException('Account not found.');
+            }
+            if ($account->getUser() !== $user) {
+                throw $this->createAccessDeniedException('Cannot update an account belonging to another user.');
+            }
+            $account->setCookie($cookie)
+                ->setCookieRefreshFailed(false);
+            if ($extractedUid !== null) {
+                $account->setAccountUid($extractedUid);
+            }
+            $statusCode = Response::HTTP_OK;
+        } else {
+            $account = null;
+            if ($extractedUid !== null) {
+                $account = $this->accountRepository->findOneBy([
+                    'user' => $user,
+                    'accountUid' => $extractedUid,
+                ]);
+            }
+
+            if ($account !== null) {
+                $account->setCookie($cookie)
+                    ->setAccountUid($extractedUid)
+                    ->setCookieRefreshFailed(false);
+                $statusCode = Response::HTTP_OK;
+            } else {
+                $account = (new HoyoverseAccount())
+                    ->setCookie($cookie)
+                    ->setAccountUid($extractedUid)
+                    ->setUser($user);
+                $this->entityManager->persist($account);
+                $statusCode = Response::HTTP_CREATED;
+            }
+        }
+
         $this->entityManager->flush();
 
-        return $this->json($account, Response::HTTP_CREATED, context: [
+        return $this->json($account, $statusCode, context: [
             AbstractNormalizer::IGNORED_ATTRIBUTES => ['gameProfiles'],
         ]);
+    }
+
+    private function extractAccountUidFromCookie(string $cookieString): ?string
+    {
+        foreach (explode(';', $cookieString) as $part) {
+            $part = trim($part);
+            if ($part === '' || !str_contains($part, '=')) {
+                continue;
+            }
+            [$k, $v] = explode('=', $part, 2);
+            $key = trim($k);
+            $val = trim($v);
+            if (in_array($key, ['ltuid_v2', 'account_id_v2', 'ltuid', 'account_id'], true) && $val !== '') {
+                return $val;
+            }
+        }
+
+        return null;
     }
 
     #[Route('/{account}/sync', name: 'sync', requirements: ['account' => '\d+'], methods: ['POST'])]

@@ -4,3 +4,7 @@ framework:
         pools:
             hoyoverse.redemption_history.cache:
                 adapter: cache.adapter.filesystem
+            hoyoverse.auth_session.cache:
+                adapter: cache.adapter.filesystem
+                default_lifetime: 600
+

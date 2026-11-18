@@ -8,6 +8,7 @@ class HoyolabUtilsService extends GameUtilsService
 {
     public const string DS_SALT = '6s25p5ox5y14umn1p61aqyyvbvvl3lrt';
     public const string DS_SALT_LK2 = 'rk4xg2hakoi26nljpr099fv9fck1ah10';
+    public const string APP_LOGIN_SALT = 'IZPgfb0dRPtBeLuFkdDznSZ6f4wWt6y2';
 
     /**
      * Generates the required DS (Dynamic Secret) string.
@@ -43,4 +44,26 @@ class HoyolabUtilsService extends GameUtilsService
 
         return "{$time},{$random},{$hash}";
     }
+
+    /**
+     * Generates the DS header required for HoYoverse App Passport endpoints (appLoginByPassword, verifier).
+     *
+     * @param array<string, mixed> $body
+     */
+    public function generateAppLoginDs(array $body, string $salt = self::APP_LOGIN_SALT): string
+    {
+        $time = (string) time();
+        $alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        $maxIndex = strlen($alphabet) - 1;
+        $random = '';
+        for ($i = 0; $i < 6; $i++) {
+            $random .= $alphabet[random_int(0, $maxIndex)];
+        }
+
+        $bodyString = json_encode($body, JSON_UNESCAPED_SLASHES);
+        $hash = md5("salt={$salt}&t={$time}&r={$random}&b={$bodyString}&q=");
+
+        return "{$time},{$random},{$hash}";
+    }
 }
+

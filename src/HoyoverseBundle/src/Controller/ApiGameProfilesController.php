@@ -7,6 +7,7 @@ use App\CoreBundle\Entity\User;
 use App\CoreBundle\Service\PullItemIconUrlBuilder;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
+use App\HoyoverseBundle\Message\Profile\ImportPullsBackupMessage;
 use App\HoyoverseBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\HoyoverseBundle\Model\Diary\GameDiaryCurrency;
 use App\HoyoverseBundle\Model\Game\GameInterface;
@@ -14,29 +15,40 @@ use App\HoyoverseBundle\Model\Game\HasDiaryInterface;
 use App\HoyoverseBundle\Model\Game\HasPowershellPullImportInterface;
 use App\HoyoverseBundle\Model\Game\HasPullTrackerInterface;
 use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
+use App\HoyoverseBundle\Model\Pull\PullOperationKind;
 use App\HoyoverseBundle\Repository\HoyoverseDiaryEntryRepository;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
+use App\HoyoverseBundle\Service\Pull\PullBackupImporterManager;
+use App\HoyoverseBundle\Service\Pull\PullOperationTracker;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\Messenger\MessageBusInterface;
-use Symfony\Component\Messenger\Stamp\DelayStamp;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\DependencyInjection\ServiceLocator;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\Mercure\Authorization;
+use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\DelayStamp;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
+use Symfony\Component\Uid\Uuid;
 
 #[ResolveEntityFromRoute(setter: 'setAccount')]
 #[IsGranted('ROLE_USER_HOYOVERSE', null, 'Access Denied.')]
 #[Route('/api/accounts/{account}', name: 'api_hoyoverse_game_profiles_', requirements: ['account' => '\d+'], format: 'json')]
 class ApiGameProfilesController extends AbstractController
 {
+    private const int MAX_BACKUP_UPLOAD_BYTES = 26214400; // 25 MiB
+
     private HoyoverseAccount $account;
 
     /**
@@ -45,7 +57,9 @@ class ApiGameProfilesController extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         #[AutowireLocator(services: 'hoyoverse.game.id', indexAttribute: 'key')]
-        private readonly ServiceLocator $locatorByGameId
+        private readonly ServiceLocator $locatorByGameId,
+        #[Autowire('%kernel.project_dir%')]
+        private readonly string $projectDir,
     )
     {
     }
@@ -282,7 +296,8 @@ class ApiGameProfilesController extends AbstractController
     public function apiGameProfilePullsSync(
         #[CurrentUser] User $user,
         #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
-        MessageBusInterface $bus
+        MessageBusInterface $bus,
+        PullOperationTracker $operationTracker,
     ): Response {
         $this->checkAccountOwnership($user);
 
@@ -299,11 +314,26 @@ class ApiGameProfilesController extends AbstractController
             throw new BadRequestHttpException("This game profile does not support automated SToken pull synchronization.");
         }
 
+        $bannerTypes = $gameService->getGachaConfig()->getBannerTypes();
+        $operation = $operationTracker->startSyncOperation(
+            (int) $gameProfile->getId(),
+            $user->getId(),
+            PullOperationKind::STOKEN_SYNC,
+            $bannerTypes
+        );
+
         $delaySeconds = 0;
-        foreach (array_keys($gameService->getGachaConfig()->getBannerTypes()) as $gachaType) {
+        foreach (array_keys($bannerTypes) as $gachaType) {
             $stamps = $delaySeconds > 0 ? [new DelayStamp($delaySeconds * 1000)] : [];
             $bus->dispatch(
-                new SyncPullsPageProfileMessage($gameProfile->getId(), (string) $gachaType, '0'),
+                new SyncPullsPageProfileMessage(
+                    $gameProfile->getId(),
+                    (string) $gachaType,
+                    '0',
+                    null,
+                    [],
+                    (string) $operation['id']
+                ),
                 $stamps
             );
             $delaySeconds += 15;
@@ -312,6 +342,7 @@ class ApiGameProfilesController extends AbstractController
         return $this->json([
             'success' => true,
             'message' => 'Pulls synchronization queued in background.',
+            'operation' => $operation,
         ]);
     }
 
@@ -320,7 +351,8 @@ class ApiGameProfilesController extends AbstractController
         Request $req,
         #[CurrentUser] User $user,
         #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
-        MessageBusInterface $bus
+        MessageBusInterface $bus,
+        PullOperationTracker $operationTracker,
     ): Response {
         $this->checkAccountOwnership($user);
 
@@ -365,8 +397,16 @@ class ApiGameProfilesController extends AbstractController
         $authkey = (string) $extractedParams['authkey'];
         unset($extractedParams['authkey'], $extractedParams['gacha_type'], $extractedParams['real_gacha_type'], $extractedParams['page'], $extractedParams['size'], $extractedParams['end_id']);
 
+        $bannerTypes = $gameService->getGachaConfig()->getBannerTypes();
+        $operation = $operationTracker->startSyncOperation(
+            (int) $gameProfile->getId(),
+            $user->getId(),
+            PullOperationKind::POWERSHELL_IMPORT,
+            $bannerTypes
+        );
+
         $delaySeconds = 0;
-        foreach (array_keys($gameService->getGachaConfig()->getBannerTypes()) as $gachaType) {
+        foreach (array_keys($bannerTypes) as $gachaType) {
             $stamps = $delaySeconds > 0 ? [new DelayStamp($delaySeconds * 1000)] : [];
             $bus->dispatch(
                 new SyncPullsPageProfileMessage(
@@ -374,7 +414,8 @@ class ApiGameProfilesController extends AbstractController
                     (string) $gachaType,
                     '0',
                     $authkey,
-                    $extractedParams
+                    $extractedParams,
+                    (string) $operation['id']
                 ),
                 $stamps
             );
@@ -384,15 +425,18 @@ class ApiGameProfilesController extends AbstractController
         return $this->json([
             'success' => true,
             'message' => 'PowerShell pulls import queued in background.',
+            'operation' => $operation,
         ]);
     }
 
-    #[Route('/gameProfiles/{gameProfile}/pulls/overview', name: 'pulls_overview', requirements: ['gameProfile' => '\d+'], methods: ['GET'])]
-    public function apiGameProfilePullsOverview(
+    #[Route('/gameProfiles/{gameProfile}/pulls/import-backup', name: 'pulls_import_backup', requirements: ['gameProfile' => '\d+'], methods: ['POST'])]
+    public function apiGameProfilePullsImportBackup(
+        Request $req,
         #[CurrentUser] User $user,
         #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
-        HoyoversePullRepository $pullRepo,
-        PullItemIconUrlBuilder $iconUrlBuilder
+        PullBackupImporterManager $importerManager,
+        PullOperationTracker $operationTracker,
+        MessageBusInterface $bus,
     ): Response {
         $this->checkAccountOwnership($user);
 
@@ -408,6 +452,134 @@ class ApiGameProfilesController extends AbstractController
         if (!$gameService instanceof HasPullTrackerInterface) {
             throw new BadRequestHttpException("This game profile does not support pull tracking.");
         }
+
+        $importerKey = trim($req->request->getString('importer'));
+        if ($importerKey === '') {
+            throw new BadRequestHttpException("Missing 'importer' parameter.");
+        }
+
+        $importer = $importerManager->getByKey($importerKey);
+        if ($importer === null || !$importerManager->supportsGameService($importer, $gameService)) {
+            throw new BadRequestHttpException(sprintf(
+                'Importer "%s" is not supported for %s.',
+                $importerKey,
+                $gameService->getGameName()
+            ));
+        }
+
+        /** @var UploadedFile|null $file */
+        $file = $req->files->get('file');
+        if (!$file instanceof UploadedFile || !$file->isValid()) {
+            throw new BadRequestHttpException("Please upload a valid backup file.");
+        }
+
+        if ($file->getSize() !== false && $file->getSize() > self::MAX_BACKUP_UPLOAD_BYTES) {
+            throw new BadRequestHttpException("Backup file exceeds the maximum allowed size of 25 MB.");
+        }
+
+        $originalExt = '.' . strtolower($file->getClientOriginalExtension());
+        if ($originalExt !== '.' && !in_array($originalExt, $importer->getAcceptedExtensions(), true)) {
+            throw new BadRequestHttpException(sprintf(
+                'Unsupported file extension "%s". Expected: %s.',
+                $originalExt,
+                implode(', ', $importer->getAcceptedExtensions())
+            ));
+        }
+
+        if ($operationTracker->hasActiveBackupImport((int) $gameProfile->getId())) {
+            throw new ConflictHttpException("A backup import is already in progress for this profile.");
+        }
+
+        $tempDir = $this->projectDir . '/var/tmp/hoyoverse_pull_imports';
+        if (!is_dir($tempDir) && !@mkdir($tempDir, 0775, true) && !is_dir($tempDir)) {
+            throw new \RuntimeException('Failed to create temporary upload directory.');
+        }
+
+        $safeExt = ltrim($importer->getAcceptedExtensions()[0] ?? '.dat', '.');
+        $tempFilename = sprintf('%s.%s', Uuid::v4()->toRfc4122(), $safeExt);
+        $file->move($tempDir, $tempFilename);
+        $tempFilePath = $tempDir . '/' . $tempFilename;
+
+        $validation = $importer->validate($tempFilePath);
+        if (!$validation->valid) {
+            @unlink($tempFilePath);
+            throw new BadRequestHttpException($validation->error ?? 'Invalid backup file format.');
+        }
+
+        $operation = $operationTracker->startBackupImport(
+            (int) $gameProfile->getId(),
+            $user->getId(),
+            $importerKey,
+            $importer->getLabel(),
+            $validation->estimatedCount
+        );
+
+        $bus->dispatch(new ImportPullsBackupMessage(
+            operationId: (string) $operation['id'],
+            gameProfileId: (int) $gameProfile->getId(),
+            importerKey: $importerKey,
+            filePath: $tempFilePath,
+            deleteFileAfter: true,
+        ));
+
+        return $this->json([
+            'success' => true,
+            'message' => 'Backup pulls import queued in background.',
+            'operation' => $operation,
+        ], Response::HTTP_ACCEPTED);
+    }
+
+    #[Route('/gameProfiles/{gameProfile}/pulls/operations/{operationId}', name: 'pulls_operation_status', requirements: ['gameProfile' => '\d+'], methods: ['GET'])]
+    public function apiGameProfilePullsOperationStatus(
+        #[CurrentUser] User $user,
+        #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
+        string $operationId,
+        PullOperationTracker $operationTracker,
+    ): Response {
+        $this->checkAccountOwnership($user);
+
+        if ($gameProfile->getAccount() !== $this->getAccount()) {
+            throw new BadRequestHttpException("Game profile does not belong to this account.");
+        }
+
+        $operation = $operationTracker->getOperation($operationId);
+        if ($operation === null || (int) ($operation['profile_id'] ?? 0) !== (int) $gameProfile->getId()) {
+            throw new NotFoundHttpException("Pull operation not found.");
+        }
+
+        return $this->json([
+            'operation' => $operation,
+        ]);
+    }
+
+    #[Route('/gameProfiles/{gameProfile}/pulls/overview', name: 'pulls_overview', requirements: ['gameProfile' => '\d+'], methods: ['GET'])]
+    public function apiGameProfilePullsOverview(
+        Request $req,
+        #[CurrentUser] User $user,
+        #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
+        HoyoversePullRepository $pullRepo,
+        PullItemIconUrlBuilder $iconUrlBuilder,
+        PullBackupImporterManager $importerManager,
+        PullOperationTracker $operationTracker,
+        Authorization $mercureAuthorization,
+    ): Response {
+        $this->checkAccountOwnership($user);
+
+        if ($gameProfile->getAccount() !== $this->getAccount()) {
+            throw new BadRequestHttpException("Game profile does not belong to this account.");
+        }
+
+        if (!$this->locatorByGameId->has($gameProfile->getGameId())) {
+            throw new BadRequestHttpException("Unsupported game service.");
+        }
+
+        $gameService = $this->locatorByGameId->get($gameProfile->getGameId());
+        if (!$gameService instanceof HasPullTrackerInterface) {
+            throw new BadRequestHttpException("This game profile does not support pull tracking.");
+        }
+
+        $mercureTopic = $operationTracker->getProfileTopic((int) $gameProfile->getId());
+        $mercureAuthorization->setCookie($req, [$mercureTopic]);
 
         $bannerGroups = $gameService->getGachaConfig()->getBannerGroups();
         $rarityConfig = $gameService->getRarityConfig();
@@ -426,6 +598,9 @@ class ApiGameProfilesController extends AbstractController
             'total_pulls' => $overview['total_pulls'],
             'banners' => $overview['banners'],
             'monthly_timeline' => $overview['monthly_timeline'],
+            'available_backup_importers' => $importerManager->getMetadataForGameService($gameService),
+            'mercure_topic' => $mercureTopic,
+            'active_operation' => $operationTracker->getActiveOperationForProfile((int) $gameProfile->getId()),
         ]);
     }
 

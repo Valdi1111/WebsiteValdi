@@ -1,5 +1,7 @@
 import { useBackendApi } from "@HoyoverseBundle/components/BackendApiContext";
+import BackupPullImportModal from "@HoyoverseBundle/components/game-profile/BackupPullImportModal";
 import PowershellPullImportModal from "@HoyoverseBundle/components/game-profile/PowershellPullImportModal";
+import PullOperationProgressBanner from "@HoyoverseBundle/components/pulls/PullOperationProgressBanner";
 import PullsBannerCard from "@HoyoverseBundle/components/pulls/PullsBannerCard";
 import PullsMonthlyChart from "@HoyoverseBundle/components/pulls/PullsMonthlyChart";
 import PullsBannerDetail from "@HoyoverseBundle/components/pulls/PullsBannerDetail";
@@ -9,6 +11,9 @@ import {
     WindowsOutlined,
     ReloadOutlined,
     AppstoreOutlined,
+    ImportOutlined,
+    DownOutlined,
+    FileTextOutlined,
 } from "@ant-design/icons";
 import {
     Typography,
@@ -19,6 +24,7 @@ import {
     Col,
     Spin,
     Select,
+    Dropdown,
     Grid,
 } from "antd";
 import React, { useState, useEffect, useCallback, useRef } from "react";
@@ -35,6 +41,8 @@ export default function PullsPage() {
     const navigate = useNavigate();
     const api = useBackendApi();
     const scrollContainerRef = useRef(null);
+    const eventSourceRef = useRef(null);
+    const completedRefreshedIdsRef = useRef(new Set());
 
     const [loadingOverview, setLoadingOverview] = useState(true);
     const [overview, setOverview] = useState(null);
@@ -53,7 +61,12 @@ export default function PullsPage() {
     const [search, setSearch] = useState("");
 
     const [powershellModalOpen, setPowershellModalOpen] = useState(false);
+    const [selectedBackupImporter, setSelectedBackupImporter] = useState(null);
     const [syncingPulls, setSyncingPulls] = useState(false);
+
+    // Live pull operation tracking (Mercure + fallback polling)
+    const [activeOperation, setActiveOperation] = useState(null);
+    const [mercureErrored, setMercureErrored] = useState(false);
 
     const loadOverview = useCallback(() => {
         setLoadingOverview(true);
@@ -64,12 +77,19 @@ export default function PullsPage() {
             .then((res) => {
                 const data = res.data;
                 setOverview(data);
-                if (data.rarity_config && selectedRarities.length === 0) {
-                    // By default, enable S and A rarities and hide B / 3★ rarity
-                    setSelectedRarities([
-                        data.rarity_config.s.rarity,
-                        data.rarity_config.a.rarity,
-                    ]);
+                if (data.active_operation) {
+                    setActiveOperation((prev) =>
+                        prev && prev.id === data.active_operation.id
+                            ? { ...prev, ...data.active_operation }
+                            : data.active_operation
+                    );
+                }
+                if (data.rarity_config) {
+                    setSelectedRarities((prev) =>
+                        prev.length === 0
+                            ? [data.rarity_config.s.rarity, data.rarity_config.a.rarity]
+                            : prev
+                    );
                 }
             })
             .finally(() => setLoadingOverview(false));
@@ -116,6 +136,123 @@ export default function PullsPage() {
         [api, accountId, gameProfileId]
     );
 
+    const handleRefresh = useCallback(() => {
+        loadOverview();
+        if (selectedBannerKey) {
+            fetchBannerDetail(selectedBannerKey, page, pageSize, selectedRarities, search);
+        }
+    }, [
+        loadOverview,
+        selectedBannerKey,
+        fetchBannerDetail,
+        page,
+        pageSize,
+        selectedRarities,
+        search,
+    ]);
+
+    const applyOperationUpdate = useCallback((nextOp) => {
+        if (!nextOp || !nextOp.id) {
+            return;
+        }
+        setActiveOperation(nextOp);
+    }, []);
+
+    // Auto-refresh pulls data once whenever a tracked operation finishes
+    useEffect(() => {
+        if (
+            activeOperation &&
+            activeOperation.status === "completed" &&
+            !completedRefreshedIdsRef.current.has(activeOperation.id)
+        ) {
+            completedRefreshedIdsRef.current.add(activeOperation.id);
+            handleRefresh();
+        }
+    }, [activeOperation, handleRefresh]);
+
+    // Subscribe to Mercure real-time progress updates for this profile
+    const mercureTopic = overview?.mercure_topic;
+    useEffect(() => {
+        if (!mercureTopic || typeof MERCURE_HUB_URL === "undefined" || !MERCURE_HUB_URL) {
+            setMercureErrored(true);
+            return;
+        }
+
+        let source = null;
+        try {
+            const hub = new URL(MERCURE_HUB_URL, window.origin);
+            hub.searchParams.append("topic", mercureTopic);
+            source = new EventSource(hub, { withCredentials: true });
+            eventSourceRef.current = source;
+
+            source.onopen = () => {
+                setMercureErrored(false);
+            };
+
+            source.onmessage = (event) => {
+                try {
+                    const payload = JSON.parse(event.data);
+                    if (payload?.action === "pulls:operation_progress" && payload?.operation) {
+                        applyOperationUpdate(payload.operation);
+                    }
+                } catch {
+                    // Ignore malformed events
+                }
+            };
+
+            source.onerror = () => {
+                setMercureErrored(true);
+            };
+        } catch {
+            setMercureErrored(true);
+        }
+
+        return () => {
+            if (source) {
+                source.close();
+            }
+            if (eventSourceRef.current === source) {
+                eventSourceRef.current = null;
+            }
+        };
+    }, [mercureTopic, applyOperationUpdate]);
+
+    // Fallback HTTP polling if Mercure is unavailable while an operation is active
+    const activeOperationId = activeOperation?.id;
+    const activeOperationStatus = activeOperation?.status;
+    const isOperationRunning =
+        activeOperationStatus === "queued" || activeOperationStatus === "running";
+
+    useEffect(() => {
+        if (!mercureErrored || !isOperationRunning || !activeOperationId) {
+            return;
+        }
+
+        const intervalId = setInterval(() => {
+            api
+                .gameProfiles()
+                .getPullsOperationStatus(accountId, gameProfileId, activeOperationId)
+                .then((res) => {
+                    if (res?.data?.operation) {
+                        applyOperationUpdate(res.data.operation);
+                    }
+                })
+                .catch(() => {
+                    // Keep polling silently on transient failures
+                });
+        }, 1000);
+
+        return () => clearInterval(intervalId);
+    }, [
+        mercureErrored,
+        isOperationRunning,
+        activeOperationId,
+        api,
+        accountId,
+        gameProfileId,
+        applyOperationUpdate,
+    ]);
+
     const handleSelectBanner = (bannerKey) => {
         const defaultRarities = overview?.rarity_config
             ? [overview.rarity_config.s.rarity, overview.rarity_config.a.rarity]
@@ -161,13 +298,6 @@ export default function PullsPage() {
         fetchBannerDetail(selectedBannerKey, 1, pageSize, defaultRarities, "");
     };
 
-    const handleRefresh = () => {
-        loadOverview();
-        if (selectedBannerKey) {
-            fetchBannerDetail(selectedBannerKey, page, pageSize, selectedRarities, search);
-        }
-    };
-
     const handleSyncPulls = () => {
         setSyncingPulls(true);
         api
@@ -178,8 +308,10 @@ export default function PullsPage() {
             })
             .gameProfiles()
             .syncPulls(accountId, gameProfileId)
-            .then(() => {
-                setTimeout(() => handleRefresh(), 2500);
+            .then((res) => {
+                if (res?.data?.operation) {
+                    applyOperationUpdate(res.data.operation);
+                }
             })
             .catch(() => {})
             .finally(() => setSyncingPulls(false));
@@ -196,8 +328,31 @@ export default function PullsPage() {
     const profile = overview?.profile;
     const rarityConfig = overview?.rarity_config;
     const banners = overview?.banners || [];
+    const availableBackupImporters = overview?.available_backup_importers || [];
     const currentBannerSummary =
         detailBanner || banners.find((b) => b.key === selectedBannerKey) || null;
+
+    // Build unified Import dropdown menu (PowerShell + divider + available backup importers)
+    const importMenuItems = [];
+    if (profile?.supports_powershell_pulls) {
+        importMenuItems.push({
+            key: "powershell",
+            icon: <WindowsOutlined />,
+            label: "Import via PowerShell",
+            onClick: () => setPowershellModalOpen(true),
+        });
+    }
+    if (profile?.supports_powershell_pulls && availableBackupImporters.length > 0) {
+        importMenuItems.push({ type: "divider" });
+    }
+    availableBackupImporters.forEach((importer) => {
+        importMenuItems.push({
+            key: `backup:${importer.key}`,
+            icon: <FileTextOutlined />,
+            label: importer.label,
+            onClick: () => setSelectedBackupImporter(importer),
+        });
+    });
 
     const breadcrumbItems = [
         { title: <a onClick={() => navigate("/hoyoverse")}>HoYoverse</a> },
@@ -293,13 +448,15 @@ export default function PullsPage() {
                             </Button>
                         )}
 
-                        {profile?.supports_powershell_pulls && (
-                            <Button
-                                icon={<WindowsOutlined />}
-                                onClick={() => setPowershellModalOpen(true)}
-                            >
-                                {isMobile ? "PowerShell" : "Import via PowerShell"}
-                            </Button>
+                        {importMenuItems.length > 0 && (
+                            <Dropdown menu={{ items: importMenuItems }} trigger={["click"]}>
+                                <Button icon={<ImportOutlined />}>
+                                    <Space size={4}>
+                                        Import
+                                        <DownOutlined style={{ fontSize: 11 }} />
+                                    </Space>
+                                </Button>
+                            </Dropdown>
                         )}
 
                         <Button
@@ -335,6 +492,11 @@ export default function PullsPage() {
                     boxSizing: "border-box",
                 }}
             >
+                <PullOperationProgressBanner
+                    operation={activeOperation}
+                    onDismiss={() => setActiveOperation(null)}
+                />
+
                 {selectedBannerKey ? (
                     <PullsBannerDetail
                         banner={currentBannerSummary}
@@ -400,11 +562,29 @@ export default function PullsPage() {
                     profile={profile}
                     accountId={accountId}
                     profileId={gameProfileId}
-                    onImportStarted={() => {
-                        setTimeout(() => handleRefresh(), 3000);
+                    onImportStarted={(op) => {
+                        if (op) {
+                            applyOperationUpdate(op);
+                        }
                     }}
                 />
             )}
+
+            {/* Backup File Import Modal */}
+            <BackupPullImportModal
+                open={selectedBackupImporter !== null}
+                importer={selectedBackupImporter}
+                profile={profile}
+                accountId={accountId}
+                profileId={gameProfileId}
+                activeOperation={activeOperation}
+                onClose={() => setSelectedBackupImporter(null)}
+                onOperationStarted={(op) => {
+                    if (op) {
+                        applyOperationUpdate(op);
+                    }
+                }}
+            />
         </div>
     );
 }

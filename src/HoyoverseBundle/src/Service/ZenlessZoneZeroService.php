@@ -285,6 +285,8 @@ class ZenlessZoneZeroService extends GameService implements HasNotesInterface, H
             banners: [
                 new GachaBannerConfig('2', 'Exclusive Channel', ['2'], 90, 10),
                 new GachaBannerConfig('3', 'W-Engine Channel', ['3'], 80, 10),
+                new GachaBannerConfig('12', 'Exclusive Rescreening', ['12'], 90, 10),
+                new GachaBannerConfig('13', 'W-Engine Reverberation', ['13'], 80, 10),
                 new GachaBannerConfig('1', 'Standard Channel', ['1'], 90, 10),
                 new GachaBannerConfig('5', 'Bangboo Channel', ['5'], 80, 10),
             ],

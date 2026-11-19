@@ -9,7 +9,11 @@ use App\HoyoverseBundle\Model\Game\HasPullTrackerInterface;
 use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
+use App\HoyoverseBundle\Service\Pull\PullBackupImportService;
+use App\HoyoverseBundle\Service\Pull\PullOperationTracker;
+use App\HoyoverseBundle\Service\Pull\PullSyntheticReconcilerManager;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
@@ -32,9 +36,14 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
     private const int DELAY_MIN_MS = 1500;
     private const int DELAY_MAX_MS = 2500;
 
+    private const float LOCK_TTL_SECONDS = 60.0;
+
     private EntityManagerInterface $entityManager;
     private HoyoversePullRepository $pullRepository;
     private MessageBusInterface $bus;
+    private PullSyntheticReconcilerManager $syntheticReconcilerManager;
+    private PullOperationTracker $operationTracker;
+    private LockFactory $lockFactory;
 
     #[Required]
     public function setEntityManager(EntityManagerInterface $entityManager): void
@@ -52,6 +61,24 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
     public function setBus(MessageBusInterface $bus): void
     {
         $this->bus = $bus;
+    }
+
+    #[Required]
+    public function setSyntheticReconcilerManager(PullSyntheticReconcilerManager $syntheticReconcilerManager): void
+    {
+        $this->syntheticReconcilerManager = $syntheticReconcilerManager;
+    }
+
+    #[Required]
+    public function setOperationTracker(PullOperationTracker $operationTracker): void
+    {
+        $this->operationTracker = $operationTracker;
+    }
+
+    #[Required]
+    public function setLockFactory(LockFactory $lockFactory): void
+    {
+        $this->lockFactory = $lockFactory;
     }
 
     public function __invoke(SyncPullsPageProfileMessage $message): void
@@ -73,80 +100,132 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
         }
 
         $profile = $accountData->getGameProfile();
-        $authkey = $message->getAuthkey();
-        $extraQueryParams = $message->getExtraQueryParams();
+        $gachaType = $message->getGachaType();
+        $operationId = $message->getOperationId();
+        $bannerName = $gameService->getGachaConfig()->getBanner($gachaType)?->getName();
 
-        // 1. Resolve or generate authkey on the first page if not already carried in the message
-        if (($authkey === null || $authkey === '') && $gameService instanceof HasStokenPullImportInterface) {
-            $authkey = $this->cookieUtils->generateAuthKey($profile, $gameService->getAuthkeyAppId());
-        }
-
-        if ($authkey === null || $authkey === '') {
-            $this->logger->warning(sprintf(
-                'Cannot sync pulls page for %s (Profile %d, Banner %s): no authkey available and game does not support SToken import.',
-                $profile->getNickname(),
-                $profile->getId(),
-                $message->getGachaType()
-            ));
-            return;
-        }
-
-        // 2. Fetch gacha pulls for the current page from the upstream API
-        $pulls = $gameService->fetchPullsPage(
-            $profile,
-            $message->getGachaType(),
-            $authkey,
-            $message->getEndId(),
-            $extraQueryParams,
-            self::PAGE_SIZE
+        $lock = $this->lockFactory->createLock(
+            PullBackupImportService::getProfileLockKey((int) $profile->getId()),
+            self::LOCK_TTL_SECONDS
         );
+        $lock->acquire(true);
 
-        if (empty($pulls)) {
-            return;
-        }
+        try {
+            $authkey = $message->getAuthkey();
+            $extraQueryParams = $message->getExtraQueryParams();
 
-        // 3. Persist new pulls and check if we encountered an already stored record (idempotent stop)
-        $pageHasExistingPull = false;
-        $newCount = 0;
-
-        foreach ($pulls as $pull) {
-            if ($this->pullRepository->existsByProfileAndPullId($profile, (string) $pull->getPullId())) {
-                $pageHasExistingPull = true;
-                break;
+            // 1. Resolve or generate authkey on the first page if not already carried in the message
+            if (($authkey === null || $authkey === '') && $gameService instanceof HasStokenPullImportInterface) {
+                $authkey = $this->cookieUtils->generateAuthKey($profile, $gameService->getAuthkeyAppId());
             }
 
-            $this->entityManager->persist($pull);
-            $newCount++;
-        }
-
-        $this->entityManager->flush();
-
-        if ($newCount > 0) {
-            $this->logger->info(sprintf(
-                'Recorded %d new pull(s) for %s (Banner %s, end_id %s).',
-                $newCount,
-                $profile->getNickname(),
-                $message->getGachaType(),
-                $message->getEndId()
-            ));
-        }
-
-        // 4. Continue pagination if no existing record was hit and the current page reached full capacity
-        if (!$pageHasExistingPull && count($pulls) >= self::PAGE_SIZE) {
-            $lastPull = end($pulls);
-            $nextEndId = (string) $lastPull->getPullId();
-            $nextPageDelayMs = random_int(self::DELAY_MIN_MS, self::DELAY_MAX_MS);
-
-            $this->bus->dispatch(
-                new SyncPullsPageProfileMessage(
+            if ($authkey === null || $authkey === '') {
+                $reason = 'No authkey available and game does not support SToken import.';
+                $this->logger->warning(sprintf(
+                    'Cannot sync pulls page for %s (Profile %d, Banner %s): %s',
+                    $profile->getNickname(),
                     $profile->getId(),
-                    $message->getGachaType(),
-                    $nextEndId,
+                    $gachaType,
+                    $reason
+                ));
+                if ($operationId !== null) {
+                    $this->operationTracker->failSyncBanner($operationId, $gachaType, $reason, $bannerName);
+                }
+
+                return;
+            }
+
+            // 2. Fetch gacha pulls for the current page from the upstream API
+            try {
+                $pulls = $gameService->fetchPullsPage(
+                    $profile,
+                    $gachaType,
                     $authkey,
-                    $extraQueryParams
-                ),
-                [new DelayStamp($nextPageDelayMs)]
-            );
+                    $message->getEndId(),
+                    $extraQueryParams,
+                    self::PAGE_SIZE
+                );
+            } catch (\Throwable $e) {
+                if ($operationId !== null) {
+                    $this->operationTracker->failSyncBanner($operationId, $gachaType, $e->getMessage(), $bannerName);
+                }
+                throw $e;
+            }
+
+            if (empty($pulls)) {
+                if ($operationId !== null) {
+                    $this->operationTracker->recordSyncBannerPage($operationId, $gachaType, 0, 0, true, $bannerName);
+                }
+
+                return;
+            }
+
+            // 3. Persist new pulls, promote matching synthetic backup pulls, or stop on an existing real pull
+            $pageHasExistingPull = false;
+            $newCount = 0;
+            $promotedCount = 0;
+
+            foreach ($pulls as $pull) {
+                if ($this->pullRepository->existsByProfileAndPullId($profile, (string) $pull->getPullId())) {
+                    $pageHasExistingPull = true;
+                    break;
+                }
+
+                if ($this->syntheticReconcilerManager->reconcile($profile, $pull, $gameService) !== null) {
+                    $promotedCount++;
+                    continue;
+                }
+
+                $this->entityManager->persist($pull);
+                $newCount++;
+            }
+
+            $this->entityManager->flush();
+
+            if ($newCount > 0 || $promotedCount > 0) {
+                $this->logger->info(sprintf(
+                    'Processed pulls for %s (Banner %s, end_id %s): %d new, %d promoted.',
+                    $profile->getNickname(),
+                    $gachaType,
+                    $message->getEndId(),
+                    $newCount,
+                    $promotedCount
+                ));
+            }
+
+            $hasMorePages = !$pageHasExistingPull && count($pulls) >= self::PAGE_SIZE;
+
+            if ($operationId !== null) {
+                $this->operationTracker->recordSyncBannerPage(
+                    $operationId,
+                    $gachaType,
+                    $newCount,
+                    $promotedCount,
+                    !$hasMorePages,
+                    $bannerName
+                );
+            }
+
+            // 4. Continue pagination if no existing real record was hit and the current page reached full capacity
+            if ($hasMorePages) {
+                $lastPull = end($pulls);
+                $nextEndId = (string) $lastPull->getPullId();
+                $nextPageDelayMs = random_int(self::DELAY_MIN_MS, self::DELAY_MAX_MS);
+
+                $this->bus->dispatch(
+                    new SyncPullsPageProfileMessage(
+                        $profile->getId(),
+                        $gachaType,
+                        $nextEndId,
+                        $authkey,
+                        $extraQueryParams,
+                        $operationId
+                    ),
+                    [new DelayStamp($nextPageDelayMs)]
+                );
+            }
+        } finally {
+            $lock->release();
         }
     }
 }

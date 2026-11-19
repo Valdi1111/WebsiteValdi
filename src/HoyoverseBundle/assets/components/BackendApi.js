@@ -66,6 +66,18 @@ export default function (apiUrl, { message }) {
         axiosInstance.post(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls/sync`);
     api._gameProfiles.importPowershellPulls = async (accountId, gameProfileId, data) =>
         axiosInstance.post(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls/import-powershell`, data);
+    api._gameProfiles.importBackupPulls = async (accountId, gameProfileId, importerKey, file) => {
+        const formData = new FormData();
+        formData.append("importer", importerKey);
+        formData.append("file", file);
+        return axiosInstance.post(
+            `/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls/import-backup`,
+            formData,
+            { headers: { "Content-Type": "multipart/form-data" } }
+        );
+    };
+    api._gameProfiles.getPullsOperationStatus = async (accountId, gameProfileId, operationId) =>
+        axiosInstance.get(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls/operations/${encodeURIComponent(operationId)}`);
     api._gameProfiles.getPullsOverview = async (accountId, gameProfileId) =>
         axiosInstance.get(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls/overview`);
     api._gameProfiles.getPulls = async (accountId, gameProfileId, params) =>

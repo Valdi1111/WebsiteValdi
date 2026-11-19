@@ -24,7 +24,8 @@ class SyncPullsPageProfileMessage implements ProfileTaskMessageInterface
         private readonly string  $gachaType,
         private readonly string  $endId = '0',
         private readonly ?string $authkey = null,
-        private readonly array   $extraQueryParams = []
+        private readonly array   $extraQueryParams = [],
+        private readonly ?string $operationId = null
     ) {
     }
 
@@ -54,5 +55,10 @@ class SyncPullsPageProfileMessage implements ProfileTaskMessageInterface
     public function getExtraQueryParams(): array
     {
         return $this->extraQueryParams;
+    }
+
+    public function getOperationId(): ?string
+    {
+        return $this->operationId;
     }
 }

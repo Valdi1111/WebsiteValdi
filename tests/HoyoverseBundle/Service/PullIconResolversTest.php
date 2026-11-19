@@ -5,6 +5,7 @@ namespace App\Tests\HoyoverseBundle\Service;
 use App\CoreBundle\Model\Game\PullItemIconQuery;
 use App\HoyoverseBundle\Service\GenshinImpactService;
 use App\HoyoverseBundle\Service\HonkaiStarRailService;
+use App\HoyoverseBundle\Service\Pull\NanokaCatalogService;
 use App\HoyoverseBundle\Service\PullIcon\NanokaIconResolver;
 use App\HoyoverseBundle\Service\ZenlessZoneZeroService;
 use PHPUnit\Framework\TestCase;
@@ -41,7 +42,8 @@ class PullIconResolversTest extends TestCase
             };
         }, 'https://static.nanoka.cc');
 
-        $resolver = new NanokaIconResolver($client, new ArrayAdapter());
+        $catalog = new NanokaCatalogService($client, new ArrayAdapter());
+        $resolver = new NanokaIconResolver($catalog);
 
         $this->assertSame(
             'https://static.nanoka.cc/assets/zzz/IconRoleCircle01.webp',

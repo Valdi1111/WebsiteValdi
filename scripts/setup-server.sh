@@ -267,9 +267,11 @@ else
 fi
 echo ""
 
-# 8. Generazione chiavi JWT sicure (256-bit / 64 caratteri esadecimali)
-PUBLISHER_KEY=$(openssl rand -hex 32)
-SUBSCRIBER_KEY=$(openssl rand -hex 32)
+# 8. Generazione chiave JWT sicura condivisa (256-bit / 64 caratteri esadecimali)
+# Symfony MercureBundle usa un unico MERCURE_JWT_SECRET sia per il publish che per il cookie di subscribe.
+MERCURE_JWT_KEY=$(openssl rand -hex 32)
+PUBLISHER_KEY="$MERCURE_JWT_KEY"
+SUBSCRIBER_KEY="$MERCURE_JWT_KEY"
 
 # 9. Preparazione directory di sistema
 CADDY_DIR="/var/www/caddy"
@@ -549,10 +551,26 @@ if ! systemctl is-active --quiet caddy.service; then
   exit 1
 fi
 
-# Copia del certificato Root CA di Caddy in posizione pubblica per Windows/browser
-if [ -f "$CADDY_HOME/.local/share/caddy/pki/authorities/local/root.crt" ]; then
-  cp "$CADDY_HOME/.local/share/caddy/pki/authorities/local/root.crt" "$CADDY_DIR/caddy-root-ca.crt" 2>/dev/null || true
+# Copia del certificato Root CA di Caddy in posizione pubblica (Windows/browser) e nello store CA di Linux (PHP/cURL)
+LOCAL_ROOT_CA="$CADDY_HOME/.local/share/caddy/pki/authorities/local/root.crt"
+if [ "$IS_LOCAL_DOMAIN" = true ]; then
+  for _ in 1 2 3 4 5; do
+    [ -f "$LOCAL_ROOT_CA" ] && break
+    sleep 1
+  done
+fi
+
+if [ -f "$LOCAL_ROOT_CA" ]; then
+  cp "$LOCAL_ROOT_CA" "$CADDY_DIR/caddy-root-ca.crt" 2>/dev/null || true
   chmod 644 "$CADDY_DIR/caddy-root-ca.crt" 2>/dev/null || true
+
+  if [ "$IS_LOCAL_DOMAIN" = true ] && [ -d /usr/local/share/ca-certificates ]; then
+    echo "==> Installazione Root CA locale di Caddy nello store di sistema (per PHP/cURL)..."
+    cp "$LOCAL_ROOT_CA" /usr/local/share/ca-certificates/caddy-root-ca.crt
+    chmod 644 /usr/local/share/ca-certificates/caddy-root-ca.crt
+    update-ca-certificates >/dev/null 2>&1 || true
+    echo " - Installato /usr/local/share/ca-certificates/caddy-root-ca.crt"
+  fi
 fi
 
 # 18. Report finale
@@ -572,15 +590,17 @@ echo "PHP Socket in uso:          $PHP_SOCK"
 echo "Config PHP custom:          /etc/php/${SELECTED_PHP_VER:-$DEFAULT_PHP_VERSION}/{fpm,cli}/conf.d/99-custom.ini"
 echo "Composer:                   $(/usr/local/bin/composer --version 2>/dev/null || echo 'Non installato')"
 echo "yt-dlp:                     $(/usr/local/bin/yt-dlp --version 2>/dev/null || echo 'Non installato')"
-echo "MERCURE_PUBLISHER_JWT_KEY:  $PUBLISHER_KEY"
-echo "MERCURE_SUBSCRIBER_JWT_KEY: $SUBSCRIBER_KEY"
+echo "MERCURE_JWT_KEY (pub+sub):  $MERCURE_JWT_KEY"
+if [ "$IS_LOCAL_DOMAIN" = true ] && [ -f "$CADDY_DIR/caddy-root-ca.crt" ]; then
+  echo "Root CA locale:             $CADDY_DIR/caddy-root-ca.crt (installata nello store Linux)"
+fi
 echo "----------------------------------------------------------"
 echo ""
 echo "Per configurare Symfony nel tuo file .env / .env.local:"
 echo ""
 echo "MERCURE_URL=https://mercure.$BASE_DOMAIN/.well-known/mercure"
 echo "MERCURE_PUBLIC_URL=https://mercure.$BASE_DOMAIN/.well-known/mercure"
-echo "MERCURE_JWT_SECRET=\"$PUBLISHER_KEY\""
+echo "MERCURE_JWT_SECRET=\"$MERCURE_JWT_KEY\""
 echo ""
 echo "Stato del servizio: systemctl status caddy"
 echo "Log in tempo reale: tail -f $LOG_FILE"

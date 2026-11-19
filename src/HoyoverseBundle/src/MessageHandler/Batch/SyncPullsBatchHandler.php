@@ -6,6 +6,8 @@ use App\HoyoverseBundle\Message\Batch\SyncPullsBatchMessage;
 use App\HoyoverseBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
+use App\HoyoverseBundle\Model\Pull\PullOperationKind;
+use App\HoyoverseBundle\Service\Pull\PullOperationTracker;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\Envelope;
@@ -39,12 +41,20 @@ class SyncPullsBatchHandler extends AbstractBatchTaskMessageHandler
      */
     private ?ServiceCollectionInterface $locatorByGameId = null;
 
+    private ?PullOperationTracker $operationTracker = null;
+
     #[Required]
     public function setLocatorByGameId(
         #[AutowireLocator(services: 'hoyoverse.game.id', indexAttribute: 'key')]
         ServiceCollectionInterface $locatorByGameId
     ): void {
         $this->locatorByGameId = $locatorByGameId;
+    }
+
+    #[Required]
+    public function setOperationTracker(PullOperationTracker $operationTracker): void
+    {
+        $this->operationTracker = $operationTracker;
     }
 
     public function __invoke(SyncPullsBatchMessage $message): void
@@ -77,6 +87,17 @@ class SyncPullsBatchHandler extends AbstractBatchTaskMessageHandler
         $serviceClass = $gameService::class;
         $banners = $gameService->getGachaConfig()->getBannerTypes();
 
+        $operationId = null;
+        if ($this->operationTracker !== null && $banners !== []) {
+            $operation = $this->operationTracker->startSyncOperation(
+                $gameProfileId,
+                null,
+                PullOperationKind::SCHEDULED_SYNC,
+                $banners
+            );
+            $operationId = (string) $operation['id'];
+        }
+
         // Initialize delay offset for this specific game service if not present
         if (!isset($this->serviceDelays[$serviceClass])) {
             $this->serviceDelays[$serviceClass] = 0;
@@ -96,7 +117,10 @@ class SyncPullsBatchHandler extends AbstractBatchTaskMessageHandler
             $message = new SyncPullsPageProfileMessage(
                 $gameProfileId,
                 (string) $gachaType,
-                '0'
+                '0',
+                null,
+                [],
+                $operationId
             );
 
             // Yield an Envelope wrapping the message and its specific stamps

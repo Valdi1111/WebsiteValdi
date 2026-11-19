@@ -10,5 +10,8 @@ framework:
             hoyoverse.item_icons.cache:
                 adapter: cache.adapter.filesystem
                 default_lifetime: 86400
+            hoyoverse.pull_import_status.cache:
+                adapter: cache.adapter.filesystem
+                default_lifetime: 3600
 
 

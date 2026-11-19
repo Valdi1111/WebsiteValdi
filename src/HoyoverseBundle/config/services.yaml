@@ -20,3 +20,7 @@ services:
         # services whose classes are instances of HasCodeRedemptionInterface will be tagged automatically
         App\HoyoverseBundle\Model\Game\HasCodeRedemptionInterface:
             tags: ['hoyoverse.game.redeemable']
+        App\HoyoverseBundle\Model\Pull\PullBackupImporterInterface:
+            tags: ['hoyoverse.pull_backup_importer']
+        App\HoyoverseBundle\Model\Pull\SyntheticPullReconcilerInterface:
+            tags: ['hoyoverse.synthetic_pull_reconciler']

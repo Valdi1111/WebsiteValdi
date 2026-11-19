@@ -60,9 +60,9 @@ export default function PowershellPullImportModal({ open, profile, accountId, pr
             })
             .gameProfiles()
             .importPowershellPulls(accountId, resolvedProfileId, { url: cleanUrl })
-            .then(() => {
+            .then((res) => {
                 setUrl("");
-                onImportStarted?.();
+                onImportStarted?.(res?.data?.operation || null);
                 onClose();
             })
             .catch(() => {

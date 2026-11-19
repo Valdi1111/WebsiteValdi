@@ -1,5 +1,13 @@
 # Project Documentation
 
+## Infrastructure, Setup & Development
+
+- 🖥️ **[Server Setup, Stack, Deploy & Shared Folder](SERVER_SETUP_AND_DEPLOY.md)**  
+  Stack architecture (Caddy + Mercure, PHP 8.5, Node/Playwright, Supervisor), first-time installation, automated updates/deployment, and shared folder configuration (`condivisi`, POSIX ACLs, Samba).
+
+- 🧩 **[Creating a New Bundle](CREATING_A_BUNDLE.md)**  
+  Standard bundle directory layout, `AbstractBundle` class, multi-domain routing, PSR-4 autoloading, Webpack Encore, and Caddy subdomain setup.
+
 ## Core Standard Table Architecture
 
 - 🎨 **[Frontend Standard Table Guide](../src/CoreBundle/assets/components/standard-table/README.md)**  
@@ -15,3 +23,4 @@
 
 - 🛰️ **[Gryphline Bundle Guide](../src/GryphlineBundle/README.md)**  
   Complete reference for `GryphlineBundle` (Arknights: Endfield): direct email/password login with GeeTest v4, `ACCOUNT_TOKEN` OAuth 3-step exchange & `HMAC-SHA256` request signing, SKPort daily check-in, Stamina/Dailies/Weeklies reminders, and automatic Headhunting Pulls sync via `u8_token`.
+

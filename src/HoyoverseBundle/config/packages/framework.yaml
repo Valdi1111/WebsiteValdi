@@ -28,4 +28,17 @@ framework:
                     'x-rpc-device_name': 'Hoyoverse Integration'
                     'x-rpc-device_model': 'WebsiteValdi'
                     'Content-Type': 'application/json'
+            hoyoverse.nanoka.client:
+                base_uri: 'https://static.nanoka.cc'
+                timeout: 8
+                retry_failed:
+                    max_retries: 1
+                    delay: 500
+                    http_codes: [ 429, 500, 502, 503, 504 ]
+                headers:
+                    'Accept': 'application/json'
+                    'User-Agent': 'WebsiteValdi/1.0'
+
+
+
 

@@ -4,6 +4,7 @@ namespace App\HoyoverseBundle\Controller;
 
 use App\CoreBundle\Attribute\ResolveEntityFromRoute;
 use App\CoreBundle\Entity\User;
+use App\CoreBundle\Service\PullItemIconUrlBuilder;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Message\Profile\SyncPullsPageProfileMessage;
@@ -390,7 +391,8 @@ class ApiGameProfilesController extends AbstractController
     public function apiGameProfilePullsOverview(
         #[CurrentUser] User $user,
         #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
-        HoyoversePullRepository $pullRepo
+        HoyoversePullRepository $pullRepo,
+        PullItemIconUrlBuilder $iconUrlBuilder
     ): Response {
         $this->checkAccountOwnership($user);
 
@@ -411,6 +413,13 @@ class ApiGameProfilesController extends AbstractController
         $rarityConfig = $gameService->getRarityConfig();
         $overview = $pullRepo->buildOverview($gameProfile, $bannerGroups, $rarityConfig);
 
+        foreach ($overview['banners'] as &$banner) {
+            if (!empty($banner['recent_s_pulls'])) {
+                $banner['recent_s_pulls'] = $iconUrlBuilder->enrichPullRows($gameService, $banner['recent_s_pulls']);
+            }
+        }
+        unset($banner);
+
         return $this->json([
             'profile' => $gameProfile,
             'rarity_config' => $rarityConfig,
@@ -425,7 +434,8 @@ class ApiGameProfilesController extends AbstractController
         Request $req,
         #[CurrentUser] User $user,
         #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
-        HoyoversePullRepository $pullRepo
+        HoyoversePullRepository $pullRepo,
+        PullItemIconUrlBuilder $iconUrlBuilder
     ): Response {
         $this->checkAccountOwnership($user);
 
@@ -486,10 +496,16 @@ class ApiGameProfilesController extends AbstractController
             $limit
         );
 
+        $banner = $result['banner'];
+        if (!empty($banner['recent_s_pulls'])) {
+            $banner['recent_s_pulls'] = $iconUrlBuilder->enrichPullRows($gameService, $banner['recent_s_pulls']);
+        }
+        $items = $iconUrlBuilder->enrichPullRows($gameService, $result['items']);
+
         return $this->json([
-            'banner' => $result['banner'],
+            'banner' => $banner,
             'rarity_config' => $rarityConfig,
-            'items' => $result['items'],
+            'items' => $items,
             'total' => $result['total'],
             'page' => $page,
             'limit' => $limit,

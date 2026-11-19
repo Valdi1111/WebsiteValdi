@@ -208,6 +208,14 @@ Poiché **Honkai: Star Rail** (`hkrpg_global`) non consente la generazione dell'
 4. Il backend valida l'URL e accoda i messaggi `SyncPullsPageProfileMessage` su `hoyoverse_pulls` per tutti i banner del gioco, inclusi per **Honkai: Star Rail**:
    - *Character Event Warp* (`11`, pity 90/10), *Light Cone Event Warp* (`12`, pity 80/10), *Collaboration Character Warp* (`21` su `getLdGachaLog`, pity 90/10), *Collaboration Light Cone Warp* (`22` su `getLdGachaLog`, pity 80/10), *Regular Warp* (`1`, pity 90/10) e *Departure Warp* (`2`, pity 50/10).
 
+### 7.4 Icone Item e Cache Immagini (`LiipImagine`)
+Le miniature di personaggi, armi, Light Cone, W-Engine e Bangboo nelle card (`PullsRecentBadge`) e nella tabella di dettaglio (`PullItemThumbnail`) utilizzano l'architettura condivisa descritta in **[Pull Item Icons & Image Caching](../../docs/PULL_ITEM_ICONS.md)**:
+- **Provider esterno (`NanokaIconResolver`)**: implementa `PullItemIconResolverInterface` per `GenshinImpactService`, `HonkaiStarRailService` e `ZenlessZoneZeroService` con priorità `100`, usando il client HTTP dedicato `hoyoverse.nanoka.client` e il pool di cache `hoyoverse.item_icons.cache` (TTL 24h con protezione anti-stampede):
+  - **Genshin Impact** (`hk4e_global`): lookup per nome normalizzato su `gi/{version}/{character|weapon}.json` → `https://static.nanoka.cc/assets/gi/{icon}.webp`.
+  - **Honkai: Star Rail** (`hkrpg_global`): risoluzione diretta per `itemId` → `avatarroundicon/{itemId}.webp` (personaggi) e `lightconemediumicon/{itemId}.webp` (Light Cone).
+  - **Zenless Zone Zero** (`nap_global`): lookup su `zzz/{version}/{character|weapon|bangboo}.json` convertendo `IconRole*` → `IconRoleCircle*` per gli agenti.
+- **Arricchimento API & Cache Locale**: i controller `ApiGameProfilesController` aggiungono `'icon_url'` tramite `PullItemIconUrlBuilder::enrichPullRows()`; al primo caricamento `LiipImagineBundle` scarica l'asset tramite `PullItemIconBinaryLoader` e salva la versione ridimensionata (`128×128`, `webp`, qualità `100`) in `public/media/cache/core_pull_item_icon/`.
+
 ---
 
 ## 8. Riepilogo Endpoint API del Bundle

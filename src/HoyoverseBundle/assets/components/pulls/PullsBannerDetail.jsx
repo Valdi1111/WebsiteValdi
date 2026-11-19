@@ -14,10 +14,66 @@ import {
     Grid,
 } from "antd";
 import { SearchOutlined, CloseCircleOutlined } from "@ant-design/icons";
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
+
+function getInitials(name) {
+    if (!name) return "?";
+    const words = name.trim().split(/\s+/);
+    if (words.length === 1) {
+        return words[0].substring(0, 2).toUpperCase();
+    }
+    return (words[0][0] + words[1][0]).toUpperCase();
+}
+
+function PullItemThumbnail({ iconUrl, name, borderColor }) {
+    const [imgError, setImgError] = useState(false);
+
+    useEffect(() => {
+        setImgError(false);
+    }, [iconUrl]);
+
+    const showImage = Boolean(iconUrl) && !imgError;
+
+    return (
+        <div
+            style={{
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                overflow: "hidden",
+                flexShrink: 0,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: `1.5px solid ${borderColor || "rgba(140, 140, 140, 0.3)"}`,
+                background: "rgba(0, 0, 0, 0.04)",
+                fontSize: 11,
+                fontWeight: 700,
+                color: borderColor || "inherit",
+            }}
+        >
+            {showImage ? (
+                <img
+                    src={iconUrl}
+                    alt={name}
+                    loading="lazy"
+                    onError={() => setImgError(true)}
+                    style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        display: "block",
+                    }}
+                />
+            ) : (
+                getInitials(name)
+            )}
+        </div>
+    );
+}
 
 export default function PullsBannerDetail({
     banner,
@@ -88,13 +144,19 @@ export default function PullsBannerDetail({
                 const isSec = record.rarity === aRarity;
                 const tagColor = isTop ? "gold" : isSec ? "purple" : "default";
                 const rankText = isTop ? sShort : isSec ? aShort : bShort;
+                const rowColor = getRowColor(record.rarity);
 
                 return (
-                    <Space size={8} wrap>
+                    <Space size={8} align="center" wrap>
+                        <PullItemThumbnail
+                            iconUrl={record.icon_url}
+                            name={name}
+                            borderColor={rowColor}
+                        />
                         <Text
                             strong={isTop || isSec}
                             style={{
-                                color: getRowColor(record.rarity),
+                                color: rowColor,
                                 fontSize: isTop ? 15 : 14,
                             }}
                         >

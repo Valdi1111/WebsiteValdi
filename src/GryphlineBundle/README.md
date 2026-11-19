@@ -125,6 +125,14 @@ Caratteristiche dell'importazione:
   - **Automatica notturna (`SyncPullsBatchMessage`)**: eseguita ogni notte alle `01:00` (`0 1 * * *`) per tutti i profili con lo switch `syncPulls = true` attivo nel `GameProfileSettingsDrawer`.
   - **Manuale da UI**: tramite il pulsante **Sync Pulls** nella vista dello storico (`PullsPage`).
 
+### 5.3 Icone Item e Cache Immagini (`LiipImagine`)
+Le miniature di operatori e armi nelle card (`PullsRecentBadge`) e nella tabella di dettaglio (`PullItemThumbnail`) utilizzano l'architettura condivisa descritta in **[Pull Item Icons & Image Caching](../../docs/PULL_ITEM_ICONS.md)**:
+- **Provider esterno (`AkeDataIconResolver`)**: implementa `PullItemIconResolverInterface` per `EndfieldService` (`endfield`, priorità `100`), usando il client HTTP dedicato `gryphline.akedata.client` (`https://data.akedata.wiki`) e il pool di cache `gryphline.item_icons.cache` (TTL 24h con protezione anti-stampede):
+  - Legge `manifest.json` (`latest.tableCfgPath`), `asset-sync-index.json` e `ItemTable.json`, salvando in cache solo la mappa compatta `[itemId => relativePath]`.
+  - **Operatori** (`chr_*`): risolve le icone da `charremoteicon/icon_{charId}`.
+  - **Armi**: risolve `iconId` tramite `ItemTable` cercando in `itemicon/` (con fallback su `gachaweapon/`).
+- **Arricchimento API & Cache Locale**: `ApiGameProfilesController` aggiunge `'icon_url'` tramite `PullItemIconUrlBuilder::enrichPullRows()`; al primo caricamento `LiipImagineBundle` scarica l'immagine e salva la versione ridimensionata (`128×128`, `webp`, qualità `100`) in `public/media/cache/core_pull_item_icon/`.
+
 ---
 
 ## 6. Riepilogo Endpoint API del Bundle

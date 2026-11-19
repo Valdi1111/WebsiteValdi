@@ -24,3 +24,14 @@ framework:
                     'Origin': 'https://game.skport.com'
                     'Referer': 'https://game.skport.com/'
                     'User-Agent': 'Skport/0.7.0 (com.gryphline.skport; build:700089; Android 33; ) Okhttp/5.1.0'
+            gryphline.akedata.client:
+                base_uri: 'https://data.akedata.wiki'
+                timeout: 15
+                retry_failed:
+                    max_retries: 1
+                    delay: 500
+                    http_codes: [ 429, 500, 502, 503, 504 ]
+                headers:
+                    'Accept': 'application/json'
+                    'User-Agent': 'WebsiteValdi/1.0'
+

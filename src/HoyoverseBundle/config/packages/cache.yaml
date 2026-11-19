@@ -7,4 +7,8 @@ framework:
             hoyoverse.auth_session.cache:
                 adapter: cache.adapter.filesystem
                 default_lifetime: 600
+            hoyoverse.item_icons.cache:
+                adapter: cache.adapter.filesystem
+                default_lifetime: 86400
+
 

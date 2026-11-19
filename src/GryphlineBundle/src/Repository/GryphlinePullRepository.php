@@ -259,6 +259,7 @@ class GryphlinePullRepository extends ServiceEntityRepository
                 $recentSPulls[] = [
                     'id' => $row['id'],
                     'pull_number' => $pullNumber,
+                    'item_id' => $row['itemId'],
                     'name' => $row['name'],
                     'item_type' => $row['poolCategory'] ?? 'char',
                     'rarity' => $rarity,

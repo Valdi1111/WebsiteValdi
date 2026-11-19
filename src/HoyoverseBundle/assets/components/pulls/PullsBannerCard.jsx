@@ -1,6 +1,6 @@
-import { Card, Button, Space, Typography, Tooltip, Empty, Progress } from "antd";
+import { Card, Button, Space, Typography, Tooltip, Progress } from "antd";
 import { RightOutlined, RocketOutlined } from "@ant-design/icons";
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 const { Text, Title } = Typography;
 
@@ -32,6 +32,13 @@ function getInitials(name) {
 
 export function PullsRecentBadge({ pull, maxPity = 90, pullSingularLabel = "Pull" }) {
     const colorScheme = getPityColor(pull.pity, maxPity);
+    const [imgError, setImgError] = useState(false);
+
+    useEffect(() => {
+        setImgError(false);
+    }, [pull.icon_url]);
+
+    const showImage = Boolean(pull.icon_url) && !imgError;
 
     return (
         <Tooltip
@@ -69,7 +76,34 @@ export function PullsRecentBadge({ pull, maxPity = 90, pullSingularLabel = "Pull
                         boxShadow: "0 2px 6px rgba(0, 0, 0, 0.08)",
                     }}
                 >
-                    {getInitials(pull.name)}
+                    <div
+                        style={{
+                            width: "100%",
+                            height: "100%",
+                            borderRadius: "50%",
+                            overflow: "hidden",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                        }}
+                    >
+                        {showImage ? (
+                            <img
+                                src={pull.icon_url}
+                                alt={pull.name}
+                                loading="lazy"
+                                onError={() => setImgError(true)}
+                                style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                    display: "block",
+                                }}
+                            />
+                        ) : (
+                            getInitials(pull.name)
+                        )}
+                    </div>
                     <span
                         style={{
                             position: "absolute",

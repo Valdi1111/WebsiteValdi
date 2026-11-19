@@ -24,3 +24,5 @@
 - 🛰️ **[Gryphline Bundle Guide](../src/GryphlineBundle/README.md)**  
   Complete reference for `GryphlineBundle` (Arknights: Endfield): direct email/password login with GeeTest v4, `ACCOUNT_TOKEN` OAuth 3-step exchange & `HMAC-SHA256` request signing, SKPort daily check-in, Stamina/Dailies/Weeklies reminders, and automatic Headhunting Pulls sync via `u8_token`.
 
+- 🖼️ **[Pull Item Icons & Image Caching](PULL_ITEM_ICONS.md)**  
+  Shared `CoreBundle` pipeline (`PullItemIconResolverInterface`, `PullItemIconResolverManager`, `PullItemIconBinaryLoader`, `LiipImagineBundle` `core_pull_item_icon` WebP cache) and external CDN providers (`NanokaIconResolver`, `AkeDataIconResolver`).

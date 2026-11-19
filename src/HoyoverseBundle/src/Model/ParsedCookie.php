@@ -138,7 +138,7 @@ class ParsedCookie implements \JsonSerializable, \Stringable
     }
 
     /**
-     * Ricostruisce la stringa dei cookie delimitata da '; ' tramite http_build_query.
+     * Rebuilds the cookie string delimited by '; ' via http_build_query.
      */
     public function __toString(): string
     {

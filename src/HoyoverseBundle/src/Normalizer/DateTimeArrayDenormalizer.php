@@ -12,7 +12,7 @@ class DateTimeArrayDenormalizer implements DenormalizerInterface
             ->setDate((int) $data['year'], (int) $data['month'], (int) $data['day'])
             ->setTime((int) $data['hour'], (int) $data['minute'], (int) ($data['second'] ?? 0));
 
-        // Restituisce DateTime o DateTimeImmutable a seconda del type richiesto
+        // Return DateTime or DateTimeImmutable depending on the requested target type
         return is_a($type, \DateTime::class, true) ? \DateTime::createFromImmutable($dt) : $dt;
     }
 

@@ -7,7 +7,7 @@ use Symfony\Component\Serializer\Attribute\SerializedName;
 class HonkaiStarRailExpedition
 {
     /**
-     * In HSR la chiave è plurale ed è un array di icone/avatar
+     * In HSR the key is plural and contains an array of avatar/icon URLs.
      * @var string[]|null
      */
     #[SerializedName('avatars')]

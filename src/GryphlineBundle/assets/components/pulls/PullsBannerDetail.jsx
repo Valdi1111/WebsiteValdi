@@ -228,6 +228,7 @@ export default function PullsBannerDetail({
 
     return (
         <Space orientation="vertical" size={isMobile ? "middle" : "large"} style={{ width: "100%" }}>
+            {/* Top KPI Summary Cards (like zzz.rng.moe detail header) */}
             <Row gutter={[16, 16]}>
                 <Col xs={12} sm={8} md={4}>
                     <Card variant="borderless" styles={cardStyles}>
@@ -288,6 +289,7 @@ export default function PullsBannerDetail({
                 </Col>
             </Row>
 
+            {/* Recent S / 5* / 6* Signals Section */}
             <Card
                 title={`Recent ${sLabel} ${pullLabel} (${recentSPulls.length})`}
                 styles={{
@@ -311,6 +313,7 @@ export default function PullsBannerDetail({
                 )}
             </Card>
 
+            {/* Detailed Pulls Table with Rarity Pill Toggles (4* hidden by default) */}
             <Card
                 styles={{
                     header: {
@@ -332,6 +335,7 @@ export default function PullsBannerDetail({
                             width: "100%",
                         }}
                     >
+                        {/* Rarity Filter Pills (inspired by zzz.rng.moe) */}
                         <Space size={8} wrap>
                             <Text strong style={{ marginRight: 4 }}>
                                 Rarity Filter:
@@ -359,6 +363,7 @@ export default function PullsBannerDetail({
                             })}
                         </Space>
 
+                        {/* Search Input */}
                         <Space wrap size="small" style={{ flex: isMobile ? "1 1 100%" : "0 0 auto" }}>
                             <Input
                                 placeholder="Search operator / weapon..."

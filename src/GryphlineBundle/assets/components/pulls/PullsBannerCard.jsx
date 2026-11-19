@@ -4,6 +4,9 @@ import React, { useEffect, useState } from "react";
 
 const { Text, Title } = Typography;
 
+/**
+ * Computes color for a pull pity badge (green for early, gold/orange for mid/soft, red for late/hard pity).
+ */
 export function getPityColor(pity, maxPity = 80) {
     const ratio = pity / maxPity;
     if (ratio <= 0.45) {
@@ -15,6 +18,9 @@ export function getPityColor(pity, maxPity = 80) {
     return { border: "#ff4d4f", bg: "rgba(255, 77, 79, 0.14)", badgeBg: "#cf1322", text: "#ff4d4f" };
 }
 
+/**
+ * Generates a short 2-letter monogram or icon label for an item name.
+ */
 function getInitials(name) {
     if (!name) return "?";
     const words = name.trim().split(/\s+/);
@@ -162,6 +168,7 @@ export default function PullsBannerCard({ banner, rarityConfig, onViewDetails })
             style={{ height: "100%" }}
         >
             <div>
+                {/* Top Header & Stats Strip */}
                 <div
                     style={{
                         display: "flex",
@@ -181,6 +188,7 @@ export default function PullsBannerCard({ banner, rarityConfig, onViewDetails })
                         </Text>
                     </div>
 
+                    {/* zzz.rng.moe style stats pill */}
                     <div
                         style={{
                             display: "inline-flex",
@@ -215,6 +223,7 @@ export default function PullsBannerCard({ banner, rarityConfig, onViewDetails })
                     </div>
                 </div>
 
+                {/* Dual Pity Progress Bars */}
                 <div style={{ marginBottom: 16 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2 }}>
                         <Text type="secondary">{sLabel} Pity</Text>
@@ -244,6 +253,7 @@ export default function PullsBannerCard({ banner, rarityConfig, onViewDetails })
                     />
                 </div>
 
+                {/* Recent S / 5* / 6* Pulls Row */}
                 <div>
                     <Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: 10 }}>
                         Recent {sLabel} {pullLabel}
@@ -287,6 +297,7 @@ export default function PullsBannerCard({ banner, rarityConfig, onViewDetails })
                 </div>
             </div>
 
+            {/* Action Button */}
             <Button
                 type="primary"
                 block

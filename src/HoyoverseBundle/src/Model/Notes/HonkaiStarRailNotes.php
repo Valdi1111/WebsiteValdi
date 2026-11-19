@@ -97,7 +97,7 @@ class HonkaiStarRailNotes implements GameNotes
     private ?array $expeditions = null;
 
     // =========================================================================
-    // Timestamps / Altro
+    // Timestamps / Other
     // =========================================================================
 
     #[SerializedName('current_ts')]

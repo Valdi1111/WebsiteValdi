@@ -188,7 +188,7 @@ class HoyolabCookieUtilsService
             $payload = $response->toArray(false);
 
             if (($payload['retcode'] ?? -1) !== 0 || !isset($payload['data']['tokens']) || !is_array($payload['data']['tokens'])) {
-                // Attenzione a retcode -100, chiede il relogin
+                // Watch out for retcode -100, which requires re-login
                 $this->getLogger()->error('HoYoAuth: Invalid API response or HoYoLAB error', [
                     'retcode' => $payload['retcode'] ?? null,
                     'message' => $payload['message'] ?? 'Unknown error',

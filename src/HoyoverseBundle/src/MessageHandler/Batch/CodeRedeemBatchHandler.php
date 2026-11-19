@@ -156,23 +156,23 @@ class CodeRedeemBatchHandler
                 $redeemedKey = sprintf('redeemed_%d_%s', $profileId, $redeemableCode->getCode());
                 $pendingKey = sprintf('pending_%d_%s', $profileId, $redeemableCode->getCode());
 
-                // 1. Già riscattato definitivamente? (Permanente)
+                // 1. Already permanently redeemed?
                 if ($this->getCache()->hasItem($redeemedKey)) {
                     continue;
                 }
 
-                // 2. Già in coda? (Lock temporaneo)
+                // 2. Already queued? (Temporary lock)
                 if ($this->getCache()->hasItem($pendingKey)) {
                     continue;
                 }
 
-                // 3. Metti il lock "in coda" (30 minuti di TTL di sicurezza contro i crash)
+                // 3. Set the "queued" lock (30-minute safety TTL in case of worker crashes)
                 $pendingItem = $this->getCache()->getItem($pendingKey);
                 $pendingItem->set(true);
                 $pendingItem->expiresAfter(1800);
                 $this->getCache()->save($pendingItem);
 
-                // Dispatch immediato: il rate limiting sarà gestito direttamente dal worker
+                // Dispatch immediately: rate limiting is handled directly by the worker
                 $this->bus->dispatch(
                     new CodeRedeemProfileMessage($profileId, $redeemableCode)
                 );

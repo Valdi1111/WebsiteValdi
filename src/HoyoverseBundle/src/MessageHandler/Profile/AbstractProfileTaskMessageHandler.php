@@ -97,7 +97,7 @@ abstract class AbstractProfileTaskMessageHandler
                 $e->getMessage()
             ), $context);
 
-            // RILANCIA L'ECCEZIONE per attivare il retry di Messenger su questo singolo profilo
+            // RE-THROW THE EXCEPTION to trigger Messenger retry for this single profile
             throw $e;
         }
     }

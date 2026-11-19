@@ -22,17 +22,17 @@ interface HasHoyolabCheckInInterface
     public function checkIn(RuntimeAccountData $account): CheckInResult;
 
     /**
-     * Esegue l'operazione di daily check-in (sign)
+     * Performs the daily check-in operation (sign).
      */
     public function signIn(RuntimeAccountData $account): void;
 
     /**
-     * Recupera le informazioni sullo stato del check-in
+     * Fetches current check-in status information.
      */
     public function getSignInfo(RuntimeAccountData $account): SignInfo;
 
     /**
-     * Recupera la lista dei premi disponibili
+     * Fetches the list of available monthly rewards.
      * @return AwardData[]
      */
     public function getAwardsData(RuntimeAccountData $account): array;

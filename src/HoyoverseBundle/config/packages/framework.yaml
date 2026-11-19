@@ -3,11 +3,11 @@ framework:
         scoped_clients:
             hoyoverse.hoyolab.client:
                 scope: 'https://.*'
-                timeout: 30 # Timeout in secondi (equivalente a 30000 ms)
+                timeout: 30 # Timeout in seconds (equivalent to 30000 ms)
                 retry_failed:
-                    max_retries: 3    # Corrisponde a retryAttempts
-                    delay: 1000       # Attesa tra retry in ms (1 secondo)
-                    http_codes: [ 429, 500, 502, 503, 504 ] # Errori su cui riprovare
+                    max_retries: 3    # Equivalent to retryAttempts
+                    delay: 1000       # Wait between retries in ms (1 second)
+                    http_codes: [ 429, 500, 502, 503, 504 ] # HTTP status codes to retry on
                 headers:
                     'Referer': 'https://act.hoyolab.com'
                     'x-rpc-app_version': '1.5.0'

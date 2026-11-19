@@ -2,6 +2,7 @@
 
 namespace App\Tests\HoyoverseBundle\Service;
 
+use App\HoyoverseBundle\Exception\RetrieveRedeemableCodesException;
 use App\HoyoverseBundle\Model\Notes\GenshinImpactNotes;
 use App\HoyoverseBundle\Model\Notes\HonkaiStarRailNotes;
 use App\HoyoverseBundle\Model\Notes\ZenlessZoneZeroNotes;
@@ -11,7 +12,10 @@ use App\HoyoverseBundle\Service\HonkaiStarRailService;
 use App\HoyoverseBundle\Service\TearsOfThemisService;
 use App\HoyoverseBundle\Service\ZenlessZoneZeroService;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\MockResponse;
 
 class HoyoverseGameServiceTest extends TestCase
 {
@@ -70,5 +74,30 @@ class HoyoverseGameServiceTest extends TestCase
         $this->assertSame(0, TearsOfThemisService::getGameId());
         $this->assertSame('nxx_global', TearsOfThemisService::getGameBiz());
         $this->assertSame('Tears of Themis', $service->getGameName());
+    }
+
+    public function testMalformedJsonIncludesHttpStatusCodeInLogAndException(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())
+            ->method('error')
+            ->with(
+                $this->stringContains('(HTTP 530)'),
+                $this->callback(fn (array $context): bool => ($context['status'] ?? null) === 530
+                    && ($context['raw_content'] ?? null) === '<html>Cloudflare 1033</html>')
+            );
+
+        $service = new GenshinImpactService($logger);
+        $service->setRedeemableCodesClient(new MockHttpClient([
+            new MockResponse('<html>Cloudflare 1033</html>', ['http_code' => 530]),
+        ]));
+
+        try {
+            $service->fetchRedeemableCodes();
+            $this->fail('Expected RetrieveRedeemableCodesException to be thrown.');
+        } catch (RetrieveRedeemableCodesException $e) {
+            $this->assertSame(530, $e->getHoyolabStatusCode());
+            $this->assertStringStartsWith('Malformed JSON response (HTTP 530):', $e->getMessage());
+        }
     }
 }

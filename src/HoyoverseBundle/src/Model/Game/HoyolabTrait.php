@@ -155,14 +155,18 @@ trait HoyolabTrait
             return $body;
 
         } catch (JsonException $e) {
+            $statusCode ??= null;
             $rawContent = isset($response) ? $response->getContent(false) : null;
+            $statusInfo = $statusCode !== null ? " (HTTP {$statusCode})" : '';
 
-            $this->getLogger()->error("Malformed JSON received from API: {$e->getMessage()}", array_merge($logContext, [
+            $this->getLogger()->error("Malformed JSON received from API{$statusInfo}: {$e->getMessage()}", array_merge($logContext, [
+                'status'      => $statusCode,
                 'exception'   => $e,
                 'raw_content' => $rawContent,
             ]));
 
-            throw new $exceptionClass("Malformed JSON response: {$e->getMessage()}", 0, $e);
+            throw new $exceptionClass("Malformed JSON response{$statusInfo}: {$e->getMessage()}", 0, $e)
+                ->setHoyolabStatusCode($statusCode);
 
         } catch (HttpClientExceptionInterface $e) {
             $this->getLogger()->error("Network exception during API request: {$e->getMessage()}", array_merge($logContext, [

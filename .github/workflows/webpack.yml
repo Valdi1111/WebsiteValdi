@@ -18,22 +18,27 @@ jobs:
         steps:
             -   uses: actions/checkout@v4
 
-            # Setup Composer 2.8.3
-            -   name: Use Composer 2.8.3
-                uses: php-actions/composer@v6
+            # Setup PHP 8.5 with required extensions and Composer
+            -   name: Setup PHP 8.5
+                uses: shivammathur/setup-php@v2
                 with:
-                    php_version: 8.4
-                    version: 2.8.3
+                    php-version: '8.5'
+                    extensions: ctype, iconv, imagick, openssl, mbstring, xml, curl, zip, intl
+                    tools: composer:v2
 
-            # Cache delle dipendenze di Composer
+            # Cache Composer packages before running composer install
             -   name: Cache Composer packages
                 id: composer-cache
-                uses: actions/cache@v3
+                uses: actions/cache@v4
                 with:
                     path: vendor
                     key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
                     restore-keys: |
                         ${{ runner.os }}-php-
+
+            # Install Composer dependencies
+            -   name: Install Composer dependencies
+                run: composer install --no-interaction --prefer-dist
 
             # Setup Node.js 24.x
             -   name: Use Node.js 24.x
@@ -41,9 +46,9 @@ jobs:
                 with:
                     node-version: 24.x
 
-            # Installazione delle dipendenze Node.js
+            # Install Node.js dependencies
             -   name: Install Node.js dependencies
-                run: npm install
+                run: npm ci
 
             # Build del progetto con Webpack
             -   name: Build Webpack

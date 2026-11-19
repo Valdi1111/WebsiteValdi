@@ -1,100 +1,72 @@
-## youtube-dlp
-* Install ffmpeg and ffprobe `sudo apt install ffmpeg -y`
-* Install youtube-dlp
-  * `wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp`
-  * `chmod a+rx /usr/local/bin/yt-dlp`
+## Server Setup (Caddy + Mercure + PHP 8.5)
 
-## Apache
-* `sudo apt install apache2`
-* `sudo apt install php8.4-{common,zip,mysql,mbstring,readline,ldap,xml,opcache,curl,imap,intl,cli,imagick,gd,fpm}`
-* `sudo a2enmod ssl headers proxy proxy_http proxy_wstunnel rewrite proxy_fcgi setenvif`
-* `sudo a2enconf php8.4-fpm`
-* `sudo a2dismod mpm_prefork`
-* `sudo a2enmod mpm_event`
+L'intero stack web (PHP-FPM 8.5, estensioni, Composer, FFmpeg/yt-dlp, Caddy con supporto nativo Mercure Hub, certificati TLS, servizio `systemd` e permessi con ereditarietà POSIX ACL) viene configurato tramite lo script automatizzato:
 
-### Enable http2
-* `sudo a2enmod mpm_event http2`
-* [Http2 tutorial](https://gist.github.com/GAS85/38eb5954a27d64ae9ac17d01bfe9898c)
-
-```aiignore
-<IfModule http2_module>
-    H2Direct on
-</IfModule>
+```bash
+sudo ./scripts/setup-server.sh
 ```
 
-### Enable mod SendFile
-* `sudo apt-get install libapache2-mod-xsendfile`
-* `sudo a2enmod xsendfile`
+### Cosa configura lo script
+* **PHP-FPM & CLI (`8.5`):** installa `php8.5-fpm`, `php8.5-cli` e le estensioni richieste (`ldap`, `imap`, `readline`, `imagick`, `mbstring`, `mysql`, `curl`, `zip`, `xml`, `intl`), imposta la CLI predefinita e crea `/etc/php/8.5/{fpm,cli}/conf.d/99-custom.ini` con `date.timezone = Europe/Rome`, coordinate locali, `memory_limit = 4G` e `max_execution_time = 300`.
+* **Strumenti esterni:** installa o aggiorna `composer` in `/usr/local/bin/composer`, `ffmpeg`/`ffprobe` e `yt-dlp` in `/usr/local/bin/yt-dlp`.
+* **Caddy + Mercure Hub:** scarica il binario `mercure` in `/var/www/caddy/mercure`, assegna `CAP_NET_BIND_SERVICE` per le porte `80`/`443`, genera le chiavi JWT HS256, scrive `/var/www/caddy/Caddyfile` (con supporto `X-Sendfile` e domini/sottodomini `valdi.ovh`, `mercure`, `books`, `anime`, `hoyoverse`, `gryphline`, `videos`) e registra `/etc/systemd/system/caddy.service`.
+* **Permessi progetto:** imposta `davide:www-data`, bit `setgid` (`g+s`) sulle directory e default POSIX ACL (`setfacl`) su `/var/www/valdi.ovh`.
 
-```aiignore
-XSendFile On
-XSendFilePath /media
-ProxyFCGISetEnvIf "true" HTTP_X_SENDFILE_TYPE "X-Sendfile"
+### Gestione e manutenzione rapida
+* **Stato e log Caddy/Mercure:**
+  ```bash
+  sudo systemctl status caddy
+  tail -f /var/log/caddy.log
+  ```
+* **Ricaricare la configurazione del Caddyfile:**
+  ```bash
+  sudo systemctl reload caddy
+  ```
+
+---
+
+## Setup Shared Folder (Samba / Media / Backups)
+
+Per configurare una cartella condivisa tra utente locale, `root`, `www-data` (PHP-FPM/Symfony), `plex` e Samba con ereditarietà automatica dei permessi (preservando i permessi di esecuzione sugli script `.sh`):
+
+```bash
+sudo ./scripts/setup-shared-folder.sh /media/xyz
 ```
 
-## Configure php-fpm
-* `systemctl edit php8.4-fpm`
-```aiignore
-[Service]
-UMask=0002
-```
-* `systemctl daemon-reload`
-* `systemctl restart php8.4-fpm`
+Lo script crea il gruppo `condivisi` (se assente), associa gli utenti `root`, `www-data`, `plex` e l'utente corrente, applica `2775` (`setgid`) sulle directory, `0664` sui file normali, `0775` sugli script `.sh`, imposta le POSIX ACL di default e propone l'aggiunta del blocco di condivisione in `/etc/samba/smb.conf`.
 
-## Mercure
-### Install mercure
-* `sudo mkdir mercure_Linux_arm64`
-* `sudo wget https://github.com/dunglas/mercure/releases/latest/download/mercure_Linux_arm64.tar.gz`
-* `sudo tar -xvzf mercure_Linux_arm64.tar.gz`
-* `sudo rm mercure_Linux_arm64.tar.gz`
-### Create and start mercure service
-* File [mercure.service](scripts/mercure.service)
-* `systemctl enable mercure.service`
-* `systemctl start mercure.service`
-### Edit apache configuration
-```aiignore
-<Location "/mercure-hub">
-    SetEnvIf Origin "^https?://[^/]*(valdi)\.wip" ORIGIN=$0
-    Header set Access-Control-Allow-Origin %{ORIGIN}e env=ORIGIN
-    Header set Access-Control-Allow-Credentials "true" env=ORIGIN
-    Header merge Vary Origin
-    
-    ProxyPass http://localhost:3000/.well-known/mercure
-    ProxyPassReverse http://localhost:3000/.well-known/mercure
-</Location>
+### Esempio configurazione Samba (`/etc/samba/smb.conf`)
+```ini
+[xyz]
+   comment = xyz
+   path = /media/xyz
+   browsable = yes
+   writable = yes
+   guest ok = no
+
+   force group = condivisi
+   create mask = 0664
+   directory mask = 2775
+   inherit permissions = yes
 ```
 
-## Deploy
-* Pull latest code
-* Install PHP dependencies `composer install --no-dev --optimize-autoloader`
-* Run Doctrine migrations `php bin/console doctrine:migrations:migrate `
-* Clear and warmup cache 
-  * `php bin/console cache:clear --env=prod`
-  * `php bin/console cache:warmup --env=prod`
-* Install Symfony assets `php bin/console assets:install`
-* Install Node dependencies (frontend) `npm ci`
-* Build frontend `npm run build`
-* Install Node dependencies (node-services) 
-  * `cd node-services`
-  * `npm ci`
-  * `npx playwright install chromium`
-  * `cd ..`
-* Restart node services `sudo supervisorctl restart website-node-services`
-* Restart messenger workers `php bin/console messenger:stop-workers`
+---
 
 ## Deploy script
-* File [website-deploy.sh](scripts/website-deploy.sh)
-* Add `YOURUSER ALL=(ALL) NOPASSWD:/usr/bin/supervisorctl` to `sudo visudo` for github actions
+- File [website-deploy.sh](scripts/website-deploy.sh)
+- Add `YOURUSER ALL=(ALL) NOPASSWD:/usr/bin/supervisorctl` to `sudo visudo` for github actions
 
 ## Services
-* Install supervisor `sudo apt install supervisor`
-* Copy service files in `/etc/supervisor/conf.d/`
-  * [website-node-services](scripts/website-node-services.conf)
-  * [website-anime-download](scripts/website-messenger-anime-episode-download.conf)
-  * [website-messenger-core](scripts/website-messenger-core.conf)
-  * [website-scheduler-default](scripts/website-scheduler-default.conf)
-* Replace `YOURUSER` and `/path/to/your/app`
-* Enable and start services with `sudo supervisorctl reread && sudo supervisorctl update`
+- Install supervisor `sudo apt install supervisor`
+- Copy service files in `/etc/supervisor/conf.d/`
+  - [website-node-services](scripts/website-node-services.conf)
+  - [website-anime-download](scripts/website-messenger-anime-episode-download.conf)
+  - [website-messenger-core](scripts/website-messenger-core.conf)
+  - [website-scheduler-default](scripts/website-scheduler-default.conf)
+- Replace `YOURUSER` and `/path/to/your/app`
+- Enable and start services with `sudo supervisorctl reread && sudo supervisorctl update`
+
+---
 
 ## Create a new Bundle
 
@@ -132,6 +104,7 @@ src/CoreBundle/
 
 namespace App\CoreBundle;
 
+use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
@@ -180,7 +153,7 @@ services:
 
     # makes classes in src/ available to be used as services
     # this creates a service per class whose id is the fully-qualified class name
-    App\AnimeBundle\:
+    App\CoreBundle\:
         resource: '../src/'
         exclude:
             - '../src/DependencyInjection/'
@@ -190,7 +163,6 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
-
 ```
 
 ### Add to `composer.json`
@@ -260,31 +232,3 @@ System.config({
 
 ### Refresh composer
 `composer dump-autoload`
-
-## Setup shared folder
-* `sudo groupadd condivisi`
-* `sudo usermod -aG condivisi www-data`
-* `sudo usermod -aG condivisi $USER`
-* `sudo chown -R $USER:condivisi /media/*`
-* `sudo chmod -R 664 /media/*`
-* `sudo find /media/* -type d -exec chmod 2775 {} \;`
-
-### Example of shared folder on samba
-```aiignore
-[xyz]
-   comment = xyz
-   path = /media/xyz
-   browsable = yes
-   writable = yes
-   guest ok = no
-
-   force group = condivisi
-   create mask = 0664
-   directory mask = 2775
-   inherit permissions = yes
-```
-
-## Application permission
-* `sudo chown -R $USER:www-data /var/www/*`
-* `sudo chmod -R 775 /var/www/*`
-* `sudo find /var/www/* -type d -exec chmod 2775 {} \;`

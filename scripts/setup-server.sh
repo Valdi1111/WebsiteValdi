@@ -1,6 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ==========================================================
+#           CONFIGURAZIONE PRINCIPALE (COSTANTI)
+# ==========================================================
+DEFAULT_BASE_DOMAIN="valdi.ovh"
+DEFAULT_PHP_VERSION="8.5"
+SUBDOMAINS=(
+  "books"
+  "anime"
+  "hoyoverse"
+  "gryphline"
+  "videos"
+)
+# ==========================================================
+
 # 1. Controllo privilegi di root
 if [ "$EUID" -ne 0 ]; then
   echo "[ERRORE] Esegui questo script con sudo o come root." >&2
@@ -8,16 +22,16 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 echo "=========================================================="
-echo "    Setup Automatizzato Caddy + Mercure Hub (valdi.ovh)    "
+echo "    Setup Automatizzato Caddy + Mercure Hub ($DEFAULT_BASE_DOMAIN)    "
 echo "=========================================================="
 
 REAL_USER="${SUDO_USER:-$USER}"
 
 # 2. Richiesta dati interattiva
-read -r -p "Inserisci il dominio base (es. valdi.ovh): " BASE_DOMAIN
-BASE_DOMAIN="${BASE_DOMAIN:-valdi.ovh}"
+read -r -p "Inserisci il dominio base [$DEFAULT_BASE_DOMAIN]: " BASE_DOMAIN
+BASE_DOMAIN="${BASE_DOMAIN:-$DEFAULT_BASE_DOMAIN}"
 
-read -r -p "Inserisci l'email per i certificati TLS Let's Encrypt: " ADMIN_EMAIL
+read -r -p "Inserisci l'email per i certificati TLS Let's Encrypt [admin@$BASE_DOMAIN]: " ADMIN_EMAIL
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@$BASE_DOMAIN}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,13 +46,24 @@ read -r -p "Inserisci il percorso della root del progetto Symfony [$DEFAULT_PROJ
 PROJECT_DIR="${INPUT_PROJECT_DIR:-$DEFAULT_PROJECT_DIR}"
 SITE_PUBLIC_DIR="$PROJECT_DIR/public"
 
+# Costruzione dinamica delle liste domini e origini CORS dall'array SUBDOMAINS
+HOSTS_DOMAINS="$BASE_DOMAIN mercure.$BASE_DOMAIN"
+SITE_HOSTS="$BASE_DOMAIN"
+CORS_ORIGINS="https://$BASE_DOMAIN"
+
+for sub in "${SUBDOMAINS[@]}"; do
+  [ -z "$sub" ] && continue
+  HOSTS_DOMAINS="$HOSTS_DOMAINS ${sub}.${BASE_DOMAIN}"
+  SITE_HOSTS="$SITE_HOSTS, ${sub}.${BASE_DOMAIN}"
+  CORS_ORIGINS="$CORS_ORIGINS https://${sub}.${BASE_DOMAIN}"
+done
+
 # 3. Configurazione automatica /etc/hosts per domini locali su Linux
 IS_LOCAL_DOMAIN=false
 if [[ "$BASE_DOMAIN" =~ \.(wip|local|test|example|invalid|localhost|lan|home|internal)$ ]] || [ "$BASE_DOMAIN" = "localhost" ]; then
   IS_LOCAL_DOMAIN=true
   echo ""
   echo "==> Configurazione /etc/hosts per la risoluzione dei domini locali..."
-  HOSTS_DOMAINS="$BASE_DOMAIN mercure.$BASE_DOMAIN books.$BASE_DOMAIN anime.$BASE_DOMAIN hoyoverse.$BASE_DOMAIN gryphline.$BASE_DOMAIN videos.$BASE_DOMAIN"
   if ! grep -qw "$BASE_DOMAIN" /etc/hosts 2>/dev/null; then
     echo "127.0.0.1 $HOSTS_DOMAINS" >> /etc/hosts
     echo " - Aggiunto a /etc/hosts: 127.0.0.1 $HOSTS_DOMAINS"
@@ -69,7 +94,41 @@ if [ -n "$REAL_USER" ] && id -u "$REAL_USER" >/dev/null 2>&1; then
   echo " - Aggiunto a $REAL_USER"
 fi
 
-# 6. Selezione versione PHP-FPM
+# Funzione helper per installare PHP-FPM + estensioni richieste
+install_php_stack() {
+  local ver="$1"
+  local extensions=(
+    "php${ver}-fpm"
+    "php${ver}-cli"
+    "php${ver}-common"
+    "php${ver}-ldap"
+    "php${ver}-imap"
+    "php${ver}-readline"
+    "php${ver}-imagick"
+    "php${ver}-mbstring"
+    "php${ver}-mysql"
+    "php${ver}-curl"
+    "php${ver}-zip"
+    "php${ver}-xml"
+    "php${ver}-intl"
+  )
+
+  echo "==> Installazione di PHP ${ver}-FPM ed estensioni..."
+  apt-get update -qq
+  apt-get install -y -qq software-properties-common >/dev/null
+
+  if ! grep -rq "ondrej/php" /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null; then
+    echo " - Aggiunta repository PPA ondrej/php..."
+    add-apt-repository ppa:ondrej/php -y >/dev/null
+    apt-get update -qq
+  fi
+
+  echo " - Installazione pacchetti: ${extensions[*]}..."
+  apt-get install -y "${extensions[@]}"
+  systemctl enable --now "php${ver}-fpm"
+}
+
+# 6. Selezione o installazione PHP-FPM e configurazione custom INI
 echo ""
 echo "==> Rilevamento versioni PHP-FPM installate..."
 AVAILABLE_SOCKS=()
@@ -85,17 +144,27 @@ if [ ${#AVAILABLE_SOCKS[@]} -gt 0 ]; then
   for i in "${!AVAILABLE_SOCKS[@]}"; do
     sock_name=$(basename "${AVAILABLE_SOCKS[$i]}")
     php_ver=$(echo "$sock_name" | grep -oP '\d+\.\d+' || echo "$sock_name")
-    echo "  $((i+1))) PHP $php_ver (${AVAILABLE_SOCKS[$i]})"
+    echo "  $((i+1))) Usa PHP $php_ver già installato (${AVAILABLE_SOCKS[$i]})"
   done
-  echo "  $(( ${#AVAILABLE_SOCKS[@]} + 1 ))) Inserisci manualmente un'altra versione"
+  OPT_INSTALL=$(( ${#AVAILABLE_SOCKS[@]} + 1 ))
+  OPT_MANUAL=$(( ${#AVAILABLE_SOCKS[@]} + 2 ))
+  echo "  ${OPT_INSTALL}) Installa una nuova versione di PHP-FPM + estensioni"
+  echo "  ${OPT_MANUAL}) Inserisci manualmente il percorso/versione di un socket esistente"
 
   while true; do
-    read -r -p "Scelta [1-$(( ${#AVAILABLE_SOCKS[@]} + 1 ))]: " PHP_CHOICE
+    read -r -p "Scelta [1-${OPT_MANUAL}]: " PHP_CHOICE
     if [[ "$PHP_CHOICE" =~ ^[0-9]+$ ]] && [ "$PHP_CHOICE" -ge 1 ] && [ "$PHP_CHOICE" -le "${#AVAILABLE_SOCKS[@]}" ]; then
       PHP_SOCK="${AVAILABLE_SOCKS[$((PHP_CHOICE-1))]}"
       break
-    elif [ "$PHP_CHOICE" -eq "$(( ${#AVAILABLE_SOCKS[@]} + 1 ))" ]; then
-      read -r -p "Inserisci la versione di PHP desiderata (es. 8.4 o 8.5): " MANUAL_VER
+    elif [ "$PHP_CHOICE" -eq "$OPT_INSTALL" ]; then
+      read -r -p "Inserisci la versione di PHP da installare [$DEFAULT_PHP_VERSION]: " INSTALL_VER
+      INSTALL_VER="${INSTALL_VER:-$DEFAULT_PHP_VERSION}"
+      install_php_stack "$INSTALL_VER"
+      PHP_SOCK="/run/php/php${INSTALL_VER}-fpm.sock"
+      break
+    elif [ "$PHP_CHOICE" -eq "$OPT_MANUAL" ]; then
+      read -r -p "Inserisci la versione di PHP desiderata [$DEFAULT_PHP_VERSION]: " MANUAL_VER
+      MANUAL_VER="${MANUAL_VER:-$DEFAULT_PHP_VERSION}"
       PHP_SOCK="/run/php/php${MANUAL_VER}-fpm.sock"
       break
     else
@@ -103,19 +172,100 @@ if [ ${#AVAILABLE_SOCKS[@]} -gt 0 ]; then
     fi
   done
 else
-  echo "[AVVISO] Nessun socket trovato automaticamente in /run/php/."
-  read -r -p "Inserisci la versione di PHP desiderata (es. 8.4): " MANUAL_VER
-  MANUAL_VER="${MANUAL_VER:-8.4}"
-  PHP_SOCK="/run/php/php${MANUAL_VER}-fpm.sock"
+  echo "[AVVISO] Nessun socket PHP-FPM trovato in /run/php/."
+  read -r -p "Vuoi installare ora PHP-FPM e le estensioni richieste? [S/n]: " DO_INSTALL_PHP
+  DO_INSTALL_PHP="${DO_INSTALL_PHP:-S}"
+  if [[ "$DO_INSTALL_PHP" =~ ^[SsYy]$ ]]; then
+    read -r -p "Inserisci la versione di PHP da installare [$DEFAULT_PHP_VERSION]: " INSTALL_VER
+    INSTALL_VER="${INSTALL_VER:-$DEFAULT_PHP_VERSION}"
+    install_php_stack "$INSTALL_VER"
+    PHP_SOCK="/run/php/php${INSTALL_VER}-fpm.sock"
+  else
+    read -r -p "Inserisci manualmente la versione di PHP per il Caddyfile [$DEFAULT_PHP_VERSION]: " MANUAL_VER
+    MANUAL_VER="${MANUAL_VER:-$DEFAULT_PHP_VERSION}"
+    PHP_SOCK="/run/php/php${MANUAL_VER}-fpm.sock"
+  fi
 fi
 
+SELECTED_PHP_VER=$(basename "$PHP_SOCK" | grep -oP '\d+\.\d+' || true)
 echo " -> Socket selezionato: $PHP_SOCK"
+
+if [ -n "$SELECTED_PHP_VER" ]; then
+  if [ -x "/usr/bin/php$SELECTED_PHP_VER" ]; then
+    update-alternatives --set php "/usr/bin/php$SELECTED_PHP_VER" >/dev/null 2>&1 || true
+    echo " -> PHP CLI impostato su /usr/bin/php$SELECTED_PHP_VER"
+  fi
+
+  echo "==> Configurazione parametri PHP custom (99-custom.ini) per PHP $SELECTED_PHP_VER..."
+  if [ -d "/etc/php/$SELECTED_PHP_VER/fpm/conf.d" ]; then
+    cat << 'EOF' > "/etc/php/$SELECTED_PHP_VER/fpm/conf.d/99-custom.ini"
+date.timezone = Europe/Rome
+date.default_latitude = 44.202091
+date.default_longitude = 12.036725
+max_execution_time = 300
+memory_limit = 4G
+EOF
+    echo " - Creato /etc/php/$SELECTED_PHP_VER/fpm/conf.d/99-custom.ini"
+    systemctl restart "php${SELECTED_PHP_VER}-fpm" 2>/dev/null || true
+  fi
+
+  if [ -d "/etc/php/$SELECTED_PHP_VER/cli/conf.d" ]; then
+    cat << 'EOF' > "/etc/php/$SELECTED_PHP_VER/cli/conf.d/99-custom.ini"
+date.timezone = Europe/Rome
+date.default_latitude = 44.202091
+date.default_longitude = 12.036725
+memory_limit = 4G
+EOF
+    echo " - Creato /etc/php/$SELECTED_PHP_VER/cli/conf.d/99-custom.ini"
+  fi
+fi
 echo ""
 
 # 7. Installazione dipendenze di base
-echo "==> Installazione pacchetti di utilità (curl, tar, libcap2-bin, openssl, acl)..."
+echo "==> Installazione pacchetti di utilità (curl, wget, tar, unzip, libcap2-bin, openssl, acl)..."
 apt-get update -qq
-apt-get install -y -qq curl tar libcap2-bin openssl acl >/dev/null
+apt-get install -y -qq curl wget tar unzip libcap2-bin openssl acl >/dev/null
+
+# 7b. Installazione o aggiornamento di Composer
+echo "==> Verifica e installazione di Composer..."
+if command -v php >/dev/null 2>&1; then
+  if [ -f /usr/local/bin/composer ]; then
+    echo " - Composer già presente, esecuzione aggiornamento..."
+    COMPOSER_ALLOW_SUPERUSER=1 /usr/local/bin/composer self-update --quiet || true
+  else
+    EXPECTED_CHECKSUM="$(php -r 'copy("https://composer.github.io/installer.sig", "php://stdout");')"
+    php -r "copy('https://getcomposer.org/installer', '/tmp/composer-setup.php');"
+    ACTUAL_CHECKSUM="$(php -r "echo hash_file('sha384', '/tmp/composer-setup.php');")"
+
+    if [ "$EXPECTED_CHECKSUM" != "$ACTUAL_CHECKSUM" ]; then
+      echo "[ERRORE] Checksum dell'installer di Composer non valido!" >&2
+      rm -f /tmp/composer-setup.php
+      exit 1
+    fi
+
+    php /tmp/composer-setup.php --quiet --install-dir=/usr/local/bin --filename=composer
+    rm -f /tmp/composer-setup.php
+    chmod +x /usr/local/bin/composer
+    echo " - Composer installato in /usr/local/bin/composer"
+  fi
+else
+  echo " [AVVISO] Binario PHP CLI non trovato, installazione di Composer saltata."
+fi
+
+# 7c. Installazione FFmpeg (include ffprobe) e yt-dlp
+echo "==> Installazione FFmpeg / FFprobe e yt-dlp..."
+apt-get install -y -qq ffmpeg >/dev/null
+echo " - FFmpeg e FFprobe installati"
+
+if [ -f /usr/local/bin/yt-dlp ]; then
+  echo " - yt-dlp già presente, verifica aggiornamenti..."
+  /usr/local/bin/yt-dlp -U >/dev/null 2>&1 || true
+else
+  curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp" -o /usr/local/bin/yt-dlp
+  chmod a+rx /usr/local/bin/yt-dlp
+  echo " - yt-dlp installato in /usr/local/bin/yt-dlp"
+fi
+echo ""
 
 # 8. Generazione chiavi JWT sicure (256-bit / 64 caratteri esadecimali)
 PUBLISHER_KEY=$(openssl rand -hex 32)
@@ -245,15 +395,13 @@ EOF
 echo "==> Scrittura del Caddyfile in $CADDY_DIR/Caddyfile..."
 
 GLOBAL_TLS_DIRECTIVES="email $ADMIN_EMAIL"
-SITE_HOSTS="$BASE_DOMAIN, books.$BASE_DOMAIN, anime.$BASE_DOMAIN, hoyoverse.$BASE_DOMAIN, gryphline.$BASE_DOMAIN, videos.$BASE_DOMAIN"
-CORS_ORIGINS="https://$BASE_DOMAIN https://books.$BASE_DOMAIN https://anime.$BASE_DOMAIN https://hoyoverse.$BASE_DOMAIN https://gryphline.$BASE_DOMAIN https://videos.$BASE_DOMAIN"
 
 if [ "$IS_LOCAL_DOMAIN" = true ]; then
   echo " -> Rilevato dominio locale/sviluppo ($BASE_DOMAIN): configurata CA interna (local_certs) e fallback SNI"
   GLOBAL_TLS_DIRECTIVES="email $ADMIN_EMAIL
     local_certs
     default_sni $BASE_DOMAIN"
-  SITE_HOSTS="$BASE_DOMAIN, localhost, 127.0.0.1, books.$BASE_DOMAIN, anime.$BASE_DOMAIN, hoyoverse.$BASE_DOMAIN, gryphline.$BASE_DOMAIN, videos.$BASE_DOMAIN"
+  SITE_HOSTS="$SITE_HOSTS, localhost, 127.0.0.1"
   CORS_ORIGINS="$CORS_ORIGINS https://localhost https://127.0.0.1"
 fi
 
@@ -419,7 +567,11 @@ echo " -> Proprietà:               $TARGET_OWNER:www-data"
 echo " -> Ereditarietà gruppo:     Attiva (setgid g+s)"
 echo " -> Ereditarietà permessi:   Attiva (POSIX default ACLs)"
 echo ""
+echo "Domini configurati:         $SITE_HOSTS"
 echo "PHP Socket in uso:          $PHP_SOCK"
+echo "Config PHP custom:          /etc/php/${SELECTED_PHP_VER:-$DEFAULT_PHP_VERSION}/{fpm,cli}/conf.d/99-custom.ini"
+echo "Composer:                   $(/usr/local/bin/composer --version 2>/dev/null || echo 'Non installato')"
+echo "yt-dlp:                     $(/usr/local/bin/yt-dlp --version 2>/dev/null || echo 'Non installato')"
 echo "MERCURE_PUBLISHER_JWT_KEY:  $PUBLISHER_KEY"
 echo "MERCURE_SUBSCRIBER_JWT_KEY: $SUBSCRIBER_KEY"
 echo "----------------------------------------------------------"
@@ -449,7 +601,7 @@ if grep -qi microsoft /proc/version 2>/dev/null; then
   echo "   netsh interface portproxy set v4tov4 listenport=443 connectaddress=$WSL_IP connectport=443"
   echo ""
   echo "2. MAPPATURA HOSTS IN WINDOWS:"
-  echo "   Add-Content -Path C:\\Windows\\System32\\drivers\\etc\\hosts -Value \"\`n127.0.0.1 $BASE_DOMAIN mercure.$BASE_DOMAIN books.$BASE_DOMAIN anime.$BASE_DOMAIN hoyoverse.$BASE_DOMAIN gryphline.$BASE_DOMAIN videos.$BASE_DOMAIN\""
+  echo "   Add-Content -Path C:\\Windows\\System32\\drivers\\etc\\hosts -Value \"\`n127.0.0.1 $HOSTS_DOMAINS\""
   echo ""
   echo "3. SOLUZIONE DEFINITIVA SENZA PORTPROXY (Windows 11):"
   echo "   Crea o modifica C:\\Users\\$REAL_USER\\.wslconfig con:"

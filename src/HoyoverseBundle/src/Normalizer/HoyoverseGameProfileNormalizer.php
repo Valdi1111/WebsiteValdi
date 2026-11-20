@@ -81,7 +81,8 @@ class HoyoverseGameProfileNormalizer extends AbstractGameProfileNormalizer
             if ($this->locatorByGameId->has($gameId)) {
                 $gameService = $this->locatorByGameId->get($gameId);
                 $result['supports_pulls'] = $gameService instanceof HasPullTrackerInterface;
-                $result['supports_stoken_pulls'] = $gameService instanceof HasStokenPullImportInterface;
+                // Server-side automatic sync (SToken); shared flag name across providers
+                $result['supports_pull_sync'] = $gameService instanceof HasStokenPullImportInterface;
                 $result['supports_powershell_pulls'] = $gameService instanceof HasPowershellPullImportInterface;
             }
         }

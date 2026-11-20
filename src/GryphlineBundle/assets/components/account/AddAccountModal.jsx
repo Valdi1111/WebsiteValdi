@@ -6,10 +6,11 @@ import {
     LoginOutlined,
     MailOutlined,
 } from "@ant-design/icons";
-import GeetestCaptchaFrame from "@GamesBundle/components/GeetestCaptchaFrame";
+import CaptchaStep from "@GamesBundle/components/account/CaptchaStep";
+import useLoginWizard from "@GamesBundle/components/account/useLoginWizard";
 import { useBackendApi } from "@GamesBundle/components/BackendApiContext";
 import { Alert, Button, Descriptions, Form, Input, Modal, Space, Tabs, Tag } from "antd";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 export default function AddAccountModal({
     open,
@@ -24,18 +25,20 @@ export default function AddAccountModal({
     const [loginForm] = Form.useForm();
 
     const [activeTab, setActiveTab] = useState("login");
-    const [wizardStep, setWizardStep] = useState("credentials"); // credentials | captcha
-    const [loginSessionId, setLoginSessionId] = useState(null);
-    const [wizardLoading, setWizardLoading] = useState(false);
 
     const rawInput = Form.useWatch("account_token", tokenForm);
 
-    const resetWizard = useCallback(() => {
-        setWizardStep("credentials");
-        setLoginSessionId(null);
-        setWizardLoading(false);
-        loginForm.resetFields();
-    }, [loginForm]);
+    // Wizard steps: credentials | captcha
+    const wizard = useLoginWizard({
+        api,
+        reloginAccount,
+        onLoginSuccess: (account) => {
+            tokenForm.resetFields();
+            onLoginSuccess?.(account);
+        },
+        onReset: () => loginForm.resetFields(),
+    });
+    const { step: wizardStep, loginSessionId, loading: wizardLoading, reset: resetWizard } = wizard;
 
     useEffect(() => {
         if (open) {
@@ -66,59 +69,12 @@ export default function AddAccountModal({
         onCancel();
     };
 
-    const handleStepResult = (data) => {
-        if (!data) {
-            return;
-        }
-        const sessionId = data.login_session_id ?? data.loginSessionId ?? loginSessionId;
-        if (sessionId) {
-            setLoginSessionId(sessionId);
-        }
-
-        if (data.status === "captcha_required") {
-            setWizardStep("captcha");
-        } else if (data.status === "authenticated") {
-            resetWizard();
-            tokenForm.resetFields();
-            onLoginSuccess?.(data.account);
-        }
-    };
-
     const handleLoginStart = (values) => {
-        setWizardLoading(true);
-        const payload = {
+        wizard.start({
             email: values.email?.trim(),
             password: values.password,
-        };
-
-        const reqPromise = reloginAccount
-            ? api.withErrorHandling().accounts().reloginStart(reloginAccount.id, payload)
-            : api.withErrorHandling().accounts().loginStart(payload);
-
-        reqPromise
-            .then((res) => handleStepResult(res.data))
-            .catch(() => {})
-            .finally(() => setWizardLoading(false));
+        });
     };
-
-    const handleCaptchaSuccess = useCallback(
-        (captchaPayload) => {
-            if (!loginSessionId) {
-                return;
-            }
-            setWizardLoading(true);
-            api.withErrorHandling()
-                .accounts()
-                .loginCaptcha({
-                    login_session_id: loginSessionId,
-                    captcha: captchaPayload,
-                })
-                .then((res) => handleStepResult(res.data))
-                .catch(() => {})
-                .finally(() => setWizardLoading(false));
-        },
-        [api, loginSessionId]
-    );
 
     const handleTokenFinish = (values) => {
         const tokenToSubmit = parsedToken.isValid ? parsedToken.token : values.account_token?.trim();
@@ -131,23 +87,13 @@ export default function AddAccountModal({
     const renderLoginWizard = () => {
         if (wizardStep === "captcha" && loginSessionId) {
             return (
-                <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
-                    <GeetestCaptchaFrame
-                        frameUrl={api.accounts().getGeetestFrameUrl(loginSessionId)}
-                        onSuccess={handleCaptchaSuccess}
-                        submitting={wizardLoading}
-                    />
-                    <div style={{ textAlign: "right" }}>
-                        <Space>
-                            <Button onClick={resetWizard} disabled={wizardLoading}>
-                                Back to Credentials
-                            </Button>
-                            <Button onClick={handleClose} disabled={wizardLoading}>
-                                Cancel
-                            </Button>
-                        </Space>
-                    </div>
-                </Space>
+                <CaptchaStep
+                    frameUrl={api.accounts().getGeetestFrameUrl(loginSessionId)}
+                    onSuccess={wizard.submitCaptcha}
+                    submitting={wizardLoading}
+                    onBack={resetWizard}
+                    onCancel={handleClose}
+                />
             );
         }
 

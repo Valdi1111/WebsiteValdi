@@ -21,17 +21,17 @@ It supports direct login with Gryphline credentials (including GeeTest v4 captch
 
 ### 1.1 Game Service Architecture: Capability Interfaces, Traits & Dynamic Normalization
 
-Each game in the bundle (currently `EndfieldService`, registered in the Service Locator via the `gryphline.game.id` and `gryphline.game.biz` tags) implements `App\GryphlineBundle\Model\Game\GameInterface` and declares its capabilities through **Capability Interfaces** (shared from `CoreBundle` or specific to `GryphlineBundle`).  
+Each game in the bundle (currently `EndfieldService`, registered in the Service Locator via the `gryphline.game.id` and `gryphline.game.biz` tags) implements `App\GryphlineBundle\Model\Game\GameInterface` and declares its capabilities through **Capability Interfaces** (shared from `GamesBundle` or specific to `GryphlineBundle`).  
 Both background **MessageHandlers** and `GryphlineGameProfileNormalizer` inspect implemented interfaces via `instanceof` to enable scheduled jobs and dynamically expose only supported settings to the frontend:
 
 | Interface | Namespace | Associated Trait | Fields / Flags Exposed by Normalizer | Purpose / Enabled Feature |
 | :--- | :--- | :--- | :--- | :--- |
 | `GameInterface` | `GryphlineBundle` | — | — | Base contract for a Gryphline/SKPort game service (`getGameId()`, `getGameBiz()`, `getGameName()`, `getIcon()`, `ensureCredentials()`). |
 | `HasCheckInInterface` | `GryphlineBundle` | `CheckInTrait` | `skportCheckIn`, `skportMissedCheckIn` | The game supports signed daily check-in on SKPort (`/web/v1/game/{biz}/attendance`), enabling **Auto Check-In** and **Missed Check-In Reminder**. |
-| `HasNotesInterface` | `CoreBundle` | `NotesTrait` | — | The game exposes the *Real-Time Card Detail* endpoint (`/api/v1/game/{biz}/card/detail`) on SKPort to read live profile data (`EndfieldNotes`). |
-| `HasStaminaInterface` | `CoreBundle` | `NotesTrait` | `staminaCheck`, `staminaThreshold` | The game exposes real-time Stamina/Sanity and full recovery timestamp, enabling **Stamina Reminder**. |
-| `HasDailiesInterface` | `CoreBundle` | `NotesTrait` | `dailiesCheck` | The game exposes daily progress (*Daily Activation* `100/100`), enabling the regional **Dailies Reminder**. |
-| `HasWeekliesInterface` | `CoreBundle` | `NotesTrait` | `weekliesCheck` | The game exposes weekly progress (*Weekly Mission*), enabling the regional **Weeklies Reminder**. |
+| `HasNotesInterface` | `GamesBundle` | `NotesTrait` | — | The game exposes the *Real-Time Card Detail* endpoint (`/api/v1/game/{biz}/card/detail`) on SKPort to read live profile data (`EndfieldNotes`). |
+| `HasStaminaInterface` | `GamesBundle` | `NotesTrait` | `staminaCheck`, `staminaThreshold` | The game exposes real-time Stamina/Sanity and full recovery timestamp, enabling **Stamina Reminder**. |
+| `HasDailiesInterface` | `GamesBundle` | `NotesTrait` | `dailiesCheck` | The game exposes daily progress (*Daily Activation* `100/100`), enabling the regional **Dailies Reminder**. |
+| `HasWeekliesInterface` | `GamesBundle` | `NotesTrait` | `weekliesCheck` | The game exposes weekly progress (*Weekly Mission*), enabling the regional **Weeklies Reminder**. |
 | `HasAutoPullImportInterface` | `GryphlineBundle` | `GryphlinePullTrait` | `syncPulls`, `supports_pulls: true` | The game supports 100% automatic Gacha/Headhunting history import via OAuth `u8_token`, enabling the **Pulls Tracker** page, **Auto Sync Pulls** toggle, and **Sync Pulls** button. |
 
 ---
@@ -132,14 +132,14 @@ Operator and weapon thumbnails in cards (`PullsRecentBadge`) and detail tables (
   - Fetches `manifest.json` (`latest.tableCfgPath`), `asset-sync-index.json`, and `ItemTable.json`, caching only the compact `[itemId => relativePath]` lookup map.
   - **Operators** (`chr_*`): resolves icons from `charremoteicon/icon_{charId}`.
   - **Weapons**: resolves `iconId` via `ItemTable` under `itemicon/` (falling back to `gachaweapon/`).
-- **API Enrichment & Local Cache**: `ApiGameProfilesController` injects `'icon_url'` via `PullItemIconUrlBuilder::enrichPullRows()`; on first request, `LiipImagineBundle` downloads and caches the resized image (`128×128`, `webp`, quality `100`) under `public/media/cache/core_pull_item_icon/`.
+- **API Enrichment & Local Cache**: `ApiGameProfilesController` injects `'icon_url'` via `PullItemIconUrlBuilder::enrichPullRows()`; on first request, `LiipImagineBundle` downloads and caches the resized image (`128×128`, `webp`, quality `100`) under `public/media/cache/games_pull_item_icon/`.
 
 ### 5.4 Real-Time Progress Tracking (Mercure + Polling Fallback)
-All asynchronous pull operations — manual **Auto Sync**, nightly **Scheduled Sync**, and future **Backup Imports** (`CoreBundle\Model\Pull\PullOperationKind`) — are tracked uniformly by `GryphlineBundle\Service\Pull\PullOperationTracker` (extending `CoreBundle\Service\AbstractPullOperationTracker`):
+All asynchronous pull operations — manual **Auto Sync**, nightly **Scheduled Sync**, and future **Backup Imports** (`GamesBundle\Model\Pull\PullOperationKind`) — are tracked uniformly by `GryphlineBundle\Service\Pull\PullOperationTracker` (extending `GamesBundle\Service\AbstractPullOperationTracker`):
 - **Cache Snapshot + Mercure Updates**:
-  - Operation state is stored in `gryphline.pull_import_status.cache` (1-hour TTL, configured in `src/GryphlineBundle/config/packages/cache.yaml`) and published as a **private** Mercure update on `https://{gryphline.domain_name}/profiles/{profileId}/pulls/progress` (payload `{ action: 'pulls:operation_progress', operation: {...} }`).
+  - Operation state is stored in `gryphline.pull_import_status.cache` (1-hour TTL, configured in `src/GryphlineBundle/config/packages/cache.yaml`) and published as a **private** Mercure update on `https://{games.domain_name}/gryphline/profiles/{profileId}/pulls/progress` (payload `{ action: 'pulls:operation_progress', operation: {...} }`).
   - `GET .../pulls/overview` sets the `mercureAuthorization` cookie for the profile's topic and returns `mercure_topic`, `available_backup_importers`, and any currently running `active_operation`.
-- **Shared Live UI (`@CoreBundle/components/pulls/*` on `PullsPage`)**:
+- **Shared Live UI (`@GamesBundle/components/pulls/*` on `PullsPage`)**:
   - `PullsPage` uses the shared `usePullOperationProgress` hook and `PullOperationProgressBanner` component to open an authenticated `EventSource` against `MERCURE_HUB_URL`, displaying real-time progress bars, counters (`processed / total`, `imported`, `skipped`, `promoted/linked`), and per-banner status.
   - If Mercure is unreachable, the hook automatically falls back to **1-second HTTP polling** against `GET .../pulls/operations/{operationId}` while the operation is active.
   - Upon transitioning to `completed`, the page automatically refreshes the overview and selected banner view.
@@ -172,14 +172,14 @@ The bundle already includes the same backup import pipeline as `HoyoverseBundle`
 
 | Method | Path | Description |
 | :--- | :--- | :--- |
-| `POST` | `/api/accounts/auth/login/start` | Starts direct Email + Password login on `as.gryphline.com` |
-| `POST` | `/api/accounts/{id}/relogin/start` | Starts re-login on an existing `GryphlineAccount` (validates `account_uid` / `hgId` match) |
-| `POST` | `/api/accounts/auth/login/captcha` | Submits the GeeTest v4 captcha solution together with the session `challenge` |
-| `GET` | `/api/accounts/auth/geetest/frame` | Renders the isolated iframe for the GeeTest v4 widget |
-| `GET` | `/api/accounts` / `POST /api/accounts` | Lists accounts or adds/updates an account via manual `ACCOUNT_TOKEN` |
-| `POST` | `/api/accounts/{id}/sync` | Syncs game profiles (`GryphlineGameProfile`) via SKPort |
-| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls/overview` | Pity/banner overview; sets Mercure cookie and returns `available_backup_importers`, `mercure_topic`, and `active_operation` |
-| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls` | Paginated pulls for a banner with pity calculation and item icons |
-| `POST` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls/sync` | Queues automatic pull sync via `u8_token` (returns `operation`) |
-| `POST` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-backup` | Validates a backup file via a registered importer and queues import on `gryphline_pulls` (`202` / `400` / `409`) |
-| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls/operations/{operationId}` | Returns the latest snapshot of a pull operation (fallback polling when Mercure is unavailable) |
+| `POST` | `/api/gryphline/accounts/login/start` | Starts direct Email + Password login on `as.gryphline.com` |
+| `POST` | `/api/gryphline/accounts/{id}/relogin/start` | Starts re-login on an existing `GryphlineAccount` (validates `account_uid` / `hgId` match) |
+| `POST` | `/api/gryphline/accounts/login/captcha` | Submits the GeeTest v4 captcha solution together with the session `challenge` |
+| `GET` | `/api/gryphline/accounts/login/geetest-frame` | Renders the isolated iframe for the GeeTest v4 widget |
+| `GET` | `/api/gryphline/accounts` / `POST /api/gryphline/accounts` | Lists accounts or adds/updates an account via manual `ACCOUNT_TOKEN` |
+| `POST` | `/api/gryphline/accounts/{id}/sync` | Syncs game profiles (`GryphlineGameProfile`) via SKPort |
+| `GET` | `/api/gryphline/accounts/{account}/gameProfiles/{gameProfile}/pulls/overview` | Pity/banner overview; sets Mercure cookie and returns `available_backup_importers`, `mercure_topic`, and `active_operation` |
+| `GET` | `/api/gryphline/accounts/{account}/gameProfiles/{gameProfile}/pulls` | Paginated pulls for a banner with pity calculation and item icons |
+| `POST` | `/api/gryphline/accounts/{account}/gameProfiles/{gameProfile}/pulls/sync` | Queues automatic pull sync via `u8_token` (returns `operation`) |
+| `POST` | `/api/gryphline/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-backup` | Validates a backup file via a registered importer and queues import on `gryphline_pulls` (`202` / `400` / `409`) |
+| `GET` | `/api/gryphline/accounts/{account}/gameProfiles/{gameProfile}/pulls/operations/{operationId}` | Returns the latest snapshot of a pull operation (fallback polling when Mercure is unavailable) |

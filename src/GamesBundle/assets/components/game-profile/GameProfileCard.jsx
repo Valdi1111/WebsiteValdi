@@ -1,3 +1,4 @@
+import { useGameProvider } from "@GamesBundle/components/GameProviderContext";
 import {
     SettingOutlined,
     LinkOutlined,
@@ -7,25 +8,37 @@ import {
 } from "@ant-design/icons";
 import { Card, Avatar, Tag, Tooltip, Typography, Space } from "antd";
 import { useNavigate } from "react-router";
-import React from "react";
+import React, { useState } from "react";
 
 const { Text } = Typography;
 
-export default function GameProfileCard({ profile, accountId, accountCanRedeemCodes, onOpenSettings }) {
+/**
+ * Game profile summary card. Tags and actions are driven by the fields the backend exposes
+ * for the profile (`"field" in profile`), so the same card serves every provider.
+ */
+export default function GameProfileCard({ profile, account, onOpenSettings }) {
     const navigate = useNavigate();
+    const { basePath } = useGameProvider();
+    const [imgError, setImgError] = useState(false);
 
+    React.useEffect(() => {
+        setImgError(false);
+    }, [profile.icon_url]);
+
+    const profilePath = `${basePath}/accounts/${account.id}/profiles/${profile.id}`;
     // The diary feature is supported only if the profile defines sync_diary
     const supportsDiary = "sync_diary" in profile;
+    const isEnabled = (field) => field in profile && Boolean(profile[field]);
 
     const actions = [
         supportsDiary ? (
             <Tooltip title="View Resource Diary" key="diary">
-                <AreaChartOutlined onClick={() => navigate(`/hoyoverse/accounts/${accountId}/profiles/${profile.id}/diary`)} />
+                <AreaChartOutlined onClick={() => navigate(`${profilePath}/diary`)} />
             </Tooltip>
         ) : null,
         profile.supports_pulls ? (
             <Tooltip title="View Pulls History" key="pulls">
-                <HistoryOutlined onClick={() => navigate(`/hoyoverse/accounts/${accountId}/profiles/${profile.id}/pulls`)} />
+                <HistoryOutlined onClick={() => navigate(`${profilePath}/pulls`)} />
             </Tooltip>
         ) : null,
         <Tooltip title="Configure Settings" key="settings">
@@ -50,18 +63,27 @@ export default function GameProfileCard({ profile, accountId, accountCanRedeemCo
             <Card.Meta
                 avatar={
                     <Avatar
-                        src={profile.icon_url}
+                        src={
+                            profile.icon_url && !imgError ? (
+                                <img
+                                    src={profile.icon_url}
+                                    alt={profile.game_name}
+                                    referrerPolicy="no-referrer"
+                                    onError={() => setImgError(true)}
+                                />
+                            ) : undefined
+                        }
                         shape="square"
                         size={48}
                         style={{ filter: profile.active ? "none" : "grayscale(100%)" }}
                     >
-                        {profile.game_name?.[0]}
+                        {profile.game_name?.[0] ?? "G"}
                     </Avatar>
                 }
                 title={
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 4 }}>
                         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {profile.nickname}
+                            {profile.nickname || `UID ${profile.game_uid}`}
                         </span>
                         <Space size={4}>
                             {profile.level ? <Tag color="blue">Lv.{profile.level}</Tag> : null}
@@ -75,18 +97,18 @@ export default function GameProfileCard({ profile, accountId, accountCanRedeemCo
                     <div>
                         <div><strong>{profile.game_name}</strong></div>
                         <Text type="secondary" style={{ fontSize: 12 }}>
-                            UID: {profile.game_uid} | {profile.region_name || profile.region}
+                            UID: {profile.game_uid} | {profile.region_name || profile.region || profile.server_id}
                         </Text>
                         <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 4 }}>
                             {!profile.active ? (
                                 <Tag color="default">All Automations Suspended</Tag>
                             ) : (
                                 <>
-                                    {"hoyolab_check_in" in profile && profile.hoyolab_check_in && (
+                                    {(isEnabled("hoyolab_check_in") || isEnabled("skport_check_in")) && (
                                         <Tag color="green">Check-In</Tag>
                                     )}
-                                    {'code_redeem' in profile && profile.code_redeem && (
-                                        accountCanRedeemCodes ? (
+                                    {isEnabled("code_redeem") && (
+                                        account.can_redeem_codes ? (
                                             <Tag color="cyan">Codes</Tag>
                                         ) : (
                                             <Tooltip title="Code redemption is enabled in settings, but the account cookie lacks required redemption tokens.">
@@ -94,16 +116,22 @@ export default function GameProfileCard({ profile, accountId, accountCanRedeemCo
                                             </Tooltip>
                                         )
                                     )}
-                                    {"stamina_check" in profile && profile.stamina_check && (
+                                    {isEnabled("stamina_check") && (
                                         <Tag color="orange">Stamina</Tag>
                                     )}
-                                    {"realm_currency_check" in profile && profile.realm_currency_check && (
+                                    {isEnabled("realm_currency_check") && (
                                         <Tag color="purple">Teapot</Tag>
                                     )}
-                                    {supportsDiary && profile.sync_diary && (
+                                    {isEnabled("dailies_check") && (
+                                        <Tag color="magenta">Dailies</Tag>
+                                    )}
+                                    {isEnabled("weeklies_check") && (
+                                        <Tag color="volcano">Weeklies</Tag>
+                                    )}
+                                    {isEnabled("sync_diary") && (
                                         <Tag color="geekblue">Diary Sync</Tag>
                                     )}
-                                    {"sync_pulls" in profile && profile.sync_pulls && (
+                                    {isEnabled("sync_pulls") && (
                                         <Tag color="gold">Pulls Sync</Tag>
                                     )}
                                 </>

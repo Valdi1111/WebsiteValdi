@@ -1,19 +1,20 @@
+import { useGameProvider } from "@GamesBundle/components/GameProviderContext";
+import GameProfileCard from "@GamesBundle/components/game-profile/GameProfileCard";
 import {
     UserOutlined,
     SyncOutlined,
     DeleteOutlined,
-    GiftOutlined,
-    WarningOutlined,
-    ReloadOutlined,
     KeyOutlined,
-    CloseCircleOutlined,
 } from "@ant-design/icons";
-import { Card, Space, Button, Popconfirm, Typography, Row, Col, Empty, Tag, Tooltip } from "antd";
-import GameProfileCard from "@HoyoverseBundle/components/game-profile/GameProfileCard";
+import { Card, Space, Button, Popconfirm, Typography, Row, Col, Empty } from "antd";
 import React from "react";
 
 const { Text } = Typography;
 
+/**
+ * Account card with its game profiles. Provider-specific credential status comes from
+ * provider.AccountStatusTags and provider.getReloginState(account).
+ */
 export default function AccountCard({
     account,
     isSyncing,
@@ -22,11 +23,9 @@ export default function AccountCard({
     onDelete,
     onOpenProfileSettings,
 }) {
+    const { AccountStatusTags, getReloginState } = useGameProvider();
     const hasProfiles = account.game_profiles && account.game_profiles.length > 0;
-    const canRedeemCodes = Boolean(account.can_redeem_codes);
-    const canAutoRenew = Boolean(account.can_auto_renew);
-    const cookieRefreshFailed = Boolean(account.cookie_refresh_failed);
-    const needsReloginHighlight = !canAutoRenew || cookieRefreshFailed;
+    const reloginState = getReloginState?.(account) ?? { highlight: false, danger: false };
 
     return (
         <Card
@@ -49,47 +48,19 @@ export default function AccountCard({
                         </Space>
 
                         {/* Status badges wrapped cleanly to avoid collisions on smaller screens */}
-                        <Space wrap size={[6, 6]}>
-                            {canAutoRenew ? (
-                                <Tag color="green" icon={<ReloadOutlined />} style={{ margin: 0 }}>
-                                    Auto-Renew Ready
-                                </Tag>
-                            ) : (
-                                <Tooltip title="Account cookie is missing 'stoken_v2'. Cookies cannot be automatically renewed and will expire.">
-                                    <Tag color="warning" icon={<WarningOutlined />} style={{ margin: 0 }}>
-                                        Auto-Renew Unavailable
-                                    </Tag>
-                                </Tooltip>
-                            )}
-
-                            {canRedeemCodes ? (
-                                <Tag color="cyan" icon={<GiftOutlined />} style={{ margin: 0 }}>
-                                    Code Redemption Ready
-                                </Tag>
-                            ) : (
-                                <Tooltip title="Cookie is missing redemption tokens (cookie_token_v2, account_mid_v2, account_id_v2). Promo codes cannot be redeemed automatically.">
-                                    <Tag color="warning" icon={<WarningOutlined />} style={{ margin: 0 }}>
-                                        Code Redemption Unavailable
-                                    </Tag>
-                                </Tooltip>
-                            )}
-
-                            {cookieRefreshFailed && (
-                                <Tooltip title="Automatic cookie refresh failed. Please re-login to renew your HoYoverse tokens.">
-                                    <Tag color="error" icon={<CloseCircleOutlined />} style={{ margin: 0 }}>
-                                        Refresh Failed
-                                    </Tag>
-                                </Tooltip>
-                            )}
-                        </Space>
+                        {AccountStatusTags && (
+                            <Space wrap size={[6, 6]}>
+                                <AccountStatusTags account={account} />
+                            </Space>
+                        )}
                     </div>
 
                     {/* Right section: Action Buttons */}
                     <Space size="small" style={{ flexShrink: 0, alignSelf: "center" }} wrap>
                         {onRelogin && (
                             <Button
-                                type={needsReloginHighlight ? "primary" : "default"}
-                                danger={cookieRefreshFailed}
+                                type={reloginState.highlight ? "primary" : "default"}
+                                danger={reloginState.danger}
                                 icon={<KeyOutlined />}
                                 onClick={() => onRelogin(account)}
                             >
@@ -128,9 +99,8 @@ export default function AccountCard({
                         <Col xs={24} sm={12} md={8} lg={6} key={profile.id}>
                             <GameProfileCard
                                 profile={profile}
-                                accountId={account.id}
-                                accountCanRedeemCodes={canRedeemCodes}
-                                onOpenSettings={(profileId) => onOpenProfileSettings(account.id, canRedeemCodes, profileId)}
+                                account={account}
+                                onOpenSettings={(profileId) => onOpenProfileSettings(account.id, profileId)}
                             />
                         </Col>
                     ))}

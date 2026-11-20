@@ -1,4 +1,4 @@
-import { PullsRecentBadge, getPityColor } from "@HoyoverseBundle/components/pulls/PullsBannerCard";
+import { PullsRecentBadge, getPityColor } from "@GamesBundle/components/pulls/PullsBannerCard";
 import {
     Row,
     Col,
@@ -97,11 +97,11 @@ export default function PullsBannerDetail({
     const sRarity = rarityConfig?.s?.rarity ?? 5;
     const aRarity = rarityConfig?.a?.rarity ?? 4;
     const bRarity = rarityConfig?.b?.rarity ?? 3;
-    const sLabel = rarityConfig?.s?.label || "5★";
-    const aLabel = rarityConfig?.a?.label || "4★";
-    const sShort = rarityConfig?.s?.short || "5★";
-    const aShort = rarityConfig?.a?.short || "4★";
-    const bShort = rarityConfig?.b?.short || "3★";
+    const sLabel = rarityConfig?.s?.label || "S";
+    const aLabel = rarityConfig?.a?.label || "A";
+    const sShort = rarityConfig?.s?.short || "S";
+    const aShort = rarityConfig?.a?.short || "A";
+    const bShort = rarityConfig?.b?.short || "B";
     const pullLabel = rarityConfig?.pull_label || "Pulls";
     const pullSingularLabel = rarityConfig?.pull_singular_label || "Pull";
 
@@ -167,7 +167,7 @@ export default function PullsBannerDetail({
                         </Tag>
                         {record.item_type && (
                             <Text type="secondary" style={{ fontSize: 12 }}>
-                                ({record.item_type})
+                                ({record.item_type_label ?? record.item_type})
                             </Text>
                         )}
                     </Space>
@@ -371,7 +371,7 @@ export default function PullsBannerDetail({
                         {/* Search Input */}
                         <Space wrap size="small" style={{ flex: isMobile ? "1 1 100%" : "0 0 auto" }}>
                             <Input
-                                placeholder="Search item name..."
+                                placeholder="Search item..."
                                 value={search}
                                 onChange={(e) => onSearchChange(e.target.value)}
                                 onPressEnter={onSearchSubmit}

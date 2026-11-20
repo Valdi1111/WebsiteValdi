@@ -1,8 +1,7 @@
-import GameProfileSettingsDrawer from "@HoyoverseBundle/components/game-profile/GameProfileSettingsDrawer";
-import AddAccountModal from "@HoyoverseBundle/components/account/AddAccountModal";
-import AccountCard from "@HoyoverseBundle/components/account/AccountCard";
-
+import AccountCard from "@GamesBundle/components/account/AccountCard";
 import { useBackendApi } from "@GamesBundle/components/BackendApiContext";
+import { useGameProvider } from "@GamesBundle/components/GameProviderContext";
+import GameProfileSettingsDrawer from "@GamesBundle/components/game-profile/GameProfileSettingsDrawer";
 import React, { useState, useEffect, useCallback } from "react";
 import { Button, Typography, Space, Empty, Spin, Grid } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
@@ -20,10 +19,14 @@ export default function AccountsPage() {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [reloginAccount, setReloginAccount] = useState(null);
     const [submittingAccount, setSubmittingAccount] = useState(false);
+    // { accountId, profileId }: the account itself is read from the list so it stays fresh after reloads
     const [selectedTarget, setSelectedTarget] = useState(null);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
     const api = useBackendApi();
+    const { label, AddAccountModal } = useGameProvider();
+
+    const selectedAccount = accounts.find((acc) => acc.id === selectedTarget?.accountId) ?? null;
 
     const loadAccounts = useCallback(() => {
         setLoading(true);
@@ -100,8 +103,8 @@ export default function AccountsPage() {
             });
     };
 
-    const handleOpenSettings = (accountId, canRedeemCodes, profileId) => {
-        setSelectedTarget({ accountId, canRedeemCodes, profileId });
+    const handleOpenSettings = (accountId, profileId) => {
+        setSelectedTarget({ accountId, profileId });
         setIsSettingsOpen(true);
     };
 
@@ -126,10 +129,10 @@ export default function AccountsPage() {
             >
                 <div style={{ maxWidth: 600 }}>
                     <Title level={isMobile ? 4 : 3} style={{ margin: 0 }}>
-                        HoYoverse Accounts
+                        {label} Accounts
                     </Title>
                     <Text type="secondary" style={{ fontSize: isMobile ? 12 : 13 }}>
-                        Manage your HoYoverse credentials, sync linked game profiles, and configure automation settings
+                        Manage your {label} credentials, sync linked game profiles, and configure automation settings
                     </Text>
                 </div>
                 <Button
@@ -150,7 +153,7 @@ export default function AccountsPage() {
                     <Spin size="large" />
                 </div>
             ) : accounts.length === 0 ? (
-                <Empty description="No HoYoverse accounts found" />
+                <Empty description={`No ${label} accounts found`} />
             ) : (
                 <Space orientation="vertical" size={isMobile ? "middle" : "large"} style={{ width: "100%" }}>
                     {accounts.map((acc) => (
@@ -178,9 +181,8 @@ export default function AccountsPage() {
 
             <GameProfileSettingsDrawer
                 open={isSettingsOpen}
-                accountId={selectedTarget?.accountId}
+                account={selectedAccount}
                 profileId={selectedTarget?.profileId}
-                accountCanRedeemCodes={selectedTarget?.canRedeemCodes}
                 onClose={() => {
                     setIsSettingsOpen(false);
                     setSelectedTarget(null);

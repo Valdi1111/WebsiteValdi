@@ -6,7 +6,7 @@ use App\CoreBundle\Entity\User;
 use App\GamesBundle\Service\AuthSessionStore;
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Exception\SkportAuthException;
-use App\GryphlineBundle\Model\Auth\GryphlineLoginStepResult;
+use App\GamesBundle\Model\Auth\LoginStepResult;
 use App\GryphlineBundle\Model\SkportSessionCredentials;
 use App\GryphlineBundle\Repository\GryphlineAccountRepository;
 use App\GryphlineBundle\Service\GryphlineAuthService;
@@ -81,7 +81,7 @@ class GryphlineAuthServiceTest extends TestCase
 
         $result = $service->startLogin($user, 'doctor@gryphline.com', 'plain_password');
 
-        $this->assertSame(GryphlineLoginStepResult::STATUS_AUTHENTICATED, $result->getStatus());
+        $this->assertSame(LoginStepResult::STATUS_AUTHENTICATED, $result->getStatus());
         $this->assertNotNull($result->getAccount());
         $this->assertSame('gryphline_account_token_123', $result->getAccount()->getAccountToken());
     }
@@ -143,7 +143,7 @@ class GryphlineAuthServiceTest extends TestCase
 
         // Step 1: Trigger captcha
         $step1 = $service->startLogin($user, 'doctor@gryphline.com', 'EndfieldSecretPwd!');
-        $this->assertSame(GryphlineLoginStepResult::STATUS_CAPTCHA_REQUIRED, $step1->getStatus());
+        $this->assertSame(LoginStepResult::STATUS_CAPTCHA_REQUIRED, $step1->getStatus());
         $sessionId = (string) $step1->getLoginSessionId();
         $this->assertNotEmpty($sessionId);
         $this->assertSame('gt4-gryphline-id', $step1->getCaptcha()['captcha_id'] ?? null);
@@ -162,7 +162,7 @@ class GryphlineAuthServiceTest extends TestCase
             'captcha_output' => 'output-99',
         ]);
 
-        $this->assertSame(GryphlineLoginStepResult::STATUS_AUTHENTICATED, $step2->getStatus());
+        $this->assertSame(LoginStepResult::STATUS_AUTHENTICATED, $step2->getStatus());
         $this->assertSame('final_account_token_after_captcha', $step2->getAccount()?->getAccountToken());
 
         // Verify that the second request body included 'challenge' inside 'captcha'

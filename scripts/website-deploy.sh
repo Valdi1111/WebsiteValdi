@@ -42,6 +42,9 @@ composer install --no-dev --optimize-autoloader --no-interaction
 
 echo "5) Run Doctrine migrations"
 php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+# The DB role hierarchy is cached in an application pool under var/share (not removed in step 3):
+# clear it so role/hierarchy data migrations take effect immediately.
+php bin/console cache:pool:clear core.security_hierarchy.cache --env=prod
 
 echo "6) Warmup cache"
 # Warmup production cache directly (stale cache was already cleared in step 3)

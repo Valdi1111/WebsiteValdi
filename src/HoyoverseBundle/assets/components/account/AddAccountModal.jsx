@@ -7,10 +7,11 @@ import {
     MailOutlined,
     UserOutlined,
 } from "@ant-design/icons";
-import GeetestCaptchaFrame from "@GamesBundle/components/GeetestCaptchaFrame";
+import CaptchaStep from "@GamesBundle/components/account/CaptchaStep";
+import useLoginWizard from "@GamesBundle/components/account/useLoginWizard";
 import { useBackendApi } from "@GamesBundle/components/BackendApiContext";
 import { Alert, Button, Descriptions, Form, Input, Modal, Space, Tabs, Tag } from "antd";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 export default function AddAccountModal({
     open,
@@ -26,21 +27,32 @@ export default function AddAccountModal({
     const [emailForm] = Form.useForm();
 
     const [activeTab, setActiveTab] = useState("login");
-    const [wizardStep, setWizardStep] = useState("credentials"); // credentials | captcha | email_verification
-    const [loginSessionId, setLoginSessionId] = useState(null);
-    const [wizardLoading, setWizardLoading] = useState(false);
     const [resendCooldown, setResendCooldown] = useState(0);
 
     const rawCookie = Form.useWatch("cookie", cookieForm);
 
-    const resetWizard = useCallback(() => {
-        setWizardStep("credentials");
-        setLoginSessionId(null);
-        setWizardLoading(false);
-        setResendCooldown(0);
-        loginForm.resetFields();
-        emailForm.resetFields();
-    }, [loginForm, emailForm]);
+    // Wizard steps: credentials | captcha | email_verification (HoYoverse-specific)
+    const wizard = useLoginWizard({
+        api,
+        reloginAccount,
+        onLoginSuccess: (account) => {
+            cookieForm.resetFields();
+            onLoginSuccess?.(account);
+        },
+        onStatus: (data, { setStep }) => {
+            if (data.status === "email_verification_required") {
+                setStep("email_verification");
+                setResendCooldown(60);
+            }
+        },
+        // The email form is not reset here: it may never have been mounted (antd warns about
+        // unconnected useForm instances) and preserve={false} already clears it on unmount.
+        onReset: () => {
+            setResendCooldown(0);
+            loginForm.resetFields();
+        },
+    });
+    const { step: wizardStep, loginSessionId, loading: wizardLoading, reset: resetWizard } = wizard;
 
     useEffect(() => {
         if (open) {
@@ -90,92 +102,30 @@ export default function AddAccountModal({
         onCancel();
     };
 
-    const handleStepResult = (data) => {
-        if (!data) {
-            return;
-        }
-        const sessionId = data.login_session_id ?? data.loginSessionId ?? loginSessionId;
-        if (sessionId) {
-            setLoginSessionId(sessionId);
-        }
-
-        if (data.status === "captcha_required") {
-            setWizardStep("captcha");
-        } else if (data.status === "email_verification_required") {
-            setWizardStep("email_verification");
-            setResendCooldown(60);
-        } else if (data.status === "authenticated") {
-            resetWizard();
-            cookieForm.resetFields();
-            onLoginSuccess?.(data.account);
-        }
-    };
-
     const handleLoginStart = (values) => {
-        setWizardLoading(true);
-        const payload = {
+        wizard.start({
             account: values.account?.trim(),
             password: values.password,
-        };
-
-        const reqPromise = reloginAccount
-            ? api.withErrorHandling().accounts().reloginStart(reloginAccount.id, payload)
-            : api.withErrorHandling().accounts().loginStart(payload);
-
-        reqPromise
-            .then((res) => handleStepResult(res.data))
-            .catch(() => {})
-            .finally(() => setWizardLoading(false));
+        });
     };
-
-    const handleCaptchaSuccess = useCallback(
-        (captchaPayload) => {
-            if (!loginSessionId) {
-                return;
-            }
-            setWizardLoading(true);
-            api.withErrorHandling()
-                .accounts()
-                .loginCaptcha({
-                    login_session_id: loginSessionId,
-                    captcha: captchaPayload,
-                })
-                .then((res) => handleStepResult(res.data))
-                .catch(() => {})
-                .finally(() => setWizardLoading(false));
-        },
-        [api, loginSessionId]
-    );
 
     const handleVerifyEmail = (values) => {
         if (!loginSessionId) {
             return;
         }
-        setWizardLoading(true);
-        api.withErrorHandling()
-            .accounts()
-            .loginVerifyEmail({
-                login_session_id: loginSessionId,
-                code: values.code?.trim(),
-            })
-            .then((res) => handleStepResult(res.data))
-            .catch(() => {})
-            .finally(() => setWizardLoading(false));
+        wizard.run(api.withErrorHandling().accounts().loginVerifyEmail({
+            login_session_id: loginSessionId,
+            code: values.code?.trim(),
+        }));
     };
 
     const handleResendEmail = () => {
         if (!loginSessionId || resendCooldown > 0) {
             return;
         }
-        setWizardLoading(true);
-        api.withErrorHandling()
-            .accounts()
-            .loginResendEmail({
-                login_session_id: loginSessionId,
-            })
-            .then((res) => handleStepResult(res.data))
-            .catch(() => {})
-            .finally(() => setWizardLoading(false));
+        wizard.run(api.withErrorHandling().accounts().loginResendEmail({
+            login_session_id: loginSessionId,
+        }));
     };
 
     const handleCookieFinish = (values) => {
@@ -188,29 +138,19 @@ export default function AddAccountModal({
     const renderLoginWizard = () => {
         if (wizardStep === "captcha" && loginSessionId) {
             return (
-                <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
-                    <GeetestCaptchaFrame
-                        frameUrl={api.accounts().getGeetestFrameUrl(loginSessionId)}
-                        onSuccess={handleCaptchaSuccess}
-                        submitting={wizardLoading}
-                    />
-                    <div style={{ textAlign: "right" }}>
-                        <Space>
-                            <Button onClick={resetWizard} disabled={wizardLoading}>
-                                Back to Credentials
-                            </Button>
-                            <Button onClick={handleClose} disabled={wizardLoading}>
-                                Cancel
-                            </Button>
-                        </Space>
-                    </div>
-                </Space>
+                <CaptchaStep
+                    frameUrl={api.accounts().getGeetestFrameUrl(loginSessionId)}
+                    onSuccess={wizard.submitCaptcha}
+                    submitting={wizardLoading}
+                    onBack={resetWizard}
+                    onCancel={handleClose}
+                />
             );
         }
 
         if (wizardStep === "email_verification") {
             return (
-                <Form form={emailForm} layout="vertical" onFinish={handleVerifyEmail}>
+                <Form form={emailForm} layout="vertical" preserve={false} onFinish={handleVerifyEmail}>
                     <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
                         <Alert
                             type="info"

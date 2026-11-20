@@ -140,10 +140,10 @@ export function PullsRecentBadge({ pull, maxPity = 90, pullSingularLabel = "Pull
 }
 
 export default function PullsBannerCard({ banner, rarityConfig, onViewDetails }) {
-    const sLabel = rarityConfig?.s?.label || "5★";
-    const sShort = rarityConfig?.s?.short || "5★";
-    const aLabel = rarityConfig?.a?.label || "4★";
-    const aShort = rarityConfig?.a?.short || "4★";
+    const sLabel = rarityConfig?.s?.label || "S";
+    const sShort = rarityConfig?.s?.short || "S";
+    const aLabel = rarityConfig?.a?.label || "A";
+    const aShort = rarityConfig?.a?.short || "A";
     const pullLabel = rarityConfig?.pull_label || "Pulls";
     const pullSingularLabel = rarityConfig?.pull_singular_label || "Pull";
 

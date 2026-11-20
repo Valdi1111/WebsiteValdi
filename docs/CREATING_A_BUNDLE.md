@@ -216,3 +216,5 @@ System.config({
 ## 6. Subdomain Exposure (Caddy)
 
 If the bundle is served on its own subdomain (e.g. `example.valdi.ovh`), add `"example"` to the `SUBDOMAINS` array in [`scripts/setup-server.sh`](../scripts/setup-server.sh) or update `/var/www/caddy/Caddyfile` manually and reload Caddy (`sudo systemctl reload caddy`).
+
+> **Game provider bundles** (HoYoverse, Gryphline, ...) are not served on their own subdomain: they plug into the unified `games.<domain>` frontend provided by `GamesBundle`. Follow [Adding a game provider](../src/GamesBundle/README.md#3-adding-a-game-provider) instead.

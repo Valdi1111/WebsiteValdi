@@ -1,14 +1,18 @@
 <?php
 
-namespace App\GryphlineBundle\Model\Auth;
+namespace App\GamesBundle\Model\Auth;
 
-use App\GryphlineBundle\Entity\GryphlineAccount;
+use App\GamesBundle\Model\Game\GameAccountInterface;
 use Symfony\Component\Serializer\Attribute\SerializedName;
 
-class GryphlineLoginStepResult
+/**
+ * Outcome of one step of a provider direct-login wizard, serialized to the games SPA.
+ */
+class LoginStepResult
 {
     public const string STATUS_AUTHENTICATED = 'authenticated';
     public const string STATUS_CAPTCHA_REQUIRED = 'captcha_required';
+    public const string STATUS_EMAIL_VERIFICATION_REQUIRED = 'email_verification_required';
 
     /**
      * @param array<string, mixed>|null $captcha
@@ -18,7 +22,7 @@ class GryphlineLoginStepResult
         #[SerializedName('login_session_id')]
         private ?string $loginSessionId = null,
         private ?array $captcha = null,
-        private ?GryphlineAccount $account = null,
+        private ?GameAccountInterface $account = null,
         private ?string $message = null,
     ) {
     }
@@ -65,12 +69,12 @@ class GryphlineLoginStepResult
         return $this;
     }
 
-    public function getAccount(): ?GryphlineAccount
+    public function getAccount(): ?GameAccountInterface
     {
         return $this->account;
     }
 
-    public function setAccount(?GryphlineAccount $account): static
+    public function setAccount(?GameAccountInterface $account): static
     {
         $this->account = $account;
 

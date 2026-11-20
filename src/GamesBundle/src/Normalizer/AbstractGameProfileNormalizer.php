@@ -137,7 +137,8 @@ abstract class AbstractGameProfileNormalizer implements NormalizerInterface, Den
         if (is_array($result) && method_exists($data, 'getParsedTimezone')) {
             $timezoneMap = $this->getTimezoneMap();
             $parsedTz = $data->getParsedTimezone();
-            $result['timezone'] = $timezoneMap[$parsedTz] ?? $parsedTz;
+            // Null offsets are deprecated since PHP 8.5: profiles without a region have no timezone
+            $result['timezone'] = $parsedTz !== null ? ($timezoneMap[$parsedTz] ?? $parsedTz) : null;
         }
 
         return $result;

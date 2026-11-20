@@ -91,6 +91,9 @@ class GryphlineNormalizerTest extends TestCase
         $this->assertSame(10, $result['id']);
         $this->assertTrue($result['skport_check_in']);
         $this->assertTrue($result['skport_missed_check_in']);
+        // Capability flags shared with other providers by the games SPA
+        $this->assertTrue($result['supports_pulls']);
+        $this->assertTrue($result['supports_pull_sync']);
     }
 
     public function testGameProfileNormalizerDenormalizationWhitelist(): void

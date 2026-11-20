@@ -29,7 +29,7 @@ It supports direct credentials or cookie-based authentication, automatic session
 Each game is implemented as a service extending `App\HoyoverseBundle\Model\Game\GameService` (registered in the Service Locator via the `hoyoverse.game.id` and `hoyoverse.game.biz` tags).  
 Supported features for each game are declared through **Capability Interfaces**: both background **MessageHandlers** and `HoyoverseGameProfileNormalizer` (for the React frontend) inspect implemented interfaces via `instanceof` to automatically enable/hide scheduled jobs and toggles in `GameProfileSettingsDrawer`.
 
-#### Shared Interfaces (`App\CoreBundle\Model\Game\*`)
+#### Shared Interfaces (`App\GamesBundle\Model\Game\*`)
 | Interface | Associated Trait | Fields Exposed by Normalizer | Purpose / Enabled Feature |
 | :--- | :--- | :--- | :--- |
 | `HasNotesInterface` | `NotesTrait` | — | The game exposes a *Real-Time Notes* endpoint (`dailyNote` / `note`) on HoYoLAB to fetch live profile data. |
@@ -49,7 +49,7 @@ Supported features for each game are declared through **Capability Interfaces**:
 | `HasShopStatusInterface` | `NotesTrait` | `shopStatusCheck` | The game includes Video Store / VHS management status in Real-Time Notes (*ZZZ*), enabling **Shop Status Reminder**. |
 | `HasDiaryInterface` | `DiaryTrait` | `syncDiary` | The game exposes monthly `month_info` and `month_detail` endpoints (*GI*, *HSR*, *ZZZ*), enabling the **Diary** page and monthly currency sync. |
 | `HasPullTrackerInterface` | `HoyoversePullTrait` | `supports_pulls: true` | The game supports Gacha banner tracking (`getGachaConfig()`, `getRarityConfig()`, `fetchPullsPage()`), enabling the **Pulls Tracker** page. |
-| `HasStokenPullImportInterface` | `HoyoversePullTrait` | `syncPulls`, `supports_stoken_pulls: true` | Extends `HasPullTrackerInterface`: the game can generate a gacha `authkey` directly from `stoken_v2` via Takumi API (*GI*, *ZZZ*), enabling the **Auto Sync Pulls** toggle and 1-click **Sync Pulls** button. |
+| `HasStokenPullImportInterface` | `HoyoversePullTrait` | `syncPulls`, `supports_pull_sync: true` | Extends `HasPullTrackerInterface`: the game can generate a gacha `authkey` directly from `stoken_v2` via Takumi API (*GI*, *ZZZ*), enabling the **Auto Sync Pulls** toggle and 1-click **Sync Pulls** button. |
 | `HasPowershellPullImportInterface` | `HoyoversePullTrait` | `supports_powershell_pulls: true` | Extends `HasPullTrackerInterface`: the game defines a `PowershellPullConfig` (*GI*, *HSR*, *ZZZ*), enabling **Import via PowerShell** to extract the Gacha URL from the local Windows webview cache. |
 | `HasMimoInterface` | `MimoTrait` | `mimoCheck`, `mimoRedeem`, `mimoRedeemDraw`, `mimoLottery`, `mimoReservePoints` | Scaffolding for automating *Traveling Mimo* web events on HoYoLAB. |
 | `HasHilichurlInterface` | — | `hilichurlCheck`, `hilichurlRedeem` | Scaffolding for automating *Hilichurl's Treasure Trove* web events. |
@@ -163,7 +163,7 @@ The **Diary** feature archives and displays the detailed history of in-game curr
   - **Schedule**: `0 0 2 * *` (day 2 of every month at midnight).
   - For all profiles with `syncDiary = true`, queues a full sync of both the **previous month** and the **current month**.
 - **Manual UI Synchronization**:
-  - From the **Diary** page, users can pick any of the last 3 months available on HoYoLAB and trigger an asynchronous import (`POST /api/accounts/{account}/gameProfiles/{gameProfile}/diary/sync`).
+  - From the **Diary** page, users can pick any of the last 3 months available on HoYoLAB and trigger an asynchronous import (`POST /api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/diary/sync`).
 - **Import Architecture (`SyncDiaryPageProfileHandler`)**:
   - Downloads paginated logs (`page_size = 100`) per currency and persists each entry in `hoyoverse_diary_entry` (`action_id`, `action_name`, `amount`, `awarded_at`), automatically skipping duplicates already stored in the database.
   - The frontend table supports filtering by currency, source/action, date range, and sorting.
@@ -204,11 +204,11 @@ For games implementing `HasStokenPullImportInterface` (**Genshin Impact** and **
 Because **Honkai: Star Rail** (`hkrpg_global`) does not allow generating a gacha `authkey` via `stoken_v2` (returns `retcode -106`), and as a fallback for accounts without `stoken_v2`, assisted PowerShell importing (`PowershellPullImportModal`) is available from the **`Import ▾`** dropdown on `PullsPage`:
 1. The user runs the one-liner shown in the modal inside Windows PowerShell:
    ```powershell
-   irm "https://hoyoverse.<domain>/api/pulls/script/powershell?game_biz=<game_biz>" | iex
+   irm "https://games.<domain>/api/hoyoverse/pulls/script/powershell?game_biz=<game_biz>" | iex
    ```
-2. `GET /api/pulls/script/powershell` dynamically builds the `.ps1` script from the game's `PowershellPullConfig`:
+2. `GET /api/hoyoverse/pulls/script/powershell` dynamically builds the `.ps1` script from the game's `PowershellPullConfig`:
    - Reads local game logs (`Player.log` / `output_log.txt` under `%USERPROFILE%\AppData\LocalLow\...`), locates `webCaches\...\Cache\Cache_Data\data_2`, extracts the latest `getGachaLog` URL containing `authkey=...`, and **copies it to the clipboard** (`Set-Clipboard`).
-3. The user pastes the URL into the modal and starts the import (`POST /api/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-powershell`).
+3. The user pastes the URL into the modal and starts the import (`POST /api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-powershell`).
 4. The backend validates the URL and dispatches `SyncPullsPageProfileMessage` jobs onto `hoyoverse_pulls` for all game banners, including for **Honkai: Star Rail**:
    - *Character Event Warp* (`11`, pity 90/10), *Light Cone Event Warp* (`12`, pity 80/10), *Collaboration Character Warp* (`21` on `getLdGachaLog`, pity 90/10), *Collaboration Light Cone Warp* (`22` on `getLdGachaLog`, pity 90/10), *Regular Warp* (`1`, pity 90/10), and *Departure Warp* (`2`, pity 50/10).
 
@@ -219,7 +219,7 @@ Character, weapon, Light Cone, W-Engine, and Bangboo thumbnails in cards (`Pulls
   - **Genshin Impact** (`hk4e_global`): normalized-name lookup in `gi/{version}/{character|weapon}.json` → `https://static.nanoka.cc/assets/gi/{icon}.webp`.
   - **Honkai: Star Rail** (`hkrpg_global`): direct `itemId` resolution → `avatarroundicon/{itemId}.webp` (characters) and `lightconemediumicon/{itemId}.webp` (Light Cones).
   - **Zenless Zone Zero** (`nap_global`): lookup in `zzz/{version}/{character|weapon|bangboo}.json`, converting `IconRole*` → `IconRoleCircle*` for agents.
-- **API Enrichment & Local Cache**: `ApiGameProfilesController` injects `'icon_url'` via `PullItemIconUrlBuilder::enrichPullRows()`; on first request, `LiipImagineBundle` downloads the asset via `PullItemIconBinaryLoader` and caches the resized image (`128×128`, `webp`, quality `100`) under `public/media/cache/core_pull_item_icon/`.
+- **API Enrichment & Local Cache**: `ApiGameProfilesController` injects `'icon_url'` via `PullItemIconUrlBuilder::enrichPullRows()`; on first request, `LiipImagineBundle` downloads the asset via `PullItemIconBinaryLoader` and caches the resized image (`128×128`, `webp`, quality `100`) under `public/media/cache/games_pull_item_icon/`.
 
 ### 7.5 Third-Party Backup Importing (Paimon.moe, Star Rail Station, ZZZ.rng.moe)
 To preserve pull history older than HoYoverse's 6–12 month API window, the bundle provides an extensible **Backup Importer** architecture accessible from both the web UI and the CLI.
@@ -258,11 +258,11 @@ To preserve pull history older than HoYoverse's 6–12 month API window, the bun
   ```
 
 ### 7.6 Real-Time Progress Tracking (Mercure + Polling Fallback)
-All asynchronous pull operations — **Backup Import**, **PowerShell Import**, **Manual SToken Sync**, and **Scheduled Sync** (`CoreBundle\Model\Pull\PullOperationKind`) — are tracked uniformly by `HoyoverseBundle\Service\Pull\PullOperationTracker` (extending `CoreBundle\Service\AbstractPullOperationTracker`):
+All asynchronous pull operations — **Backup Import**, **PowerShell Import**, **Manual SToken Sync**, and **Scheduled Sync** (`GamesBundle\Model\Pull\PullOperationKind`) — are tracked uniformly by `HoyoverseBundle\Service\Pull\PullOperationTracker` (extending `GamesBundle\Service\AbstractPullOperationTracker`):
 - **Cache Snapshot + Mercure Updates**:
-  - Operation state is stored in `hoyoverse.pull_import_status.cache` (1-hour TTL, configured in `src/HoyoverseBundle/config/packages/cache.yaml`) and published as a **private** Mercure update on `https://{hoyoverse.domain_name}/profiles/{profileId}/pulls/progress` (payload `{ action: 'pulls:operation_progress', operation: {...} }`).
+  - Operation state is stored in `hoyoverse.pull_import_status.cache` (1-hour TTL, configured in `src/HoyoverseBundle/config/packages/cache.yaml`) and published as a **private** Mercure update on `https://{games.domain_name}/hoyoverse/profiles/{profileId}/pulls/progress` (payload `{ action: 'pulls:operation_progress', operation: {...} }`).
   - `GET .../pulls/overview` sets the `mercureAuthorization` cookie for the profile's topic and returns `mercure_topic`, `available_backup_importers`, and any currently running `active_operation`.
-- **Shared Live UI (`@CoreBundle/components/pulls/*` on `PullsPage`)**:
+- **Shared Live UI (`@GamesBundle/components/pulls/*` on `PullsPage`)**:
   - `PullsPage` uses the shared `usePullOperationProgress` hook, `PullOperationProgressBanner`, and `BackupPullImportModal` to open an authenticated `EventSource` against `MERCURE_HUB_URL`, updating the progress bar, counters (`processed / total`, `imported`, `skipped`, `promoted/linked`), and per-banner sync status in real time.
   - If Mercure is unreachable, it automatically falls back to **1-second HTTP polling** against `GET .../pulls/operations/{operationId}` while the operation is active.
   - Upon transitioning to `completed`, the page automatically refreshes the overview and selected banner view.
@@ -273,21 +273,21 @@ All asynchronous pull operations — **Backup Import**, **PowerShell Import**, *
 
 | Method | Path | Description |
 | :--- | :--- | :--- |
-| `POST` | `/api/accounts/auth/login/start` | Starts direct Email/Username + Password login |
-| `POST` | `/api/accounts/{id}/relogin/start` | Starts re-login on an existing `HoyoverseAccount` (reuses `device_id` and validates `account_uid`) |
-| `POST` | `/api/accounts/auth/login/captcha` | Submits the GeeTest v3/v4 Aigis captcha solution |
-| `POST` | `/api/accounts/auth/login/verify-email` | Verifies the 6-digit email OTP code (`-3239`) |
-| `POST` | `/api/accounts/auth/login/resend-email` | Requests a new email OTP code |
-| `GET` | `/api/accounts/auth/geetest/frame` | Renders the isolated iframe for the GeeTest v3/v4 widget |
-| `GET` | `/api/accounts` / `POST /api/accounts` | Lists accounts or adds/updates an account via Cookie String |
-| `POST` | `/api/accounts/{id}/sync` | Syncs game profiles (`HoyoverseGameProfile`) from the HoYoLAB account |
-| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/diary/meta` | Metadata, currencies, and available months for the Diary |
-| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/diary/summary` | Monthly totals and action breakdown for the Diary |
-| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/diary/entries` | Paginated list of Diary entries |
-| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls/overview` | Pity/banner overview; sets Mercure cookie and returns `available_backup_importers`, `mercure_topic`, and `active_operation` |
-| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls` | Paginated pulls for a banner with pity calculation and item icons |
-| `POST` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls/sync` | Queues automatic pull sync via `stoken_v2` (returns `operation`) |
-| `POST` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-powershell` | Validates a PowerShell-extracted Gacha URL and queues import on `hoyoverse_pulls` (returns `operation`) |
-| `POST` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-backup` | Validates a backup file (`paimon_moe`, `star_rail_station_csv`, `zzz_rng_moe`) and queues import on `hoyoverse_pulls` (`202` / `400` / `409`) |
-| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls/operations/{operationId}` | Returns the latest snapshot of a pull operation (fallback polling when Mercure is unavailable) |
-| `GET` | `/api/pulls/script/powershell` | Returns the `.ps1` PowerShell script to extract the Gacha URL from local cache |
+| `POST` | `/api/hoyoverse/accounts/login/start` | Starts direct Email/Username + Password login |
+| `POST` | `/api/hoyoverse/accounts/{id}/relogin/start` | Starts re-login on an existing `HoyoverseAccount` (reuses `device_id` and validates `account_uid`) |
+| `POST` | `/api/hoyoverse/accounts/login/captcha` | Submits the GeeTest v3/v4 Aigis captcha solution |
+| `POST` | `/api/hoyoverse/accounts/login/verify-email` | Verifies the 6-digit email OTP code (`-3239`) |
+| `POST` | `/api/hoyoverse/accounts/login/resend-email` | Requests a new email OTP code |
+| `GET` | `/api/hoyoverse/accounts/login/geetest-frame` | Renders the isolated iframe for the GeeTest v3/v4 widget |
+| `GET` | `/api/hoyoverse/accounts` / `POST /api/hoyoverse/accounts` | Lists accounts or adds/updates an account via Cookie String |
+| `POST` | `/api/hoyoverse/accounts/{id}/sync` | Syncs game profiles (`HoyoverseGameProfile`) from the HoYoLAB account |
+| `GET` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/diary/meta` | Metadata, currencies, and available months for the Diary |
+| `GET` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/diary/summary` | Monthly totals and action breakdown for the Diary |
+| `GET` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/diary/entries` | Paginated list of Diary entries |
+| `GET` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/overview` | Pity/banner overview; sets Mercure cookie and returns `available_backup_importers`, `mercure_topic`, and `active_operation` |
+| `GET` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls` | Paginated pulls for a banner with pity calculation and item icons |
+| `POST` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/sync` | Queues automatic pull sync via `stoken_v2` (returns `operation`) |
+| `POST` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-powershell` | Validates a PowerShell-extracted Gacha URL and queues import on `hoyoverse_pulls` (returns `operation`) |
+| `POST` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-backup` | Validates a backup file (`paimon_moe`, `star_rail_station_csv`, `zzz_rng_moe`) and queues import on `hoyoverse_pulls` (`202` / `400` / `409`) |
+| `GET` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/operations/{operationId}` | Returns the latest snapshot of a pull operation (fallback polling when Mercure is unavailable) |
+| `GET` | `/api/hoyoverse/pulls/script/powershell` | Returns the `.ps1` PowerShell script to extract the Gacha URL from local cache |

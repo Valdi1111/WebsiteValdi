@@ -6,7 +6,7 @@ use App\CoreBundle\Entity\User;
 use App\GamesBundle\Service\AuthSessionStore;
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Exception\SkportAuthException;
-use App\GryphlineBundle\Model\Auth\GryphlineLoginStepResult;
+use App\GamesBundle\Model\Auth\LoginStepResult;
 use App\GryphlineBundle\Repository\GryphlineAccountRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Cache\CacheItemPoolInterface;
@@ -43,7 +43,7 @@ class GryphlineAuthService
         #[\SensitiveParameter]
         string $password,
         ?GryphlineAccount $reloginAccount = null,
-    ): GryphlineLoginStepResult {
+    ): LoginStepResult {
         if ($reloginAccount !== null && $reloginAccount->getUser() !== $user) {
             throw new AccessDeniedException('Cannot re-login an account belonging to another user.');
         }
@@ -61,8 +61,8 @@ class GryphlineAuthService
             $hgId = isset($payload['data']['hgId']) ? (string) $payload['data']['hgId'] : null;
             $account = $this->finalizeAuthenticatedAccount($user, $token, $reloginAccount, $hgId);
 
-            return new GryphlineLoginStepResult(
-                status: GryphlineLoginStepResult::STATUS_AUTHENTICATED,
+            return new LoginStepResult(
+                status: LoginStepResult::STATUS_AUTHENTICATED,
                 account: $account,
                 message: 'Gryphline account authenticated and session credentials generated.',
             );
@@ -96,8 +96,8 @@ class GryphlineAuthService
 
             $loginSessionId = $this->authSessionStore->create($this->authSessionCache, $user, $sessionData, self::SESSION_TTL);
 
-            return new GryphlineLoginStepResult(
-                status: GryphlineLoginStepResult::STATUS_CAPTCHA_REQUIRED,
+            return new LoginStepResult(
+                status: LoginStepResult::STATUS_CAPTCHA_REQUIRED,
                 loginSessionId: $loginSessionId,
                 captcha: $captchaConfig,
                 message: 'Please complete the security verification.',
@@ -110,7 +110,7 @@ class GryphlineAuthService
     /**
      * @param array<string, mixed> $geetestPayload
      */
-    public function submitCaptcha(User $user, string $loginSessionId, array $geetestPayload): GryphlineLoginStepResult
+    public function submitCaptcha(User $user, string $loginSessionId, array $geetestPayload): LoginStepResult
     {
         $sessionData = $this->loadSessionOrFail($user, $loginSessionId);
         $password = $this->authSessionStore->decryptSecret((string) ($sessionData['encryptedPassword'] ?? ''));
@@ -146,8 +146,8 @@ class GryphlineAuthService
             $account = $this->finalizeAuthenticatedAccount($user, $token, $reloginAccount, $hgId);
             $this->authSessionStore->delete($this->authSessionCache, $loginSessionId);
 
-            return new GryphlineLoginStepResult(
-                status: GryphlineLoginStepResult::STATUS_AUTHENTICATED,
+            return new LoginStepResult(
+                status: LoginStepResult::STATUS_AUTHENTICATED,
                 account: $account,
                 message: 'Gryphline account authenticated and session credentials generated.',
             );
@@ -170,8 +170,8 @@ class GryphlineAuthService
             $sessionData['captcha'] = $captchaConfig;
             $this->authSessionStore->update($this->authSessionCache, $user, $loginSessionId, $sessionData, self::SESSION_TTL);
 
-            return new GryphlineLoginStepResult(
-                status: GryphlineLoginStepResult::STATUS_CAPTCHA_REQUIRED,
+            return new LoginStepResult(
+                status: LoginStepResult::STATUS_CAPTCHA_REQUIRED,
                 loginSessionId: $loginSessionId,
                 captcha: $captchaConfig,
                 message: 'Please complete the security verification.',

@@ -6,7 +6,7 @@ use App\CoreBundle\Entity\User;
 use App\GamesBundle\Service\AuthSessionStore;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Exception\HoyoverseAuthException;
-use App\HoyoverseBundle\Model\Auth\HoyoverseLoginStepResult;
+use App\GamesBundle\Model\Auth\LoginStepResult;
 use App\HoyoverseBundle\Model\ParsedCookie;
 use App\HoyoverseBundle\Repository\HoyoverseAccountRepository;
 use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
@@ -108,7 +108,7 @@ class HoyoverseAuthServiceTest extends TestCase
 
         $result = $service->startLogin($user, 'player@example.com', 'plain_pass_123');
 
-        $this->assertSame(HoyoverseLoginStepResult::STATUS_AUTHENTICATED, $result->getStatus());
+        $this->assertSame(LoginStepResult::STATUS_AUTHENTICATED, $result->getStatus());
         $account = $result->getAccount();
         $this->assertNotNull($account);
         $this->assertSame('12345678', $account->getAccountUid());
@@ -200,7 +200,7 @@ class HoyoverseAuthServiceTest extends TestCase
 
         // Step 1: Start login -> captcha_required
         $step1 = $service->startLogin($user, 'player@example.com', 'super_secret_plain_pwd');
-        $this->assertSame(HoyoverseLoginStepResult::STATUS_CAPTCHA_REQUIRED, $step1->getStatus());
+        $this->assertSame(LoginStepResult::STATUS_CAPTCHA_REQUIRED, $step1->getStatus());
         $sessionId = (string) $step1->getLoginSessionId();
         $this->assertNotEmpty($sessionId);
 
@@ -218,7 +218,7 @@ class HoyoverseAuthServiceTest extends TestCase
             'gen_time' => '123456',
             'captcha_output' => 'out-1',
         ]);
-        $this->assertSame(HoyoverseLoginStepResult::STATUS_EMAIL_VERIFICATION_REQUIRED, $step2->getStatus());
+        $this->assertSame(LoginStepResult::STATUS_EMAIL_VERIFICATION_REQUIRED, $step2->getStatus());
 
         // Inspect x-rpc-aigis header sent in request #2
         $req2Headers = $capturedRequests[1]['options']['normalized_headers']['x-rpc-aigis'][0] ?? '';
@@ -230,7 +230,7 @@ class HoyoverseAuthServiceTest extends TestCase
 
         // Step 3: Verify email OTP
         $step3 = $service->verifyEmail($user, $sessionId, '654321');
-        $this->assertSame(HoyoverseLoginStepResult::STATUS_AUTHENTICATED, $step3->getStatus());
+        $this->assertSame(LoginStepResult::STATUS_AUTHENTICATED, $step3->getStatus());
 
         // Inspect x-rpc-verify header sent in request #4: verify_str must still be a nested JSON string
         $req4VerifyHeader = $capturedRequests[3]['options']['normalized_headers']['x-rpc-verify'][0] ?? '';

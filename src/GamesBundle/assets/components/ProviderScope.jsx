@@ -2,6 +2,8 @@ import NotFoundComponent from "@CoreBundle/components/NotFoundComponent";
 import createBackendApi from "@GamesBundle/components/BackendApi";
 import BackendApiContext from "@GamesBundle/components/BackendApiContext";
 import GameProviderContext from "@GamesBundle/components/GameProviderContext";
+import AccountsPage from "@GamesBundle/components/account/AccountsPage";
+import PullsPage from "@GamesBundle/components/pulls/PullsPage";
 import { Route, Routes } from "react-router";
 import { App as AntdApp } from "antd";
 import React from "react";
@@ -15,7 +17,7 @@ export default function ProviderScope({ provider }) {
     const app = AntdApp.useApp();
     const api = React.useMemo(() => createBackendApi(`/api/${provider.key}`, app), [provider.key, app]);
     const providerValue = React.useMemo(() => ({ ...provider, basePath: `/${provider.key}` }), [provider]);
-    const { AccountsPage, PullsPage, extraRoutes = [] } = provider;
+    const { extraRoutes = [] } = provider;
 
     return <GameProviderContext value={providerValue}>
         <BackendApiContext value={api}>

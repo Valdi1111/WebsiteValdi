@@ -6,7 +6,7 @@ use App\CoreBundle\Entity\User;
 use App\GamesBundle\Service\AuthSessionStore;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Exception\HoyoverseAuthException;
-use App\HoyoverseBundle\Model\Auth\HoyoverseLoginStepResult;
+use App\GamesBundle\Model\Auth\LoginStepResult;
 use App\HoyoverseBundle\Model\ParsedCookie;
 use App\HoyoverseBundle\Repository\HoyoverseAccountRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -61,7 +61,7 @@ PEM;
         #[\SensitiveParameter]
         string $password,
         ?HoyoverseAccount $reloginAccount = null,
-    ): HoyoverseLoginStepResult {
+    ): LoginStepResult {
         if ($reloginAccount !== null && $reloginAccount->getUser() !== $user) {
             throw new AccessDeniedException('Cannot re-login an account belonging to another user.');
         }
@@ -94,7 +94,7 @@ PEM;
     /**
      * @param array<string, mixed> $geetestPayload
      */
-    public function submitCaptcha(User $user, string $loginSessionId, array $geetestPayload): HoyoverseLoginStepResult
+    public function submitCaptcha(User $user, string $loginSessionId, array $geetestPayload): LoginStepResult
     {
         $sessionData = $this->loadSessionOrFail($user, $loginSessionId);
         $aigisSessionId = (string) ($sessionData['aigisSessionId'] ?? '');
@@ -113,7 +113,7 @@ PEM;
         return $this->executeAppLogin($user, $loginSessionId, $sessionData, aigisHeader: $aigisHeader);
     }
 
-    public function verifyEmail(User $user, string $loginSessionId, string $code): HoyoverseLoginStepResult
+    public function verifyEmail(User $user, string $loginSessionId, string $code): LoginStepResult
     {
         $sessionData = $this->loadSessionOrFail($user, $loginSessionId);
         $actionTicket = (string) ($sessionData['actionTicket'] ?? '');
@@ -154,7 +154,7 @@ PEM;
         return $this->executeAppLogin($user, $loginSessionId, $sessionData, verifyHeader: $rawVerifyHeader);
     }
 
-    public function resendVerificationEmail(User $user, string $loginSessionId, ?string $aigisHeader = null): HoyoverseLoginStepResult
+    public function resendVerificationEmail(User $user, string $loginSessionId, ?string $aigisHeader = null): LoginStepResult
     {
         $sessionData = $this->loadSessionOrFail($user, $loginSessionId);
         $actionTicket = (string) ($sessionData['actionTicket'] ?? '');
@@ -199,8 +199,8 @@ PEM;
         $sessionData['pendingAction'] = 'login';
         $this->authSessionStore->update($this->authSessionCache, $user, $loginSessionId, $sessionData, self::SESSION_TTL);
 
-        return new HoyoverseLoginStepResult(
-            status: HoyoverseLoginStepResult::STATUS_EMAIL_VERIFICATION_REQUIRED,
+        return new LoginStepResult(
+            status: LoginStepResult::STATUS_EMAIL_VERIFICATION_REQUIRED,
             loginSessionId: $loginSessionId,
             message: 'A new verification code has been sent to your email address.',
         );
@@ -243,7 +243,7 @@ PEM;
         array $sessionData,
         ?string $aigisHeader = null,
         ?string $verifyHeader = null,
-    ): HoyoverseLoginStepResult {
+    ): LoginStepResult {
         $body = [
             'account' => (string) $sessionData['encryptedAccount'],
             'password' => (string) $sessionData['encryptedPassword'],
@@ -305,8 +305,8 @@ PEM;
 
         $this->authSessionStore->delete($this->authSessionCache, $loginSessionId);
 
-        return new HoyoverseLoginStepResult(
-            status: HoyoverseLoginStepResult::STATUS_AUTHENTICATED,
+        return new LoginStepResult(
+            status: LoginStepResult::STATUS_AUTHENTICATED,
             account: $account,
             message: 'HoYoverse account authenticated and tokens refreshed.',
         );
@@ -321,7 +321,7 @@ PEM;
         array $sessionData,
         ResponseInterface $response,
         string $pendingAction,
-    ): HoyoverseLoginStepResult {
+    ): LoginStepResult {
         $headers = $response->getHeaders(false);
         $rawAigis = $headers['x-rpc-aigis'][0] ?? '';
 
@@ -363,8 +363,8 @@ PEM;
 
         $this->authSessionStore->update($this->authSessionCache, $user, $loginSessionId, $sessionData, self::SESSION_TTL);
 
-        return new HoyoverseLoginStepResult(
-            status: HoyoverseLoginStepResult::STATUS_CAPTCHA_REQUIRED,
+        return new LoginStepResult(
+            status: LoginStepResult::STATUS_CAPTCHA_REQUIRED,
             loginSessionId: $loginSessionId,
             captcha: $captchaConfig,
             message: 'Please complete the security verification.',
@@ -379,7 +379,7 @@ PEM;
         string $loginSessionId,
         array $sessionData,
         ResponseInterface $response,
-    ): HoyoverseLoginStepResult {
+    ): LoginStepResult {
         $headers = $response->getHeaders(false);
         $rawVerify = $headers['x-rpc-verify'][0] ?? '';
 
@@ -409,8 +409,8 @@ PEM;
 
         $this->authSessionStore->update($this->authSessionCache, $user, $loginSessionId, $sessionData, self::SESSION_TTL);
 
-        return new HoyoverseLoginStepResult(
-            status: HoyoverseLoginStepResult::STATUS_EMAIL_VERIFICATION_REQUIRED,
+        return new LoginStepResult(
+            status: LoginStepResult::STATUS_EMAIL_VERIFICATION_REQUIRED,
             loginSessionId: $loginSessionId,
             message: 'A verification code has been sent to your registered email address.',
         );

@@ -64,7 +64,9 @@ class GryphlineGameProfileNormalizer extends AbstractGameProfileNormalizer
             $gameId = (int) $data->getGameId();
             if ($this->locatorByGameId->has($gameId)) {
                 $gameService = $this->locatorByGameId->get($gameId);
+                // Every Gryphline pull tracker is synced automatically through the account token
                 $result['supports_pulls'] = $gameService instanceof HasAutoPullImportInterface;
+                $result['supports_pull_sync'] = $gameService instanceof HasAutoPullImportInterface;
             }
         }
 

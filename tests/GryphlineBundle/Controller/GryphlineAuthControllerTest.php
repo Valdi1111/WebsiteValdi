@@ -7,7 +7,7 @@ use App\GamesBundle\Model\Auth\SubmitCaptchaRequest;
 use App\GamesBundle\Service\GeetestService;
 use App\GryphlineBundle\Controller\ApiAccountAuthController;
 use App\GryphlineBundle\Entity\GryphlineAccount;
-use App\GryphlineBundle\Model\Auth\GryphlineLoginStepResult;
+use App\GamesBundle\Model\Auth\LoginStepResult;
 use App\GryphlineBundle\Model\Auth\StartLoginRequest;
 use App\GryphlineBundle\Service\GryphlineAuthService;
 use PHPUnit\Framework\TestCase;
@@ -58,7 +58,7 @@ class GryphlineAuthControllerTest extends TestCase
         $authService->expects($this->once())
             ->method('startLogin')
             ->with($user1, 'doctor@gryphline.com', 'pwd123', null)
-            ->willReturn(new GryphlineLoginStepResult(GryphlineLoginStepResult::STATUS_AUTHENTICATED));
+            ->willReturn(new LoginStepResult(LoginStepResult::STATUS_AUTHENTICATED));
 
         $controller = new ApiAccountAuthController($authService, $geetestService);
         $this->attachMockContainer($controller);
@@ -83,7 +83,7 @@ class GryphlineAuthControllerTest extends TestCase
         $authService->expects($this->once())
             ->method('submitCaptcha')
             ->with($user, 'sess-gryph-1', ['lot_number' => '99'])
-            ->willReturn(new GryphlineLoginStepResult(GryphlineLoginStepResult::STATUS_AUTHENTICATED));
+            ->willReturn(new LoginStepResult(LoginStepResult::STATUS_AUTHENTICATED));
 
         $authService->expects($this->once())
             ->method('getSessionCaptchaConfig')
@@ -91,8 +91,9 @@ class GryphlineAuthControllerTest extends TestCase
             ->willReturn(['version' => 4, 'captcha_id' => 'gt4-id']);
 
         $geetestService->expects($this->once())
-            ->method('renderFrameHtml')
-            ->willReturn('<html>gryphline-captcha</html>');
+            ->method('createFrameResponse')
+            ->with($this->isArray(), 4)
+            ->willReturn(new Response('<html>gryphline-captcha</html>', Response::HTTP_OK, ['Referrer-Policy' => 'no-referrer']));
 
         $controller = new ApiAccountAuthController($authService, $geetestService);
         $this->attachMockContainer($controller);

@@ -3,6 +3,7 @@ System.config({
         "@foliate/*": "./assets/vendor/foliate-js/*",
         "@App/*": "./assets/*",
         "@CoreBundle/*": "./src/CoreBundle/assets/*",
+        "@GamesBundle/*": "./src/GamesBundle/assets/*",
         "@AnimeBundle/*": "./src/AnimeBundle/assets/*",
         "@BooksBundle/*": "./src/BooksBundle/assets/*",
         "@HoyoverseBundle/*": "./src/HoyoverseBundle/assets/*",

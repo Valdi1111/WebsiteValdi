@@ -9,8 +9,7 @@ DEFAULT_PHP_VERSION="8.5"
 SUBDOMAINS=(
   "books"
   "anime"
-  "hoyoverse"
-  "gryphline"
+  "games"
   "videos"
 )
 # ==========================================================

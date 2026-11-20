@@ -7,7 +7,7 @@ use App\GamesBundle\Model\Auth\SubmitCaptchaRequest;
 use App\GamesBundle\Service\GeetestService;
 use App\HoyoverseBundle\Controller\ApiAccountAuthController;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
-use App\HoyoverseBundle\Model\Auth\HoyoverseLoginStepResult;
+use App\GamesBundle\Model\Auth\LoginStepResult;
 use App\HoyoverseBundle\Model\Auth\StartLoginRequest;
 use App\HoyoverseBundle\Model\Auth\VerifyEmailRequest;
 use App\HoyoverseBundle\Service\HoyoverseAuthService;
@@ -56,7 +56,7 @@ class HoyoverseAuthControllerTest extends TestCase
         $authService->expects($this->once())
             ->method('startLogin')
             ->with($user, 'player@example.com', 'pwd123', null)
-            ->willReturn(new HoyoverseLoginStepResult(HoyoverseLoginStepResult::STATUS_AUTHENTICATED));
+            ->willReturn(new LoginStepResult(LoginStepResult::STATUS_AUTHENTICATED));
 
         $controller = new ApiAccountAuthController($authService, $geetestService);
         $this->attachMockContainer($controller);
@@ -96,12 +96,12 @@ class HoyoverseAuthControllerTest extends TestCase
         $authService->expects($this->once())
             ->method('submitCaptcha')
             ->with($user, 'sess-123', ['lot_number' => '1'])
-            ->willReturn(new HoyoverseLoginStepResult(HoyoverseLoginStepResult::STATUS_EMAIL_VERIFICATION_REQUIRED, 'sess-123'));
+            ->willReturn(new LoginStepResult(LoginStepResult::STATUS_EMAIL_VERIFICATION_REQUIRED, 'sess-123'));
 
         $authService->expects($this->once())
             ->method('verifyEmail')
             ->with($user, 'sess-123', '654321')
-            ->willReturn(new HoyoverseLoginStepResult(HoyoverseLoginStepResult::STATUS_AUTHENTICATED));
+            ->willReturn(new LoginStepResult(LoginStepResult::STATUS_AUTHENTICATED));
 
         $controller = new ApiAccountAuthController($authService, $geetestService);
         $this->attachMockContainer($controller);
@@ -131,8 +131,9 @@ class HoyoverseAuthControllerTest extends TestCase
             ->willReturn(['version' => 4, 'captcha_id' => 'gt4']);
 
         $geetestService->expects($this->once())
-            ->method('renderFrameHtml')
-            ->willReturn('<html>captcha</html>');
+            ->method('createFrameResponse')
+            ->with($this->isArray(), 3)
+            ->willReturn(new Response('<html>captcha</html>', Response::HTTP_OK, ['Referrer-Policy' => 'no-referrer']));
 
         $controller = new ApiAccountAuthController($authService, $geetestService);
         $this->attachMockContainer($controller);

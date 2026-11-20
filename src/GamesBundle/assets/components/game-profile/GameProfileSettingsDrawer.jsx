@@ -1,6 +1,5 @@
 import { useBackendApi } from "@GamesBundle/components/BackendApiContext";
-import SettingRow from "@GamesBundle/components/SettingRow";
-import ThresholdInput from "@GamesBundle/components/ThresholdInput";
+import { useGameProvider } from "@GamesBundle/components/GameProviderContext";
 import React, { useState, useCallback } from "react";
 import {
     Drawer,
@@ -18,18 +17,32 @@ import {
     ConfigProvider
 } from "antd";
 
-export default function GameProfileSettingsDrawer({ open, accountId, profileId, onClose, onSaved }) {
+// Defaults shared by every provider; provider-specific ones come from provider.profileSettings.defaults
+const COMMON_DEFAULTS = {
+    active: true,
+    notification_platforms: [],
+};
+
+/**
+ * Profile details and settings drawer. Loading, header, profile status, notification platforms and
+ * saving are shared; the provider renders its own setting sections via provider.profileSettings.Sections,
+ * which receives { supports, hasAny, isProfileActive, profile, account }.
+ */
+export default function GameProfileSettingsDrawer({ open, account, profileId, onClose, onSaved }) {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [profile, setProfile] = useState(null);
     const [imgError, setImgError] = useState(false);
 
+    const api = useBackendApi();
+    const provider = useGameProvider();
+    const { defaults: providerDefaults = {}, Sections = null } = provider.profileSettings ?? {};
+    const accountId = account?.id;
+
     // Watch active switch value; fallback to profile.active if undefined during mount
     const watchedActive = Form.useWatch("active", form);
     const isProfileActive = Boolean(watchedActive ?? profile?.active ?? true);
-
-    const api = useBackendApi();
 
     // Field capability checkers: returns true if the property exists in the returned profile object
     const supports = useCallback((field) => profile !== null && field in profile, [profile]);
@@ -58,34 +71,24 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
 
                 // Populate only properties present in the profile object
                 const initialValues = {};
-                const checkAndSet = (key, fallback) => {
+                Object.entries({ ...COMMON_DEFAULTS, ...providerDefaults }).forEach(([key, fallback]) => {
                     if (key in data) {
                         initialValues[key] = data[key] ?? fallback;
                     }
-                };
-
-                checkAndSet("active", true);
-                checkAndSet("skport_check_in", true);
-                checkAndSet("skport_missed_check_in", true);
-                checkAndSet("stamina_check", false);
-                checkAndSet("stamina_threshold", -1);
-                checkAndSet("dailies_check", false);
-                checkAndSet("weeklies_check", false);
-                checkAndSet("sync_pulls", false);
-                checkAndSet("notification_platforms", []);
+                });
 
                 form.setFieldsValue(initialValues);
             })
             .finally(() => {
                 setLoading(false);
             });
-    }, [accountId, profileId, api, form]);
+    }, [accountId, profileId, api, form, providerDefaults]);
 
     const handleFinish = (values) => {
         setSaving(true);
         api
             .withLoadingMessage({
-                key: "gryphline-profile-settings-saving",
+                key: `${provider.key}-profile-settings-saving`,
                 loadingContent: "Saving settings...",
                 successContent: "Settings saved successfully",
             })
@@ -106,12 +109,12 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
     return (
         <Drawer
             title="Profile Details & Settings"
+            size={520}
             open={open}
             afterOpenChange={handleAfterOpenChange}
             onClose={onClose}
             closable={{ placement: 'end' }}
             destroyOnHidden
-            size={520}
             extra={
                 <Space>
                     <Button
@@ -146,9 +149,7 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                                 ) : undefined
                             }
                             shape="square"
-                            style={{
-                                filter: isProfileActive ? "none" : "grayscale(100%)",
-                            }}
+                            style={{ filter: isProfileActive ? "none" : "grayscale(100%)" }}
                         >
                             {profile.game_name?.[0] ?? "G"}
                         </Avatar>
@@ -156,12 +157,8 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                             <h3 style={{ margin: 0 }}>
                                 {profile.nickname || `UID ${profile.game_uid}`} {profile.level ? <Tag color="blue">Lv. {profile.level}</Tag> : null}
                             </h3>
-                            <div style={{ color: "#888" }}>
-                                {profile.game_name}
-                            </div>
-                            <div style={{ fontSize: 12 }}>
-                                UID: <code>{profile.game_uid}</code>
-                            </div>
+                            <div style={{ color: "#888" }}>{profile.game_name}</div>
+                            <div style={{ fontSize: 12 }}>UID: <code>{profile.game_uid}</code></div>
                         </div>
                     </div>
 
@@ -215,112 +212,19 @@ export default function GameProfileSettingsDrawer({ open, accountId, profileId, 
                                 showIcon
                                 style={{ marginBottom: 16 }}
                                 title="Profile is Suspended"
-                                description="All background tasks (Check-ins, Stamina, Reminders) are completely bypassed. You do not need to turn off individual switches below."
+                                description="All background tasks for this profile (check-ins, alerts, reminders and synchronizations) are completely bypassed. You do not need to turn off individual switches below."
                             />
                         )}
 
-                        {/* SKPort Check-In & Promo Codes */}
-                        {hasAny("skport_check_in", "skport_missed_check_in") && (
-                            <>
-                                <Divider titlePlacement="start">
-                                    <strong>SKPort Check-In & Promo Codes</strong>
-                                </Divider>
-                                {supports("skport_check_in") && (
-                                    <SettingRow
-                                        label="SKPort Daily Check-In"
-                                        description="Automatically claim daily check-in rewards on SKPort"
-                                    >
-                                        <Form.Item name="skport_check_in" valuePropName="checked" noStyle>
-                                            <Switch disabled={!isProfileActive} />
-                                        </Form.Item>
-                                    </SettingRow>
-                                )}
-                                {supports("skport_missed_check_in") && (
-                                    <SettingRow
-                                        label="Missed Check-In Make-Up"
-                                        description="Automatically make up for missed check-ins using check-in cards"
-                                    >
-                                        <Form.Item name="skport_missed_check_in" valuePropName="checked" noStyle>
-                                            <Switch disabled={!isProfileActive} />
-                                        </Form.Item>
-                                    </SettingRow>
-                                )}
-                            </>
-                        )}
-
-                        {/* Stamina & Expeditions */}
-                        {hasAny("stamina_check", "stamina_threshold") && (
-                            <>
-                                <Divider titlePlacement="start">
-                                    <strong>Stamina & Expeditions</strong>
-                                </Divider>
-                                {supports("stamina_check") && (
-                                    <SettingRow
-                                        label="Stamina Alert"
-                                        description="Check stamina periodically and send alert when approaching threshold"
-                                    >
-                                        <Form.Item name="stamina_check" valuePropName="checked" noStyle>
-                                            <Switch disabled={!isProfileActive} />
-                                        </Form.Item>
-                                    </SettingRow>
-                                )}
-                                {supports("stamina_threshold") && (
-                                    <SettingRow
-                                        label="Stamina Threshold"
-                                        description="Trigger alert when stamina reaches this amount (Off = alert only at maximum capacity)"
-                                    >
-                                        <Form.Item name="stamina_threshold" noStyle>
-                                            <ThresholdInput min={-1} max={360} step={10} width={120} disabled={!isProfileActive} />
-                                        </Form.Item>
-                                    </SettingRow>
-                                )}
-                            </>
-                        )}
-
-                        {/* Daily Tasks & Weeklies Tasks */}
-                        {hasAny("dailies_check", "weeklies_check") && (
-                            <>
-                                <Divider titlePlacement="start">
-                                    <strong>Daily Tasks & Weeklies Tasks</strong>
-                                </Divider>
-                                {supports("dailies_check") && (
-                                    <SettingRow
-                                        label="Dailies Check"
-                                        description="Send alert when daily tasks are not completed before daily reset"
-                                    >
-                                        <Form.Item name="dailies_check" valuePropName="checked" noStyle>
-                                            <Switch disabled={!isProfileActive} />
-                                        </Form.Item>
-                                    </SettingRow>
-                                )}
-                                {supports("weeklies_check") && (
-                                    <SettingRow
-                                        label="Weeklies Check"
-                                        description="Send alert when weekly tasks are not completed before weekly reset"
-                                    >
-                                        <Form.Item name="weeklies_check" valuePropName="checked" noStyle>
-                                            <Switch disabled={!isProfileActive} />
-                                        </Form.Item>
-                                    </SettingRow>
-                                )}
-                            </>
-                        )}
-
-                        {/* Headhunting / Pulls Tracker */}
-                        {supports("sync_pulls") && (
-                            <>
-                                <Divider titlePlacement="start">
-                                    <strong>Headhunting / Pulls Tracker</strong>
-                                </Divider>
-                                <SettingRow
-                                    label="Auto Pulls Synchronization"
-                                    description="Periodically download and synchronize new headhunting pulls using account token"
-                                >
-                                    <Form.Item name="sync_pulls" valuePropName="checked" noStyle>
-                                        <Switch disabled={!isProfileActive} />
-                                    </Form.Item>
-                                </SettingRow>
-                            </>
+                        {/* Provider-specific setting sections */}
+                        {Sections && (
+                            <Sections
+                                supports={supports}
+                                hasAny={hasAny}
+                                isProfileActive={isProfileActive}
+                                profile={profile}
+                                account={account}
+                            />
                         )}
 
                         {/* Notification Platforms */}

@@ -1,0 +1,143 @@
+# GamesBundle
+
+Shared foundation of the game provider bundles ([`HoyoverseBundle`](../HoyoverseBundle/README.md), [`GryphlineBundle`](../GryphlineBundle/README.md)) and host of the unified games frontend on **`games.<domain>`** (one tab per provider).
+
+```
+CoreBundle      users, roles/permissions, security, notifications, React layout, theme, tables, file manager
+   ▲
+GamesBundle     shared game models/interfaces, pull tracking & icons, GeeTest/auth helpers, task scheduling,
+   ▲            games page + shared SPA
+   │
+HoyoverseBundle, GryphlineBundle   API clients, entities, game services, messages/handlers, provider-specific UI
+```
+
+Design decisions are summarized in [§4](#4-design-notes).
+
+---
+
+## 1. Backend
+
+| Area | Classes |
+| :--- | :--- |
+| **Game model** | `Model/Game/*` (capability interfaces such as `HasStaminaInterface`, `HasDailiesInterface`, `GachaConfig`, `RarityConfig`, `GameAccountInterface`, `GameProfileInterface`), `Model/GameNotes/*`, `Model/Pull/*` |
+| **Task messages** | `Message/{TaskMessageInterface, RegionalTaskMessageInterface, ProfileTaskMessageInterface, FeatureFlagMessageInterface}` |
+| **Task configuration** | `DependencyInjection/GameTasksConfiguration` (`addTaskNode()`, `registerTaskParameters()`), `Scheduler/AbstractTaskScheduleProvider` |
+| **Pull tracking** | `Service/AbstractPullOperationTracker` (cache + private Mercure updates), `Exception/PullProfileLockedException` |
+| **Pull item icons** | `Service/PullItemIcon*`, `Command/PullIconResolversCommand`, Liip filter `games_pull_item_icon` (see [`PULL_ITEM_ICONS.md`](../../docs/PULL_ITEM_ICONS.md)) |
+| **Login helpers** | `Service/AuthSessionStore`, `Service/GeetestService` (script cache + iframe response), `Model/Auth/{LoginStepResult, SubmitCaptchaRequest}` |
+| **Serialization** | `Normalizer/AbstractGameProfileNormalizer` |
+| **Games page** | `Controller/IndexController` (SPA catch-all), `Controller/GeetestController` (`/api/geetest-script/{version}`), `Service/GameProviderAccess` |
+
+### Configuration
+
+```yaml
+# config/packages/games.yaml
+games:
+    domain_name: 'games.%domain_name%'
+    providers:              # tab order
+        hoyoverse:
+            role: ROLE_USER_HOYOVERSE
+        gryphline:
+            role: ROLE_USER_GRYPHLINE
+```
+
+- The games page requires `ROLE_USER_GAMES`, implied by every provider user role through the database role hierarchy. Each tab is shown only when the user has the provider role; provider APIs keep their own `#[IsGranted]`.
+- The role hierarchy is cached in `core.security_hierarchy.cache` (under `var/share/`, not cleared by `cache:clear`): after changing roles run `bin/console cache:pool:clear core.security_hierarchy.cache`.
+
+### Routing on `games.<domain>`
+
+| Path | Owner |
+| :--- | :--- |
+| `/api/{provider}/...` | provider bundle controllers (`prefix: /api/{provider}` in the provider `config/routing.yaml`) |
+| `/api/geetest-script/{version}` | `GeetestController` |
+| any other path except `/api/...` | `IndexController` → games SPA |
+
+Pull progress Mercure topics are namespaced by provider: `https://games.<domain>/{provider}/profiles/{id}/pulls/progress` (profile IDs come from per-provider tables).
+
+---
+
+## 2. Frontend (`assets/`)
+
+- `app.js` — Encore entry `games`; reads the granted provider keys from `#root[data-providers]`.
+- `providers.js` — composition root: the **only** module importing the provider bundles. Shared components read the current provider through `useGameProvider()`.
+- `components/App.jsx` — layout route (`MainLayout`, one tab per provider), `/` redirects to the first provider, SPA 404 pages.
+- `components/ProviderScope.jsx` — everything under `/{provider}/*`: one `BackendApi` instance (`/api/{provider}`) and the provider descriptor (`GameProviderContext`, with `basePath`). Rendered with `key={provider.key}` so switching tab remounts the subtree.
+- Shared pages and components: `account/AccountsPage`, `account/AccountCard`, `account/useLoginWizard` + `account/CaptchaStep`, `game-profile/GameProfileCard`, `game-profile/GameProfileSettingsDrawer`, `pulls/*`, `SettingRow`, `ThresholdInput`, `GeetestCaptchaFrame`.
+
+### Provider descriptor (`<ProviderBundle>/assets/provider.js`)
+
+```js
+export default {
+    key: "hoyoverse",                    // route segment, API prefix (/api/hoyoverse) and backend config key
+    label: "HoYoverse",                  // tab and page titles
+    icon: <UserSwitchOutlined/>,
+    AddAccountModal,                     // provider login/import modal (uses useLoginWizard + CaptchaStep)
+    AccountStatusTags,                   // credential status badges in AccountCard
+    getReloginState: (account) => ({ highlight, danger }),
+    profileSettings: {
+        defaults: { /* setting: fallback value */ },
+        Sections: ProfileSettingsSections, // rendered inside the shared settings drawer form
+    },
+    pullsExtraImporters: [               // optional: extra entries of the pulls Import menu
+        { key, label, icon, isAvailable: (profile) => boolean, Modal },
+    ],
+    extraRoutes: [                       // optional: provider-only pages under /{key}/...
+        { path: "accounts/:accountId/profiles/:gameProfileId/diary", element: <DiaryPage/> },
+    ],
+};
+```
+
+Shared components are driven by the fields the backend exposes for each profile (`"field" in profile`) and by common capability flags: `supports_pulls` (pull tracker available), `supports_pull_sync` (server-side automatic sync).
+
+---
+
+## 3. Adding a game provider
+
+1. Create the provider bundle (see [`CREATING_A_BUNDLE.md`](../../docs/CREATING_A_BUNDLE.md)) depending on `GamesBundle` models and interfaces.
+2. Routing: `host: '%games.domain_name%'`, `prefix: /api/<key>`, controllers protected by the provider role.
+3. Tasks: define them with `GameTasksConfiguration` in the bundle `configure()`/`loadExtension()` and add a `ScheduleProvider` extending `AbstractTaskScheduleProvider` with `#[AsSchedule('<key>')]`.
+4. Pull tracking: extend `AbstractPullOperationTracker` returning `<key>` from `getProviderKey()`.
+5. Roles: data migration adding `ROLE_USER_<KEY>` with `ROLE_USER_<KEY> → ROLE_USER_GAMES` in the role hierarchy, then `cache:pool:clear core.security_hierarchy.cache`.
+6. Register the provider in `config/packages/games.yaml` and its descriptor in `assets/providers.js`.
+
+---
+
+## 4. Design notes
+
+Why things are the way they are (useful before changing them):
+
+| Decision | Reason |
+| :--- | :--- |
+| `CoreBundle ← GamesBundle ← provider bundles` | Core stays generic; game-only code has a single home and new providers depend only on `GamesBundle`. |
+| Provider APIs under `/api/{provider}/...` on one host | Both providers expose the same paths (`/accounts/...`); the prefix avoids collisions and keeps the SPA catch-all simple (`^(?!api/).*`). |
+| Mercure topics include the provider | Profile IDs come from per-provider tables: without the provider segment, HoYoverse profile 5 and Gryphline profile 5 would share a topic, and a user authorized for one would receive the other's updates. |
+| `ROLE_USER_GAMES` in the database role hierarchy | Same mechanism as the other roles; the hierarchy is transitive, so `ROLE_ADMIN_*` roles reach it too. Tabs are filtered by provider roles, APIs keep their own `#[IsGranted]`. |
+| Explicit provider list in `config/packages/games.yaml` | Clear tab order in one place, instead of each bundle prepending config (order would depend on `bundles.php`). |
+| `providers.js` is the only module importing provider bundles | Single composition root: no circular imports between `GamesBundle` and provider assets. Shared components read the provider via `useGameProvider()`. |
+| Minimal static provider descriptor | Just enough for shared pages to render provider-specific parts: no texts (only the provider name changes, so `label` is enough), no API URL (derived as `/api/{key}`), no plugin registry. |
+| `ProviderScope` rendered with `key={provider.key}` | Without the key React reuses the same component instances when switching tab, leaving the previous provider's accounts, modals and drawers on screen. |
+| Shared components driven by profile fields (`"field" in profile`) | Settings, tags and actions appear only when the backend exposes the field, so one component serves every provider without per-provider branches. |
+| Gryphline pulls expose both `item_type` and `item_type_label` | `item_type` (raw pool category) is also used by `PullItemIconQuery::fromPullRow()` to resolve icons; the label is only for display. |
+
+### Not shared on purpose
+
+- **Message classes**: each one routes to its provider's Messenger transport through `#[AsMessage]`.
+- **`AbstractBatchTaskMessageHandler`**: sharing it saves almost no lines, risks re-declared promoted `readonly` properties, and `CodeRedeemBatchHandler` has its own constructor.
+- **Pull backup importers / synthetic reconcilers** (interfaces and managers): typed on each provider's entities; sharing them would mean losing those types.
+- **Login modal**: only the flow is shared (`useLoginWizard` + `CaptchaStep`); `Modal` + `Tabs` and the credential fields stay in each provider's `AddAccountModal`.
+- **Controllers, pull import/sync services, entities, auth services, normalizers**: similar structure, different details (normalizers already share `AbstractGameProfileNormalizer`).
+
+### Possible future unifications
+
+- `AbstractProfileTaskMessageHandler` and the reminder handlers (Dailies/Weeklies/Stamina/Check-in): their logic is identical but would need 4 extension points (game service lookup by `gameId`/`gameBiz`, runtime account data with cookie parsing, exception context, fallback icon).
+- Pull endpoints of `ApiGameProfilesController`, `PullBackupImportService`, sync/import handlers.
+- Check-in setting names (`hoyolab_check_in` / `skport_check_in` → `check_in`): requires renaming database columns.
+
+---
+
+## 5. Testing
+
+- `tests/GamesBundle/Routing/GamesRoutingTest` boots the kernel and matches real routes on the games host (provider APIs, GeeTest script/frames, SPA catch-all, legacy `/api/accounts` not routed, provider routes bound to the games host only).
+- Unit tests cover `GameProviderAccess`, provider-namespaced Mercure topics, `GameTasksConfiguration`, `AbstractTaskScheduleProvider`, `GeetestService::createFrameResponse()` and the shared normalizer flags (`supports_pulls`, `supports_pull_sync`).
+- Security (games page protected by `ROLE_USER_GAMES`, provider APIs by their roles, public PowerShell script) is not covered by automated tests: a `WebTestCase` would need a test database for the session (`PdoSessionHandler`). Check it manually with a user holding a single provider role.
+- There is no JavaScript test setup: after frontend changes run `npm run build` and check both providers in the browser (tabs, accounts, settings drawer, login modal, pulls page with live Mercure progress, diary).

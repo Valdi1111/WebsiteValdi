@@ -2,9 +2,10 @@ import BackupPullImportModal from "@GamesBundle/components/pulls/BackupPullImpor
 import PullOperationProgressBanner from "@GamesBundle/components/pulls/PullOperationProgressBanner";
 import usePullOperationProgress from "@GamesBundle/components/pulls/usePullOperationProgress";
 import { useBackendApi } from "@GamesBundle/components/BackendApiContext";
-import PullsBannerCard from "@GryphlineBundle/components/pulls/PullsBannerCard";
-import PullsMonthlyChart from "@GryphlineBundle/components/pulls/PullsMonthlyChart";
-import PullsBannerDetail from "@GryphlineBundle/components/pulls/PullsBannerDetail";
+import { useGameProvider } from "@GamesBundle/components/GameProviderContext";
+import PullsBannerCard from "@GamesBundle/components/pulls/PullsBannerCard";
+import PullsMonthlyChart from "@GamesBundle/components/pulls/PullsMonthlyChart";
+import PullsBannerDetail from "@GamesBundle/components/pulls/PullsBannerDetail";
 import {
     ArrowLeftOutlined,
     SyncOutlined,
@@ -39,13 +40,16 @@ export default function PullsPage() {
     const { accountId, gameProfileId } = useParams();
     const navigate = useNavigate();
     const api = useBackendApi();
+    const provider = useGameProvider();
     const scrollContainerRef = useRef(null);
 
     const [loadingOverview, setLoadingOverview] = useState(true);
     const [overview, setOverview] = useState(null);
 
+    // null = Overview landing page, string = selected banner key for detail view
     const [selectedBannerKey, setSelectedBannerKey] = useState(null);
 
+    // Detail view state
     const [loadingDetail, setLoadingDetail] = useState(false);
     const [detailBanner, setDetailBanner] = useState(null);
     const [items, setItems] = useState([]);
@@ -55,6 +59,8 @@ export default function PullsPage() {
     const [selectedRarities, setSelectedRarities] = useState([]);
     const [search, setSearch] = useState("");
 
+    // Key of the open provider-specific importer modal (see provider.pullsExtraImporters)
+    const [openExtraImporterKey, setOpenExtraImporterKey] = useState(null);
     const [selectedBackupImporter, setSelectedBackupImporter] = useState(null);
     const [syncingPulls, setSyncingPulls] = useState(false);
 
@@ -130,7 +136,6 @@ export default function PullsPage() {
                     mergeInitialOperation(data.active_operation);
                 }
                 if (data.rarity_config) {
-                    // Default: show 6★ and 5★, hide 4★ base rarity
                     setSelectedRarities((prev) =>
                         prev.length === 0
                             ? [data.rarity_config.s.rarity, data.rarity_config.a.rarity]
@@ -165,7 +170,7 @@ export default function PullsPage() {
     const handleSelectBanner = (bannerKey) => {
         const defaultRarities = overview?.rarity_config
             ? [overview.rarity_config.s.rarity, overview.rarity_config.a.rarity]
-            : [6, 5];
+            : [];
         setSelectedBannerKey(bannerKey);
         setSelectedRarities(defaultRarities);
         setSearch("");
@@ -182,6 +187,7 @@ export default function PullsPage() {
             ? selectedRarities.filter((r) => r !== rarityValue)
             : [...selectedRarities, rarityValue];
 
+        // Keep at least one rarity selected
         if (nextRarities.length === 0) {
             nextRarities = [rarityValue];
         }
@@ -199,7 +205,7 @@ export default function PullsPage() {
     const handleResetFilters = () => {
         const defaultRarities = overview?.rarity_config
             ? [overview.rarity_config.s.rarity, overview.rarity_config.a.rarity]
-            : [6, 5];
+            : [];
         setSelectedRarities(defaultRarities);
         setSearch("");
         setPage(1);
@@ -240,18 +246,32 @@ export default function PullsPage() {
     const currentBannerSummary =
         detailBanner || banners.find((b) => b.key === selectedBannerKey) || null;
 
-    // Unified Import dropdown items (automatically populates whenever backup importers are registered)
-    const importMenuItems = availableBackupImporters.map((imp) => ({
-        key: `backup:${imp.key}`,
-        icon: <FileTextOutlined />,
-        label: imp.label,
-        onClick: () => setSelectedBackupImporter(imp),
+    // Build unified Import dropdown menu (provider-specific importers + divider + available backup importers)
+    const extraImporters = (provider.pullsExtraImporters || [])
+        .filter((importer) => !importer.isAvailable || importer.isAvailable(profile));
+    const openExtraImporter = extraImporters.find((importer) => importer.key === openExtraImporterKey) || null;
+    const importMenuItems = extraImporters.map((importer) => ({
+        key: importer.key,
+        icon: importer.icon,
+        label: importer.label,
+        onClick: () => setOpenExtraImporterKey(importer.key),
     }));
+    if (extraImporters.length > 0 && availableBackupImporters.length > 0) {
+        importMenuItems.push({ type: "divider" });
+    }
+    availableBackupImporters.forEach((importer) => {
+        importMenuItems.push({
+            key: `backup:${importer.key}`,
+            icon: <FileTextOutlined />,
+            label: importer.label,
+            onClick: () => setSelectedBackupImporter(importer),
+        });
+    });
 
     const breadcrumbItems = [
-        { title: <a onClick={() => navigate("/gryphline")}>Gryphline</a> },
+        { title: <a onClick={() => navigate(provider.basePath)}>{provider.label}</a> },
         { title: `Account #${accountId}` },
-        { title: `${profile?.nickname || "Profile"} (${profile?.game_name || "Arknights: Endfield"})` },
+        { title: `${profile?.nickname || "Profile"} (${profile?.game_name || ""})` },
         selectedBannerKey
             ? { title: <a onClick={() => setSelectedBannerKey(null)}>Pulls Tracker</a> }
             : { title: "Pulls Tracker" },
@@ -300,6 +320,7 @@ export default function PullsPage() {
                         </Text>
                     </div>
 
+                    {/* Controls bar */}
                     <div
                         style={{
                             display: "flex",
@@ -312,7 +333,7 @@ export default function PullsPage() {
                         {selectedBannerKey && (
                             <>
                                 <Select
-                                    style={{ width: isMobile ? "100%" : 220 }}
+                                    style={{ width: isMobile ? "100%" : 210 }}
                                     value={selectedBannerKey}
                                     onChange={(val) => handleSelectBanner(val)}
                                     options={banners.map((b) => ({
@@ -329,7 +350,7 @@ export default function PullsPage() {
                             </>
                         )}
 
-                        {profile?.supports_pulls && (
+                        {profile?.supports_pull_sync && (
                             <Button
                                 type="primary"
                                 icon={<SyncOutlined spin={syncingPulls} />}
@@ -346,7 +367,7 @@ export default function PullsPage() {
                                 <Button icon={<ImportOutlined />}>
                                     <Space size={4}>
                                         Import
-                                        <DownOutlined style={{ fontSize: 10 }} />
+                                        <DownOutlined style={{ fontSize: 11 }} />
                                     </Space>
                                 </Button>
                             </Dropdown>
@@ -365,7 +386,7 @@ export default function PullsPage() {
                             onClick={() =>
                                 selectedBannerKey
                                     ? setSelectedBannerKey(null)
-                                    : navigate("/gryphline")
+                                    : navigate(provider.basePath)
                             }
                         >
                             {!isMobile && (selectedBannerKey ? "Back to Overview" : "Back")}
@@ -425,9 +446,10 @@ export default function PullsPage() {
                         size={isMobile ? "middle" : "large"}
                         style={{ width: "100%" }}
                     >
+                        {/* Banner Cards Grid (inspired by zzz.rng.moe) */}
                         <Row gutter={[16, 16]} align="stretch">
                             {banners.map((banner) => (
-                                <Col key={banner.key} xs={24} md={12}>
+                                <Col key={banner.key} xs={24} md={12} xl={8}>
                                     <PullsBannerCard
                                         banner={banner}
                                         rarityConfig={rarityConfig}
@@ -437,6 +459,7 @@ export default function PullsPage() {
                             ))}
                         </Row>
 
+                        {/* Monthly Pulls Distribution Chart (inspired by paimon.moe) */}
                         <PullsMonthlyChart
                             monthlyTimeline={overview?.monthly_timeline || []}
                             rarityConfig={rarityConfig}
@@ -444,6 +467,22 @@ export default function PullsPage() {
                     </Space>
                 )}
             </div>
+
+            {/* Provider-specific Import Modal (e.g. PowerShell for HoYoverse) */}
+            {openExtraImporter && (
+                <openExtraImporter.Modal
+                    open
+                    onClose={() => setOpenExtraImporterKey(null)}
+                    profile={profile}
+                    accountId={accountId}
+                    profileId={gameProfileId}
+                    onImportStarted={(op) => {
+                        if (op) {
+                            applyOperationUpdate(op);
+                        }
+                    }}
+                />
+            )}
 
             {/* Backup File Import Modal */}
             <BackupPullImportModal
@@ -454,7 +493,12 @@ export default function PullsPage() {
                 onUpload={(importerKey, file) =>
                     api
                         .gameProfiles()
-                        .importBackupPulls(accountId, profile?.id ?? gameProfileId, importerKey, file)
+                        .importBackupPulls(
+                            accountId,
+                            profile?.id ?? gameProfileId,
+                            importerKey,
+                            file
+                        )
                 }
                 onClose={() => setSelectedBackupImporter(null)}
                 onOperationStarted={(op) => {

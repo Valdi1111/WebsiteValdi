@@ -12,8 +12,8 @@ export default function PullsMonthlyChart({ monthlyTimeline, rarityConfig }) {
     const canvasRef = useRef(null);
     const chartInstanceRef = useRef(null);
 
-    const sLabel = rarityConfig?.s?.label || "5★";
-    const aLabel = rarityConfig?.a?.label || "4★";
+    const sLabel = rarityConfig?.s?.label || "S";
+    const aLabel = rarityConfig?.a?.label || "A";
     const pullLabel = rarityConfig?.pull_label || "Pulls";
     const pullSingularLabel = rarityConfig?.pull_singular_label || "Pull";
 

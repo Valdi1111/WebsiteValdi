@@ -288,7 +288,9 @@ class GryphlinePullRepository extends ServiceEntityRepository
                 'pool_category' => $row['poolCategory'],
                 'pool_name' => $row['poolName'] ?: $bannerGroup['name'],
                 'gacha_name' => $row['poolName'] ?: $bannerGroup['name'],
+                // Raw category: also consumed by the pull item icon resolver
                 'item_type' => $row['poolCategory'],
+                'item_type_label' => self::getItemTypeLabel($row['poolCategory']),
                 'item_id' => $row['itemId'],
                 'name' => $row['name'],
                 'rarity' => $rarity,
@@ -424,5 +426,18 @@ class GryphlinePullRepository extends ServiceEntityRepository
             $pulledAt->format('Y-m-d H:i:s'),
             mb_strtolower(trim($name))
         );
+    }
+
+    /**
+     * Human-readable label of a pool category, shown next to item names in the pulls table.
+     */
+    public static function getItemTypeLabel(?string $poolCategory): ?string
+    {
+        return match ($poolCategory) {
+            null, '' => null,
+            'char' => 'Operator',
+            'weapon' => 'Weapon',
+            default => ucfirst($poolCategory),
+        };
     }
 }

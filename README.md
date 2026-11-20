@@ -13,8 +13,9 @@ Each functional domain is isolated into its own **Symfony Bundle** under [`src/`
 | *(shared `/login`, `/logout`)* | [`CoreBundle`](src/CoreBundle) | Authentication, permissions, File Manager, Standard Table, notifications, UI kit |
 | `anime.<domain>` | [`AnimeBundle`](src/AnimeBundle) | Anime/Manga tracker (MAL/AniList), automated episode downloader & file manager |
 | `books.<domain>` | [`BooksBundle`](src/BooksBundle) | E-Book library, shelves, in-browser EPUB reader (`foliate-js`) & file manager |
-| `hoyoverse.<domain>` | [`HoyoverseBundle`](src/HoyoverseBundle) | HoYoLAB automation, check-in, promo code redemption, notes/endgame reminders, Diary & Pulls Tracker |
-| `gryphline.<domain>` | [`GryphlineBundle`](src/GryphlineBundle) | Gryphline/SKPort automation (Arknights: Endfield), check-in, reminders & Headhunting Pulls |
+| `games.<domain>` | [`GamesBundle`](src/GamesBundle) | Unified games frontend (one tab per provider) and code shared by game provider bundles |
+| *(`games.<domain>` → HoYoverse tab)* | [`HoyoverseBundle`](src/HoyoverseBundle) | HoYoLAB automation, check-in, promo code redemption, notes/endgame reminders, Diary & Pulls Tracker |
+| *(`games.<domain>` → Gryphline tab)* | [`GryphlineBundle`](src/GryphlineBundle) | Gryphline/SKPort automation (Arknights: Endfield), check-in, reminders & Headhunting Pulls |
 | `videos.<domain>` | [`VideosBundle`](src/VideosBundle) | Personal video archive with web file manager & in-browser streaming player |
 | `mercure.<domain>` | **Caddy + Mercure** | Real-time SSE hub pushing live updates to React clients |
 

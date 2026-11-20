@@ -22,8 +22,7 @@ The project is a modular **Symfony 8.1** application with a **React 19 + Ant Des
 With `DOMAIN_NAME=valdi.ovh` (or a local development domain), Caddy routes traffic to the Symfony application across the subdomains listed in `SUBDOMAINS`:
 - `anime.<domain>` — Anime & Manga tracker + episode downloader
 - `books.<domain>` — E-Book library & EPUB reader
-- `hoyoverse.<domain>` — HoYoverse / HoYoLAB automation and tracking
-- `gryphline.<domain>` — Gryphline / SKPort automation and tracking
+- `games.<domain>` — Game automation and tracking (one tab per provider: HoYoverse / HoYoLAB, Gryphline / SKPort), see [`GamesBundle`](../src/GamesBundle/README.md)
 - `videos.<domain>` — Video file manager & streaming
 - `mercure.<domain>` — Mercure SSE hub (with a status landing page at `/`)
 
@@ -143,7 +142,7 @@ Before deploying, place/configure the script on the server and adjust the variab
 1. **Database backup** via `$BACKUP_SCRIPT`.
 2. **Pull latest code:** `git fetch origin` and `git reset --hard origin/main`.
 3. **Purge stale Symfony cache:** `rm -rf var/cache/prod var/cache/dev` before running Composer to prevent `ClassNotFound` errors when bundles, namespaces, or packages are updated or removed.
-4. **PHP dependencies & migrations:** `composer install --no-dev --optimize-autoloader --no-interaction` and `php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration`.
+4. **PHP dependencies & migrations:** `composer install --no-dev --optimize-autoloader --no-interaction` and `php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration`, followed by `php bin/console cache:pool:clear core.security_hierarchy.cache`: the database role hierarchy is cached in an application pool under `var/share/`, which step 3 does not remove.
 5. **Warmup cache & assets:** `php bin/console cache:warmup --env=prod` and `php bin/console assets:install public --no-interaction`.
 6. **Frontend build:** `npm ci` and `npm run build`.
 7. **Update `node-services`:** `cd node-services && npm ci --omit=dev && npx playwright install chromium`.
@@ -162,6 +161,7 @@ Before deploying, place/configure the script on the server and adjust the variab
   ```bash
   sudo systemctl reload caddy
   ```
+- **Adding or renaming a sub-domain on an existing server:** edit `/var/www/caddy/Caddyfile` by hand (the site host list, plus `cors_origins` and `publish_origins` of the Mercure hub), then reload Caddy. Do **not** re-run `setup-server.sh`: it regenerates the Mercure JWT keys. Without the new origin in `cors_origins`, the browser blocks the Mercure `EventSource` and live progress silently falls back to polling.
 
 ---
 

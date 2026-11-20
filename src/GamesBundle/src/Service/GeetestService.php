@@ -6,6 +6,7 @@ use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class GeetestService
@@ -18,7 +19,35 @@ class GeetestService
         private readonly HttpClientInterface $httpClient,
         #[Target('games.geetest.cache')]
         private readonly CacheItemPoolInterface $geetestCache,
+        private readonly UrlGeneratorInterface $urlGenerator,
     ) {
+    }
+
+    /**
+     * Builds the iframe response hosting the GeeTest widget for a provider login session.
+     *
+     * @param array<string, mixed> $captchaConfig captcha configuration stored in the provider login session
+     * @param int $defaultVersion GeeTest version (3 or 4) used when the config has no valid version
+     */
+    public function createFrameResponse(array $captchaConfig, int $defaultVersion): Response
+    {
+        $version = match ((int) ($captchaConfig['version'] ?? $defaultVersion)) {
+            3 => 'v3',
+            4 => 'v4',
+            default => $defaultVersion === 3 ? 'v3' : 'v4',
+        };
+
+        $scriptUrl = $this->urlGenerator->generate(
+            'games_geetest_script',
+            ['version' => $version],
+            UrlGeneratorInterface::ABSOLUTE_PATH
+        );
+
+        return new Response($this->renderFrameHtml($captchaConfig, $scriptUrl), Response::HTTP_OK, [
+            'Content-Type' => 'text/html; charset=UTF-8',
+            'Referrer-Policy' => 'no-referrer',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate',
+        ]);
     }
 
     /**

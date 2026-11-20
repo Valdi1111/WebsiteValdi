@@ -3,9 +3,9 @@
 namespace App\GryphlineBundle\MessageHandler\Profile;
 
 use App\GryphlineBundle\Message\Profile\DailiesReminderProfileMessage;
-use App\CoreBundle\Message\ProfileTaskMessageInterface;
+use App\GamesBundle\Message\ProfileTaskMessageInterface;
 use App\GryphlineBundle\Model\Game\GameInterface;
-use App\CoreBundle\Model\Game\HasDailiesInterface;
+use App\GamesBundle\Model\Game\HasDailiesInterface;
 use App\GryphlineBundle\Model\RuntimeAccountData;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 

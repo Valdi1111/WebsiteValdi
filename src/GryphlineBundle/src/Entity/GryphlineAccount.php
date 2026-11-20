@@ -3,7 +3,7 @@
 namespace App\GryphlineBundle\Entity;
 
 use App\CoreBundle\Entity\User;
-use App\CoreBundle\Model\Game\GameAccountInterface;
+use App\GamesBundle\Model\Game\GameAccountInterface;
 use App\GryphlineBundle\Repository\GryphlineAccountRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;

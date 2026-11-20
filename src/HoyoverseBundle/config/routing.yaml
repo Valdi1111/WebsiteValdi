@@ -4,4 +4,5 @@ controllers:
         namespace: App\HoyoverseBundle\Controller
     type: attribute
     name_prefix: hoyoverse_
-    host: '%hoyoverse.domain_name%'
+    prefix: /api/hoyoverse
+    host: '%games.domain_name%'

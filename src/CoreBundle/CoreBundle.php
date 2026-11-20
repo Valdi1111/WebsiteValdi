@@ -2,7 +2,6 @@
 
 namespace App\CoreBundle;
 
-use App\CoreBundle\Model\Game\PullItemIconResolverInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
@@ -23,8 +22,6 @@ class CoreBundle extends AbstractBundle
     public function loadExtension(array $config, ContainerConfigurator $configurator, ContainerBuilder $container): void
     {
         $configurator->import('./config/services.yaml');
-        $container->registerForAutoconfiguration(PullItemIconResolverInterface::class)
-            ->addTag('core.pull_item_icon_resolver');
     }
 
 }

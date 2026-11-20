@@ -4,4 +4,5 @@ controllers:
         namespace: App\GryphlineBundle\Controller
     type: attribute
     name_prefix: gryphline_
-    host: '%gryphline.domain_name%'
+    prefix: /api/gryphline
+    host: '%games.domain_name%'

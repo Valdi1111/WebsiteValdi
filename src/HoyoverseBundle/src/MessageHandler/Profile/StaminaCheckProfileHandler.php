@@ -2,8 +2,8 @@
 
 namespace App\HoyoverseBundle\MessageHandler\Profile;
 
-use App\CoreBundle\Message\ProfileTaskMessageInterface;
-use App\CoreBundle\Model\Game\HasStaminaInterface;
+use App\GamesBundle\Message\ProfileTaskMessageInterface;
+use App\GamesBundle\Model\Game\HasStaminaInterface;
 use App\HoyoverseBundle\Message\Profile\StaminaCheckProfileMessage;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\RuntimeAccountData;

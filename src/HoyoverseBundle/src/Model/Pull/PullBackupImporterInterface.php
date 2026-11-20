@@ -2,7 +2,7 @@
 
 namespace App\HoyoverseBundle\Model\Pull;
 
-use App\CoreBundle\Model\Pull\PullBackupValidationResult;
+use App\GamesBundle\Model\Pull\PullBackupValidationResult;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;

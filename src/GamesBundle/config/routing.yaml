@@ -1,0 +1,7 @@
+controllers:
+    resource:
+        path: ../src/Controller/
+        namespace: App\GamesBundle\Controller
+    type: attribute
+    name_prefix: games_
+    host: '%games.domain_name%'

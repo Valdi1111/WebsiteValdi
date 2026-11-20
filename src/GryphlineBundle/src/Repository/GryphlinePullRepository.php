@@ -2,7 +2,7 @@
 
 namespace App\GryphlineBundle\Repository;
 
-use App\CoreBundle\Model\Game\RarityConfig;
+use App\GamesBundle\Model\Game\RarityConfig;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
 use App\GryphlineBundle\Entity\GryphlinePull;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;

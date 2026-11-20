@@ -2,7 +2,7 @@
 
 namespace App\GryphlineBundle\MessageHandler\Batch;
 
-use App\CoreBundle\Model\Pull\PullOperationKind;
+use App\GamesBundle\Model\Pull\PullOperationKind;
 use App\GryphlineBundle\Message\Batch\SyncPullsBatchMessage;
 use App\GryphlineBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\GryphlineBundle\Model\Game\GameInterface;

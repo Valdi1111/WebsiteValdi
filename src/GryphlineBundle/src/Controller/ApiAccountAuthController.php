@@ -3,8 +3,8 @@
 namespace App\GryphlineBundle\Controller;
 
 use App\CoreBundle\Entity\User;
-use App\CoreBundle\Model\Auth\SubmitCaptchaRequest;
-use App\CoreBundle\Service\GeetestService;
+use App\GamesBundle\Model\Auth\SubmitCaptchaRequest;
+use App\GamesBundle\Service\GeetestService;
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Model\Auth\GryphlineLoginStepResult;
 use App\GryphlineBundle\Model\Auth\StartLoginRequest;
@@ -22,7 +22,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 
 #[IsGranted('ROLE_USER_GRYPHLINE', null, 'Access Denied.')]
-#[Route('/api/accounts', name: 'api_gryphline_accounts_auth_', format: 'json')]
+#[Route('/accounts', name: 'api_gryphline_accounts_auth_', format: 'json')]
 class ApiAccountAuthController extends AbstractController
 {
     public function __construct(

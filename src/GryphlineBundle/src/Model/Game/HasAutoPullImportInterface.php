@@ -2,8 +2,8 @@
 
 namespace App\GryphlineBundle\Model\Game;
 
-use App\CoreBundle\Model\Game\GachaConfig;
-use App\CoreBundle\Model\Game\RarityConfig;
+use App\GamesBundle\Model\Game\GachaConfig;
+use App\GamesBundle\Model\Game\RarityConfig;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
 use App\GryphlineBundle\Entity\GryphlinePull;
 

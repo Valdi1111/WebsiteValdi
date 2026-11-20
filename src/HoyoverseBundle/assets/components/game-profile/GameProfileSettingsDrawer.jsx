@@ -1,6 +1,6 @@
-import { useBackendApi } from "@HoyoverseBundle/components/BackendApiContext";
-import SettingRow from "@CoreBundle/components/SettingRow";
-import ThresholdInput from "@CoreBundle/components/ThresholdInput";
+import { useBackendApi } from "@GamesBundle/components/BackendApiContext";
+import SettingRow from "@GamesBundle/components/SettingRow";
+import ThresholdInput from "@GamesBundle/components/ThresholdInput";
 import React, { useState, useCallback } from "react";
 import {
     Drawer,

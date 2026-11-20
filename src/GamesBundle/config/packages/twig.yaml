@@ -1,0 +1,3 @@
+twig:
+    globals:
+        games_domain_name: '%games.domain_name%'

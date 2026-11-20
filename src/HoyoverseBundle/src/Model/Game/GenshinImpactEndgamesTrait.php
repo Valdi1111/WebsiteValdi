@@ -8,7 +8,7 @@ use App\HoyoverseBundle\Exception\RetrieveTheaterLobbyDataException;
 use App\HoyoverseBundle\Model\Endgame\SpiralAbyssData;
 use App\HoyoverseBundle\Model\Endgame\StygianOnslaughtData;
 use App\HoyoverseBundle\Model\Endgame\TheaterLobbyData;
-use App\CoreBundle\Model\Game\HasEndgamesInterface;
+use App\GamesBundle\Model\Game\HasEndgamesInterface;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Symfony\Component\HttpFoundation\Request;
 

@@ -2,7 +2,7 @@ import GameProfileSettingsDrawer from "@GryphlineBundle/components/game-profile/
 import AddAccountModal from "@GryphlineBundle/components/account/AddAccountModal";
 import AccountCard from "@GryphlineBundle/components/account/AccountCard";
 
-import { useBackendApi } from "@GryphlineBundle/components/BackendApiContext";
+import { useBackendApi } from "@GamesBundle/components/BackendApiContext";
 import React, { useState, useEffect, useCallback } from "react";
 import { Button, Typography, Space, Empty, Spin, Grid } from "antd";
 import { PlusOutlined } from "@ant-design/icons";

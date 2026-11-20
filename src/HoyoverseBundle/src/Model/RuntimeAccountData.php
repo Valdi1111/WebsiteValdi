@@ -6,7 +6,7 @@ use App\CoreBundle\Entity\User;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 
-class RuntimeAccountData implements \App\CoreBundle\Model\Game\RuntimeAccountDataInterface
+class RuntimeAccountData implements \App\GamesBundle\Model\Game\RuntimeAccountDataInterface
 {
     private ParsedCookie $parsedCookie;
 

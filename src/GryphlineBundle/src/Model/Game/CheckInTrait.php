@@ -3,8 +3,8 @@
 namespace App\GryphlineBundle\Model\Game;
 
 use App\GryphlineBundle\Exception\SkportApiException;
-use App\CoreBundle\Model\Game\AwardData;
-use App\CoreBundle\Model\Game\CheckInResult;
+use App\GamesBundle\Model\Game\AwardData;
+use App\GamesBundle\Model\Game\CheckInResult;
 use App\GryphlineBundle\Model\RuntimeAccountData;
 use App\GryphlineBundle\Model\SkportSessionCredentials;
 use Symfony\Component\HttpFoundation\Request;

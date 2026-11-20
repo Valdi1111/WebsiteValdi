@@ -2,7 +2,7 @@
 
 namespace App\HoyoverseBundle\Service\Pull;
 
-use App\CoreBundle\Service\AbstractPullOperationTracker;
+use App\GamesBundle\Service\AbstractPullOperationTracker;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -15,16 +15,16 @@ class PullOperationTracker extends AbstractPullOperationTracker
         #[Target('hoyoverse.pull_import_status.cache')]
         CacheItemPoolInterface $cachePool,
         HubInterface $mercureHub,
-        #[Autowire(param: 'hoyoverse.domain_name')]
-        ?string $hoyoverseDomain = null,
+        #[Autowire(param: 'games.domain_name')]
+        ?string $gamesDomain = null,
         #[Target('hoyoverse')]
         ?LoggerInterface $logger = null,
     ) {
-        parent::__construct($cachePool, $mercureHub, $hoyoverseDomain, $logger);
+        parent::__construct($cachePool, $mercureHub, $gamesDomain, $logger);
     }
 
-    protected function getFallbackDomain(): string
+    protected function getProviderKey(): string
     {
-        return 'hoyoverse.local';
+        return 'hoyoverse';
     }
 }

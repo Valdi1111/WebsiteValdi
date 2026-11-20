@@ -2,10 +2,10 @@
 
 namespace App\HoyoverseBundle\Normalizer;
 
-use App\CoreBundle\Model\Game\HasDailiesInterface;
-use App\CoreBundle\Model\Game\HasStaminaInterface;
-use App\CoreBundle\Model\Game\HasWeekliesInterface;
-use App\CoreBundle\Normalizer\AbstractGameProfileNormalizer;
+use App\GamesBundle\Model\Game\HasDailiesInterface;
+use App\GamesBundle\Model\Game\HasStaminaInterface;
+use App\GamesBundle\Model\Game\HasWeekliesInterface;
+use App\GamesBundle\Normalizer\AbstractGameProfileNormalizer;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasCodeRedemptionInterface;

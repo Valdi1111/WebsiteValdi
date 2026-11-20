@@ -18,7 +18,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 
 #[IsGranted('ROLE_USER_GRYPHLINE', null, 'Access Denied.')]
-#[Route('/api/accounts', name: 'api_gryphline_accounts_', format: 'json')]
+#[Route('/accounts', name: 'api_gryphline_accounts_', format: 'json')]
 class ApiAccountsController extends AbstractController
 {
     public function __construct(

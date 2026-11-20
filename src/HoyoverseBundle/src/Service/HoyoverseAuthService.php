@@ -3,7 +3,7 @@
 namespace App\HoyoverseBundle\Service;
 
 use App\CoreBundle\Entity\User;
-use App\CoreBundle\Service\AuthSessionStore;
+use App\GamesBundle\Service\AuthSessionStore;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Exception\HoyoverseAuthException;
 use App\HoyoverseBundle\Model\Auth\HoyoverseLoginStepResult;

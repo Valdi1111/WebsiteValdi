@@ -2,7 +2,7 @@
 
 namespace App\HoyoverseBundle\Model\Game;
 
-use App\CoreBundle\Model\Game\HasNotesInterface;
+use App\GamesBundle\Model\Game\HasNotesInterface;
 
 use App\HoyoverseBundle\Model\Notes\GameNotesExpeditions;
 use App\HoyoverseBundle\Model\RuntimeAccountData;

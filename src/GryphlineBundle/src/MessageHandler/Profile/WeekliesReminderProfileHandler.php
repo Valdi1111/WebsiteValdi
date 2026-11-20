@@ -2,10 +2,10 @@
 
 namespace App\GryphlineBundle\MessageHandler\Profile;
 
-use App\CoreBundle\Message\ProfileTaskMessageInterface;
+use App\GamesBundle\Message\ProfileTaskMessageInterface;
 use App\GryphlineBundle\Message\Profile\WeekliesReminderProfileMessage;
 use App\GryphlineBundle\Model\Game\GameInterface;
-use App\CoreBundle\Model\Game\HasWeekliesInterface;
+use App\GamesBundle\Model\Game\HasWeekliesInterface;
 use App\GryphlineBundle\Model\RuntimeAccountData;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 

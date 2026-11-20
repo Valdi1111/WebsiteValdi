@@ -2,7 +2,7 @@
 
 namespace App\GryphlineBundle\Entity;
 
-use App\CoreBundle\Model\Game\GameProfileInterface;
+use App\GamesBundle\Model\Game\GameProfileInterface;
 use App\GryphlineBundle\Repository\GryphlineGameProfileRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;

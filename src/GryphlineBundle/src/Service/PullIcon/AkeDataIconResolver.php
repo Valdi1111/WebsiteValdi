@@ -2,8 +2,8 @@
 
 namespace App\GryphlineBundle\Service\PullIcon;
 
-use App\CoreBundle\Model\Game\PullItemIconQuery;
-use App\CoreBundle\Model\Game\PullItemIconResolverInterface;
+use App\GamesBundle\Model\Game\PullItemIconQuery;
+use App\GamesBundle\Model\Game\PullItemIconResolverInterface;
 use App\GryphlineBundle\Service\EndfieldService;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Target;

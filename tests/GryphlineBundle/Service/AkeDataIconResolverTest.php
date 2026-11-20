@@ -2,7 +2,7 @@
 
 namespace App\Tests\GryphlineBundle\Service;
 
-use App\CoreBundle\Model\Game\PullItemIconQuery;
+use App\GamesBundle\Model\Game\PullItemIconQuery;
 use App\GryphlineBundle\Service\EndfieldService;
 use App\GryphlineBundle\Service\PullIcon\AkeDataIconResolver;
 use PHPUnit\Framework\TestCase;

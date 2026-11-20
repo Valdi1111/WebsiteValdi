@@ -2,7 +2,7 @@
 
 namespace App\HoyoverseBundle\Model\Game;
 
-use App\CoreBundle\Model\Game\HasEndgamesInterface;
+use App\GamesBundle\Model\Game\HasEndgamesInterface;
 
 /**
  * @mixin GameInterface

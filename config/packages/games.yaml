@@ -1,0 +1,7 @@
+games:
+    domain_name: 'games.%domain_name%'
+    providers:
+        hoyoverse:
+            role: ROLE_USER_HOYOVERSE
+        gryphline:
+            role: ROLE_USER_GRYPHLINE

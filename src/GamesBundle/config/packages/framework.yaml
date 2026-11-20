@@ -1,0 +1,12 @@
+framework:
+    http_client:
+        scoped_clients:
+            games.pull_icon_fetch.client:
+                scope: 'https://.*'
+                timeout: 8
+                retry_failed:
+                    max_retries: 1
+                    delay: 500
+                    http_codes: [ 429, 500, 502, 503, 504 ]
+                headers:
+                    'User-Agent': 'WebsiteValdi/1.0'

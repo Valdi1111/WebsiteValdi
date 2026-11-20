@@ -2,10 +2,10 @@
 
 namespace App\GryphlineBundle\Normalizer;
 
-use App\CoreBundle\Model\Game\HasDailiesInterface;
-use App\CoreBundle\Model\Game\HasStaminaInterface;
-use App\CoreBundle\Model\Game\HasWeekliesInterface;
-use App\CoreBundle\Normalizer\AbstractGameProfileNormalizer;
+use App\GamesBundle\Model\Game\HasDailiesInterface;
+use App\GamesBundle\Model\Game\HasStaminaInterface;
+use App\GamesBundle\Model\Game\HasWeekliesInterface;
+use App\GamesBundle\Normalizer\AbstractGameProfileNormalizer;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
 use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Model\Game\HasAutoPullImportInterface;

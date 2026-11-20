@@ -3,8 +3,8 @@
 namespace App\Tests\HoyoverseBundle\Controller;
 
 use App\CoreBundle\Entity\User;
-use App\CoreBundle\Model\Auth\SubmitCaptchaRequest;
-use App\CoreBundle\Service\GeetestService;
+use App\GamesBundle\Model\Auth\SubmitCaptchaRequest;
+use App\GamesBundle\Service\GeetestService;
 use App\HoyoverseBundle\Controller\ApiAccountAuthController;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Model\Auth\HoyoverseLoginStepResult;

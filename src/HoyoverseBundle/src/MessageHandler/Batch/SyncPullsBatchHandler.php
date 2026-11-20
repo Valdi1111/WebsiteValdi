@@ -6,7 +6,7 @@ use App\HoyoverseBundle\Message\Batch\SyncPullsBatchMessage;
 use App\HoyoverseBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
-use App\CoreBundle\Model\Pull\PullOperationKind;
+use App\GamesBundle\Model\Pull\PullOperationKind;
 use App\HoyoverseBundle\Service\Pull\PullOperationTracker;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;

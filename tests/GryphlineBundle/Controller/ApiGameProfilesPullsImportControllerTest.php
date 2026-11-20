@@ -3,8 +3,8 @@
 namespace App\Tests\GryphlineBundle\Controller;
 
 use App\CoreBundle\Entity\User;
-use App\CoreBundle\Model\Pull\PullBackupValidationResult;
-use App\CoreBundle\Service\PullItemIconUrlBuilder;
+use App\GamesBundle\Model\Pull\PullBackupValidationResult;
+use App\GamesBundle\Service\PullItemIconUrlBuilder;
 use App\GryphlineBundle\Controller\ApiGameProfilesController;
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
@@ -211,7 +211,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $user = $this->createUser(1);
         [$account, $profile] = $this->createAccountAndProfile($user, 10);
         $controller = $this->createController($account);
-        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'gryphline.test');
+        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test');
 
         $dispatched = [];
         $bus = $this->createMock(MessageBusInterface::class);
@@ -265,8 +265,8 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $hub->method('getFactory')->willReturn($tokenFactory);
 
         $authorization = new Authorization(new HubRegistry($hub));
-        $tracker = new PullOperationTracker(new ArrayAdapter(), $hub, 'gryphline.test');
-        $activeOp = $tracker->startSyncOperation(10, 1, \App\CoreBundle\Model\Pull\PullOperationKind::AUTO_SYNC, ['char' => 'Character']);
+        $tracker = new PullOperationTracker(new ArrayAdapter(), $hub, 'games.test');
+        $activeOp = $tracker->startSyncOperation(10, 1, \App\GamesBundle\Model\Pull\PullOperationKind::AUTO_SYNC, ['char' => 'Character']);
 
         $request = Request::create('https://gryphline.test/api/accounts/1/gameProfiles/10/pulls/overview', 'GET');
         $response = $controller->apiGameProfilePullsOverview(
@@ -283,7 +283,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $this->assertSame(Response::HTTP_OK, $response->getStatusCode());
         $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
         $this->assertSame([], $payload['available_backup_importers']);
-        $this->assertSame('https://gryphline.test/profiles/10/pulls/progress', $payload['mercure_topic']);
+        $this->assertSame('https://games.test/gryphline/profiles/10/pulls/progress', $payload['mercure_topic']);
         $this->assertSame($activeOp['id'], $payload['active_operation']['id']);
         $this->assertNotEmpty($request->attributes->get('_mercure_authorization_cookies'));
     }
@@ -296,7 +296,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
 
         $importer = $this->createFakeImporter('endfield_export', ['.json'], PullBackupValidationResult::ok(25));
         $importerManager = new PullBackupImporterManager([$importer]);
-        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'gryphline.test');
+        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test');
 
         $dispatched = [];
         $bus = $this->createMock(MessageBusInterface::class);
@@ -340,7 +340,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
 
         $importer = $this->createFakeImporter('endfield_export', ['.json'], PullBackupValidationResult::fail('Invalid export schema.'));
         $importerManager = new PullBackupImporterManager([$importer]);
-        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'gryphline.test');
+        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test');
         $bus = $this->createMock(MessageBusInterface::class);
         $bus->expects($this->never())->method('dispatch');
 
@@ -367,7 +367,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
 
         $importer = $this->createFakeImporter('endfield_export', ['.json'], PullBackupValidationResult::ok(10));
         $importerManager = new PullBackupImporterManager([$importer]);
-        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'gryphline.test');
+        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test');
         $tracker->startBackupImport(10, 1, 'endfield_export', 'Endfield Export', 10);
 
         $file = $this->createUploadedFile('{}', 'endfield.json');
@@ -383,7 +383,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         [$account, $profile] = $this->createAccountAndProfile($user, 10);
         $controller = $this->createController($account);
 
-        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'gryphline.test');
+        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test');
         $op = $tracker->startBackupImport(10, 1, 'endfield_export', 'Endfield Export', 10);
         $otherOp = $tracker->startBackupImport(99, 1, 'endfield_export', 'Endfield Export', 10);
 

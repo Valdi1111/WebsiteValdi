@@ -2,8 +2,8 @@
 
 namespace App\HoyoverseBundle\Model\Game;
 
-use App\CoreBundle\Model\Game\AwardData;
-use App\CoreBundle\Model\Game\CheckInResult;
+use App\GamesBundle\Model\Game\AwardData;
+use App\GamesBundle\Model\Game\CheckInResult;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use App\HoyoverseBundle\Model\SignInfo;
 

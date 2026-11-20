@@ -1,0 +1,18 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Games{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {{ encore_entry_link_tags('games') }}
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('games') }}
+{% endblock %}
+
+{% block body %}
+    <div id="root" data-providers="{{ providers|json_encode|e('html_attr') }}">
+    </div>
+{% endblock %}

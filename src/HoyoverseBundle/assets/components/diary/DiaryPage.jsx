@@ -2,7 +2,7 @@ import DiaryKpiCards from "@HoyoverseBundle/components/diary/DiaryKpiCards";
 import DiaryVisualBreakdown from "@HoyoverseBundle/components/diary/DiaryVisualBreakdown";
 import DiaryLedgerTable from "@HoyoverseBundle/components/diary/DiaryLedgerTable";
 
-import { useBackendApi } from "@HoyoverseBundle/components/BackendApiContext";
+import { useBackendApi } from "@GamesBundle/components/BackendApiContext";
 import { Typography, Space, Button, Breadcrumb, Select, Spin, Empty, Grid } from "antd";
 import { ArrowLeftOutlined, CalendarOutlined } from "@ant-design/icons";
 import React, { useState, useEffect, useCallback, useRef } from "react";

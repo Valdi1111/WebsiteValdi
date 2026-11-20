@@ -1,0 +1,6 @@
+framework:
+    cache:
+        pools:
+            games.geetest.cache:
+                adapter: cache.adapter.filesystem
+                default_lifetime: 86400

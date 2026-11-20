@@ -2,7 +2,7 @@
 
 namespace App\HoyoverseBundle\Message;
 
-use App\CoreBundle\Message\TaskMessageInterface;
+use App\GamesBundle\Message\TaskMessageInterface;
 use Symfony\Component\Messenger\Attribute\AsMessage;
 
 /**

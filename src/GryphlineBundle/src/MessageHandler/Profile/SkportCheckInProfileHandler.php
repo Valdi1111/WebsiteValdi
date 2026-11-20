@@ -2,7 +2,7 @@
 
 namespace App\GryphlineBundle\MessageHandler\Profile;
 
-use App\CoreBundle\Message\ProfileTaskMessageInterface;
+use App\GamesBundle\Message\ProfileTaskMessageInterface;
 use App\GryphlineBundle\Message\Profile\SkportCheckInProfileMessage;
 use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Model\Game\HasCheckInInterface;

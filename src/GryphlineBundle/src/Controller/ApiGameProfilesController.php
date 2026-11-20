@@ -4,8 +4,8 @@ namespace App\GryphlineBundle\Controller;
 
 use App\CoreBundle\Attribute\ResolveEntityFromRoute;
 use App\CoreBundle\Entity\User;
-use App\CoreBundle\Model\Pull\PullOperationKind;
-use App\CoreBundle\Service\PullItemIconUrlBuilder;
+use App\GamesBundle\Model\Pull\PullOperationKind;
+use App\GamesBundle\Service\PullItemIconUrlBuilder;
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
 use App\GryphlineBundle\Message\Profile\ImportPullsBackupMessage;
@@ -39,7 +39,7 @@ use Symfony\Component\Uid\Uuid;
 
 #[ResolveEntityFromRoute(setter: 'setAccount')]
 #[IsGranted('ROLE_USER_GRYPHLINE', null, 'Access Denied.')]
-#[Route('/api/accounts/{account}', name: 'api_gryphline_game_profiles_', requirements: ['account' => '\d+'], format: 'json')]
+#[Route('/accounts/{account}', name: 'api_gryphline_game_profiles_', requirements: ['account' => '\d+'], format: 'json')]
 class ApiGameProfilesController extends AbstractController
 {
     private const int MAX_BACKUP_UPLOAD_BYTES = 26214400; // 25 MiB

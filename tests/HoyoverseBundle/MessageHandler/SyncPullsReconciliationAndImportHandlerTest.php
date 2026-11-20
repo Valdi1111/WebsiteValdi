@@ -6,12 +6,12 @@ use App\CoreBundle\Service\Notification\UnifiedNotificationService;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Entity\HoyoversePull;
-use App\CoreBundle\Exception\PullProfileLockedException;
+use App\GamesBundle\Exception\PullProfileLockedException;
 use App\HoyoverseBundle\Message\Profile\ImportPullsBackupMessage;
 use App\HoyoverseBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\HoyoverseBundle\Model\Game\GameInterface;
-use App\CoreBundle\Model\Pull\PullImportSummary;
-use App\CoreBundle\Model\Pull\PullOperationKind;
+use App\GamesBundle\Model\Pull\PullImportSummary;
+use App\GamesBundle\Model\Pull\PullOperationKind;
 use App\HoyoverseBundle\Model\Pull\SyntheticPullReconcilerInterface;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
@@ -90,7 +90,7 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
         $em->expects($this->once())->method('flush');
 
         $hub = $this->createStub(HubInterface::class);
-        $tracker = new PullOperationTracker(new ArrayAdapter(), $hub, 'hoyoverse.test');
+        $tracker = new PullOperationTracker(new ArrayAdapter(), $hub, 'games.test');
         $operation = $tracker->startSyncOperation(10, 1, PullOperationKind::STOKEN_SYNC, ['301' => 'Character Event Wish']);
 
         $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
@@ -143,7 +143,7 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
             ->method('import')
             ->willReturn(new PullImportSummary('paimon_moe', 'Paimon.moe (JSON)', 10, 8, 2));
 
-        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'hoyoverse.test');
+        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test');
         $op = $tracker->startBackupImport(5, 1, 'paimon_moe', 'Paimon.moe (JSON)', 10);
 
         $bus = $this->createStub(MessageBusInterface::class);
@@ -172,7 +172,7 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
             $importService = $this->createStub(PullBackupImportService::class);
             $importService->method('import')->willThrowException(new PullProfileLockedException('Locked'));
 
-            $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'hoyoverse.test');
+            $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test');
             $op = $tracker->startBackupImport(5, 1, 'paimon_moe', 'Paimon.moe (JSON)', 10);
 
             $dispatched = [];

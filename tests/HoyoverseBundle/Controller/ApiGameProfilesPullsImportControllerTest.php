@@ -3,13 +3,13 @@
 namespace App\Tests\HoyoverseBundle\Controller;
 
 use App\CoreBundle\Entity\User;
-use App\CoreBundle\Service\PullItemIconUrlBuilder;
+use App\GamesBundle\Service\PullItemIconUrlBuilder;
 use App\HoyoverseBundle\Controller\ApiGameProfilesController;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Message\Profile\ImportPullsBackupMessage;
 use App\HoyoverseBundle\Model\Pull\PullBackupImporterInterface;
-use App\CoreBundle\Model\Pull\PullBackupValidationResult;
+use App\GamesBundle\Model\Pull\PullBackupValidationResult;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
 use App\HoyoverseBundle\Service\GenshinImpactService;
 use App\HoyoverseBundle\Service\HonkaiStarRailService;
@@ -166,7 +166,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
 
         $importer = $this->createFakeImporter('paimon_moe', GenshinImpactService::class, ['.json'], PullBackupValidationResult::ok(42));
         $importerManager = new PullBackupImporterManager([$importer]);
-        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'hoyoverse.test');
+        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test');
 
         $dispatched = [];
         $bus = $this->createMock(MessageBusInterface::class);
@@ -213,7 +213,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
 
         $importer = $this->createFakeImporter('paimon_moe', GenshinImpactService::class, ['.json'], PullBackupValidationResult::fail('Invalid paimon.moe schema.'));
         $importerManager = new PullBackupImporterManager([$importer]);
-        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'hoyoverse.test');
+        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test');
         $bus = $this->createMock(MessageBusInterface::class);
         $bus->expects($this->never())->method('dispatch');
 
@@ -241,7 +241,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
 
         $hsrImporter = $this->createFakeImporter('star_rail_station_csv', HonkaiStarRailService::class, ['.csv'], PullBackupValidationResult::ok(5));
         $importerManager = new PullBackupImporterManager([$hsrImporter]);
-        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'hoyoverse.test');
+        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test');
         $bus = $this->createStub(MessageBusInterface::class);
 
         $file = $this->createUploadedFile('uid,id', 'hsr.csv', 'text/csv');
@@ -259,7 +259,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
 
         $importer = $this->createFakeImporter('paimon_moe', GenshinImpactService::class, ['.json'], PullBackupValidationResult::ok(10));
         $importerManager = new PullBackupImporterManager([$importer]);
-        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'hoyoverse.test');
+        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test');
         $tracker->startBackupImport(10, 1, 'paimon_moe', 'Paimon.moe (JSON)', 10);
 
         $file = $this->createUploadedFile('{}', 'backup.json');
@@ -277,7 +277,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         (new \ReflectionProperty(HoyoverseGameProfile::class, 'id'))->setValue($profile11, 11);
 
         $controller = $this->createController($account);
-        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'hoyoverse.test');
+        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test');
         $op = $tracker->startBackupImport(10, 1, 'paimon_moe', 'Paimon.moe (JSON)', 15);
 
         $res = $controller->apiGameProfilePullsOperationStatus($user, $profile10, $op['id'], $tracker);
@@ -297,7 +297,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
 
         $importer = $this->createFakeImporter('paimon_moe', GenshinImpactService::class, ['.json'], PullBackupValidationResult::ok(10));
         $importerManager = new PullBackupImporterManager([$importer]);
-        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'hoyoverse.test');
+        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test');
         $activeOp = $tracker->startBackupImport(10, 1, 'paimon_moe', 'Paimon.moe (JSON)', 10);
 
         $pullRepo = $this->createStub(HoyoversePullRepository::class);
@@ -330,8 +330,8 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
 
         $this->assertSame(Response::HTTP_OK, $res->getStatusCode());
         $data = json_decode((string) $res->getContent(), true, 512, JSON_THROW_ON_ERROR);
-        $this->assertSame('https://hoyoverse.test/profiles/10/pulls/progress', $data['mercure_topic']);
-        $this->assertSame(['https://hoyoverse.test/profiles/10/pulls/progress'], $subscribedTopics);
+        $this->assertSame('https://games.test/hoyoverse/profiles/10/pulls/progress', $data['mercure_topic']);
+        $this->assertSame(['https://games.test/hoyoverse/profiles/10/pulls/progress'], $subscribedTopics);
         $this->assertNotEmpty($req->attributes->get('_mercure_authorization_cookies'));
         $this->assertCount(1, $data['available_backup_importers']);
         $this->assertSame('paimon_moe', $data['available_backup_importers'][0]['key']);

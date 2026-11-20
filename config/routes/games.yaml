@@ -1,0 +1,2 @@
+games:
+    resource: '@GamesBundle/config/routing.yaml'

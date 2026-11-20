@@ -2,8 +2,8 @@
 
 namespace App\HoyoverseBundle\Model\Game;
 
-use App\CoreBundle\Model\Game\GachaConfig;
-use App\CoreBundle\Model\Game\RarityConfig;
+use App\GamesBundle\Model\Game\GachaConfig;
+use App\GamesBundle\Model\Game\RarityConfig;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Entity\HoyoversePull;
 

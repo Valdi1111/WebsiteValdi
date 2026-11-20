@@ -25,7 +25,7 @@ class PublicPowershellScriptController extends AbstractController
     ) {
     }
 
-    #[Route('/api/pulls/script/powershell', name: 'public_pulls_script_powershell', methods: ['GET'])]
+    #[Route('/pulls/script/powershell', name: 'public_pulls_script_powershell', methods: ['GET'])]
     public function getPowershellScript(Request $request): Response
     {
         $gameId = $request->query->getInt('gameId');

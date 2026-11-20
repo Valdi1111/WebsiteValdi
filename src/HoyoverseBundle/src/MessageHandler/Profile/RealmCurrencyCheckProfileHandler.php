@@ -2,7 +2,7 @@
 
 namespace App\HoyoverseBundle\MessageHandler\Profile;
 
-use App\CoreBundle\Message\ProfileTaskMessageInterface;
+use App\GamesBundle\Message\ProfileTaskMessageInterface;
 use App\HoyoverseBundle\Message\Profile\RealmCurrencyCheckProfileMessage;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasRealmCurrencyInterface;

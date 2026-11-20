@@ -2,10 +2,11 @@
     "{{ asset('build/images/anime-favicon.ico') }}"
 {% elseif app.request().headers.get('host') is same as(books_domain_name) %}
     "{{ asset('build/images/books-favicon.ico') }}"
-{% elseif app.request().headers.get('host') is same as(hoyoverse_domain_name) %}
-    "{{ asset('build/images/hoyoverse-favicon.ico') }}"
-{% elseif app.request().headers.get('host') is same as(gryphline_domain_name) %}
-    "{{ asset('build/images/gryphline-favicon.ico') }}"
+{% elseif app.request().headers.get('host') is same as(games_domain_name) %}
+    "data:image/svg+xml,
+    <svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22>
+        <text y=%221.2em%22 font-size=%2296%22>🎮</text>
+    </svg>"
 {% elseif app.request().headers.get('host') is same as(passwords_domain_name) %}
     "{{ asset('build/images/passwords-favicon.ico') }}"
 {% elseif app.request().headers.get('host') is same as(videos_domain_name) %}

@@ -3,7 +3,7 @@
 namespace App\GryphlineBundle\Service;
 
 use App\CoreBundle\Entity\User;
-use App\CoreBundle\Service\AuthSessionStore;
+use App\GamesBundle\Service\AuthSessionStore;
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Exception\SkportAuthException;
 use App\GryphlineBundle\Model\Auth\GryphlineLoginStepResult;

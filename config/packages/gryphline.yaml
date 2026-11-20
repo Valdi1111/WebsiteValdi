@@ -1,5 +1,4 @@
 gryphline:
-    domain_name: 'gryphline.%domain_name%'
     timezones:
         US_EU: 'Europe/Paris'
         SEA: 'Asia/Shanghai'

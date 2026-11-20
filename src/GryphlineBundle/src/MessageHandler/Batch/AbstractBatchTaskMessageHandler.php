@@ -2,10 +2,10 @@
 
 namespace App\GryphlineBundle\MessageHandler\Batch;
 
-use App\CoreBundle\Message\FeatureFlagMessageInterface;
-use App\CoreBundle\Message\ProfileTaskMessageInterface;
-use App\CoreBundle\Message\RegionalTaskMessageInterface;
-use App\CoreBundle\Message\TaskMessageInterface;
+use App\GamesBundle\Message\FeatureFlagMessageInterface;
+use App\GamesBundle\Message\ProfileTaskMessageInterface;
+use App\GamesBundle\Message\RegionalTaskMessageInterface;
+use App\GamesBundle\Message\TaskMessageInterface;
 use App\GryphlineBundle\Repository\GryphlineGameProfileRepository;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Target;

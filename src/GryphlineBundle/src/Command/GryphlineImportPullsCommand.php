@@ -2,7 +2,7 @@
 
 namespace App\GryphlineBundle\Command;
 
-use App\CoreBundle\Model\Pull\PullImportProgress;
+use App\GamesBundle\Model\Pull\PullImportProgress;
 use App\GryphlineBundle\Message\Profile\ImportPullsBackupMessage;
 use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Repository\GryphlineGameProfileRepository;

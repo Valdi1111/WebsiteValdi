@@ -2,8 +2,8 @@
 
 namespace App\GryphlineBundle\Message\Batch;
 
-use App\CoreBundle\Message\FeatureFlagMessageInterface;
-use App\CoreBundle\Message\RegionalTaskMessageInterface;
+use App\GamesBundle\Message\FeatureFlagMessageInterface;
+use App\GamesBundle\Message\RegionalTaskMessageInterface;
 use Symfony\Component\Messenger\Attribute\AsMessage;
 
 /**

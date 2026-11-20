@@ -7,8 +7,8 @@ import {
     MailOutlined,
     UserOutlined,
 } from "@ant-design/icons";
-import GeetestCaptchaFrame from "@CoreBundle/components/GeetestCaptchaFrame";
-import { useBackendApi } from "@HoyoverseBundle/components/BackendApiContext";
+import GeetestCaptchaFrame from "@GamesBundle/components/GeetestCaptchaFrame";
+import { useBackendApi } from "@GamesBundle/components/BackendApiContext";
 import { Alert, Button, Descriptions, Form, Input, Modal, Space, Tabs, Tag } from "antd";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 

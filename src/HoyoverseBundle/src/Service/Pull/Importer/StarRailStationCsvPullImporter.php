@@ -5,7 +5,7 @@ namespace App\HoyoverseBundle\Service\Pull\Importer;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Model\Pull\ImportedPullRecord;
 use App\HoyoverseBundle\Model\Pull\PullBackupImporterInterface;
-use App\CoreBundle\Model\Pull\PullBackupValidationResult;
+use App\GamesBundle\Model\Pull\PullBackupValidationResult;
 use App\HoyoverseBundle\Service\HonkaiStarRailService;
 use App\HoyoverseBundle\Service\Pull\HoyoverseServerTimezoneResolver;
 use App\HoyoverseBundle\Service\Pull\NanokaCatalogService;

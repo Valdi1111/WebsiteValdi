@@ -6,7 +6,7 @@ use App\HoyoverseBundle\Exception\RetrieveDeadlyAssaultDataException;
 use App\HoyoverseBundle\Exception\RetrieveShiyuDefenseDataException;
 use App\HoyoverseBundle\Model\Endgame\ShiyuDefenseData;
 use App\HoyoverseBundle\Model\Endgame\DeadlyAssaultData;
-use App\CoreBundle\Model\Game\HasEndgamesInterface;
+use App\GamesBundle\Model\Game\HasEndgamesInterface;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Symfony\Component\HttpFoundation\Request;
 

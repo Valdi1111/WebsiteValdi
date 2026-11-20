@@ -2,9 +2,9 @@
 
 namespace App\HoyoverseBundle\Model\Game;
 
-use App\CoreBundle\Model\Game\HasNotesInterface;
-use App\CoreBundle\Model\Game\RuntimeAccountDataInterface;
-use App\CoreBundle\Model\GameNotes\GameNotes;
+use App\GamesBundle\Model\Game\HasNotesInterface;
+use App\GamesBundle\Model\Game\RuntimeAccountDataInterface;
+use App\GamesBundle\Model\GameNotes\GameNotes;
 use App\HoyoverseBundle\Exception\RetrieveNotesDataException;
 use Symfony\Component\HttpFoundation\Request;
 

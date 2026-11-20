@@ -4,12 +4,12 @@ namespace App\Tests\HoyoverseBundle\Service;
 
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Entity\HoyoversePull;
-use App\CoreBundle\Exception\PullProfileLockedException;
+use App\GamesBundle\Exception\PullProfileLockedException;
 use App\HoyoverseBundle\Model\Pull\ImportedPullRecord;
 use App\HoyoverseBundle\Model\Pull\PullBackupImporterInterface;
-use App\CoreBundle\Model\Pull\PullBackupValidationResult;
-use App\CoreBundle\Model\Pull\PullImportProgress;
-use App\CoreBundle\Model\Pull\PullOperationKind;
+use App\GamesBundle\Model\Pull\PullBackupValidationResult;
+use App\GamesBundle\Model\Pull\PullImportProgress;
+use App\GamesBundle\Model\Pull\PullOperationKind;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
 use App\HoyoverseBundle\Service\GenshinImpactService;
 use App\HoyoverseBundle\Service\Pull\PullBackupImporterManager;
@@ -197,7 +197,7 @@ class PullBackupImportServiceAndTrackerTest extends TestCase
         // Verify Mercure broadcasts were private on profile topic
         $this->assertNotEmpty($published);
         $this->assertTrue($published[0]['private']);
-        $this->assertSame(['https://hoyoverse.example.test/profiles/7/pulls/progress'], $published[0]['topics']);
+        $this->assertSame(['https://hoyoverse.example.test/hoyoverse/profiles/7/pulls/progress'], $published[0]['topics']);
         $this->assertSame('pulls:operation_progress', $published[0]['data']['action']);
     }
 

@@ -6,7 +6,7 @@ use App\CoreBundle\Entity\User;
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
 
-class RuntimeAccountData implements \App\CoreBundle\Model\Game\RuntimeAccountDataInterface
+class RuntimeAccountData implements \App\GamesBundle\Model\Game\RuntimeAccountDataInterface
 {
     private GryphlineGameProfile $gameProfile;
     private ?SkportSessionCredentials $credentials = null;

@@ -2,8 +2,8 @@
 
 namespace App\GryphlineBundle\MessageHandler\Profile;
 
-use App\CoreBundle\Exception\PullProfileLockedException;
-use App\CoreBundle\Model\Pull\PullImportProgress;
+use App\GamesBundle\Exception\PullProfileLockedException;
+use App\GamesBundle\Model\Pull\PullImportProgress;
 use App\GryphlineBundle\Message\Profile\ImportPullsBackupMessage;
 use App\GryphlineBundle\Repository\GryphlineGameProfileRepository;
 use App\GryphlineBundle\Service\Pull\PullBackupImportService;

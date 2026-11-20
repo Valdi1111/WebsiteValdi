@@ -2,7 +2,7 @@
 
 namespace App\GryphlineBundle\Model\Notes;
 
-use App\CoreBundle\Model\GameNotes\GameNotes;
+use App\GamesBundle\Model\GameNotes\GameNotes;
 use Symfony\Component\Serializer\Attribute\SerializedPath;
 
 class EndfieldNotes implements GameNotes

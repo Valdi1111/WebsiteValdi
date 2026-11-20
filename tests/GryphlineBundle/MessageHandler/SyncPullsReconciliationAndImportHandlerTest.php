@@ -2,9 +2,9 @@
 
 namespace App\Tests\GryphlineBundle\MessageHandler;
 
-use App\CoreBundle\Exception\PullProfileLockedException;
-use App\CoreBundle\Model\Pull\PullImportSummary;
-use App\CoreBundle\Model\Pull\PullOperationKind;
+use App\GamesBundle\Exception\PullProfileLockedException;
+use App\GamesBundle\Model\Pull\PullImportSummary;
+use App\GamesBundle\Model\Pull\PullOperationKind;
 use App\CoreBundle\Service\Notification\UnifiedNotificationService;
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
@@ -134,7 +134,7 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
         });
         $em->expects($this->once())->method('flush');
 
-        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'gryphline.test');
+        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test');
         $operation = $tracker->startSyncOperation(10, 1, PullOperationKind::AUTO_SYNC, ['char' => 'Character Headhunting']);
 
         $bus = $this->createMock(MessageBusInterface::class);
@@ -208,7 +208,7 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
                 $this->createStub(EntityManagerInterface::class),
                 $bus,
                 new PullSyntheticReconcilerManager([]),
-                new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'gryphline.test'),
+                new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test'),
                 $lockFactory,
             );
 
@@ -237,7 +237,7 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
             ->method('import')
             ->willReturn(new PullImportSummary('endfield_export', 'Endfield Export', 12, 9, 3));
 
-        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'gryphline.test');
+        $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test');
         $op = $tracker->startBackupImport(10, 1, 'endfield_export', 'Endfield Export', 12);
 
         $handler = new ImportPullsBackupHandler(
@@ -270,7 +270,7 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
             $importService = $this->createStub(PullBackupImportService::class);
             $importService->method('import')->willThrowException(new PullProfileLockedException('Locked'));
 
-            $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'gryphline.test');
+            $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test');
             $op = $tracker->startBackupImport(10, 1, 'endfield_export', 'Endfield Export', 12);
 
             $dispatched = [];

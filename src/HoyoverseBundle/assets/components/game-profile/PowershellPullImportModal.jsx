@@ -1,4 +1,4 @@
-import { useBackendApi } from "@HoyoverseBundle/components/BackendApiContext";
+import { useBackendApi } from "@GamesBundle/components/BackendApiContext";
 import { CopyOutlined, CheckOutlined, SnippetsOutlined, WindowsOutlined } from "@ant-design/icons";
 import { Modal, Input, Button, Typography, Space, Alert, Steps, App } from "antd";
 import React, { useState } from "react";
@@ -13,11 +13,8 @@ export default function PowershellPullImportModal({ open, profile, accountId, pr
     const api = useBackendApi();
 
     const resolvedProfileId = profile?.id ?? profileId;
-    const scriptUrl = new URL("/api/pulls/script/powershell", window.location.origin);
-    if (profile?.game_id !== undefined && profile?.game_id !== null) {
-        scriptUrl.searchParams.set("gameId", String(profile.game_id));
-    }
-    const scriptCommand = `[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12; Invoke-Expression (New-Object Net.WebClient).DownloadString("${scriptUrl.toString()}")`;
+    const scriptUrl = api.gameProfiles().getPowershellScriptUrl(profile?.game_id);
+    const scriptCommand = `[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12; Invoke-Expression (New-Object Net.WebClient).DownloadString("${scriptUrl}")`;
 
     const handleCopyCommand = () => {
         navigator.clipboard.writeText(scriptCommand).then(() => {

@@ -2,10 +2,10 @@
 
 namespace App\HoyoverseBundle\MessageHandler\Profile;
 
-use App\CoreBundle\Message\ProfileTaskMessageInterface;
+use App\GamesBundle\Message\ProfileTaskMessageInterface;
 use App\HoyoverseBundle\Message\Profile\WeekliesReminderProfileMessage;
 use App\HoyoverseBundle\Model\Game\GameInterface;
-use App\CoreBundle\Model\Game\HasWeekliesInterface;
+use App\GamesBundle\Model\Game\HasWeekliesInterface;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 

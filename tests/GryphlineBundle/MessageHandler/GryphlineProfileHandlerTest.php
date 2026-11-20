@@ -3,10 +3,10 @@
 namespace App\Tests\GryphlineBundle\MessageHandler;
 
 use App\CoreBundle\Entity\User;
-use App\CoreBundle\Model\GameNotes\GameNotesDailies;
-use App\CoreBundle\Model\GameNotes\GameNotesProgressMetric;
-use App\CoreBundle\Model\GameNotes\GameNotesStamina;
-use App\CoreBundle\Model\GameNotes\GameNotesWeeklies;
+use App\GamesBundle\Model\GameNotes\GameNotesDailies;
+use App\GamesBundle\Model\GameNotes\GameNotesProgressMetric;
+use App\GamesBundle\Model\GameNotes\GameNotesStamina;
+use App\GamesBundle\Model\GameNotes\GameNotesWeeklies;
 use App\CoreBundle\Model\Notification\UniversalEmbed;
 use App\CoreBundle\Service\Notification\UnifiedNotificationService;
 use App\GryphlineBundle\Entity\GryphlineAccount;
@@ -21,8 +21,8 @@ use App\GryphlineBundle\MessageHandler\Profile\DailiesReminderProfileHandler;
 use App\GryphlineBundle\MessageHandler\Profile\SkportCheckInProfileHandler;
 use App\GryphlineBundle\MessageHandler\Profile\StaminaCheckProfileHandler;
 use App\GryphlineBundle\MessageHandler\Profile\WeekliesReminderProfileHandler;
-use App\CoreBundle\Model\Game\AwardData;
-use App\CoreBundle\Model\Game\CheckInResult;
+use App\GamesBundle\Model\Game\AwardData;
+use App\GamesBundle\Model\Game\CheckInResult;
 use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Repository\GryphlineGameProfileRepository;
 use App\GryphlineBundle\Service\EndfieldService;

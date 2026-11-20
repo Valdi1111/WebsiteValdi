@@ -2,23 +2,23 @@
 
 namespace App\GryphlineBundle\Service;
 
-use App\CoreBundle\Model\GameNotes\GameNotesDailies;
-use App\CoreBundle\Model\GameNotes\GameNotesProgressMetric;
-use App\CoreBundle\Model\GameNotes\GameNotesWeeklies;
+use App\GamesBundle\Model\GameNotes\GameNotesDailies;
+use App\GamesBundle\Model\GameNotes\GameNotesProgressMetric;
+use App\GamesBundle\Model\GameNotes\GameNotesWeeklies;
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Model\Game\CheckInTrait;
 use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Model\Game\HasCheckInInterface;
-use App\CoreBundle\Model\Game\HasDailiesInterface;
-use App\CoreBundle\Model\Game\HasNotesInterface;
-use App\CoreBundle\Model\Game\HasStaminaInterface;
-use App\CoreBundle\Model\Game\HasWeekliesInterface;
+use App\GamesBundle\Model\Game\HasDailiesInterface;
+use App\GamesBundle\Model\Game\HasNotesInterface;
+use App\GamesBundle\Model\Game\HasStaminaInterface;
+use App\GamesBundle\Model\Game\HasWeekliesInterface;
 use App\GryphlineBundle\Model\Game\GryphlinePullTrait;
 use App\GryphlineBundle\Model\Game\HasAutoPullImportInterface;
 use App\GryphlineBundle\Model\Game\NotesTrait;
 use App\GryphlineBundle\Model\Notes\EndfieldNotes;
-use App\CoreBundle\Model\GameNotes\GameNotesStamina;
-use App\CoreBundle\Model\Game\RuntimeAccountDataInterface;
+use App\GamesBundle\Model\GameNotes\GameNotesStamina;
+use App\GamesBundle\Model\Game\RuntimeAccountDataInterface;
 use App\GryphlineBundle\Model\RuntimeAccountData;
 use App\GryphlineBundle\Model\SkportSessionCredentials;
 use Psr\Log\LoggerInterface;

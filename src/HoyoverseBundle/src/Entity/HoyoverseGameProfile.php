@@ -2,7 +2,7 @@
 
 namespace App\HoyoverseBundle\Entity;
 
-use App\CoreBundle\Model\Game\GameProfileInterface;
+use App\GamesBundle\Model\Game\GameProfileInterface;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;

@@ -3,7 +3,7 @@
 namespace App\Tests\GryphlineBundle\Service;
 
 use App\CoreBundle\Entity\User;
-use App\CoreBundle\Model\Game\RuntimeAccountDataInterface;
+use App\GamesBundle\Model\Game\RuntimeAccountDataInterface;
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
 use App\GryphlineBundle\Model\Notes\EndfieldNotes;

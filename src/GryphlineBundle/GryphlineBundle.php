@@ -2,8 +2,8 @@
 
 namespace App\GryphlineBundle;
 
-use App\CoreBundle\Message\RegionalTaskMessageInterface;
-use App\CoreBundle\Message\TaskMessageInterface;
+use App\GamesBundle\Message\RegionalTaskMessageInterface;
+use App\GamesBundle\Message\TaskMessageInterface;
 use App\GryphlineBundle\Message\Batch\DailiesReminderBatchMessage;
 use App\GryphlineBundle\Message\Batch\SkportCheckInBatchMessage;
 use App\GryphlineBundle\Message\Batch\SkportMissedCheckInBatchMessage;
@@ -37,7 +37,6 @@ class GryphlineBundle extends AbstractBundle
         $configurator->import('./config/services.yaml');
 
         // Load parameters
-        $configurator->parameters()->set('gryphline.domain_name', $config['domain_name'] ?? null);
         $configurator->parameters()->set('gryphline.timezones', $config['timezones'] ?? []);
         $configurator->parameters()->set('gryphline.timezone.US_EU', $config['timezones']['US_EU']);
         $configurator->parameters()->set('gryphline.timezone.SEA', $config['timezones']['SEA']);
@@ -119,7 +118,6 @@ class GryphlineBundle extends AbstractBundle
 
         $tasksNode = $definition->rootNode()
             ->children()
-                ->scalarNode('domain_name')->defaultNull()->end()
                 ->arrayNode('timezones')
                     ->normalizeKeys(false)
                     ->addDefaultsIfNotSet()

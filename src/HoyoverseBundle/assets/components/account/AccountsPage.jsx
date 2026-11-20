@@ -2,7 +2,7 @@ import GameProfileSettingsDrawer from "@HoyoverseBundle/components/game-profile/
 import AddAccountModal from "@HoyoverseBundle/components/account/AddAccountModal";
 import AccountCard from "@HoyoverseBundle/components/account/AccountCard";
 
-import { useBackendApi } from "@HoyoverseBundle/components/BackendApiContext";
+import { useBackendApi } from "@GamesBundle/components/BackendApiContext";
 import React, { useState, useEffect, useCallback } from "react";
 import { Button, Typography, Space, Empty, Spin, Grid } from "antd";
 import { PlusOutlined } from "@ant-design/icons";

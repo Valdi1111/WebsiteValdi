@@ -2,7 +2,7 @@
 
 namespace App\Tests\HoyoverseBundle\Service;
 
-use App\CoreBundle\Model\Game\PullItemIconQuery;
+use App\GamesBundle\Model\Game\PullItemIconQuery;
 use App\HoyoverseBundle\Service\GenshinImpactService;
 use App\HoyoverseBundle\Service\HonkaiStarRailService;
 use App\HoyoverseBundle\Service\Pull\NanokaCatalogService;

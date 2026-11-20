@@ -1,5 +1,4 @@
 hoyoverse:
-    domain_name: 'hoyoverse.%domain_name%'
     timezones:
         SEA: 'Asia/Shanghai'
         EU: 'Europe/Paris'

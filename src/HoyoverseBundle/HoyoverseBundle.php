@@ -16,8 +16,8 @@ use App\HoyoverseBundle\Message\Batch\StaminaCheckBatchMessage;
 use App\HoyoverseBundle\Message\Batch\SyncDiaryBatchMessage;
 use App\HoyoverseBundle\Message\Batch\SyncPullsBatchMessage;
 use App\HoyoverseBundle\Message\Batch\WeekliesReminderBatchMessage;
-use App\CoreBundle\Message\RegionalTaskMessageInterface;
-use App\CoreBundle\Message\TaskMessageInterface;
+use App\GamesBundle\Message\RegionalTaskMessageInterface;
+use App\GamesBundle\Message\TaskMessageInterface;
 use App\HoyoverseBundle\Message\UpdateCookieMessage;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 use Symfony\Component\Config\Definition\Builder\NodeBuilder;
@@ -43,7 +43,6 @@ class HoyoverseBundle extends AbstractBundle
     public function loadExtension(array $config, ContainerConfigurator $configurator, ContainerBuilder $container): void
     {
         $configurator->import('./config/services.yaml');
-        $configurator->parameters()->set('hoyoverse.domain_name', $config['domain_name']);
 
         $configurator->parameters()->set('hoyoverse.timezones', $config['timezones']);
         $configurator->parameters()->set('hoyoverse.timezone.SEA', $config['timezones']['SEA']);
@@ -127,7 +126,6 @@ class HoyoverseBundle extends AbstractBundle
 
         $tasksNode = $definition->rootNode()
             ->children()
-                ->scalarNode('domain_name')->defaultNull()->end()
                 ->arrayNode('timezones')
                     ->addDefaultsIfNotSet()
                     ->children()

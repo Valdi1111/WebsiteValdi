@@ -2,9 +2,9 @@
 
 namespace App\GryphlineBundle\Service\Pull;
 
-use App\CoreBundle\Exception\PullProfileLockedException;
-use App\CoreBundle\Model\Pull\PullImportProgress;
-use App\CoreBundle\Model\Pull\PullImportSummary;
+use App\GamesBundle\Exception\PullProfileLockedException;
+use App\GamesBundle\Model\Pull\PullImportProgress;
+use App\GamesBundle\Model\Pull\PullImportSummary;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
 use App\GryphlineBundle\Entity\GryphlinePull;
 use App\GryphlineBundle\Model\Game\GameInterface;

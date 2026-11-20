@@ -2,7 +2,7 @@
 
 namespace App\GryphlineBundle\Service;
 
-use App\CoreBundle\Service\GameUtilsService;
+use App\GamesBundle\Service\GameUtilsService;
 
 class SkportUtilsService extends GameUtilsService
 {

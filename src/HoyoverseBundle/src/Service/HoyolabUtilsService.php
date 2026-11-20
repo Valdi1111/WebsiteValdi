@@ -2,7 +2,7 @@
 
 namespace App\HoyoverseBundle\Service;
 
-use App\CoreBundle\Service\GameUtilsService;
+use App\GamesBundle\Service\GameUtilsService;
 
 class HoyolabUtilsService extends GameUtilsService
 {

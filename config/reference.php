@@ -131,6 +131,12 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     ...<string, DefinitionType|AliasType|PrototypeType|StackType|ArgumentsType|null>
  * }
  * @psalm-type ExtensionType = array<string, mixed>
+ * @psalm-type GamesConfig = array{
+ *     domain_name?: scalar|Param|null, // Default: null
+ *     providers?: array<string, array{ // Default: []
+ *         role?: string|Param,
+ *     }>,
+ * }
  * @psalm-type AnimeConfig = array{
  *     domain_name?: scalar|Param|null, // Default: null
  *     base_folder?: scalar|Param|null, // Default: null
@@ -168,7 +174,6 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     domain_name?: scalar|Param|null, // Default: null
  * }
  * @psalm-type HoyoverseConfig = array{
- *     domain_name?: scalar|Param|null, // Default: null
  *     timezones?: array{
  *         SEA?: string|Param, // Default: "Asia/Shanghai"
  *         EU?: string|Param, // Default: "Europe/Paris"
@@ -283,7 +288,6 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     },
  * }
  * @psalm-type GryphlineConfig = array{
- *     domain_name?: scalar|Param|null, // Default: null
  *     timezones?: array{
  *         US_EU?: string|Param, // Default: "Europe/Paris"
  *         SEA?: string|Param, // Default: "Asia/Shanghai"
@@ -1940,6 +1944,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     imports?: ImportsConfig,
  *     parameters?: ParametersConfig,
  *     services?: ServicesConfig,
+ *     games?: GamesConfig,
  *     anime?: AnimeConfig,
  *     books?: BooksConfig,
  *     hoyoverse?: HoyoverseConfig,
@@ -1961,6 +1966,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         imports?: ImportsConfig,
  *         parameters?: ParametersConfig,
  *         services?: ServicesConfig,
+ *         games?: GamesConfig,
  *         anime?: AnimeConfig,
  *         books?: BooksConfig,
  *         hoyoverse?: HoyoverseConfig,
@@ -1986,6 +1992,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         imports?: ImportsConfig,
  *         parameters?: ParametersConfig,
  *         services?: ServicesConfig,
+ *         games?: GamesConfig,
  *         anime?: AnimeConfig,
  *         books?: BooksConfig,
  *         hoyoverse?: HoyoverseConfig,
@@ -2008,6 +2015,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         imports?: ImportsConfig,
  *         parameters?: ParametersConfig,
  *         services?: ServicesConfig,
+ *         games?: GamesConfig,
  *         anime?: AnimeConfig,
  *         books?: BooksConfig,
  *         hoyoverse?: HoyoverseConfig,

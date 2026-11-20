@@ -1,7 +1,7 @@
-import BackupPullImportModal from "@CoreBundle/components/pulls/BackupPullImportModal";
-import PullOperationProgressBanner from "@CoreBundle/components/pulls/PullOperationProgressBanner";
-import usePullOperationProgress from "@CoreBundle/components/pulls/usePullOperationProgress";
-import { useBackendApi } from "@HoyoverseBundle/components/BackendApiContext";
+import BackupPullImportModal from "@GamesBundle/components/pulls/BackupPullImportModal";
+import PullOperationProgressBanner from "@GamesBundle/components/pulls/PullOperationProgressBanner";
+import usePullOperationProgress from "@GamesBundle/components/pulls/usePullOperationProgress";
+import { useBackendApi } from "@GamesBundle/components/BackendApiContext";
 import PowershellPullImportModal from "@HoyoverseBundle/components/game-profile/PowershellPullImportModal";
 import PullsBannerCard from "@HoyoverseBundle/components/pulls/PullsBannerCard";
 import PullsMonthlyChart from "@HoyoverseBundle/components/pulls/PullsMonthlyChart";

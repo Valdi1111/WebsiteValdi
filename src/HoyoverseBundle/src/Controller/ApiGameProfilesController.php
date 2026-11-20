@@ -4,7 +4,7 @@ namespace App\HoyoverseBundle\Controller;
 
 use App\CoreBundle\Attribute\ResolveEntityFromRoute;
 use App\CoreBundle\Entity\User;
-use App\CoreBundle\Service\PullItemIconUrlBuilder;
+use App\GamesBundle\Service\PullItemIconUrlBuilder;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Message\Profile\ImportPullsBackupMessage;
@@ -15,7 +15,7 @@ use App\HoyoverseBundle\Model\Game\HasDiaryInterface;
 use App\HoyoverseBundle\Model\Game\HasPowershellPullImportInterface;
 use App\HoyoverseBundle\Model\Game\HasPullTrackerInterface;
 use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
-use App\CoreBundle\Model\Pull\PullOperationKind;
+use App\GamesBundle\Model\Pull\PullOperationKind;
 use App\HoyoverseBundle\Repository\HoyoverseDiaryEntryRepository;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
 use App\HoyoverseBundle\Service\Pull\PullBackupImporterManager;
@@ -44,7 +44,7 @@ use Symfony\Component\Uid\Uuid;
 
 #[ResolveEntityFromRoute(setter: 'setAccount')]
 #[IsGranted('ROLE_USER_HOYOVERSE', null, 'Access Denied.')]
-#[Route('/api/accounts/{account}', name: 'api_hoyoverse_game_profiles_', requirements: ['account' => '\d+'], format: 'json')]
+#[Route('/accounts/{account}', name: 'api_hoyoverse_game_profiles_', requirements: ['account' => '\d+'], format: 'json')]
 class ApiGameProfilesController extends AbstractController
 {
     private const int MAX_BACKUP_UPLOAD_BYTES = 26214400; // 25 MiB

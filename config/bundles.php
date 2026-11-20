@@ -2,6 +2,7 @@
 
 return [
     App\CoreBundle\CoreBundle::class => ['all' => true],
+    App\GamesBundle\GamesBundle::class => ['all' => true],
     App\AnimeBundle\AnimeBundle::class => ['all' => true],
     App\BooksBundle\BooksBundle::class => ['all' => true],
     App\HoyoverseBundle\HoyoverseBundle::class => ['all' => true],

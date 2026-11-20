@@ -3,8 +3,8 @@
 namespace App\Tests\GryphlineBundle\Controller;
 
 use App\CoreBundle\Entity\User;
-use App\CoreBundle\Model\Auth\SubmitCaptchaRequest;
-use App\CoreBundle\Service\GeetestService;
+use App\GamesBundle\Model\Auth\SubmitCaptchaRequest;
+use App\GamesBundle\Service\GeetestService;
 use App\GryphlineBundle\Controller\ApiAccountAuthController;
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Model\Auth\GryphlineLoginStepResult;

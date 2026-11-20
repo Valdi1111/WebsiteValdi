@@ -2,10 +2,10 @@
 
 namespace App\GryphlineBundle\Model\Game;
 
-use App\CoreBundle\Model\Game\HasNotesInterface;
-use App\CoreBundle\Model\GameNotes\GameNotes;
+use App\GamesBundle\Model\Game\HasNotesInterface;
+use App\GamesBundle\Model\GameNotes\GameNotes;
 use App\GryphlineBundle\Exception\SkportApiException;
-use App\CoreBundle\Model\Game\RuntimeAccountDataInterface;
+use App\GamesBundle\Model\Game\RuntimeAccountDataInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 

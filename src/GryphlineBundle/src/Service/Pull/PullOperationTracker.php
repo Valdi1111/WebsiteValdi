@@ -2,7 +2,7 @@
 
 namespace App\GryphlineBundle\Service\Pull;
 
-use App\CoreBundle\Service\AbstractPullOperationTracker;
+use App\GamesBundle\Service\AbstractPullOperationTracker;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -15,16 +15,16 @@ class PullOperationTracker extends AbstractPullOperationTracker
         #[Target('gryphline.pull_import_status.cache')]
         CacheItemPoolInterface $cachePool,
         HubInterface $mercureHub,
-        #[Autowire(param: 'gryphline.domain_name')]
-        ?string $gryphlineDomain = null,
+        #[Autowire(param: 'games.domain_name')]
+        ?string $gamesDomain = null,
         #[Target('gryphline')]
         ?LoggerInterface $logger = null,
     ) {
-        parent::__construct($cachePool, $mercureHub, $gryphlineDomain, $logger);
+        parent::__construct($cachePool, $mercureHub, $gamesDomain, $logger);
     }
 
-    protected function getFallbackDomain(): string
+    protected function getProviderKey(): string
     {
-        return 'gryphline.local';
+        return 'gryphline';
     }
 }

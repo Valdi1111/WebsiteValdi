@@ -5,7 +5,7 @@ namespace App\GryphlineBundle\MessageHandler\Profile;
 use App\CoreBundle\Model\Notification\UniversalEmbed;
 use App\CoreBundle\Service\Notification\UnifiedNotificationService;
 use App\GryphlineBundle\Exception\GryphlineException;
-use App\CoreBundle\Message\ProfileTaskMessageInterface;
+use App\GamesBundle\Message\ProfileTaskMessageInterface;
 use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Model\RuntimeAccountData;
 use App\GryphlineBundle\Repository\GryphlineGameProfileRepository;

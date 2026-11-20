@@ -2,9 +2,9 @@
 
 namespace App\HoyoverseBundle\MessageHandler\Profile;
 
-use App\CoreBundle\Exception\PullProfileLockedException;
+use App\GamesBundle\Exception\PullProfileLockedException;
 use App\HoyoverseBundle\Message\Profile\ImportPullsBackupMessage;
-use App\CoreBundle\Model\Pull\PullImportProgress;
+use App\GamesBundle\Model\Pull\PullImportProgress;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use App\HoyoverseBundle\Service\Pull\PullBackupImportService;
 use App\HoyoverseBundle\Service\Pull\PullOperationTracker;

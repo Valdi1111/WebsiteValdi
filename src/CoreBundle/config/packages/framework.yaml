@@ -15,15 +15,4 @@ framework:
             Symfony\Component\Mailer\Messenger\SendEmailMessage: core_async
             Symfony\Component\Notifier\Message\ChatMessage: core_async
             Symfony\Component\Notifier\Message\SmsMessage: core_async
-    http_client:
-        scoped_clients:
-            core.pull_icon_fetch.client:
-                scope: 'https://.*'
-                timeout: 8
-                retry_failed:
-                    max_retries: 1
-                    delay: 500
-                    http_codes: [ 429, 500, 502, 503, 504 ]
-                headers:
-                    'User-Agent': 'WebsiteValdi/1.0'
 

@@ -8,7 +8,7 @@ use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasPullTrackerInterface;
 use App\HoyoverseBundle\Model\Pull\ImportedPullRecord;
 use App\HoyoverseBundle\Model\Pull\PullBackupImporterInterface;
-use App\CoreBundle\Model\Pull\PullBackupValidationResult;
+use App\GamesBundle\Model\Pull\PullBackupValidationResult;
 use App\HoyoverseBundle\Model\Pull\SyntheticPullReconcilerInterface;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
 use App\HoyoverseBundle\Service\GenshinImpactService;

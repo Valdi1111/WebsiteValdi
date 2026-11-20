@@ -2,11 +2,11 @@
 
 namespace App\Tests\GryphlineBundle\Service\Pull;
 
-use App\CoreBundle\Exception\PullProfileLockedException;
-use App\CoreBundle\Model\Pull\PullBackupValidationResult;
-use App\CoreBundle\Model\Pull\PullImportProgress;
-use App\CoreBundle\Model\Pull\PullImportSummary;
-use App\CoreBundle\Model\Pull\PullOperationKind;
+use App\GamesBundle\Exception\PullProfileLockedException;
+use App\GamesBundle\Model\Pull\PullBackupValidationResult;
+use App\GamesBundle\Model\Pull\PullImportProgress;
+use App\GamesBundle\Model\Pull\PullImportSummary;
+use App\GamesBundle\Model\Pull\PullOperationKind;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
 use App\GryphlineBundle\Entity\GryphlinePull;
 use App\GryphlineBundle\Model\Pull\ImportedPullRecord;
@@ -119,9 +119,9 @@ class GryphlinePullServicesTest extends TestCase
             return 'urn:uuid:test';
         });
 
-        $tracker = new PullOperationTracker(new ArrayAdapter(), $hub, 'gryphline.test');
+        $tracker = new PullOperationTracker(new ArrayAdapter(), $hub, 'games.test');
 
-        $this->assertSame('https://gryphline.test/profiles/12/pulls/progress', $tracker->getProfileTopic(12));
+        $this->assertSame('https://games.test/gryphline/profiles/12/pulls/progress', $tracker->getProfileTopic(12));
 
         // 1. Multi-banner sync lifecycle
         $syncOp = $tracker->startSyncOperation(12, 1, PullOperationKind::AUTO_SYNC, [
@@ -165,7 +165,7 @@ class GryphlinePullServicesTest extends TestCase
         $this->assertNotEmpty($published);
         foreach ($published as $update) {
             $this->assertTrue($update->isPrivate());
-            $this->assertSame(['https://gryphline.test/profiles/12/pulls/progress'], $update->getTopics());
+            $this->assertSame(['https://games.test/gryphline/profiles/12/pulls/progress'], $update->getTopics());
         }
     }
 

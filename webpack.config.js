@@ -12,6 +12,7 @@ Encore
         '@foliate': path.resolve(import.meta.dirname, 'assets/vendor/foliate-js'),
         '@App': path.resolve(import.meta.dirname, 'assets/'),
         '@CoreBundle': path.resolve(import.meta.dirname, 'src/CoreBundle/assets/'),
+        '@GamesBundle': path.resolve(import.meta.dirname, 'src/GamesBundle/assets/'),
         '@AnimeBundle': path.resolve(import.meta.dirname, 'src/AnimeBundle/assets/'),
         '@BooksBundle': path.resolve(import.meta.dirname, 'src/BooksBundle/assets/'),
         '@HoyoverseBundle': path.resolve(import.meta.dirname, 'src/HoyoverseBundle/assets/'),
@@ -46,8 +47,7 @@ Encore
     .addEntry('login', '@CoreBundle/login.js')
     .addEntry('anime', '@AnimeBundle/app.js')
     .addEntry('books', '@BooksBundle/app.js')
-    .addEntry('hoyoverse', '@HoyoverseBundle/app.js')
-    .addEntry('gryphline', '@GryphlineBundle/app.js')
+    .addEntry('games', '@GamesBundle/app.js')
     .addEntry('passwords', '@PasswordsBundle/app.js')
     .addEntry('videos', '@VideosBundle/app.js')
     .addEntry('app', '@App/app.js')

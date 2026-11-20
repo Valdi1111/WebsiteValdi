@@ -10,11 +10,15 @@ use App\GryphlineBundle\Model\Game\HasAutoPullImportInterface;
 use App\GryphlineBundle\Model\RuntimeAccountData;
 use App\GryphlineBundle\Repository\GryphlineGameProfileRepository;
 use App\GryphlineBundle\Repository\GryphlinePullRepository;
+use App\GryphlineBundle\Service\Pull\PullBackupImportService;
+use App\GryphlineBundle\Service\Pull\PullOperationTracker;
+use App\GryphlineBundle\Service\Pull\PullSyntheticReconcilerManager;
 use App\GryphlineBundle\Service\SkportAuthService;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\DependencyInjection\Attribute\Target;
+use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Stamp\DelayStamp;
@@ -31,6 +35,7 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
      */
     private const int DELAY_MIN_MS = 1500;
     private const int DELAY_MAX_MS = 2500;
+    private const float LOCK_TTL_SECONDS = 60.0;
 
     public function __construct(
         GryphlineGameProfileRepository $gameProfileRepository,
@@ -43,6 +48,9 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
         private readonly GryphlinePullRepository $pullRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly MessageBusInterface $bus,
+        private readonly PullSyntheticReconcilerManager $syntheticReconcilerManager,
+        private readonly PullOperationTracker $operationTracker,
+        private readonly LockFactory $lockFactory,
     ) {
         parent::__construct(
             $gameProfileRepository,
@@ -71,67 +79,118 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
         }
 
         $profile = $accountData->getGameProfile();
-        $account = $profile->getAccount();
-        $u8Token = $message->getU8Token();
+        $profileId = (int) $profile->getId();
+        $category = $message->getCategory();
+        $operationId = $message->getOperationId();
+        $bannerTypes = $gameService->getGachaConfig()->getBannerTypes();
+        $bannerName = $bannerTypes[$category] ?? ('Banner ' . $category);
 
-        // 1. Resolve or generate u8_token on the first page if not already carried in the message
-        if ($u8Token === null || $u8Token === '') {
-            $u8Token = $this->authService->getEndfieldU8Token($account, $profile->getGameUid());
-        }
+        // Acquire per-profile lock to prevent overlapping backup imports or concurrent pull syncs
+        $lock = $this->lockFactory->createLock(PullBackupImportService::getProfileLockKey($profileId), self::LOCK_TTL_SECONDS);
+        if (!$lock->acquire(false)) {
+            $this->bus->dispatch($message, [new DelayStamp(2000)]);
 
-        // 2. Fetch gacha pulls for the current page from the upstream API
-        $nextSeqId = null;
-        $pulls = $gameService->fetchPullsPage(
-            $profile,
-            $message->getCategory(),
-            $u8Token,
-            $message->getSeqId(),
-            $nextSeqId
-        );
-
-        if (empty($pulls) && ($nextSeqId === null || $nextSeqId === '')) {
             return;
         }
 
-        // 3. Persist new pulls and check if we encountered an already stored record (idempotent stop)
-        $pageHasExistingPull = false;
-        $newCount = 0;
+        try {
+            $account = $profile->getAccount();
+            $u8Token = $message->getU8Token();
 
-        foreach ($pulls as $pull) {
-            if ($this->pullRepository->existsByProfileAndSeqId($profile, (string) $pull->getSeqId(), $pull->getPoolCategory())) {
-                $pageHasExistingPull = true;
-                break;
+            // 1. Resolve or generate u8_token on the first page if not already carried in the message
+            if ($u8Token === null || $u8Token === '') {
+                $u8Token = $this->authService->getEndfieldU8Token($account, $profile->getGameUid());
             }
 
-            $this->entityManager->persist($pull);
-            $newCount++;
-        }
-
-        if ($newCount > 0) {
-            $this->entityManager->flush();
-
-            $this->logger->info(sprintf(
-                'Recorded %d new pull(s) for %s (Category %s, seq_id %s).',
-                $newCount,
-                $profile->getNickname(),
-                $message->getCategory(),
-                $message->getSeqId() ?? 'initial'
-            ));
-        }
-
-        // 4. Continue pagination if no existing record was hit and the upstream API indicates more records exist
-        if (!$pageHasExistingPull && $nextSeqId !== null && $nextSeqId !== '') {
-            $nextPageDelayMs = random_int(self::DELAY_MIN_MS, self::DELAY_MAX_MS);
-
-            $this->bus->dispatch(
-                new SyncPullsPageProfileMessage(
-                    $profile->getId(),
-                    $message->getCategory(),
-                    $nextSeqId,
-                    $u8Token
-                ),
-                [new DelayStamp($nextPageDelayMs)]
+            // 2. Fetch gacha pulls for the current page from the upstream API
+            $nextSeqId = null;
+            $pulls = $gameService->fetchPullsPage(
+                $profile,
+                $category,
+                $u8Token,
+                $message->getSeqId(),
+                $nextSeqId
             );
+
+            if (empty($pulls) && ($nextSeqId === null || $nextSeqId === '')) {
+                if ($operationId !== null) {
+                    $this->operationTracker->recordSyncBannerPage($operationId, $category, 0, 0, true, $bannerName);
+                }
+
+                return;
+            }
+
+            // 3. Persist new pulls, reconcile synthetic backup pulls, and stop on first existing official pull
+            $pageHasExistingPull = false;
+            $newCount = 0;
+            $promotedCount = 0;
+
+            foreach ($pulls as $pull) {
+                if ($this->pullRepository->existsByProfileAndSeqId($profile, (string) $pull->getSeqId(), $pull->getPoolCategory())) {
+                    $pageHasExistingPull = true;
+                    break;
+                }
+
+                // Delegate synthetic pull promotion to registered backup reconcilers (if any)
+                $promoted = $this->syntheticReconcilerManager->reconcile($profile, $pull, $gameService);
+                if ($promoted !== null) {
+                    $promotedCount++;
+                    continue;
+                }
+
+                $this->entityManager->persist($pull);
+                $newCount++;
+            }
+
+            if ($newCount > 0 || $promotedCount > 0) {
+                $this->entityManager->flush();
+
+                $this->logger->info(sprintf(
+                    'Recorded %d new and promoted %d synthetic pull(s) for %s (Category %s, seq_id %s).',
+                    $newCount,
+                    $promotedCount,
+                    $profile->getNickname(),
+                    $category,
+                    $message->getSeqId() ?? 'initial'
+                ));
+            }
+
+            // 4. Continue pagination if no existing record was hit and the upstream API indicates more records exist
+            $hasMorePages = !$pageHasExistingPull && $nextSeqId !== null && $nextSeqId !== '';
+
+            if ($operationId !== null) {
+                $this->operationTracker->recordSyncBannerPage(
+                    $operationId,
+                    $category,
+                    $newCount,
+                    $promotedCount,
+                    !$hasMorePages,
+                    $bannerName
+                );
+            }
+
+            if ($hasMorePages) {
+                $nextPageDelayMs = random_int(self::DELAY_MIN_MS, self::DELAY_MAX_MS);
+
+                $this->bus->dispatch(
+                    new SyncPullsPageProfileMessage(
+                        $profile->getId(),
+                        $category,
+                        $nextSeqId,
+                        $u8Token,
+                        $operationId
+                    ),
+                    [new DelayStamp($nextPageDelayMs)]
+                );
+            }
+        } catch (\Throwable $e) {
+            if ($operationId !== null) {
+                $this->operationTracker->failSyncBanner($operationId, $category, $e->getMessage(), $bannerName);
+            }
+
+            throw $e;
+        } finally {
+            $lock->release();
         }
     }
 }

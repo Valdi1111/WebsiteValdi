@@ -9,7 +9,7 @@ use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Message\Profile\ImportPullsBackupMessage;
 use App\HoyoverseBundle\Model\Pull\PullBackupImporterInterface;
-use App\HoyoverseBundle\Model\Pull\PullBackupValidationResult;
+use App\CoreBundle\Model\Pull\PullBackupValidationResult;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
 use App\HoyoverseBundle\Service\GenshinImpactService;
 use App\HoyoverseBundle\Service\HonkaiStarRailService;

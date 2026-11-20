@@ -1,6 +1,6 @@
 <?php
 
-namespace App\HoyoverseBundle\Exception;
+namespace App\CoreBundle\Exception;
 
 class PullProfileLockedException extends \RuntimeException
 {

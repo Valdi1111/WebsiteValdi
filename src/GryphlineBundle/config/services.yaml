@@ -16,3 +16,9 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+    _instanceof:
+        App\GryphlineBundle\Model\Pull\PullBackupImporterInterface:
+            tags: ['gryphline.pull_backup_importer']
+        App\GryphlineBundle\Model\Pull\SyntheticPullReconcilerInterface:
+            tags: ['gryphline.synthetic_pull_reconciler']

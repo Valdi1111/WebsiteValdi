@@ -4,11 +4,11 @@ namespace App\HoyoverseBundle\Service\Pull;
 
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Entity\HoyoversePull;
-use App\HoyoverseBundle\Exception\PullProfileLockedException;
+use App\CoreBundle\Exception\PullProfileLockedException;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasPullTrackerInterface;
-use App\HoyoverseBundle\Model\Pull\PullImportProgress;
-use App\HoyoverseBundle\Model\Pull\PullImportSummary;
+use App\CoreBundle\Model\Pull\PullImportProgress;
+use App\CoreBundle\Model\Pull\PullImportSummary;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;

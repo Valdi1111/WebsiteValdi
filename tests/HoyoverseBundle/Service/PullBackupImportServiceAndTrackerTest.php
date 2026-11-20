@@ -4,12 +4,12 @@ namespace App\Tests\HoyoverseBundle\Service;
 
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Entity\HoyoversePull;
-use App\HoyoverseBundle\Exception\PullProfileLockedException;
+use App\CoreBundle\Exception\PullProfileLockedException;
 use App\HoyoverseBundle\Model\Pull\ImportedPullRecord;
 use App\HoyoverseBundle\Model\Pull\PullBackupImporterInterface;
-use App\HoyoverseBundle\Model\Pull\PullBackupValidationResult;
-use App\HoyoverseBundle\Model\Pull\PullImportProgress;
-use App\HoyoverseBundle\Model\Pull\PullOperationKind;
+use App\CoreBundle\Model\Pull\PullBackupValidationResult;
+use App\CoreBundle\Model\Pull\PullImportProgress;
+use App\CoreBundle\Model\Pull\PullOperationKind;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
 use App\HoyoverseBundle\Service\GenshinImpactService;
 use App\HoyoverseBundle\Service\Pull\PullBackupImporterManager;

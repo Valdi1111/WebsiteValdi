@@ -1,23 +1,23 @@
 <?php
 
-namespace App\HoyoverseBundle\Model\Pull;
+namespace App\CoreBundle\Model\Pull;
 
 final readonly class PullBackupValidationResult
 {
     public function __construct(
         public bool $valid,
-        public int $estimatedCount = 0,
         public ?string $error = null,
+        public int $estimatedCount = 0,
     ) {
     }
 
-    public static function ok(int $estimatedCount): self
+    public static function ok(int $estimatedCount = 0): self
     {
-        return new self(true, $estimatedCount, null);
+        return new self(true, null, max(0, $estimatedCount));
     }
 
     public static function fail(string $error): self
     {
-        return new self(false, 0, $error);
+        return new self(false, $error, 0);
     }
 }

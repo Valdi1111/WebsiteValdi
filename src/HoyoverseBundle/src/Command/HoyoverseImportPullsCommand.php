@@ -4,7 +4,7 @@ namespace App\HoyoverseBundle\Command;
 
 use App\HoyoverseBundle\Message\Profile\ImportPullsBackupMessage;
 use App\HoyoverseBundle\Model\Game\GameInterface;
-use App\HoyoverseBundle\Model\Pull\PullImportProgress;
+use App\CoreBundle\Model\Pull\PullImportProgress;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use App\HoyoverseBundle\Service\Pull\PullBackupImporterManager;
 use App\HoyoverseBundle\Service\Pull\PullBackupImportService;

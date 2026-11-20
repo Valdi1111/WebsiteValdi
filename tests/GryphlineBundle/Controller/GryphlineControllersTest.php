@@ -154,7 +154,7 @@ class GryphlineControllersTest extends TestCase
         $account->addGameProfile($profile);
 
         $em = $this->createStub(EntityManagerInterface::class);
-        $controller = new ApiGameProfilesController($em, $this->createStub(ServiceLocator::class));
+        $controller = new ApiGameProfilesController($em, $this->createStub(ServiceLocator::class), sys_get_temp_dir());
         $controller->setAccount($account);
         $this->attachMockContainer($controller);
 
@@ -174,7 +174,7 @@ class GryphlineControllersTest extends TestCase
         $denormalizer = $this->createMock(DenormalizerInterface::class);
         $denormalizer->expects($this->once())->method('denormalize');
 
-        $controller = new ApiGameProfilesController($em, $this->createStub(ServiceLocator::class));
+        $controller = new ApiGameProfilesController($em, $this->createStub(ServiceLocator::class), sys_get_temp_dir());
         $controller->setAccount($account);
         $this->attachMockContainer($controller);
 
@@ -202,7 +202,7 @@ class GryphlineControllersTest extends TestCase
         $em = $this->createStub(EntityManagerInterface::class);
         $denormalizer = $this->createStub(DenormalizerInterface::class);
 
-        $controller = new ApiGameProfilesController($em, $this->createStub(ServiceLocator::class));
+        $controller = new ApiGameProfilesController($em, $this->createStub(ServiceLocator::class), sys_get_temp_dir());
         $controller->setAccount($account1);
         $this->attachMockContainer($controller);
 

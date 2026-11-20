@@ -15,7 +15,7 @@ const PHASE_LABELS = {
     queued: "Queued in background...",
     parsing: "Parsing backup & resolving item catalog...",
     importing: "Importing pulls...",
-    syncing: "Syncing banners from HoYoverse...",
+    syncing: "Syncing banners...",
     completed: "Completed",
     failed: "Failed",
 };

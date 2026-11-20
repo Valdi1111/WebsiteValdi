@@ -1,3 +1,6 @@
+import BackupPullImportModal from "@CoreBundle/components/pulls/BackupPullImportModal";
+import PullOperationProgressBanner from "@CoreBundle/components/pulls/PullOperationProgressBanner";
+import usePullOperationProgress from "@CoreBundle/components/pulls/usePullOperationProgress";
 import { useBackendApi } from "@GryphlineBundle/components/BackendApiContext";
 import PullsBannerCard from "@GryphlineBundle/components/pulls/PullsBannerCard";
 import PullsMonthlyChart from "@GryphlineBundle/components/pulls/PullsMonthlyChart";
@@ -7,6 +10,9 @@ import {
     SyncOutlined,
     ReloadOutlined,
     AppstoreOutlined,
+    ImportOutlined,
+    DownOutlined,
+    FileTextOutlined,
 } from "@ant-design/icons";
 import {
     Typography,
@@ -17,6 +23,7 @@ import {
     Col,
     Spin,
     Select,
+    Dropdown,
     Grid,
 } from "antd";
 import React, { useState, useEffect, useCallback, useRef } from "react";
@@ -48,31 +55,8 @@ export default function PullsPage() {
     const [selectedRarities, setSelectedRarities] = useState([]);
     const [search, setSearch] = useState("");
 
+    const [selectedBackupImporter, setSelectedBackupImporter] = useState(null);
     const [syncingPulls, setSyncingPulls] = useState(false);
-
-    const loadOverview = useCallback(() => {
-        setLoadingOverview(true);
-        api
-            .withErrorHandling()
-            .gameProfiles()
-            .getPullsOverview(accountId, gameProfileId)
-            .then((res) => {
-                const data = res.data;
-                setOverview(data);
-                if (data.rarity_config && selectedRarities.length === 0) {
-                    // Default: show 6★ and 5★, hide 4★ base rarity
-                    setSelectedRarities([
-                        data.rarity_config.s.rarity,
-                        data.rarity_config.a.rarity,
-                    ]);
-                }
-            })
-            .finally(() => setLoadingOverview(false));
-    }, [api, accountId, gameProfileId]);
-
-    useEffect(() => {
-        loadOverview();
-    }, [loadOverview]);
 
     const fetchBannerDetail = useCallback(
         (targetBannerKey, targetPage, targetPageSize, targetRarities, targetSearch) => {
@@ -110,6 +94,73 @@ export default function PullsPage() {
         },
         [api, accountId, gameProfileId]
     );
+
+    const fetchOperationStatus = useCallback(
+        (operationId) =>
+            api.gameProfiles().getPullsOperationStatus(accountId, gameProfileId, operationId),
+        [api, accountId, gameProfileId]
+    );
+
+    const handleRefreshRef = useRef(null);
+    const onOperationCompleted = useCallback(() => {
+        handleRefreshRef.current?.();
+    }, []);
+
+    const {
+        activeOperation,
+        applyOperationUpdate,
+        mergeInitialOperation,
+        dismissOperation,
+    } = usePullOperationProgress({
+        mercureTopic: overview?.mercure_topic,
+        fetchOperationStatus,
+        onOperationCompleted,
+    });
+
+    const loadOverview = useCallback(() => {
+        setLoadingOverview(true);
+        api
+            .withErrorHandling()
+            .gameProfiles()
+            .getPullsOverview(accountId, gameProfileId)
+            .then((res) => {
+                const data = res.data;
+                setOverview(data);
+                if (data.active_operation) {
+                    mergeInitialOperation(data.active_operation);
+                }
+                if (data.rarity_config) {
+                    // Default: show 6★ and 5★, hide 4★ base rarity
+                    setSelectedRarities((prev) =>
+                        prev.length === 0
+                            ? [data.rarity_config.s.rarity, data.rarity_config.a.rarity]
+                            : prev
+                    );
+                }
+            })
+            .finally(() => setLoadingOverview(false));
+    }, [api, accountId, gameProfileId, mergeInitialOperation]);
+
+    useEffect(() => {
+        loadOverview();
+    }, [loadOverview]);
+
+    const handleRefresh = useCallback(() => {
+        loadOverview();
+        if (selectedBannerKey) {
+            fetchBannerDetail(selectedBannerKey, page, pageSize, selectedRarities, search);
+        }
+    }, [
+        loadOverview,
+        selectedBannerKey,
+        fetchBannerDetail,
+        page,
+        pageSize,
+        selectedRarities,
+        search,
+    ]);
+
+    handleRefreshRef.current = handleRefresh;
 
     const handleSelectBanner = (bannerKey) => {
         const defaultRarities = overview?.rarity_config
@@ -155,13 +206,6 @@ export default function PullsPage() {
         fetchBannerDetail(selectedBannerKey, 1, pageSize, defaultRarities, "");
     };
 
-    const handleRefresh = () => {
-        loadOverview();
-        if (selectedBannerKey) {
-            fetchBannerDetail(selectedBannerKey, page, pageSize, selectedRarities, search);
-        }
-    };
-
     const handleSyncPulls = () => {
         setSyncingPulls(true);
         api
@@ -172,8 +216,10 @@ export default function PullsPage() {
             })
             .gameProfiles()
             .syncPulls(accountId, gameProfileId)
-            .then(() => {
-                setTimeout(() => handleRefresh(), 2500);
+            .then((res) => {
+                if (res?.data?.operation) {
+                    applyOperationUpdate(res.data.operation);
+                }
             })
             .catch(() => {})
             .finally(() => setSyncingPulls(false));
@@ -190,8 +236,17 @@ export default function PullsPage() {
     const profile = overview?.profile;
     const rarityConfig = overview?.rarity_config;
     const banners = overview?.banners || [];
+    const availableBackupImporters = overview?.available_backup_importers || [];
     const currentBannerSummary =
         detailBanner || banners.find((b) => b.key === selectedBannerKey) || null;
+
+    // Unified Import dropdown items (automatically populates whenever backup importers are registered)
+    const importMenuItems = availableBackupImporters.map((imp) => ({
+        key: `backup:${imp.key}`,
+        icon: <FileTextOutlined />,
+        label: imp.label,
+        onClick: () => setSelectedBackupImporter(imp),
+    }));
 
     const breadcrumbItems = [
         { title: <a onClick={() => navigate("/gryphline")}>Gryphline</a> },
@@ -215,7 +270,7 @@ export default function PullsPage() {
                 overflow: "hidden",
             }}
         >
-            {/* Header section aligned with DiaryPage */}
+            {/* Header section */}
             <div
                 style={{
                     padding: isMobile ? "12px 14px" : "20px 24px 16px 24px",
@@ -286,6 +341,17 @@ export default function PullsPage() {
                             </Button>
                         )}
 
+                        {importMenuItems.length > 0 && (
+                            <Dropdown menu={{ items: importMenuItems }} trigger={["click"]}>
+                                <Button icon={<ImportOutlined />}>
+                                    <Space size={4}>
+                                        Import
+                                        <DownOutlined style={{ fontSize: 10 }} />
+                                    </Space>
+                                </Button>
+                            </Dropdown>
+                        )}
+
                         <Button
                             icon={<ReloadOutlined />}
                             loading={loadingOverview || loadingDetail}
@@ -319,6 +385,11 @@ export default function PullsPage() {
                     boxSizing: "border-box",
                 }}
             >
+                <PullOperationProgressBanner
+                    operation={activeOperation}
+                    onDismiss={dismissOperation}
+                />
+
                 {selectedBannerKey ? (
                     <PullsBannerDetail
                         banner={currentBannerSummary}
@@ -373,6 +444,25 @@ export default function PullsPage() {
                     </Space>
                 )}
             </div>
+
+            {/* Backup File Import Modal */}
+            <BackupPullImportModal
+                open={selectedBackupImporter !== null}
+                importer={selectedBackupImporter}
+                profile={profile}
+                activeOperation={activeOperation}
+                onUpload={(importerKey, file) =>
+                    api
+                        .gameProfiles()
+                        .importBackupPulls(accountId, profile?.id ?? gameProfileId, importerKey, file)
+                }
+                onClose={() => setSelectedBackupImporter(null)}
+                onOperationStarted={(op) => {
+                    if (op) {
+                        applyOperationUpdate(op);
+                    }
+                }}
+            />
         </div>
     );
 }

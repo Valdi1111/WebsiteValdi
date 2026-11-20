@@ -1,17 +1,17 @@
-# HoYoverse Bundle (`HoyoverseBundle`) — Guida alle Funzionalità
+# HoYoverse Bundle (`HoyoverseBundle`) — Feature Guide
 
-Il bundle **`HoyoverseBundle`** gestisce l'integrazione completa con l'ecosistema **HoYoLAB / HoYoverse** per **Genshin Impact**, **Honkai: Star Rail**, **Zenless Zone Zero**, **Honkai Impact 3rd** e **Tears of Themis**.
+The **`HoyoverseBundle`** manages full integration with the **HoYoLAB / HoYoverse** ecosystem for **Genshin Impact**, **Honkai: Star Rail**, **Zenless Zone Zero**, **Honkai Impact 3rd**, and **Tears of Themis**.
 
-Supporta autenticazione diretta o tramite cookie, rinnovo automatico delle sessioni, check-in giornalieri, riscatto automatico dei codici promozionali, monitoraggio in tempo reale delle risorse in-game (Resin/Trailblaze Power/Battery, spedizioni, Realm Currency, negozi, endgame), sincronizzazione del **Diary** (entrate mensili di valute premium) e **Pulls Tracker** (sync automatico via `stoken_v2`, import tramite script PowerShell, importazione da file di backup esterni e avanzamento in tempo reale via Mercure).
+It supports direct credentials or cookie-based authentication, automatic session refresh, daily check-ins, automated promo code redemption, real-time monitoring of in-game resources (Resin/Trailblaze Power/Battery, expeditions, Realm Currency, shops, endgames), **Diary** synchronization (monthly premium currency income), and a **Pulls Tracker** (automatic sync via `stoken_v2`, PowerShell script import, third-party backup file import, and real-time Mercure progress tracking).
 
 ---
 
-## 1. Giochi Supportati e Matrice delle Funzionalità
+## 1. Supported Games & Feature Matrix
 
-| Funzionalità | Genshin Impact (`hk4e_global`) | Honkai: Star Rail (`hkrpg_global`) | Zenless Zone Zero (`nap_global`) | Honkai Impact 3rd (`bh3_global`) | Tears of Themis (`nxx_global`) |
+| Feature | Genshin Impact (`hk4e_global`) | Honkai: Star Rail (`hkrpg_global`) | Zenless Zone Zero (`nap_global`) | Honkai Impact 3rd (`bh3_global`) | Tears of Themis (`nxx_global`) |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **Auto Check-In & Missed Check-In** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Codici Promo (Auto Redeem API)** | ✅ (Automatico) | ✅ (Automatico) | ✅ (Automatico) | 🔔 (Notifica manuale) | 🔔 (Notifica manuale) |
+| **Promo Codes (Auto Redeem API)** | ✅ (Automatic) | ✅ (Automatic) | ✅ (Automatic) | 🔔 (Manual notification) | 🔔 (Manual notification) |
 | **Stamina Reminder** | ✅ (Original Resin, max 200) | ✅ (Trailblaze Power, max 300) | ✅ (Battery Charge, max 300) | ❌ | ❌ |
 | **Dailies Reminder** | ✅ (Daily Tasks 4/4) | ✅ (Activity Points 500/500) | ✅ (Engagement, Scratch Card, Cafe) | ❌ | ❌ |
 | **Weeklies Reminder** | ✅ (Resin Discounts 3/3) | ✅ (Echo of War 3/3, Sim. Universe) | ✅ (Bounty Commissions, Ridu Points) | ❌ | ❌ |
@@ -19,277 +19,275 @@ Supporta autenticazione diretta o tramite cookie, rinnovo automatico delle sessi
 | **Realm Currency Reminder** | ✅ (Serenitea Pot) | ❌ | ❌ | ❌ | ❌ |
 | **Shop Status Reminder** | ❌ | ❌ | ✅ (Video Store / VHS) | ❌ | ❌ |
 | **Endgames Reminder** | ✅ (Spiral Abyss, Imaginarium Theater, Stygian Onslaught) | ✅ (Memory of Chaos, Pure Fiction, Apocalyptic Shadow, Anomaly Arbitration) | ✅ (Shiyu Defense, Deadly Assault) | ❌ | ❌ |
-| **Diary Sync (Valute Mensili)** | ✅ (Primogems, Mora) | ✅ (Stellar Jades, Passes) | ✅ (Polychromes, Tapes) | ❌ | ❌ |
-| **Pulls Sync Automatico (`stoken_v2`)** | ✅ | ❌ *(Non supportato da HoYoverse)* | ✅ | ❌ | ❌ |
-| **Pulls Sync tramite PowerShell** | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **Pulls Import da Backup (File)** | ✅ (`paimon.moe` JSON) | ✅ (`starrailstation.com` CSV) | ✅ (`zzz.rng.moe` JSON) | ❌ | ❌ |
+| **Diary Sync (Monthly Currencies)** | ✅ (Primogems, Mora) | ✅ (Stellar Jades, Passes) | ✅ (Polychromes, Tapes) | ❌ | ❌ |
+| **Automatic Pulls Sync (`stoken_v2`)** | ✅ | ❌ *(Unsupported by HoYoverse)* | ✅ | ❌ | ❌ |
+| **PowerShell Pulls Sync** | ✅ | ✅ | ✅ | ❌ | ❌ |
+| **Backup File Pulls Import** | ✅ (`paimon.moe` JSON) | ✅ (`starrailstation.com` CSV) | ✅ (`zzz.rng.moe` JSON) | ❌ | ❌ |
 
-### 1.1 Architettura dei Game Service: Interfacce di Capacità, Trait e Normalizzazione Dinamica
+### 1.1 Game Service Architecture: Capability Interfaces, Traits & Dynamic Normalization
 
-Ogni gioco è implementato come un servizio che estende `App\HoyoverseBundle\Model\Game\GameService` (registrato nel Service Locator tramite i tag `hoyoverse.game.id` e `hoyoverse.game.biz`).  
-Le funzionalità supportate da ciascun gioco sono dichiarate tramite **Interfacce di Capacità** (capability interfaces): sia i **MessageHandler** (in background) sia `HoyoverseGameProfileNormalizer` (verso il frontend React) ispezionano con `instanceof` quali interfacce implementa il Game Service per abilitare/nascondere automaticamente i task e le opzioni nel `GameProfileSettingsDrawer`.
+Each game is implemented as a service extending `App\HoyoverseBundle\Model\Game\GameService` (registered in the Service Locator via the `hoyoverse.game.id` and `hoyoverse.game.biz` tags).  
+Supported features for each game are declared through **Capability Interfaces**: both background **MessageHandlers** and `HoyoverseGameProfileNormalizer` (for the React frontend) inspect implemented interfaces via `instanceof` to automatically enable/hide scheduled jobs and toggles in `GameProfileSettingsDrawer`.
 
-#### Interfacce Condivise (`App\CoreBundle\Model\Game\*`)
-| Interfaccia | Trait Associato | Campi esposti dal Normalizer | Cosa indica / Funzionalità abilitata |
+#### Shared Interfaces (`App\CoreBundle\Model\Game\*`)
+| Interface | Associated Trait | Fields Exposed by Normalizer | Purpose / Enabled Feature |
 | :--- | :--- | :--- | :--- |
-| `HasNotesInterface` | `NotesTrait` | — | Il gioco espone un endpoint *Real-Time Notes* (`dailyNote` / `note`) su HoYoLAB per leggere lo stato in tempo reale del profilo. |
-| `HasStaminaInterface` | `NotesTrait` | `staminaCheck`, `staminaThreshold` | Il gioco permette di leggere la Stamina attuale/massima e il tempo di recupero, abilitando lo **Stamina Reminder**. |
-| `HasDailiesInterface` | `NotesTrait` | `dailiesCheck` | Il gioco espone lo stato delle attività giornaliere (es. Commissioni, Activity Points, Engagement/Scratch Card/Cafe), abilitando il **Dailies Reminder**. |
-| `HasWeekliesInterface` | `NotesTrait` | `weekliesCheck` | Il gioco espone lo stato delle attività settimanali (es. Resin Discounts, Echo of War/Sim. Universe, Bounty/Ridu Points), abilitando il **Weeklies Reminder**. |
-| `HasEndgamesInterface` | `GenshinImpactEndgamesTrait`, `HonkaiStarRailEndgamesTrait`, `ZenlessZoneZeroEndgamesTrait` | `endgamesCheck` *(gestito via trait)* | Il gioco espone gli endpoint di stato e rotazione delle modalità Endgame competitive, abilitando l'**Endgames Reminder**. |
+| `HasNotesInterface` | `NotesTrait` | — | The game exposes a *Real-Time Notes* endpoint (`dailyNote` / `note`) on HoYoLAB to fetch live profile data. |
+| `HasStaminaInterface` | `NotesTrait` | `staminaCheck`, `staminaThreshold` | The game exposes current/max Stamina and full recovery time, enabling **Stamina Reminder**. |
+| `HasDailiesInterface` | `NotesTrait` | `dailiesCheck` | The game exposes daily activity progress (e.g. Commissions, Activity Points, Engagement/Scratch Card/Cafe), enabling **Dailies Reminder**. |
+| `HasWeekliesInterface` | `NotesTrait` | `weekliesCheck` | The game exposes weekly activity progress (e.g. Resin Discounts, Echo of War/Sim. Universe, Bounty/Ridu Points), enabling **Weeklies Reminder**. |
+| `HasEndgamesInterface` | `GenshinImpactEndgamesTrait`, `HonkaiStarRailEndgamesTrait`, `ZenlessZoneZeroEndgamesTrait` | `endgamesCheck` *(handled via trait)* | The game exposes competitive Endgame rotation status endpoints, enabling **Endgames Reminder**. |
 
-#### Interfacce Specifiche HoYoverse (`App\HoyoverseBundle\Model\Game\*`)
-| Interfaccia | Trait Associato | Campi / Flag esposti dal Normalizer | Cosa indica / Funzionalità abilitata |
+#### HoYoverse-Specific Interfaces (`App\HoyoverseBundle\Model\Game\*`)
+| Interface | Associated Trait | Fields / Flags Exposed by Normalizer | Purpose / Enabled Feature |
 | :--- | :--- | :--- | :--- |
-| `HasHoyolabCheckInInterface` | `HoyolabCheckInTrait` *(in `GameService`)* | `hoyolabCheckIn`, `hoyolabMissedCheckIn` | Il gioco supporta il check-in giornaliero HoYoLAB (`info`, `home`, `sign`), abilitando **Auto Check-In** e **Missed Check-In Reminder**. |
-| `HasCodeRedemptionInterface` | `CodeRedemptionTrait` | `codeRedeem` | Il gioco dispone di una sorgente pubblica di codici promozionali (`api.ennead.cc`). Se implementata da sola (*HI3*, *ToT*), invia notifiche per il **riscatto manuale** in-game. |
-| `HasAutoCodeRedemptionInterface` | `AutoCodeRedemptionTrait` | `codeRedeem` | Estende `HasCodeRedemptionInterface`: il gioco espone l'endpoint `webExchangeCdkeyRisk` (*GI*, *HSR*, *ZZZ*), abilitando il **riscatto automatico via API**. |
-| `HasExpeditionsInterface` | `NotesTrait` | `expeditionsCheck` | Il gioco include spedizioni/assignments nelle Real-Time Notes (*GI*, *HSR*), abilitando l'**Expeditions Reminder**. |
-| `HasRealmCurrencyInterface` | `NotesTrait` | `realmCurrencyCheck`, `realmCurrencyThreshold` | Il gioco include la valuta della Serenitea Pot nelle Real-Time Notes (*GI*), abilitando il **Realm Currency Reminder**. |
-| `HasShopStatusInterface` | `NotesTrait` | `shopStatusCheck` | Il gioco include lo stato di gestione del Video Store / VHS nelle Real-Time Notes (*ZZZ*), abilitando lo **Shop Status Reminder**. |
-| `HasDiaryInterface` | `DiaryTrait` | `syncDiary` | Il gioco espone gli endpoint mensili `month_info` e `month_detail` (*GI*, *HSR*, *ZZZ*), abilitando la pagina **Diary** e la sincronizzazione mensile delle valute. |
-| `HasPullTrackerInterface` | `HoyoversePullTrait` | `supports_pulls: true` | Il gioco supporta il tracciamento dei banner Gacha (`getGachaConfig()`, `getRarityConfig()`, `fetchPullsPage()`), abilitando la pagina **Pulls Tracker**. |
-| `HasStokenPullImportInterface` | `HoyoversePullTrait` | `syncPulls`, `supports_stoken_pulls: true` | Estende `HasPullTrackerInterface`: il gioco permette di generare l'`authkey` gacha direttamente da `stoken_v2` via Takumi API (*GI*, *ZZZ*), abilitando lo switch **Auto Sync Pulls** e il pulsante **Sync Pulls** in 1-click. |
-| `HasPowershellPullImportInterface` | `HoyoversePullTrait` | `supports_powershell_pulls: true` | Estende `HasPullTrackerInterface`: il gioco definisce una `PowershellPullConfig` (*GI*, *HSR*, *ZZZ*), abilitando il pulsante **Import via PowerShell** per estrarre l'URL Gacha dalla cache webview locale di Windows. |
-| `HasMimoInterface` | `MimoTrait` | `mimoCheck`, `mimoRedeem`, `mimoRedeemDraw`, `mimoLottery`, `mimoReservePoints` | Predisposizione per l'automazione degli eventi web *Traveling Mimo* su HoYoLAB. |
-| `HasHilichurlInterface` | — | `hilichurlCheck`, `hilichurlRedeem` | Predisposizione per l'automazione degli eventi web *Hilichurl's Treasure Trove*. |
+| `HasHoyolabCheckInInterface` | `HoyolabCheckInTrait` *(in `GameService`)* | `hoyolabCheckIn`, `hoyolabMissedCheckIn` | The game supports HoYoLAB daily check-in (`info`, `home`, `sign`), enabling **Auto Check-In** and **Missed Check-In Reminder**. |
+| `HasCodeRedemptionInterface` | `CodeRedemptionTrait` | `codeRedeem` | The game has a public promo code source (`api.ennead.cc`). When implemented alone (*HI3*, *ToT*), sends notifications for **manual in-game redemption**. |
+| `HasAutoCodeRedemptionInterface` | `AutoCodeRedemptionTrait` | `codeRedeem` | Extends `HasCodeRedemptionInterface`: the game exposes `webExchangeCdkeyRisk` (*GI*, *HSR*, *ZZZ*), enabling **automatic API code redemption**. |
+| `HasExpeditionsInterface` | `NotesTrait` | `expeditionsCheck` | The game includes expeditions/assignments in Real-Time Notes (*GI*, *HSR*), enabling **Expeditions Reminder**. |
+| `HasRealmCurrencyInterface` | `NotesTrait` | `realmCurrencyCheck`, `realmCurrencyThreshold` | The game includes Serenitea Pot currency in Real-Time Notes (*GI*), enabling **Realm Currency Reminder**. |
+| `HasShopStatusInterface` | `NotesTrait` | `shopStatusCheck` | The game includes Video Store / VHS management status in Real-Time Notes (*ZZZ*), enabling **Shop Status Reminder**. |
+| `HasDiaryInterface` | `DiaryTrait` | `syncDiary` | The game exposes monthly `month_info` and `month_detail` endpoints (*GI*, *HSR*, *ZZZ*), enabling the **Diary** page and monthly currency sync. |
+| `HasPullTrackerInterface` | `HoyoversePullTrait` | `supports_pulls: true` | The game supports Gacha banner tracking (`getGachaConfig()`, `getRarityConfig()`, `fetchPullsPage()`), enabling the **Pulls Tracker** page. |
+| `HasStokenPullImportInterface` | `HoyoversePullTrait` | `syncPulls`, `supports_stoken_pulls: true` | Extends `HasPullTrackerInterface`: the game can generate a gacha `authkey` directly from `stoken_v2` via Takumi API (*GI*, *ZZZ*), enabling the **Auto Sync Pulls** toggle and 1-click **Sync Pulls** button. |
+| `HasPowershellPullImportInterface` | `HoyoversePullTrait` | `supports_powershell_pulls: true` | Extends `HasPullTrackerInterface`: the game defines a `PowershellPullConfig` (*GI*, *HSR*, *ZZZ*), enabling **Import via PowerShell** to extract the Gacha URL from the local Windows webview cache. |
+| `HasMimoInterface` | `MimoTrait` | `mimoCheck`, `mimoRedeem`, `mimoRedeemDraw`, `mimoLottery`, `mimoReservePoints` | Scaffolding for automating *Traveling Mimo* web events on HoYoLAB. |
+| `HasHilichurlInterface` | — | `hilichurlCheck`, `hilichurlRedeem` | Scaffolding for automating *Hilichurl's Treasure Trove* web events. |
 
 ---
 
-## 2. Autenticazione: Login con Credenziali, Cookie e Auto-Refresh
+## 2. Authentication: Credentials Login, Cookies & Auto-Refresh
 
-Ogni account HoYoverse (`HoyoverseAccount`) è associato a un utente della piattaforma e identificato univocamente tramite la colonna indicizzata `account_uid` (`ltuid_v2` / `aid`), prevenendo duplicazioni quando si aggiunge un account già presente e bloccando sovrascritture accidentali con account diversi in fase di **Re-login**.
+Each HoYoverse account (`HoyoverseAccount`) belongs to a platform user and is uniquely identified by the indexed `account_uid` column (`ltuid_v2` / `aid`), preventing duplicates when re-adding an existing account and blocking accidental mismatches with a different account during **Re-login**.
 
-### 2.1 Login Diretto con Credenziali (Email / Username + Password)
-Il flusso di login diretto (`HoyoverseAuthService`) replica il protocollo mobile ufficiale HoYoLAB (`hk4e-sdk-os.hoyoverse.com`):
-1. **Crittografia RSA-2048**: `account` e `password` vengono cifrati separatamente tramite chiave pubblica RSA OS (`LOGIN_KEY_TYPE_1`) prima di essere inviati a `/account/ma-passport/api/appLoginByPassword`.
-2. **Firma `DS` v2 e Identificazione Device**:
-   - Ogni richiesta è firmata con l'header `DS` (`t,r,md5(salt=IZPgfb0dRPtBeLuFkdDznSZ6f4wWt6y2&t=...&r=...&b=<json>&q=)`).
-   - Viene generato (e persistito sull'entità `HoyoverseAccount::deviceId`) un `x-rpc-device_id` esadecimale a 16 caratteri, accompagnato da `x-rpc-device_name: Hoyoverse Integration` e `x-rpc-device_model: WebsiteValdi` (visibile nella sezione *Trusted Devices* dell'Account Center HoYoverse).
-3. **Gestione Captcha GeeTest Aigis (`retcode: -3101`)**:
-   - Se HoYoverse richiede una verifica anti-bot, il backend estrae l'header `x-rpc-aigis`, salva la sessione temporanea cifrata (`AES-256-GCM` tramite `AuthSessionStore`, TTL 10 minuti) e restituisce la challenge al frontend.
-   - Il componente React `GeetestCaptchaFrame` renderizza il widget GeeTest v3 o v4 in un iframe isolato usando gli script SDK serviti dal proxy locale `GeetestService`.
-4. **Verifica Email OTP per Nuovo Device (`retcode: -3239`)**:
-   - Se il `device_id` non è ancora registrato come trusted device su HoYoverse, il server richiede un codice OTP via email (`createEmailCaptchaByActionTicket` → `verifyActionTicketPartly`).
-   - Una volta verificato il codice OTP a 6 cifre, il `device_id` diventa *trusted* e i futuri re-login sullo stesso account riutilizzeranno lo stesso `device_id` senza richiedere nuovamente l'OTP.
-5. **Scambio Token e Sincronizzazione Profili**:
-   - Ottenuto `stoken_v2`, il servizio chiama `getLTokenBySToken` e `getCookieAccountInfoBySToken` per generare `ltoken_v2` e `cookie_token_v2`, salva la cookie string completa e sincronizza immediatamente i profili di gioco (`HoyoverseGameProfile`).
+### 2.1 Direct Credentials Login (Email / Username + Password)
+The direct login flow (`HoyoverseAuthService`) mirrors the official HoYoLAB mobile protocol (`hk4e-sdk-os.hoyoverse.com`):
+1. **RSA-2048 Encryption**: `account` and `password` are encrypted separately with the OS RSA public key (`LOGIN_KEY_TYPE_1`) before being sent to `/account/ma-passport/api/appLoginByPassword`.
+2. **`DS` v2 Signing & Device Identification**:
+   - Every request is signed with the `DS` header (`t,r,md5(salt=IZPgfb0dRPtBeLuFkdDznSZ6f4wWt6y2&t=...&r=...&b=<json>&q=)`).
+   - A 16-hex-character `x-rpc-device_id` is generated (and persisted on `HoyoverseAccount::deviceId`), paired with `x-rpc-device_name: Hoyoverse Integration` and `x-rpc-device_model: WebsiteValdi` (visible under *Trusted Devices* in the HoYoverse Account Center).
+3. **GeeTest Aigis Captcha Handling (`retcode: -3101`)**:
+   - If HoYoverse requires anti-bot verification, the backend extracts the `x-rpc-aigis` header, stores the encrypted temporary session (`AES-256-GCM` via `AuthSessionStore`, 10-minute TTL), and returns the challenge to the frontend.
+   - The `GeetestCaptchaFrame` React component renders the GeeTest v3 or v4 widget inside an isolated iframe using SDK scripts served through the local `GeetestService` proxy.
+4. **Email OTP Verification for New Devices (`retcode: -3239`)**:
+   - If the `device_id` is not yet registered as a trusted device on HoYoverse, the server requires an email OTP code (`createEmailCaptchaByActionTicket` → `verifyActionTicketPartly`).
+   - Once the 6-digit OTP is verified, the `device_id` becomes *trusted* and subsequent re-logins on the same account reuse that `device_id` without prompting for OTP again.
+5. **Token Exchange & Profile Synchronization**:
+   - After obtaining `stoken_v2`, the service calls `getLTokenBySToken` and `getCookieAccountInfoBySToken` to generate `ltoken_v2` and `cookie_token_v2`, persists the full cookie string, and immediately syncs game profiles (`HoyoverseGameProfile`).
 
-### 2.2 Login / Aggiornamento tramite Cookie String ("Paste Cookie")
-In alternativa al login con credenziali, dalla tab **Paste Cookie** è possibile incollare manualmente la stringa dei cookie HoYoLAB:
-- **Requisiti minimi**: `ltoken_v2`, `ltuid_v2`, `ltmid_v2`.
-- **Token opzionali ma consigliati**:
-  - `stoken_v2`: abilita il rinnovo automatico perpetuo dei cookie e l'import automatico delle pull per Genshin Impact e Zenless Zone Zero.
-  - `cookie_token_v2` e `account_id_v2`: necessari per il riscatto automatico dei codici se `stoken_v2` non è presente.
+### 2.2 Login / Update via Cookie String ("Paste Cookie")
+As an alternative to credentials login, the **Paste Cookie** tab allows pasting a HoYoLAB cookie string manually:
+- **Minimum requirements**: `ltoken_v2`, `ltuid_v2`, `ltmid_v2`.
+- **Optional but recommended tokens**:
+  - `stoken_v2`: enables continuous automatic cookie refresh and automatic pulls sync for Genshin Impact and Zenless Zone Zero.
+  - `cookie_token_v2` and `account_id_v2`: required for automatic promo code redemption when `stoken_v2` is not present.
 
-### 2.3 Rinnovo Automatico dei Cookie (`UpdateCookieMessage`)
-- **Schedule**: `0 */4 * * *` (ogni 4 ore).
-- **Funzionamento**: `UpdateCookieMessageHandler` scansiona tutti gli account dotati di `stoken_v2` e rinnova `ltoken_v2` e `cookie_token_v2`.
-- **Notifiche di Stato**: invia una notifica all'utente solo alle transizioni di stato (quando il refresh fallisce per la prima volta o quando viene ripristinato con successo).
+### 2.3 Automatic Cookie Refresh (`UpdateCookieMessage`)
+- **Schedule**: `0 */4 * * *` (every 4 hours).
+- **Behavior**: `UpdateCookieMessageHandler` iterates over all accounts with `stoken_v2` and refreshes `ltoken_v2` and `cookie_token_v2`.
+- **Status Notifications**: notifies the user only on state transitions (first failure or recovery back to healthy).
 
 ---
 
-## 3. Auto Check-In Giornaliero
+## 3. Daily Auto Check-In
 
-Il sistema gestisce due task distinti per garantire che nessun check-in giornaliero HoYoLAB vada perso:
+Two scheduled tasks ensure no HoYoLAB daily check-in is missed:
 
 1. **Auto Check-In (`HoyolabCheckInBatchMessage`)** — Schedule: `0 20 * * *`
-   - Controlla tramite l'endpoint `info` se il check-in odierno è già stato effettuato per ciascun profilo con `hoyolabCheckIn = true`.
-   - Se non ancora effettuato, invia la richiesta di `sign`, recupera il premio del giorno dall'endpoint `home` (es. *Primogems x20*) e invia una notifica con l'icona e la quantità della ricompensa, più il totale dei check-in mensili e gli eventuali giorni mancati.
+   - Queries the `info` endpoint to check whether today's check-in has already been claimed for each profile with `hoyolabCheckIn = true`.
+   - If unclaimed, sends the `sign` request, fetches today's reward from `home` (e.g. *Primogems x20*), and sends a notification with the reward icon/quantity, monthly check-in total, and any missed days.
 2. **Missed Check-In Reminder (`HoyolabMissedCheckInBatchMessage`)** — Schedule: `0 14 * * *`
-   - Per i profili con `hoyolabMissedCheckIn = true` (e auto check-in disattivato o fallito), verifica a metà giornata se il check-in è ancora mancante e invia un promemoria con il premio riscattabile oggi.
+   - For profiles with `hoyolabMissedCheckIn = true` (when auto check-in is disabled or failed), checks midday whether today's check-in is still pending and sends a reminder with today's claimable reward.
 
 ---
 
-## 4. Auto Redemption dei Codici Promozionali
+## 4. Promo Code Auto Redemption
 
-- **Schedule**: `*/15 * * * *` (ogni 15 minuti) tramite `CodeRedeemBatchMessage`.
-- **Sorgente Codici**: interroga le API pubbliche `https://api.ennead.cc/mihoyo/{game}/codes` per ottenere la lista dei codici attivi e le relative ricompense.
-- **Cache Anti-Riscatto Multiplo**: ogni codice già processato per uno specifico `HoyoverseGameProfile` viene memorizzato in cache permanente (`hoyoverse.redeemed_codes.cache`) con il relativo esito (`success`, `manual`, `error`), evitando chiamate ripetute alle API di HoYoverse.
-- **Modalità di Riscatto**:
-  1. **Riscatto Automatico via API** (*Genshin Impact, Honkai: Star Rail, Zenless Zone Zero*):
-     - Rinnova preventivamente `cookie_token_v2` se l'account possiede `stoken_v2`.
-     - Chiama l'endpoint `webExchangeCdkeyRisk` con un delay di sicurezza di 5 secondi tra un codice e l'altro per rispettare il rate-limit HoYoverse.
-     - Invia una notifica riepilogativa per ogni codice riscattato (o scaduto/già riscattato) con l'elenco delle ricompense.
-  2. **Notifica per Riscatto Manuale** (*Honkai Impact 3rd, Tears of Themis*, oppure profili privi di `cookie_token_v2`):
-     - Poiché questi titoli non espongono un endpoint web di riscatto, il sistema invia una notifica non appena rileva un nuovo codice attivo, indicando le ricompense e le istruzioni per riscattarlo in-game.
+- **Schedule**: `*/15 * * * *` (every 15 minutes) via `CodeRedeemBatchMessage`.
+- **Code Source**: queries the public API `https://api.ennead.cc/mihoyo/{game}/codes` to fetch active promo codes and their rewards.
+- **Anti-Duplicate Cache**: every code already processed for a specific `HoyoverseGameProfile` is persisted in cache (`hoyoverse.redeemed_codes.cache`) along with its outcome (`success`, `manual`, `error`), preventing repeated calls to HoYoverse APIs.
+- **Redemption Modes**:
+  1. **Automatic API Redemption** (*Genshin Impact, Honkai: Star Rail, Zenless Zone Zero*):
+     - Proactively refreshes `cookie_token_v2` if the account has `stoken_v2`.
+     - Calls `webExchangeCdkeyRisk` with a 5-second safety delay between codes to respect HoYoverse rate limits.
+     - Sends a summary notification for each redeemed (or expired/already-claimed) code with its reward list.
+  2. **Manual Redemption Notification** (*Honkai Impact 3rd, Tears of Themis*, or profiles missing `cookie_token_v2`):
+     - Since these titles do not expose a web redemption endpoint, the system notifies the user as soon as a new active code is detected, including rewards and in-game redemption instructions.
 
 ---
 
-## 5. Reminders e Monitoraggio Real-Time (Game Notes & Endgames)
+## 5. Reminders & Real-Time Monitoring (Game Notes & Endgames)
 
-I reminder sono suddivisi in **Task Globali** (eseguiti ad intervalli regolari indipendentemente dal server) e **Task Regionali** (eseguiti in base al fuso orario del server di gioco: `SEA` → `Asia/Shanghai`, `EU` → `Europe/Paris`, `NA` → `America/New_York`).
+Reminders are split into **Global Tasks** (run at fixed intervals regardless of server) and **Regional Tasks** (run according to the game server's timezone: `SEA` → `Asia/Shanghai`, `EU` → `Europe/Paris`, `NA` → `America/New_York`).
 
 ### 5.1 Stamina Reminder (`StaminaCheckBatchMessage`)
-- **Schedule**: `*/30 * * * *` (ogni 30 minuti).
-- **Configurazione per profilo**: toggle `staminaCheck` e soglia personalizzabile `staminaThreshold` (se impostata a `-1`, avvisa solo quando la stamina raggiunge il cap massimo: `200` su GI, `300` su HSR e ZZZ).
-- **Anti-Spam in Cache**: una volta inviata la notifica di superamento soglia, il sistema salva la quantità notificata in cache fino al momento stimato di rigenerazione completa; se l'utente consuma stamina in-game scendendo sotto il valore precedente, il lock viene azzerato.
+- **Schedule**: `*/30 * * * *` (every 30 minutes).
+- **Per-Profile Configuration**: `staminaCheck` toggle and customizable `staminaThreshold` (`-1` alerts only when reaching max cap: `200` on GI, `300` on HSR and ZZZ).
+- **Cache Anti-Spam**: once a threshold notification is sent, the notified amount is cached until the estimated full recovery timestamp; if the player spends stamina in-game and drops below that value, the lock resets automatically.
 
 ### 5.2 Expeditions Reminder (`ExpeditionsCheckBatchMessage`)
-- **Schedule**: `*/30 * * * *` (ogni 30 minuti) — *Genshin Impact, Honkai: Star Rail*.
-- **Funzionamento**: controlla lo stato delle spedizioni/assignments; quando **tutte** le spedizioni attive risultano `Finished`, invia una notifica (una sola volta per ciclo di completamento grazie alla cache di stato).
+- **Schedule**: `*/30 * * * *` (every 30 minutes) — *Genshin Impact, Honkai: Star Rail*.
+- **Behavior**: checks expedition/assignment status; when **all** active expeditions are `Finished`, sends a single notification per completion cycle using state caching.
 
 ### 5.3 Realm Currency Reminder (`RealmCurrencyCheckBatchMessage`)
-- **Schedule**: `0 * * * *` (ogni ora) — *Genshin Impact (Serenitea Pot)*.
-- **Funzionamento**: identico allo Stamina Reminder; avvisa quando le monete della Teapot superano `realmCurrencyThreshold` (o raggiungono il cap massimo se `-1`).
+- **Schedule**: `0 * * * *` (hourly) — *Genshin Impact (Serenitea Pot)*.
+- **Behavior**: same logic as Stamina Reminder; alerts when Teapot currency exceeds `realmCurrencyThreshold` (or reaches max cap when `-1`).
 
 ### 5.4 Shop Status Reminder (`ShopStatusCheckBatchMessage`)
-- **Schedule**: `0 * * * *` (ogni ora) — *Zenless Zone Zero*.
-- **Funzionamento**: monitora lo stato del Video Store (`VhsSaleState`) e invia un avviso se il negozio richiede gestione (`SaleStateNo` / VHS non impostate).
+- **Schedule**: `0 * * * *` (hourly) — *Zenless Zone Zero*.
+- **Behavior**: monitors Video Store status (`VhsSaleState`) and alerts if the store needs attention (`SaleStateNo` / no VHS promoted).
 
 ### 5.5 Dailies & Weeklies Reminders (`DailiesReminderBatchMessage` / `WeekliesReminderBatchMessage`)
-- **Schedule Regionale**:
-  - **Dailies**: `0 21 * * *` (ore 21:00 ora locale del server `SEA` / `EU` / `NA`).
-  - **Weeklies**: `0 21 * * 0` (ogni Domenica alle ore 21:00 ora locale del server).
-- **Funzionamento**: verifica tutte le metriche giornaliere o settimanali del gioco (es. Commissioni 4/4 su GI, 500 Activity Points o Echo of War su HSR, Engagement/Scratch Card/Coff Cafe/Bounty Commissions su ZZZ) e invia un promemoria **solo se almeno una attività risulta incompleta**.
+- **Regional Schedule**:
+  - **Dailies**: `0 21 * * *` (21:00 local server time for `SEA` / `EU` / `NA`).
+  - **Weeklies**: `0 21 * * 0` (every Sunday at 21:00 local server time).
+- **Behavior**: checks all daily or weekly metrics for the game (e.g. 4/4 Commissions on GI, 500 Activity Points or Echo of War on HSR, Engagement/Scratch Card/Coff Cafe/Bounty Commissions on ZZZ) and sends a reminder **only if at least one activity is incomplete**.
 
 ### 5.6 Endgames Reminder (`EndgamesReminderBatchMessage`)
-- **Schedule Regionale**: `0 15 * * *` (ore 15:00 ora locale del server).
-- **Finestra di Avviso**: invia un promemoria solo quando una modalità endgame sta per scadere (**tra 1 e 3 giorni rimanenti** alla chiusura della rotazione) e il giocatore **non ha ancora completato tutte le stelle/livelli massimi**:
+- **Regional Schedule**: `0 15 * * *` (15:00 local server time).
+- **Alert Window**: sends a reminder only when an endgame mode is about to expire (**1 to 3 days remaining** before rotation reset) and the player **has not yet reached full stars/stages**:
   - **Genshin Impact**: *Spiral Abyss* (Floor 12, 36★), *Imaginarium Theater* (Act 10), *Stygian Onslaught*.
   - **Honkai: Star Rail**: *Memory of Chaos*, *Pure Fiction*, *Apocalyptic Shadow*, *Anomaly Arbitration*.
   - **Zenless Zone Zero**: *Shiyu Defense* (Frontier 7, S-Rank), *Deadly Assault* (9★).
 
 ---
 
-## 6. Sincronizzazione del Diary (Valute Mensili)
+## 6. Diary Synchronization (Monthly Currencies)
 
-La funzionalità **Diary** permette di archiviare e consultare lo storico dettagliato di tutte le valute ottenute in-game (che HoYoLAB conserva solo per gli ultimi 3 mesi):
-- **Valute tracciate**:
-  - **Genshin Impact** (*Traveler's Diary*): `PRIMOGEM` e `MORA`.
-  - **Honkai: Star Rail** (*Trailblaze Monthly Calendar*): `STELLAR_JADE` e `STAR_RAIL_PASS`.
-  - **Zenless Zone Zero** (*Inter-Knot Monthly Report*): `POLYCHROME` e `MASTER_TAPE`.
-- **Sincronizzazione Automatica (`SyncDiaryBatchMessage`)**:
-  - **Schedule**: `0 0 2 * *` (il giorno 2 di ogni mese a mezzanotte).
-  - Per tutti i profili con `syncDiary = true`, accoda la sincronizzazione completa del **mese appena concluso** e del **mese corrente**.
-- **Sincronizzazione Manuale da UI**:
-  - Dalla pagina **Diary**, l'utente può selezionare uno degli ultimi 3 mesi disponibili su HoYoLAB e avviare l'importazione asincrona (`POST /api/game-profiles/{id}/diary/sync`).
-- **Architettura di Importazione (`SyncDiaryPageProfileHandler`)**:
-  - Scarica i log paginati (`page_size = 100`) per ciascuna valuta e salva ogni record in `hoyoverse_diary_entry` (`action_id`, `action_name`, `amount`, `awarded_at`), ignorando automaticamente i duplicati già presenti a database.
-  - La tabella frontend supporta filtri avanzati per valuta, sorgente/azione, range di date e ordinamento.
+The **Diary** feature archives and displays the detailed history of in-game currency income (which HoYoLAB only retains for the last 3 months):
+- **Tracked Currencies**:
+  - **Genshin Impact** (*Traveler's Diary*): `PRIMOGEM` and `MORA`.
+  - **Honkai: Star Rail** (*Trailblaze Monthly Calendar*): `STELLAR_JADE` and `STAR_RAIL_PASS`.
+  - **Zenless Zone Zero** (*Inter-Knot Monthly Report*): `POLYCHROME` and `MASTER_TAPE`.
+- **Automatic Synchronization (`SyncDiaryBatchMessage`)**:
+  - **Schedule**: `0 0 2 * *` (day 2 of every month at midnight).
+  - For all profiles with `syncDiary = true`, queues a full sync of both the **previous month** and the **current month**.
+- **Manual UI Synchronization**:
+  - From the **Diary** page, users can pick any of the last 3 months available on HoYoLAB and trigger an asynchronous import (`POST /api/accounts/{account}/gameProfiles/{gameProfile}/diary/sync`).
+- **Import Architecture (`SyncDiaryPageProfileHandler`)**:
+  - Downloads paginated logs (`page_size = 100`) per currency and persists each entry in `hoyoverse_diary_entry` (`action_id`, `action_name`, `amount`, `awarded_at`), automatically skipping duplicates already stored in the database.
+  - The frontend table supports filtering by currency, source/action, date range, and sorting.
 
 ---
 
-## 7. Sincronizzazione e Importazione delle Pulls
+## 7. Pulls Synchronization & Importing
 
-Il **Pulls Tracker** registra l'intero storico dei banner Gacha nella tabella `hoyoverse_pull` (`HoyoversePull`), calcola le statistiche di pity (`5★`/`S-Rank` e `4★`/`A-Rank`), mostra la distribuzione mensile (`PullsMonthlyChart`) e il dettaglio di ogni singolo banner (`PullsBannerCard` / `PullsBannerDetail`).
+The **Pulls Tracker** stores full Gacha banner history in the `hoyoverse_pull` table (`HoyoversePull`), calculates pity statistics (`5★`/`S-Rank` and `4★`/`A-Rank`), renders monthly distribution charts (`PullsMonthlyChart`), and provides per-banner breakdowns (`PullsBannerCard` / `PullsBannerDetail`).
 
-### 7.1 Architettura, DTO, Coda Asincrona (`hoyoverse_pulls`) e Locking
-- **Interfacce & Trait**:
-  - `HasPullTrackerInterface` + `HoyoversePullTrait`: gestiscono la chiamata agli endpoint `getGachaLog` / `getLdGachaLog`, la denormalizzazione nel DTO `HoyoversePullItem` e la mappatura sull'entità `HoyoversePull` tramite `Symfony\Component\ObjectMapper`.
-  - `HasStokenPullImportInterface`: implementata da **Genshin Impact** e **Zenless Zone Zero** per l'importazione automatica server-side.
-  - `HasPowershellPullImportInterface`: implementata da **Genshin Impact**, **Honkai: Star Rail** e **Zenless Zone Zero** per l'importazione tramite URL estratto da PowerShell.
-- **Idempotenza e Vincoli Database (`hoyoverse_pull`)**:
-  - Vincolo di unicità `IDX_hoyoverse_game_profile_id_pull_id` su `(hoyoverse_game_profile_id, pull_id)` (ID progressivo a 19 cifre di HoYoverse, oppure ID sintetico `paimon_*` per i backup storici privi di ID).
-  - La paginazione a ritroso si interrompe automaticamente non appena incontra un `pull_id` reale già presente a database.
-- **Canale Messenger Dedicato e Rate-Limiting**:
-  - Tutti i job di sync e importazione (inclusi i backup file) viaggiano sul trasporto dedicato **`hoyoverse_pulls`**.
-  - `SyncPullsBatchHandler` avvia un'operazione tracciata (`scheduled_sync`) per profilo e scagliona i messaggi tramite `DelayStamp`.
-  - `SyncPullsPageProfileHandler` scarica una singola pagina (`size = 20`) e, se ci sono altre pagine da acquisire, ri-accoda `SyncPullsPageProfileMessage` con `end_id` aggiornato e un **`DelayStamp` con jitter casuale (`1500ms – 2500ms`)** per evitare rate-limit sulle API HoYoverse.
-- **Mutua Esclusione per Profilo (`symfony/lock`)**:
-  - Tutte le operazioni di scrittura sulle pull dello stesso profilo (Sync automatico, Sync manuale, PowerShell e Import Backup) condividono il lock `hoyoverse_profile_pulls_{profileId}` configurato in `config/packages/lock.yaml`.
-  - In caso di contesa, `ImportPullsBackupHandler` e `SyncPullsPageProfileHandler` ri-accodano il messaggio con un `DelayStamp` (senza perdere dati e senza eliminare prematuramente il file di backup temporaneo).
+### 7.1 Architecture, DTOs, Async Queue (`hoyoverse_pulls`) & Locking
+- **Interfaces & Traits**:
+  - `HasPullTrackerInterface` + `HoyoversePullTrait`: handle requests to `getGachaLog` / `getLdGachaLog`, denormalization into `HoyoversePullItem` DTOs, and mapping onto `HoyoversePull` via `Symfony\Component\ObjectMapper`.
+  - `HasStokenPullImportInterface`: implemented by **Genshin Impact** and **Zenless Zone Zero** for automatic server-side syncing.
+  - `HasPowershellPullImportInterface`: implemented by **Genshin Impact**, **Honkai: Star Rail**, and **Zenless Zone Zero** for PowerShell-extracted URL imports.
+- **Idempotency & Database Constraints (`hoyoverse_pull`)**:
+  - Unique constraint `IDX_hoyoverse_game_profile_id_pull_id` on `(hoyoverse_game_profile_id, pull_id)` (HoYoverse's 19-digit sequential ID, or synthetic `paimon_*` IDs for legacy backups lacking official IDs).
+  - Reverse pagination stops immediately upon encountering an official `pull_id` already present in the database.
+- **Dedicated Messenger Transport & Rate Limiting**:
+  - All pull sync and import jobs (including backup files) run on the dedicated **`hoyoverse_pulls`** transport.
+  - `SyncPullsBatchHandler` creates a tracked operation (`scheduled_sync`) per profile and staggers messages with `DelayStamp`.
+  - `SyncPullsPageProfileHandler` fetches one page (`size = 20`) and, if more pages remain, re-dispatches `SyncPullsPageProfileMessage` with the updated `end_id` and a **randomized jitter `DelayStamp` (`1500ms – 2500ms`)** to avoid HoYoverse API rate limits.
+- **Per-Profile Mutual Exclusion (`symfony/lock`)**:
+  - All pull write operations for a given profile (Automatic Sync, Manual Sync, PowerShell Import, and Backup Import) share the `hoyoverse_profile_pulls_{profileId}` lock configured in `config/packages/lock.yaml`.
+  - On lock contention, `ImportPullsBackupHandler` and `SyncPullsPageProfileHandler` re-queue the message with a `DelayStamp` without dropping data or prematurely deleting temporary backup files.
 
-### 7.2 Sincronizzazione Automatica via `stoken_v2` (Genshin Impact & Zenless Zone Zero)
-Per i giochi che implementano `HasStokenPullImportInterface` (**Genshin Impact** e **Zenless Zone Zero**), se l'account possiede un `stoken_v2` (ottenuto automaticamente effettuando il login con Email/Password):
-1. `HoyolabCookieUtilsService::generateAuthKey()` genera al volo un `authkey` temporaneo (`webview_gacha`) firmato con `DS` LK2 (`salt=ulInCDohgEs557j0VsPDYnQaaz6KJcv5`) tramite l'endpoint Takumi `https://api-account-os.hoyoverse.com/binding/api/genAuthKey`.
-2. **Banner configurati**:
+### 7.2 Automatic Sync via `stoken_v2` (Genshin Impact & Zenless Zone Zero)
+For games implementing `HasStokenPullImportInterface` (**Genshin Impact** and **Zenless Zone Zero**), when the account has `stoken_v2` (obtained automatically via Email/Password login):
+1. `HoyolabCookieUtilsService::generateAuthKey()` generates a temporary `webview_gacha` `authkey` on the fly signed with `DS` LK2 (`salt=ulInCDohgEs557j0VsPDYnQaaz6KJcv5`) via `https://api-account-os.hoyoverse.com/binding/api/genAuthKey`.
+2. **Configured Banners**:
    - **Genshin Impact**: *Character Event Wish* (`301` + `400`, pity 90/10), *Weapon Event Wish* (`302`, pity 80/10), *Standard Wish* (`200`, pity 90/10), *Beginners' Wish* (`100`, pity 20/10), *Chronicled Wish* (`500`, pity 90/10).
    - **Zenless Zone Zero**: *Exclusive Channel* (`2`, pity 90/10), *W-Engine Channel* (`3`, pity 80/10), *Standard Channel* (`1`, pity 90/10), *Bangboo Channel* (`5`, pity 80/10), *Exclusive Rescreening* (`12`, pity 90/10), *W-Engine Reverberation* (`13`, pity 80/10).
-3. **Esecuzione**:
-   - **Automatica notturna (`SyncPullsBatchMessage`)**: ogni notte alle `01:00` (`0 1 * * *`) per tutti i profili con lo switch `syncPulls = true` nel `GameProfileSettingsDrawer`.
-   - **Manuale in 1-click da UI**: cliccando **Sync Pulls** nella vista dello storico (`PullsPage`).
+3. **Execution Modes**:
+   - **Nightly Auto Sync (`SyncPullsBatchMessage`)**: runs daily at `01:00` (`0 1 * * *`) for all profiles with `syncPulls = true` enabled in `GameProfileSettingsDrawer`.
+   - **1-Click Manual UI Sync**: click **Sync Pulls** on `PullsPage`.
 
-### 7.3 Sincronizzazione tramite Script PowerShell / URL Gacha (Tutti i giochi inclusi HSR)
-Poiché **Honkai: Star Rail** (`hkrpg_global`) non consente la generazione dell'`authkey` gacha tramite `stoken_v2` (restituisce `retcode -106`), e come fallback per gli account privi di `stoken_v2`, è disponibile l'importazione assistita tramite PowerShell (`PowershellPullImportModal`), accessibile dal menu dropdown **`Import ▾`** su `PullsPage`:
-1. L'utente copia ed esegue in Windows PowerShell il comando one-liner mostrato nella modale:
+### 7.3 PowerShell Script / Gacha URL Import (All Games Including HSR)
+Because **Honkai: Star Rail** (`hkrpg_global`) does not allow generating a gacha `authkey` via `stoken_v2` (returns `retcode -106`), and as a fallback for accounts without `stoken_v2`, assisted PowerShell importing (`PowershellPullImportModal`) is available from the **`Import ▾`** dropdown on `PullsPage`:
+1. The user runs the one-liner shown in the modal inside Windows PowerShell:
    ```powershell
-   irm "https://hoyoverse.<dominio>/api/pulls/script/powershell?game_biz=<game_biz>" | iex
+   irm "https://hoyoverse.<domain>/api/pulls/script/powershell?game_biz=<game_biz>" | iex
    ```
-2. L'endpoint `GET /api/pulls/script/powershell` genera dinamicamente lo script `.ps1` in base alla `PowershellPullConfig` del gioco:
-   - Ispeziona i file di log locali (`Player.log` / `output_log.txt` in `%USERPROFILE%\AppData\LocalLow\...`), individua la cartella `webCaches\...\Cache\Cache_Data\data_2`, estrae l'URL `getGachaLog` più recente contenente `authkey=...` e lo **copia automaticamente negli appunti** (`Set-Clipboard`).
-3. L'utente incolla l'URL nella modale e avvia l'importazione (`POST /api/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-powershell`).
-4. Il backend valida l'URL e accoda i messaggi `SyncPullsPageProfileMessage` su `hoyoverse_pulls` per tutti i banner del gioco, inclusi per **Honkai: Star Rail**:
-   - *Character Event Warp* (`11`, pity 90/10), *Light Cone Event Warp* (`12`, pity 80/10), *Collaboration Character Warp* (`21` su `getLdGachaLog`, pity 90/10), *Collaboration Light Cone Warp* (`22` su `getLdGachaLog`, pity 90/10), *Regular Warp* (`1`, pity 90/10) e *Departure Warp* (`2`, pity 50/10).
+2. `GET /api/pulls/script/powershell` dynamically builds the `.ps1` script from the game's `PowershellPullConfig`:
+   - Reads local game logs (`Player.log` / `output_log.txt` under `%USERPROFILE%\AppData\LocalLow\...`), locates `webCaches\...\Cache\Cache_Data\data_2`, extracts the latest `getGachaLog` URL containing `authkey=...`, and **copies it to the clipboard** (`Set-Clipboard`).
+3. The user pastes the URL into the modal and starts the import (`POST /api/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-powershell`).
+4. The backend validates the URL and dispatches `SyncPullsPageProfileMessage` jobs onto `hoyoverse_pulls` for all game banners, including for **Honkai: Star Rail**:
+   - *Character Event Warp* (`11`, pity 90/10), *Light Cone Event Warp* (`12`, pity 80/10), *Collaboration Character Warp* (`21` on `getLdGachaLog`, pity 90/10), *Collaboration Light Cone Warp* (`22` on `getLdGachaLog`, pity 90/10), *Regular Warp* (`1`, pity 90/10), and *Departure Warp* (`2`, pity 50/10).
 
-### 7.4 Icone Item e Catalogo Condiviso (`NanokaCatalogService` & `LiipImagine`)
-Le miniature di personaggi, armi, Light Cone, W-Engine e Bangboo nelle card (`PullsRecentBadge`) e nella tabella di dettaglio (`PullItemThumbnail`) utilizzano l'architettura condivisa descritta in **[Pull Item Icons & Image Caching](../../docs/PULL_ITEM_ICONS.md)**:
-- **Catalogo condiviso (`NanokaCatalogService`)**: scarica e memorizza in cache (`hoyoverse.item_icons.cache`, TTL 24h con protezione anti-stampede) il manifest e i cataloghi di `static.nanoka.cc` per GI, HSR (rimuovendo eventuali tag rich-text `<unbreak>`) e ZZZ. Viene usato sia da `NanokaIconResolver` sia dagli importer di backup per risolvere nomi, rarità e tipi item.
-- **Provider esterno (`NanokaIconResolver`)**: implementa `PullItemIconResolverInterface` per `GenshinImpactService`, `HonkaiStarRailService` e `ZenlessZoneZeroService` con priorità `100`:
-  - **Genshin Impact** (`hk4e_global`): lookup per nome normalizzato su `gi/{version}/{character|weapon}.json` → `https://static.nanoka.cc/assets/gi/{icon}.webp`.
-  - **Honkai: Star Rail** (`hkrpg_global`): risoluzione diretta per `itemId` → `avatarroundicon/{itemId}.webp` (personaggi) e `lightconemediumicon/{itemId}.webp` (Light Cone).
-  - **Zenless Zone Zero** (`nap_global`): lookup su `zzz/{version}/{character|weapon|bangboo}.json` convertendo `IconRole*` → `IconRoleCircle*` per gli agenti.
-- **Arricchimento API & Cache Locale**: `ApiGameProfilesController` aggiunge `'icon_url'` tramite `PullItemIconUrlBuilder::enrichPullRows()`; al primo caricamento `LiipImagineBundle` scarica l'asset tramite `PullItemIconBinaryLoader` e salva la versione ridimensionata (`128×128`, `webp`, qualità `100`) in `public/media/cache/core_pull_item_icon/`.
+### 7.4 Item Icons & Shared Catalog (`NanokaCatalogService` & `LiipImagine`)
+Character, weapon, Light Cone, W-Engine, and Bangboo thumbnails in cards (`PullsRecentBadge`) and detail tables (`PullItemThumbnail`) use the shared architecture documented in **[Pull Item Icons & Image Caching](../../docs/PULL_ITEM_ICONS.md)**:
+- **Shared Catalog (`NanokaCatalogService`)**: fetches and caches (`hoyoverse.item_icons.cache`, 24h TTL with stampede protection) the `static.nanoka.cc` manifest and catalogs for GI, HSR (stripping `<unbreak>` rich-text tags), and ZZZ. Used by both `NanokaIconResolver` and backup importers to resolve item names, rarities, and types.
+- **External Provider (`NanokaIconResolver`)**: implements `PullItemIconResolverInterface` for `GenshinImpactService`, `HonkaiStarRailService`, and `ZenlessZoneZeroService` with priority `100`:
+  - **Genshin Impact** (`hk4e_global`): normalized-name lookup in `gi/{version}/{character|weapon}.json` → `https://static.nanoka.cc/assets/gi/{icon}.webp`.
+  - **Honkai: Star Rail** (`hkrpg_global`): direct `itemId` resolution → `avatarroundicon/{itemId}.webp` (characters) and `lightconemediumicon/{itemId}.webp` (Light Cones).
+  - **Zenless Zone Zero** (`nap_global`): lookup in `zzz/{version}/{character|weapon|bangboo}.json`, converting `IconRole*` → `IconRoleCircle*` for agents.
+- **API Enrichment & Local Cache**: `ApiGameProfilesController` injects `'icon_url'` via `PullItemIconUrlBuilder::enrichPullRows()`; on first request, `LiipImagineBundle` downloads the asset via `PullItemIconBinaryLoader` and caches the resized image (`128×128`, `webp`, quality `100`) under `public/media/cache/core_pull_item_icon/`.
 
-### 7.5 Importazione da Backup Esterni (Paimon.moe, Star Rail Station, ZZZ.rng.moe)
-Per importare lo storico completo oltre la finestra di 6–12 mesi esposta dalle API HoYoverse, il bundle offre un'architettura estensibile di **Backup Importer** utilizzabile sia dalla UI web sia da riga di comando.
+### 7.5 Third-Party Backup Importing (Paimon.moe, Star Rail Station, ZZZ.rng.moe)
+To preserve pull history older than HoYoverse's 6–12 month API window, the bundle provides an extensible **Backup Importer** architecture accessible from both the web UI and the CLI.
 
-#### Importer Supportati
-| Chiave (`importer`) | Servizio | Gioco | Formato | Gestione `pull_id` & Timezone |
+#### Supported Importers
+| Key (`importer`) | Service | Game | Format | `pull_id` & Timezone Handling |
 | :--- | :--- | :--- | :---: | :--- |
-| `paimon_moe` | `PaimonMoePullImporter` | Genshin Impact | `.json` | Timestamp già in ora server. I backup Paimon.moe non contengono il `pull_id` reale: genera ID sintetici deterministici (`paimon_{gachaType}_{YYYYMMDDHHMMSS}_{seq}`) con supporto alla riconciliazione automatica. |
-| `star_rail_station_csv` | `StarRailStationCsvPullImporter` | Honkai: Star Rail | `.csv` | Mantiene il `pull_id` reale HoYoverse (`uid`). Converte i timestamp ISO UTC all'offset fisso del server del profilo. |
-| `zzz_rng_moe` | `ZzzRngMoePullImporter` | Zenless Zone Zero | `.json` | Mantiene il `pull_id` reale HoYoverse (`uid`) e mappa i canali `1001/2001/3001/5001/12001/13001` sui `gachaType` HoYoverse (`1/2/3/5/12/13`). Converte i timestamp millisecondi UTC all'offset fisso del server. |
+| `paimon_moe` | `PaimonMoePullImporter` | Genshin Impact | `.json` | Timestamps are already in server wall-clock time. Paimon.moe backups omit real `pull_id` values: generates deterministic synthetic IDs (`paimon_{gachaType}_{YYYYMMDDHHMMSS}_{seq}`) with automatic live-sync reconciliation. |
+| `star_rail_station_csv` | `StarRailStationCsvPullImporter` | Honkai: Star Rail | `.csv` | Preserves HoYoverse's real `pull_id` (`uid`). Converts UTC ISO timestamps to the profile's fixed server offset. |
+| `zzz_rng_moe` | `ZzzRngMoePullImporter` | Zenless Zone Zero | `.json` | Preserves HoYoverse's real `pull_id` (`uid`) and maps channels `1001/2001/3001/5001/12001/13001` to HoYoverse `gachaType` values (`1/2/3/5/12/13`). Converts UTC millisecond timestamps to the profile's fixed server offset. |
 
-#### Architettura, Deduplicazione e Timezone
-- **Interfaccia e Auto-Registrazione**: ogni sorgente implementa `App\HoyoverseBundle\Model\Pull\PullBackupImporterInterface` dichiarando i giochi supportati via `getSupportedGameServices()`. In `src/HoyoverseBundle/config/services.yaml`, la regola `_instanceof` tagga automaticamente tutte le implementazioni con `hoyoverse.pull_backup_importer`, rendendole immediatamente disponibili in `PullBackupImporterManager` e nel menu dropdown del frontend senza ulteriori configurazioni.
-- **Conversione Timezone (`HoyoverseServerTimezoneResolver`)**: i server HoYoverse utilizzano offset UTC fissi **senza ora legale (DST)**: `EU` `+01:00`, `NA` `-05:00`, `Asia/TW/HK/MO/CN` `+08:00`. Il resolver converte i backup in UTC (HSR, ZZZ) esattamente nello stesso wall-clock time restituito dalle API HoYoverse.
-- **Servizio Core (`PullBackupImportService`)**: accetta esplicitamente un `HoyoverseGameProfile` (non inferisce l'account dal file), acquisisce il lock di profilo, valida il file, persiste a batch di 250 record e applica due livelli di deduplicazione:
-  1. **Match esatto su `pull_id`** (`HoyoversePullRepository::findExistingPullIdSet()`): evita qualsiasi duplicato su re-import ripetuti o overlap con pull già scaricate.
-  2. **Match logico a multiset** (`HoyoversePullRepository::findExistingLogicalPullCounts()`): per i record con ID sintetico (es. `paimon_*`), conta le occorrenze già presenti a DB su `(banner_group, pulled_at, name)` in modo da saltare i pull già importati via sync live anche dentro multi-pull nello stesso secondo.
-- **Riconciliazione Automatica dei Pull Sintetici (`SyntheticPullReconcilerInterface`)**:
-  - Se un profilo Genshin importa prima un backup `paimon.moe` e solo successivamente esegue il sync live HoYoverse, `SyncPullsPageProfileHandler` delega a `PullSyntheticReconcilerManager` (che raccoglie i servizi taggati `hoyoverse.synthetic_pull_reconciler`).
-  - `PaimonMoePullImporter::reconcile()` individua l'eventuale record sintetico `paimon_*` corrispondente sullo stesso `(banner_group, pulled_at, name)` e lo **promuove in-place** aggiornando `pull_id`, `gacha_type`, `item_type` e `raw_payload` con i dati reali HoYoverse, evitando duplicati indipendentemente dall'ordine tra import e sync.
+#### Architecture, Deduplication & Timezone Conversion
+- **Interface & Auto-Registration**: each source implements `App\HoyoverseBundle\Model\Pull\PullBackupImporterInterface` and declares supported games via `getSupportedGameServices()`. An `_instanceof` rule in `src/HoyoverseBundle/config/services.yaml` automatically tags all implementations with `hoyoverse.pull_backup_importer`, exposing them immediately in `PullBackupImporterManager`, CLI commands, and the frontend dropdown.
+- **Timezone Conversion (`HoyoverseServerTimezoneResolver`)**: HoYoverse game servers use fixed UTC offsets **without DST**: `EU` `+01:00`, `NA` `-05:00`, `Asia/TW/HK/MO/CN` `+08:00`. The resolver converts UTC-based backups (HSR, ZZZ) into the exact same server wall-clock time returned by HoYoverse's live API.
+- **Core Service (`PullBackupImportService`)**: explicitly accepts a target `HoyoverseGameProfile` (never infers the account from the file), acquires the per-profile lock, validates the file, persists records in batches of 250, and applies two layers of deduplication:
+  1. **Exact `pull_id` match** (`HoyoversePullRepository::findExistingPullIdSet()`): makes repeated re-imports and overlaps with existing pulls completely idempotent.
+  2. **Logical multiset match** (`HoyoversePullRepository::findExistingLogicalPullCounts()`): for synthetic-ID records (e.g. `paimon_*`), counts existing DB occurrences per `(banner_group, pulled_at, name)` so pulls already synced live are skipped even inside same-second multi-pulls.
+- **Automatic Synthetic Pull Reconciliation (`SyntheticPullReconcilerInterface`)**:
+  - If a Genshin profile imports a `paimon.moe` backup first and runs a live HoYoverse sync afterward, `SyncPullsPageProfileHandler` delegates to `PullSyntheticReconcilerManager` (collecting services tagged `hoyoverse.synthetic_pull_reconciler`).
+  - `PaimonMoePullImporter::reconcile()` finds the matching synthetic `paimon_*` row on the same `(banner_group, pulled_at, name)` and **promotes it in-place**, updating `pull_id`, `gacha_type`, `item_type`, and `raw_payload` with the real HoYoverse values — making import/sync order completely irrelevant.
 
-#### Utilizzo da UI e da CLI
+#### Web UI & CLI Usage
 - **UI (`PullsPage` → `Import ▾` → `BackupPullImportModal`)**:
-  - Il pulsante unificato **`Import ▾`** elenca *Import via PowerShell* seguito da un separatore e dagli importer di backup compatibili con il gioco del profilo corrente.
-  - All'upload (`POST .../pulls/import-backup`, max 25 MB), il controller verifica estensione e formato **sincronamente** (`$importer->validate()`): in caso di errore risponde subito `400` senza accodare nulla; se valido salva il file in `var/tmp/hoyoverse_pull_imports/`, crea l'operazione in `PullOperationTracker` e accoda `ImportPullsBackupMessage` su `hoyoverse_pulls` (`202 Accepted`). Al termine, `ImportPullsBackupHandler` rimuove sempre il file temporaneo in `finally`.
+  - The unified **`Import ▾`** button lists *Import via PowerShell* followed by a divider and all backup importers compatible with the current profile's game.
+  - On upload (`POST .../pulls/import-backup`, max 25 MB), the controller validates extension and schema **synchronously** (`$importer->validate()`): invalid files immediately return `400` without queuing anything; valid files are saved to `var/tmp/hoyoverse_pull_imports/`, registered in `PullOperationTracker`, and queued via `ImportPullsBackupMessage` on `hoyoverse_pulls` (`202 Accepted`). `ImportPullsBackupHandler` always deletes the temporary file in `finally`.
 - **CLI (`HoyoverseImportPullsCommand`)**:
   ```bash
-  # Anteprima senza scrivere su DB
-  php bin/console hoyoverse:import-pulls <profileId> <paimon_moe|star_rail_station_csv|zzz_rng_moe> /percorso/file --dry-run
+  # Dry-run preview without writing to the database
+  php bin/console hoyoverse:import-pulls <profileId> <paimon_moe|star_rail_station_csv|zzz_rng_moe> /path/to/file --dry-run
 
-  # Importazione sincrona con progress bar
-  php bin/console hoyoverse:import-pulls <profileId> paimon_moe /percorso/paimon-moe.json
+  # Synchronous import with progress bar
+  php bin/console hoyoverse:import-pulls <profileId> paimon_moe /path/to/paimon-moe.json
 
-  # Accodamento asincrono su Messenger (hoyoverse_pulls)
-  php bin/console hoyoverse:import-pulls <profileId> star_rail_station_csv /percorso/srs.csv --async
+  # Asynchronous dispatch onto Messenger (hoyoverse_pulls)
+  php bin/console hoyoverse:import-pulls <profileId> star_rail_station_csv /path/to/srs.csv --async
   ```
 
-### 7.6 Avanzamento in Tempo Reale (Mercure + Polling Fallback)
-Tutte le operazioni asincrone sulle pull — **Backup Import**, **PowerShell Import**, **Manual SToken Sync** e **Scheduled Sync** (`PullOperationKind`) — sono tracciate in modo unificato da `PullOperationTracker`:
-- **Snapshot in Cache + Eventi Mercure**:
-  - Lo stato dell'operazione viene salvato nel pool `hoyoverse.pull_import_status.cache` (TTL 1 ora, configurato in `src/HoyoverseBundle/config/packages/cache.yaml`) e pubblicato come update **privato** sul topic Mercure `https://{hoyoverse.domain_name}/profiles/{profileId}/pulls/progress` (payload `{ action: 'pulls:operation_progress', operation: {...} }`).
-  - L'endpoint `GET .../pulls/overview` imposta il cookie `mercureAuthorization` sul topic del profilo ed espone `mercure_topic`, `available_backup_importers` e l'eventuale `active_operation` in corso.
-- **UI Live (`PullOperationProgressBanner` su `PullsPage`)**:
-  - `PullsPage` apre un `EventSource` autenticato verso `MERCURE_HUB_URL` per aggiornare in tempo reale la barra di avanzamento, i contatori (`processed / total`, `imported`, `skipped`, `promoted/linked`) e lo stato dei singoli banner durante i sync.
-  - Se Mercure non è raggiungibile, attiva automaticamente un **polling HTTP di fallback** ogni 1 secondo su `GET .../pulls/operations/{operationId}` finché l'operazione è attiva.
-  - Al passaggio in stato `completed`, la pagina riesegue automaticamente il refresh di overview e banner selezionato.
+### 7.6 Real-Time Progress Tracking (Mercure + Polling Fallback)
+All asynchronous pull operations — **Backup Import**, **PowerShell Import**, **Manual SToken Sync**, and **Scheduled Sync** (`CoreBundle\Model\Pull\PullOperationKind`) — are tracked uniformly by `HoyoverseBundle\Service\Pull\PullOperationTracker` (extending `CoreBundle\Service\AbstractPullOperationTracker`):
+- **Cache Snapshot + Mercure Updates**:
+  - Operation state is stored in `hoyoverse.pull_import_status.cache` (1-hour TTL, configured in `src/HoyoverseBundle/config/packages/cache.yaml`) and published as a **private** Mercure update on `https://{hoyoverse.domain_name}/profiles/{profileId}/pulls/progress` (payload `{ action: 'pulls:operation_progress', operation: {...} }`).
+  - `GET .../pulls/overview` sets the `mercureAuthorization` cookie for the profile's topic and returns `mercure_topic`, `available_backup_importers`, and any currently running `active_operation`.
+- **Shared Live UI (`@CoreBundle/components/pulls/*` on `PullsPage`)**:
+  - `PullsPage` uses the shared `usePullOperationProgress` hook, `PullOperationProgressBanner`, and `BackupPullImportModal` to open an authenticated `EventSource` against `MERCURE_HUB_URL`, updating the progress bar, counters (`processed / total`, `imported`, `skipped`, `promoted/linked`), and per-banner sync status in real time.
+  - If Mercure is unreachable, it automatically falls back to **1-second HTTP polling** against `GET .../pulls/operations/{operationId}` while the operation is active.
+  - Upon transitioning to `completed`, the page automatically refreshes the overview and selected banner view.
 
 ---
 
-## 8. Riepilogo Endpoint API del Bundle
+## 8. Bundle API Endpoint Summary
 
-| Metodo | Percorso | Descrizione |
+| Method | Path | Description |
 | :--- | :--- | :--- |
-| `POST` | `/api/accounts/auth/login/start` | Avvia il login diretto con Email/Username + Password |
-| `POST` | `/api/accounts/{id}/relogin/start` | Avvia il re-login su un `HoyoverseAccount` esistente (riusa `device_id` e valida `account_uid`) |
-| `POST` | `/api/accounts/auth/login/captcha` | Invia la soluzione del captcha GeeTest v3/v4 Aigis |
-| `POST` | `/api/accounts/auth/login/verify-email` | Verifica il codice OTP a 6 cifre ricevuto via email (`-3239`) |
-| `POST` | `/api/accounts/auth/login/resend-email` | Richiede un nuovo invio del codice OTP via email |
-| `GET` | `/api/accounts/auth/geetest/frame` | Renderizza l'iframe isolato per il widget GeeTest v3/v4 |
-| `GET` | `/api/accounts` / `POST /api/accounts` | Lista account o aggiunge/aggiorna un account tramite Cookie String |
-| `POST` | `/api/accounts/{id}/sync` | Sincronizza i profili di gioco (`HoyoverseGameProfile`) dall'account HoYoLAB |
-| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/diary/meta` | Metadati, valute e periodi disponibili per il Diary |
-| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/diary/summary` | Riepilogo mensile e breakdown azioni del Diary |
-| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/diary/entries` | Elenco paginato delle entrate del Diary |
-| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls/overview` | Overview pity/banner, imposta il cookie Mercure ed espone `available_backup_importers`, `mercure_topic` e `active_operation` |
-| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls` | Elenco paginato delle pull di un banner con calcolo pity e icone |
-| `POST` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls/sync` | Accoda la sincronizzazione automatica delle pull tramite `stoken_v2` (restituisce `operation`) |
-| `POST` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-powershell` | Valida l'URL Gacha estratto via PowerShell e accoda l'importazione su `hoyoverse_pulls` (restituisce `operation`) |
-| `POST` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-backup` | Valida un file di backup (`paimon_moe`, `star_rail_station_csv`, `zzz_rng_moe`) e accoda l'importazione su `hoyoverse_pulls` (`202` / `400` / `409`) |
-| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls/operations/{operationId}` | Restituisce lo snapshot aggiornato di un'operazione sulle pull (fallback polling se Mercure non è disponibile) |
-| `GET` | `/api/pulls/script/powershell` | Restituisce lo script PowerShell `.ps1` per estrarre l'URL Gacha dalla cache locale |
-
-
+| `POST` | `/api/accounts/auth/login/start` | Starts direct Email/Username + Password login |
+| `POST` | `/api/accounts/{id}/relogin/start` | Starts re-login on an existing `HoyoverseAccount` (reuses `device_id` and validates `account_uid`) |
+| `POST` | `/api/accounts/auth/login/captcha` | Submits the GeeTest v3/v4 Aigis captcha solution |
+| `POST` | `/api/accounts/auth/login/verify-email` | Verifies the 6-digit email OTP code (`-3239`) |
+| `POST` | `/api/accounts/auth/login/resend-email` | Requests a new email OTP code |
+| `GET` | `/api/accounts/auth/geetest/frame` | Renders the isolated iframe for the GeeTest v3/v4 widget |
+| `GET` | `/api/accounts` / `POST /api/accounts` | Lists accounts or adds/updates an account via Cookie String |
+| `POST` | `/api/accounts/{id}/sync` | Syncs game profiles (`HoyoverseGameProfile`) from the HoYoLAB account |
+| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/diary/meta` | Metadata, currencies, and available months for the Diary |
+| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/diary/summary` | Monthly totals and action breakdown for the Diary |
+| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/diary/entries` | Paginated list of Diary entries |
+| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls/overview` | Pity/banner overview; sets Mercure cookie and returns `available_backup_importers`, `mercure_topic`, and `active_operation` |
+| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls` | Paginated pulls for a banner with pity calculation and item icons |
+| `POST` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls/sync` | Queues automatic pull sync via `stoken_v2` (returns `operation`) |
+| `POST` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-powershell` | Validates a PowerShell-extracted Gacha URL and queues import on `hoyoverse_pulls` (returns `operation`) |
+| `POST` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-backup` | Validates a backup file (`paimon_moe`, `star_rail_station_csv`, `zzz_rng_moe`) and queues import on `hoyoverse_pulls` (`202` / `400` / `409`) |
+| `GET` | `/api/accounts/{account}/gameProfiles/{gameProfile}/pulls/operations/{operationId}` | Returns the latest snapshot of a pull operation (fallback polling when Mercure is unavailable) |
+| `GET` | `/api/pulls/script/powershell` | Returns the `.ps1` PowerShell script to extract the Gacha URL from local cache |

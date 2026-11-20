@@ -1,4 +1,3 @@
-import { useBackendApi } from "@HoyoverseBundle/components/BackendApiContext";
 import {
     CheckCircleOutlined,
     CloseCircleOutlined,
@@ -6,7 +5,7 @@ import {
     UploadOutlined,
     WarningOutlined,
 } from "@ant-design/icons";
-import { Alert, Button, Modal, Progress, Space, Statistic, Row, Col, Typography, Upload } from "antd";
+import { Alert, Button, Col, Modal, Progress, Row, Space, Statistic, Typography, Upload } from "antd";
 import React, { useEffect, useState } from "react";
 
 const { Dragger } = Upload;
@@ -24,19 +23,15 @@ export default function BackupPullImportModal({
     open,
     importer,
     profile,
-    accountId,
-    profileId,
     activeOperation,
+    onUpload,
     onClose,
     onOperationStarted,
 }) {
-    const api = useBackendApi();
     const [selectedFile, setSelectedFile] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState(null);
     const [trackedOperationId, setTrackedOperationId] = useState(null);
-
-    const resolvedProfileId = profile?.id ?? profileId;
 
     useEffect(() => {
         if (!open) {
@@ -59,16 +54,14 @@ export default function BackupPullImportModal({
     const isFailed = trackedOperation?.status === "failed";
 
     const handleSubmit = () => {
-        if (!selectedFile || !importer) {
+        if (!selectedFile || !importer || !onUpload) {
             return;
         }
 
         setUploading(true);
         setUploadError(null);
 
-        api
-            .gameProfiles()
-            .importBackupPulls(accountId, resolvedProfileId, importer.key, selectedFile)
+        Promise.resolve(onUpload(importer.key, selectedFile))
             .then((res) => {
                 const op = res?.data?.operation || null;
                 if (op?.id) {

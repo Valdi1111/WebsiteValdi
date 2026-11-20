@@ -1,6 +1,6 @@
 <?php
 
-namespace App\HoyoverseBundle\Model\Pull;
+namespace App\CoreBundle\Model\Pull;
 
 final readonly class PullImportSummary
 {

@@ -20,7 +20,8 @@ class SyncPullsPageProfileMessage implements ProfileTaskMessageInterface
         private readonly int     $gameProfileId,
         private readonly string  $category,
         private readonly ?string $seqId = null,
-        private readonly ?string $u8Token = null
+        private readonly ?string $u8Token = null,
+        private readonly ?string $operationId = null,
     ) {
     }
 
@@ -42,5 +43,10 @@ class SyncPullsPageProfileMessage implements ProfileTaskMessageInterface
     public function getU8Token(): ?string
     {
         return $this->u8Token;
+    }
+
+    public function getOperationId(): ?string
+    {
+        return $this->operationId;
     }
 }

@@ -8,4 +8,7 @@ framework:
             gryphline.item_icons.cache:
                 adapter: cache.adapter.filesystem
                 default_lifetime: 86400
+            gryphline.pull_import_status.cache:
+                adapter: cache.adapter.filesystem
+                default_lifetime: 3600
 

@@ -2,10 +2,12 @@
 
 namespace App\GryphlineBundle\MessageHandler\Batch;
 
+use App\CoreBundle\Model\Pull\PullOperationKind;
 use App\GryphlineBundle\Message\Batch\SyncPullsBatchMessage;
 use App\GryphlineBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Model\Game\HasAutoPullImportInterface;
+use App\GryphlineBundle\Service\Pull\PullOperationTracker;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\Envelope;
@@ -39,12 +41,20 @@ class SyncPullsBatchHandler extends AbstractBatchTaskMessageHandler
      */
     private ?ServiceCollectionInterface $locatorByGameBiz = null;
 
+    private ?PullOperationTracker $operationTracker = null;
+
     #[Required]
     public function setLocatorByGameBiz(
         #[AutowireLocator(services: 'gryphline.game.biz', indexAttribute: 'key')]
         ServiceCollectionInterface $locatorByGameBiz
     ): void {
         $this->locatorByGameBiz = $locatorByGameBiz;
+    }
+
+    #[Required]
+    public function setOperationTracker(PullOperationTracker $operationTracker): void
+    {
+        $this->operationTracker = $operationTracker;
     }
 
     public function __invoke(SyncPullsBatchMessage $message): void
@@ -74,7 +84,19 @@ class SyncPullsBatchHandler extends AbstractBatchTaskMessageHandler
         }
 
         $serviceClass = $gameService::class;
-        $categories = array_keys($gameService->getGachaConfig()->getBannerTypes());
+        $bannerTypes = $gameService->getGachaConfig()->getBannerTypes();
+        $categories = array_keys($bannerTypes);
+
+        $operationId = null;
+        if ($this->operationTracker !== null && $bannerTypes !== []) {
+            $operation = $this->operationTracker->startSyncOperation(
+                $gameProfileId,
+                null,
+                PullOperationKind::SCHEDULED_SYNC,
+                $bannerTypes
+            );
+            $operationId = (string) $operation['id'];
+        }
 
         // Initialize delay offset for this specific game service if not present
         if (!isset($this->serviceDelays[$serviceClass])) {
@@ -95,7 +117,9 @@ class SyncPullsBatchHandler extends AbstractBatchTaskMessageHandler
             $message = new SyncPullsPageProfileMessage(
                 $gameProfileId,
                 $category,
-                null
+                null,
+                null,
+                $operationId
             );
 
             yield new Envelope($message, $stamps);

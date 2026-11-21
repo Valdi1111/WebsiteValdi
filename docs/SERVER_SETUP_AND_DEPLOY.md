@@ -153,11 +153,23 @@ To allow the deploy user to restart Supervisor processes without a password prom
 YOURUSER ALL=(ALL) NOPASSWD:/usr/bin/supervisorctl
 ```
 
-Before deploying, place/configure the script on the server and adjust the variables at the top of the file (`APP_DIR`, `BACKUP_SCRIPT`, `PHP_FPM_SERVICE`, `GIT_BRANCH`).
+The script runs from a copy outside the repository (`/var/www/website-deploy.sh`, the path used by the GitHub workflow) and reads the server values from a local, non-versioned file next to it, so the script itself never has to be edited:
+
+```bash
+cp /var/www/valdi.ovh/scripts/website-deploy.sh /var/www/website-deploy.sh
+chmod 0755 /var/www/website-deploy.sh
+cp /var/www/valdi.ovh/scripts/website-deploy.env.dist /var/www/website-deploy.env
+nano /var/www/website-deploy.env   # APP_DIR, BACKUP_SCRIPT, PHP_FPM_SERVICE (optional: NODE_SERVICES_DIR, SUPERVISOR_NODE_SERVICE, GIT_BRANCH)
+```
+
+- Values not set in `website-deploy.env` keep the defaults at the top of the script. `DEPLOY_ENV_FILE=/path/to/file` selects another configuration file.
+- Before the backup or any git command, the script stops with an error if `APP_DIR` is not a git checkout or `BACKUP_SCRIPT` is not executable.
+- **Self-update:** the last step copies `scripts/website-deploy.sh` from the freshly pulled code over `/var/www/website-deploy.sh` (written next to it, then `mv`). The running deploy finishes with the old version; the new one applies from the next deploy. The directory of the script must be writable by the deploy user, otherwise the step only prints a warning and the copy has to be done manually.
+- **First switch from an older script** (with the variables edited at the top of the file): an older script cannot update itself, so copy the new script and create `website-deploy.env` manually once, as above, reusing the values of the old script. From then on every deploy keeps the script up to date.
 
 ### 3.2 Deployment Pipeline Steps
 1. **Database backup** via `$BACKUP_SCRIPT`.
-2. **Pull latest code:** `git fetch origin` and `git reset --hard origin/main`.
+2. **Pull latest code:** `git fetch origin` and `git reset --hard origin/$GIT_BRANCH` (`main` by default).
 3. **Purge stale Symfony cache:** `rm -rf var/cache/prod var/cache/dev` before running Composer to prevent `ClassNotFound` errors when bundles, namespaces, or packages are updated or removed.
 4. **PHP dependencies & migrations:** `composer install --no-dev --optimize-autoloader --no-interaction` and `php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration`, followed by `php bin/console cache:pool:clear core.security_hierarchy.cache`: the database role hierarchy is cached in an application pool under `var/share/`, which step 3 does not remove.
 5. **Warmup cache & assets:** `php bin/console cache:warmup --env=prod` and `php bin/console assets:install public --no-interaction`.
@@ -167,6 +179,7 @@ Before deploying, place/configure the script on the server and adjust the variab
    - `sudo supervisorctl restart website-valdi:website-node-services`
    - `php bin/console messenger:stop-workers` (Messenger workers stop gracefully and Supervisor restarts them with the new code)
    - *(optional)* `sudo systemctl reload php8.5-fpm` to flush OPcache without dropping active HTTP requests.
+9. **Update the deploy script:** copies `scripts/website-deploy.sh` over the running copy (effective from the next deploy, see §3.1).
 
 ### 3.3 Quick Caddy / Mercure Maintenance
 - **Check service status and live logs:**

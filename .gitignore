@@ -34,3 +34,6 @@ yarn-error.log
 /.idea/
 /node-services/node_modules/
 .aider*
+
+# Local configuration of scripts/website-deploy.sh (see scripts/website-deploy.env.dist)
+/scripts/website-deploy.env

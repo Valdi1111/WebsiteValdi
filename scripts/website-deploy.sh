@@ -4,14 +4,34 @@ set -eo pipefail  # Exit immediately if a command or pipeline exits with a non-z
 umask 002
 
 # ==========================================
-# Configuration Variables
+# Configuration
 # ==========================================
-APP_DIR="/path/to/your/app"
-BACKUP_SCRIPT="/path/to/your/script/mysql-backup.sh"
-NODE_SERVICES_DIR="node-services"
-SUPERVISOR_NODE_SERVICE="website-valdi:website-node-services"
-PHP_FPM_SERVICE="php8.5-fpm"
-GIT_BRANCH="main"
+# Server values live in a local, non-versioned file next to this script (website-deploy.env, see
+# scripts/website-deploy.env.dist), so the script itself can be replaced by the repository version at the
+# end of every deploy. Set DEPLOY_ENV_FILE to use another file.
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+DEPLOY_ENV_FILE="${DEPLOY_ENV_FILE:-$(dirname "$SELF")/website-deploy.env}"
+if [ -f "$DEPLOY_ENV_FILE" ]; then
+  # shellcheck source=/dev/null
+  source "$DEPLOY_ENV_FILE"
+fi
+
+APP_DIR="${APP_DIR:-/path/to/your/app}"
+BACKUP_SCRIPT="${BACKUP_SCRIPT:-/path/to/your/script/mysql-backup.sh}"
+NODE_SERVICES_DIR="${NODE_SERVICES_DIR:-node-services}"
+SUPERVISOR_NODE_SERVICE="${SUPERVISOR_NODE_SERVICE:-website-valdi:website-node-services}"
+PHP_FPM_SERVICE="${PHP_FPM_SERVICE:-php8.5-fpm}"
+GIT_BRANCH="${GIT_BRANCH:-main}"
+
+# Stop before the backup and the git reset when the configuration is missing or wrong
+if [ ! -e "$APP_DIR/.git" ]; then
+  echo "[ERROR] APP_DIR '$APP_DIR' is not a git checkout: create $DEPLOY_ENV_FILE (see scripts/website-deploy.env.dist)." >&2
+  exit 1
+fi
+if [ ! -x "$BACKUP_SCRIPT" ]; then
+  echo "[ERROR] BACKUP_SCRIPT '$BACKUP_SCRIPT' is not an executable file: create $DEPLOY_ENV_FILE (see scripts/website-deploy.env.dist)." >&2
+  exit 1
+fi
 
 echo "=============================="
 echo "START DEPLOY"
@@ -74,6 +94,22 @@ php bin/console messenger:stop-workers
 #echo "13) Reset OPcache & PHP-FPM"
 # Reload PHP-FPM to flush OPcache without dropping in-flight HTTP requests
 #sudo systemctl reload "$PHP_FPM_SERVICE"
+
+echo "14) Update the deploy script"
+# Replace this script with the version just pulled, so changes to it are deployed too.
+# The new file is written next to it and moved over it: mv swaps the directory entry to a new inode, while the
+# running bash keeps reading the old file it has open. This run therefore finishes with the old code, and the
+# new version applies from the next deploy. (Writing over the file in place would change it under the running bash.)
+REPO_DEPLOY_SCRIPT="$APP_DIR/scripts/website-deploy.sh"
+if [ "$SELF" = "$(readlink -f "$REPO_DEPLOY_SCRIPT")" ]; then
+  echo " - Running from the repository copy: nothing to update."
+elif install -m 0755 "$REPO_DEPLOY_SCRIPT" "$SELF.new" && mv "$SELF.new" "$SELF"; then
+  echo " - $SELF updated (effective from the next deploy)."
+else
+  # The application is already deployed: report the problem without failing the whole deploy
+  rm -f "$SELF.new"
+  echo " - [WARNING] Could not update $SELF (is its directory writable by $(id -un)?): copy $REPO_DEPLOY_SCRIPT manually." >&2
+fi
 
 echo "=============================="
 echo "DEPLOY COMPLETED"

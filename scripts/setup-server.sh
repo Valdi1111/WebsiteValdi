@@ -437,6 +437,9 @@ cat << EOF > "$CADDY_DIR/Caddyfile"
 
 # 1. Mercure hub
 mercure.$BASE_DOMAIN {
+    # The hub endpoint keeps its own stricter headers (X-Frame-Options: DENY, Content-Security-Policy)
+    import security_headers
+
     log {
         format filter {
             fields {

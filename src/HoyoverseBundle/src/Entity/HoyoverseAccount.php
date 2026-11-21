@@ -2,6 +2,7 @@
 
 namespace App\HoyoverseBundle\Entity;
 
+use App\CoreBundle\Doctrine\EncryptedTextType;
 use App\CoreBundle\Entity\User;
 use App\GamesBundle\Model\Game\GameAccountInterface;
 use App\HoyoverseBundle\Repository\HoyoverseAccountRepository;
@@ -24,7 +25,7 @@ class HoyoverseAccount implements GameAccountInterface
     private ?int $id = null;
 
     #[Ignore]
-    #[ORM\Column(type: Types::TEXT)]
+    #[ORM\Column(type: EncryptedTextType::NAME)]
     private ?string $cookie = null;
 
     #[Ignore]

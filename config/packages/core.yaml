@@ -1,1 +1,2 @@
 core:
+    database_encryption_key: '%env(default::DATABASE_ENCRYPTION_KEY)%'

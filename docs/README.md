@@ -16,6 +16,11 @@
 - ⚙️ **[Backend Standard Table Guide](../src/CoreBundle/src/Model/StandardTable/README.md)**  
   Backend DQL and Doctrine 3.x architecture (`TableRepositoryTrait`, `TableConfiguration`, `TableJoin`), execution paths (scalar projection Path B vs entity hydration Path A with `OffsetPaginator`), N+1 mitigation, composite primary key counting, and query parameter bindings.
 
+## Core Encrypted Columns
+
+- 🔐 **[Encrypted Columns Guide](../src/CoreBundle/src/Service/Encryption/README.md)**\
+  `encrypted_text` Doctrine type (AES-256-GCM, `enc:v1:` format, `DATABASE_ENCRYPTION_KEY`), behaviour with and without a key, encrypting a column in a bundle, the `core:database:encrypt` conversion command (`--dry-run`, `--decrypt`), and what is not encrypted.
+
 ## Game Integration Bundles
 
 - 🎮 **[Games Bundle Guide](../src/GamesBundle/README.md)**  

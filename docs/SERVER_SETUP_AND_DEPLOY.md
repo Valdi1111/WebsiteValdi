@@ -71,6 +71,7 @@ Create `.env.local` at the project root based on [`.env`](../.env) and configure
 - Shared folder paths: `ANIME_BASE_FOLDER`, `ANIME_TEMP_FOLDER`, `VIDEOS_BASE_FOLDER`
 - External API credentials (MyAnimeList, AniList, AnimeWorld) and notification transports (`TELEGRAM_DSN`, `DISCORD_DSN`)
 - Node microservice port: `NODE_SERVICES_PORT=3003` (and `node-services/.env.local` if overriding its default port `3000`)
+- *(optional)* `DATABASE_ENCRYPTION_KEY`: encrypts the `encrypted_text` columns, today the game account credentials (generate it with `openssl rand -base64 32` and keep a copy apart from the database backups). A new installation can set it right away; on an installation that already has data in those columns follow [§3.4](#34-database-encryption-optional).
 
 ### 2.5 Setup Shared Folder
 Configure the shared folder used for anime downloads, videos, and book libraries (see [Section 4](#4-shared-folder-media--file-managers)):
@@ -195,6 +196,55 @@ nano /var/www/website-valdi-deploy/website-deploy.env   # APP_DIR, BACKUP_SCRIPT
   sudo systemctl reload caddy
   ```
 - **Adding or renaming a sub-domain on an existing server:** edit `/var/www/caddy/Caddyfile` by hand (the site host list, plus `cors_origins` and `publish_origins` of the Mercure hub), then reload Caddy. Do **not** re-run `setup-server.sh`: it regenerates the Mercure JWT keys. Without the new origin in `cors_origins`, the browser blocks the Mercure `EventSource` and live progress silently falls back to polling.
+
+### 3.4 Database Encryption (optional)
+Columns mapped with the `CoreBundle` type `encrypted_text` are stored in plain text unless `DATABASE_ENCRYPTION_KEY` is set. Today these are the game account credentials (HoYoverse cookies, Gryphline account token and SKPort session, Perfect World token, listed in the [GamesBundle guide](../src/GamesBundle/README.md#credentials-encryption-at-rest)); format, behaviour and what is not encrypted are in the [Encrypted Columns guide](../src/CoreBundle/src/Service/Encryption/README.md). Existing values are converted by a command, not by a migration.
+
+**Deploying the release** that introduces encryption changes no stored data while the key is not set. One transient effect, shared by any mapping change with this deploy script: until `messenger:stop-workers` restarts them, workers still running the previous code may load the new Doctrine metadata (rebuilt by the cache warmup) and fail on messages touching the encrypted columns (the game accounts), because they do not know the `encrypted_text` type. Those messages are retried with the transport's retry strategy, and dropped if the worker is restarted only after the last attempt (no failure transport is configured); no data is changed.
+
+**Before deploying a version that does not know this encryption** (an older release, or a revert of this feature), go back to plain text as described below: older code would use the `enc:v1:…` values as they are, for example sending them to the game services as if they were tokens.
+
+**Where it fails, and how much.** A value that cannot be decrypted makes the request or the message fail instead of being used ("fails closed"), and an operation that loads many rows fails as a whole: one unreadable game account stops, for example, the HoYoverse cookie refresh of every account, not only the one of that account. This happens in two windows of the procedures below, so run their steps one after the other and then check the worker logs (`sudo supervisorctl tail website-valdi:<program>`, `var/log/`) for errors:
+- enabling: between setting the key and the restart of every worker (step 4), workers without the key cannot read the values written meanwhile with it;
+- going back: between removing the key and the last `--decrypt` (step 3), the values encrypted meanwhile cannot be read.
+
+**Enabling it**, in this order:
+1. **Deploy first, key later.** Set the key only after the release containing this feature is deployed and its workers have restarted, never in the same deploy: workers still running the older code would take encrypted values for plain ones.
+2. **Generate the key** and keep a copy outside the server, **apart from the database backups**: a backup together with its key gives the values away, and without the key the encrypted values cannot be recovered (for the game accounts: they have to be logged in again).
+   ```bash
+   openssl rand -base64 32
+   ```
+3. **Configure it**, either:
+   - in `.env.local`: `DATABASE_ENCRYPTION_KEY="<key>"`, or
+   - in the secrets vault: `php bin/console secrets:set DATABASE_ENCRYPTION_KEY --env=prod`. This adds a file to `config/secrets/prod/` and edits the versioned `prod.list.php`: run it on a development checkout and commit the result (as for `PASSWORDS_ENCRYPTION_KEY`), because on the server the next deploy (`git reset --hard`) would revert `prod.list.php` and the key would no longer be loaded.
+4. **Make every process see the key.** It is read at runtime (`%env()%`), so the container cache does not need to be cleared (unless the environment was compiled with `composer dump-env prod`: run it again):
+   ```bash
+   php bin/console messenger:stop-workers      # Supervisor restarts workers and schedulers
+   sudo systemctl reload <php-fpm service>     # PHP_FPM_SERVICE in website-deploy.env
+   ```
+   From now on values are written encrypted; the existing plain values are still read.
+5. **Check, convert, verify:**
+   ```bash
+   php bin/console core:database:encrypt --dry-run   # per column: plain, encrypted, unreadable; writes nothing
+   php bin/console core:database:encrypt             # encrypts the values still in plain text
+   php bin/console core:database:encrypt --dry-run   # "Plain text" must be 0 everywhere
+   ```
+   Then check the features that use the encrypted columns: for the game accounts, open the games page, check that the accounts load and that an account action (e.g. a profile sync) works.
+
+The command prints counts only, never values, and can be run again at any time. Rows changed by a worker while it runs are left alone and reported as skipped: run it again. It writes nothing if no valid key is configured or if an encrypted value cannot be decrypted with the configured key (wrong key). Run it with `APP_ENV=prod`: in debug environments the SQL log records query parameters, that is the secrets.
+
+**Going back** (decrypt first, then remove the key):
+1. `php bin/console core:database:encrypt --decrypt`, with the key still configured. Values whose plain text starts with `enc:v1:` are kept encrypted and reported (stored in plain text they could not be read back): replace them (for a game account, log it in again), then run it again.
+2. Remove the key from `.env.local` (or `php bin/console secrets:remove DATABASE_ENCRYPTION_KEY --env=prod` on a development checkout, then commit and deploy), then repeat step 4 above.
+3. `php bin/console core:database:encrypt --dry-run`: without a key it only counts and ends with an error, as expected; "Encrypted" must be 0 everywhere. Values encrypted between steps 1 and 2 (for example a login or a token refresh) are decrypted by giving the key to that one command, since a real environment variable wins over `.env.local` and the vault:
+   ```bash
+   read -rs DATABASE_ENCRYPTION_KEY && export DATABASE_ENCRYPTION_KEY
+   php bin/console core:database:encrypt --decrypt
+   unset DATABASE_ENCRYPTION_KEY
+   ```
+
+- **Changing the key**: go back with the old key, then enable the new one (there is no key rotation).
+- **Reverting migration `Version20261121183000`** (Gryphline session columns back to `VARCHAR(255)`): decrypt first, encrypted values do not fit.
 
 ---
 

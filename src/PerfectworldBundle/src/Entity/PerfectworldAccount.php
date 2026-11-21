@@ -2,6 +2,7 @@
 
 namespace App\PerfectworldBundle\Entity;
 
+use App\CoreBundle\Doctrine\EncryptedTextType;
 use App\CoreBundle\Entity\User;
 use App\GamesBundle\Model\Game\GameAccountInterface;
 use App\PerfectworldBundle\Repository\PerfectworldAccountRepository;
@@ -38,7 +39,7 @@ class PerfectworldAccount implements GameAccountInterface
     private ?string $pwUid = null;
 
     #[Ignore]
-    #[ORM\Column(type: Types::TEXT)]
+    #[ORM\Column(type: EncryptedTextType::NAME)]
     private ?string $token = null;
 
     /**

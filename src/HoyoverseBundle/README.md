@@ -58,7 +58,7 @@ Supported features for each game are declared through **Capability Interfaces**:
 
 ## 2. Authentication: Credentials Login, Cookies & Auto-Refresh
 
-Each HoYoverse account (`HoyoverseAccount`) belongs to a platform user and is uniquely identified by the indexed `account_uid` column (`ltuid_v2` / `aid`), preventing duplicates when re-adding an existing account and blocking accidental mismatches with a different account during **Re-login**.
+Each HoYoverse account (`HoyoverseAccount`) belongs to a platform user and is uniquely identified by the indexed `account_uid` column (`ltuid_v2` / `aid`), preventing duplicates when re-adding an existing account and blocking accidental mismatches with a different account during **Re-login**. The cookie string (`cookie` column, `stoken_v2` included) is encrypted in the database when `DATABASE_ENCRYPTION_KEY` is set (see [Credentials encryption at rest](../GamesBundle/README.md#credentials-encryption-at-rest)).
 
 ### 2.1 Direct Credentials Login (Email / Username + Password)
 The direct login flow (`HoyoverseAuthService`) mirrors the official HoYoLAB mobile protocol (`hk4e-sdk-os.hoyoverse.com`):

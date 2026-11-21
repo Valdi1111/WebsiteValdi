@@ -46,6 +46,7 @@ All SDK calls are GET requests to `https://i.pwsdk.com` with NTE constants (`app
 
 - Code `20001` means the token is invalid or expired: the account is flagged `token_invalid` and must log in again (`PerfectworldAuthException`, HTTP 409 on sync).
 - `ndid` is a browser fingerprint for the SDK: a random 64-hex value is generated per login and stored with the account.
+- The `token` column is encrypted in the database when `DATABASE_ENCRYPTION_KEY` is set (see [Credentials encryption at rest](../GamesBundle/README.md#credentials-encryption-at-rest)); `ndid` is not.
 - Sessions coexist (a server login does not log the browser out) and there is no refresh token.
 - **Credentials are in the query string**, so the HTTP client is declared inline with `#[AutowireInline([HttpClient::class, 'create'], …)]`: no logger, no profiler tracing, no retry (a retry would send a second email). Errors are rethrown without the original exception, whose message contains the URL.
 

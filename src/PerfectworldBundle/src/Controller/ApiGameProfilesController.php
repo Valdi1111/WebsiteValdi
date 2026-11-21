@@ -3,6 +3,7 @@
 namespace App\PerfectworldBundle\Controller;
 
 use App\CoreBundle\Entity\User;
+use App\GamesBundle\Security\GameAccountOwnerVoter;
 use App\GamesBundle\Service\PullItemIconUrlBuilder;
 use App\PerfectworldBundle\Entity\PerfectworldAccount;
 use App\PerfectworldBundle\Entity\PerfectworldGameProfile;
@@ -10,7 +11,6 @@ use App\PerfectworldBundle\Message\Profile\ImportPullsBackupMessage;
 use App\PerfectworldBundle\Model\Game\GameInterface;
 use App\PerfectworldBundle\Model\Game\HasPullTrackerInterface;
 use App\PerfectworldBundle\Repository\PerfectworldPullRepository;
-use App\PerfectworldBundle\Security\PerfectworldAccountVoter;
 use App\PerfectworldBundle\Service\Catalog\NteCatalog;
 use App\PerfectworldBundle\Service\Pull\NtePullStatsCalculator;
 use App\PerfectworldBundle\Service\Pull\PullBackupImportService;
@@ -38,7 +38,7 @@ use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Service\ServiceCollectionInterface;
 
 #[IsGranted('ROLE_USER_PERFECTWORLD', null, 'Access Denied.')]
-#[IsGranted(PerfectworldAccountVoter::OWNER, subject: 'account')]
+#[IsGranted(GameAccountOwnerVoter::OWNER, subject: 'account')]
 #[Route('/accounts/{account}', name: 'api_perfectworld_game_profiles_', requirements: ['account' => '\d+'], format: 'json')]
 class ApiGameProfilesController extends AbstractController
 {

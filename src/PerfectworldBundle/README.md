@@ -57,7 +57,7 @@ All SDK calls are GET requests to `https://i.pwsdk.com` with NTE constants (`app
 4. `POST /accounts {websdk}` adds an account from a pasted token; `POST /accounts/{id}/token {websdk}` re-logs an existing one.
 5. `POST /accounts/{id}/sync` refreshes the profiles from the role list.
 
-Account ownership is checked by `Security/PerfectworldAccountVoter` (`PERFECTWORLD_ACCOUNT_OWNER`); profile routes also check that the profile belongs to the account.
+Account ownership is checked by the shared `GamesBundle\Security\GameAccountOwnerVoter` (`GAME_ACCOUNT_OWNER`, see the [GamesBundle design notes](../GamesBundle/README.md#4-design-notes)); profile routes also check that the profile belongs to the account.
 
 ---
 
@@ -185,4 +185,4 @@ Produced by [nte-exporter](https://github.com/RishiMenon2004/nte-exporter), whic
 
 ## 6. Testing
 
-`tests/PerfectworldBundle/`: SDK client (`MockHttpClient`), auth flows, profile sync, voter, wall-clock type, importer (fixed exports, old-export repair, truncated histories and cut oldest seconds, header checks), import service (upsert, versions, conflicts, gap warnings), import endpoint (validation of every file, one file per banner, temporary file cleanup, 409), stats calculator, catalog builder/backfill/resolver. Shared tracker behaviour is covered in `tests/GamesBundle/Service/PullOperationTrackerBackupBannersTest.php` and routes in `tests/GamesBundle/Routing/GamesRoutingTest.php`.
+`tests/PerfectworldBundle/`: SDK client (`MockHttpClient`), auth flows, profile sync, wall-clock type, importer (fixed exports, old-export repair, truncated histories and cut oldest seconds, header checks), import service (upsert, versions, conflicts, gap warnings), import endpoint (validation of every file, one file per banner, temporary file cleanup, 409), stats calculator, catalog builder/backfill/resolver. Shared tracker behaviour is covered in `tests/GamesBundle/Service/PullOperationTrackerBackupBannersTest.php`, routes in `tests/GamesBundle/Routing/GamesRoutingTest.php` and account ownership in `tests/GamesBundle/Security/`.

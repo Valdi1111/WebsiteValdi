@@ -41,6 +41,9 @@ Both background **MessageHandlers** and `GryphlineGameProfileNormalizer` inspect
 Each Gryphline account (`GryphlineAccount`) belongs to a platform user and is uniquely identified by the indexed `account_uid` column (storing Gryphline's official `hgId`).
 - **Add Account mode**: if the user logs in with a Gryphline account whose `account_uid` (`hgId`) is already linked to their user profile, the existing account's token and credentials are updated in place without creating duplicates.
 - **Re-login mode**: when re-authenticating an existing account, the backend verifies that the returned `hgId` matches `account_uid` (if set), returning `422 Unprocessable Entity` on mismatch.
+- Both modes go through `GryphlineAuthService::finalizeAuthenticatedAccount()`, for the credentials login and for a pasted token alike. The `hgId` is required: when the caller does not have it, it is read from the token before anything is written.
+- **Token refresh**: `SkportAuthService::getOrRefreshCredentials()` never moves an account to another identity. If the token now returns a different `hgId`, `account_uid` is kept, the account is flagged `token_refresh_failed` and a `SkportAuthException` is thrown, so the user has to log in again.
+- Account ownership on `{account}` routes is checked by the shared `GameAccountOwnerVoter` (see the [GamesBundle design notes](../GamesBundle/README.md#4-design-notes)).
 
 ### 2.1 Direct Credentials Login (Email + Password)
 `GryphlineAuthService` communicates with Gryphline's Authentication Server (`https://as.gryphline.com/user/auth/v1/token_by_email_password`):
@@ -54,11 +57,13 @@ Each Gryphline account (`GryphlineAccount`) belongs to a platform user and is un
    - Once `accountToken` and `hgId` are obtained (`status: 0`), `finalizeAuthenticatedAccount()` immediately runs the SKPort OAuth flow to validate the token and sync game profiles (`GryphlineGameProfile`).
 
 ### 2.2 Manual Token Login ("Paste Token")
-From the **Paste Token** tab in the Add/Re-login modal, users can manually paste the `ACCOUNT_TOKEN` value extracted from browser cookies on `skport.com`.
+From the **Paste Token** tab in the Add/Re-login modal, users can manually paste the `ACCOUNT_TOKEN` value extracted from browser cookies on `skport.com` (`POST /accounts {account_token, account_id?}`).
+- The token is identified first with `SkportAuthService::fetchAccountInfo()` (OAuth step 1): an invalid or expired token is rejected (`422`) before anything is saved, and a token without `hgId` is refused.
+- The account is then finalized like a credentials login: deduplicated by `hgId` (`200` when it updates an existing account, `201` when it creates one), and a re-login (`account_id`) with a token of another Gryphline account returns `422 ... does not match existing Account ...`.
 
 ### 2.3 3-Step OAuth Flow & `SkportSignerService` Cryptographic Signing
 To interact with `zonai.skport.com` APIs, the long-lived `accountToken` is exchanged by `SkportAuthService::performOAuthFlow()` in 3 steps:
-1. **User Info Verification**: `GET https://as.gryphline.com/user/info/v1/basic?token=...` → fetches and updates `hgId` (`account_uid`) and `nickname`.
+1. **User Info Verification** (`fetchAccountInfo()`): `GET https://as.gryphline.com/user/info/v1/basic?token=...` → returns `hgId` and `nickname` (`SkportAccountInfo`). `getOrRefreshCredentials()` stores the `hgId` in an empty `account_uid` and refuses a different one.
 2. **OAuth Grant Code**: `POST https://as.gryphline.com/user/oauth2/v2/grant` (`appCode: 6eb76d4e13aa36e6`, `type: 0`) → obtains an OAuth authorization code.
 3. **Session Credentials**: `POST https://zonai.skport.com/web/v1/user/auth/generate_cred_by_code` → returns:
    - `cred` (`session_cred`): SKPort session token (45-minute TTL, stored in DB and refreshed automatically upon expiry).

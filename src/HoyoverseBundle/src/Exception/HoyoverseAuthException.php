@@ -45,6 +45,17 @@ class HoyoverseAuthException extends HoyolabException implements UserFacingHttpE
         };
     }
 
+    /**
+     * Credentials (login or pasted cookie) of another HoYoverse account used on an existing account.
+     */
+    public static function accountMismatch(string $uid, ?int $accountId, string $existingUid): self
+    {
+        return new self(
+            sprintf('The logged-in HoYoverse account (UID %s) does not match existing Account #%d (UID %s).', $uid, $accountId, $existingUid),
+            Response::HTTP_UNPROCESSABLE_ENTITY,
+        );
+    }
+
     public function getStatusCode(): int
     {
         return $this->httpStatusCode;

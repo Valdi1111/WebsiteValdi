@@ -4,6 +4,7 @@ namespace App\GryphlineBundle\Service;
 
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Exception\SkportAuthException;
+use App\GryphlineBundle\Model\SkportAccountInfo;
 use App\GryphlineBundle\Model\SkportSessionCredentials;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -54,8 +55,21 @@ class SkportAuthService
         try {
             $credentials = $this->performOAuthFlow($token);
 
-            if ($credentials->getHgId() !== null && $credentials->getHgId() !== '') {
-                $account->setAccountUid((string) $credentials->getHgId());
+            // The token must still belong to the stored Gryphline account: never move an account to another identity.
+            // Checked before touching the session fields, because the catch below flushes the entity.
+            $returnedUid = self::normalizeUid($credentials->getHgId());
+            $storedUid = self::normalizeUid($account->getAccountUid());
+            if ($returnedUid !== null && $storedUid !== null && $returnedUid !== $storedUid) {
+                throw new SkportAuthException(sprintf(
+                    'The token of Account #%d belongs to another Gryphline account (UID %s instead of %s). Log in again with the right account.',
+                    $account->getId(),
+                    $returnedUid,
+                    $storedUid,
+                ));
+            }
+
+            if ($returnedUid !== null) {
+                $account->setAccountUid($returnedUid);
             }
             $account->setSessionCred($credentials->getCred());
             $account->setSessionSalt($credentials->getSalt());
@@ -84,11 +98,16 @@ class SkportAuthService
         }
     }
 
-    public function performOAuthFlow(string $accountToken): SkportSessionCredentials
+    /**
+     * Step 1 of the OAuth flow: verifies the account token and returns the Gryphline account it belongs to.
+     * Also used on its own to identify a pasted token before it is saved.
+     *
+     * @throws SkportAuthException when the token is invalid or expired
+     */
+    public function fetchAccountInfo(string $accountToken): SkportAccountInfo
     {
         $accountToken = rawurldecode(trim($accountToken));
 
-        // Step 1: Verify Account Info
         $infoUrl = '/user/info/v1/basic?token=' . urlencode($accountToken);
         $infoResponse = $this->asClient->request(Request::METHOD_GET, $infoUrl);
 
@@ -105,8 +124,33 @@ class SkportAuthService
                 ->setResponseBody($infoData);
         }
 
-        $hgId = $infoData['data']['hgId'] ?? null;
         $nickname = $infoData['data']['nickname'] ?? null;
+
+        return new SkportAccountInfo(
+            hgId: self::normalizeUid($infoData['data']['hgId'] ?? null),
+            nickname: is_scalar($nickname) && (string) $nickname !== '' ? (string) $nickname : null,
+        );
+    }
+
+    /**
+     * hgId may come as a JSON number or string: compare and store it as a trimmed string.
+     */
+    public static function normalizeUid(mixed $uid): ?string
+    {
+        if (!is_scalar($uid)) {
+            return null;
+        }
+        $uid = trim((string) $uid);
+
+        return $uid !== '' ? $uid : null;
+    }
+
+    public function performOAuthFlow(string $accountToken): SkportSessionCredentials
+    {
+        $accountToken = rawurldecode(trim($accountToken));
+
+        // Step 1: Verify Account Info
+        $accountInfo = $this->fetchAccountInfo($accountToken);
 
         // Step 2: Request OAuth Grant Code
         $grantResponse = $this->asClient->request(Request::METHOD_POST, '/user/oauth2/v2/grant', [
@@ -165,8 +209,8 @@ class SkportAuthService
             cred: $cred,
             salt: $salt,
             userId: $userId,
-            hgId: $hgId,
-            nickname: $nickname,
+            hgId: $accountInfo->hgId,
+            nickname: $accountInfo->nickname,
             expiresAt: $expiresAt
         );
     }

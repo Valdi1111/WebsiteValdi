@@ -15,7 +15,6 @@ use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
-use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Serializer\SerializerInterface;
 
 class GryphlineAuthControllerTest extends TestCase
@@ -46,19 +45,24 @@ class GryphlineAuthControllerTest extends TestCase
         }
     }
 
-    public function testLoginStartAndReloginOwnership(): void
+    public function testLoginStartAndReloginDelegateToService(): void
     {
-        $user1 = $this->createMockUser(1);
-        $user2 = $this->createMockUser(2);
-        $accountOfUser2 = (new GryphlineAccount())->setUser($user2);
+        $user = $this->createMockUser(1);
+        $account = (new GryphlineAccount())->setUser($user);
 
         $authService = $this->createMock(GryphlineAuthService::class);
         $geetestService = $this->createStub(GeetestService::class);
 
-        $authService->expects($this->once())
+        // Ownership of {account} is enforced by #[IsGranted(GAME_ACCOUNT_OWNER)] (see GameAccountOwnerRoutesTest)
+        $authService->expects($this->exactly(2))
             ->method('startLogin')
-            ->with($user1, 'doctor@gryphline.com', 'pwd123', null)
-            ->willReturn(new LoginStepResult(LoginStepResult::STATUS_AUTHENTICATED));
+            ->willReturnCallback(function (User $u, string $email, string $password, ?GryphlineAccount $relogin) use ($user, $account): LoginStepResult {
+                $this->assertSame($user, $u);
+                $this->assertSame(['doctor@gryphline.com', 'pwd123'], [$email, $password]);
+                $this->assertContains($relogin, [null, $account]);
+
+                return new LoginStepResult(LoginStepResult::STATUS_AUTHENTICATED);
+            });
 
         $controller = new ApiAccountAuthController($authService, $geetestService);
         $this->attachMockContainer($controller);
@@ -67,11 +71,8 @@ class GryphlineAuthControllerTest extends TestCase
             ->setEmail('doctor@gryphline.com')
             ->setPassword('pwd123');
 
-        $res = $controller->loginStart($user1, $payload);
-        $this->assertSame(Response::HTTP_OK, $res->getStatusCode());
-
-        $this->expectException(AccessDeniedException::class);
-        $controller->reloginStart($user1, $accountOfUser2, $payload);
+        $this->assertSame(Response::HTTP_OK, $controller->loginStart($user, $payload)->getStatusCode());
+        $this->assertSame(Response::HTTP_OK, $controller->reloginStart($user, $account, $payload)->getStatusCode());
     }
 
     public function testLoginCaptchaAndGeetestFrame(): void

@@ -2,9 +2,9 @@
 
 namespace App\GryphlineBundle\Controller;
 
-use App\CoreBundle\Attribute\ResolveEntityFromRoute;
 use App\CoreBundle\Entity\User;
 use App\GamesBundle\Model\Pull\PullOperationKind;
+use App\GamesBundle\Security\GameAccountOwnerVoter;
 use App\GamesBundle\Service\PullItemIconUrlBuilder;
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
@@ -37,14 +37,12 @@ use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Component\Uid\Uuid;
 
-#[ResolveEntityFromRoute(setter: 'setAccount')]
 #[IsGranted('ROLE_USER_GRYPHLINE', null, 'Access Denied.')]
+#[IsGranted(GameAccountOwnerVoter::OWNER, subject: 'account')]
 #[Route('/accounts/{account}', name: 'api_gryphline_game_profiles_', requirements: ['account' => '\d+'], format: 'json')]
 class ApiGameProfilesController extends AbstractController
 {
     private const int MAX_BACKUP_UPLOAD_BYTES = 26214400; // 25 MiB
-
-    private GryphlineAccount $account;
 
     /**
      * @param ServiceLocator<GameInterface> $locatorByGameBiz
@@ -58,41 +56,18 @@ class ApiGameProfilesController extends AbstractController
     ) {
     }
 
-    protected function getAccount(): GryphlineAccount
-    {
-        return $this->account;
-    }
-
-    public function setAccount(#[MapEntity(id: 'account', message: "Gryphline Account not found.")] GryphlineAccount $account): void
-    {
-        $this->account = $account;
-    }
-
-    protected function checkAccountOwnership(User $user): void
-    {
-        if ($this->getAccount()->getUser() !== $user) {
-            throw $this->createAccessDeniedException("You do not own this Gryphline account.");
-        }
-    }
-
     #[Route('/gameProfiles', name: 'get', methods: ['GET'])]
-    public function apiGameProfilesGet(#[CurrentUser] User $user): Response
+    public function apiGameProfilesGet(#[MapEntity(message: "Gryphline Account not found.")] GryphlineAccount $account): Response
     {
-        $this->checkAccountOwnership($user);
-
-        return $this->json($this->getAccount()->getGameProfiles()->toArray());
+        return $this->json($account->getGameProfiles()->toArray());
     }
 
     #[Route('/gameProfiles/{gameProfile}', name: 'id_get', requirements: ['gameProfile' => '\d+'], methods: ['GET'])]
     public function apiGameProfilesIdGet(
-        #[CurrentUser] User $user,
+        #[MapEntity(message: "Gryphline Account not found.")] GryphlineAccount $account,
         #[MapEntity(message: "Game profile not found.")] GryphlineGameProfile $gameProfile
     ): Response {
-        $this->checkAccountOwnership($user);
-
-        if ($gameProfile->getAccount() !== $this->getAccount()) {
-            throw new BadRequestHttpException("Game profile does not belong to this account.");
-        }
+        $this->assertProfileOfAccount($account, $gameProfile);
 
         return $this->json($gameProfile);
     }
@@ -100,15 +75,11 @@ class ApiGameProfilesController extends AbstractController
     #[Route('/gameProfiles/{gameProfile}/settings', name: 'update_settings', requirements: ['gameProfile' => '\d+'], methods: ['PATCH'])]
     public function apiGameProfilesUpdateSettings(
         Request $req,
-        #[CurrentUser] User $user,
+        #[MapEntity(message: "Gryphline Account not found.")] GryphlineAccount $account,
         #[MapEntity(message: "Game profile not found.")] GryphlineGameProfile $gameProfile,
         DenormalizerInterface $denormalizer
     ): Response {
-        $this->checkAccountOwnership($user);
-
-        if ($gameProfile->getAccount() !== $this->getAccount()) {
-            throw new BadRequestHttpException("Game profile does not belong to this account.");
-        }
+        $this->assertProfileOfAccount($account, $gameProfile);
 
         $denormalizer->denormalize($req->getPayload()->all(), GryphlineGameProfile::class, null, [
             AbstractNormalizer::OBJECT_TO_POPULATE => $gameProfile,
@@ -122,15 +93,12 @@ class ApiGameProfilesController extends AbstractController
     #[Route('/gameProfiles/{gameProfile}/pulls/sync', name: 'pulls_sync', requirements: ['gameProfile' => '\d+'], methods: ['POST'])]
     public function apiGameProfilePullsSync(
         #[CurrentUser] User $user,
+        #[MapEntity(message: "Gryphline Account not found.")] GryphlineAccount $account,
         #[MapEntity(message: "Game profile not found.")] GryphlineGameProfile $gameProfile,
         MessageBusInterface $bus,
         PullOperationTracker $operationTracker,
     ): Response {
-        $this->checkAccountOwnership($user);
-
-        if ($gameProfile->getAccount() !== $this->getAccount()) {
-            throw new BadRequestHttpException("Game profile does not belong to this account.");
-        }
+        $this->assertProfileOfAccount($account, $gameProfile);
 
         if (!$this->locatorByGameBiz->has($gameProfile->getGameBiz())) {
             throw new BadRequestHttpException("Unsupported game service.");
@@ -176,16 +144,13 @@ class ApiGameProfilesController extends AbstractController
     public function apiGameProfilePullsImportBackup(
         Request $req,
         #[CurrentUser] User $user,
+        #[MapEntity(message: "Gryphline Account not found.")] GryphlineAccount $account,
         #[MapEntity(message: "Game profile not found.")] GryphlineGameProfile $gameProfile,
         PullBackupImporterManager $importerManager,
         PullOperationTracker $operationTracker,
         MessageBusInterface $bus,
     ): Response {
-        $this->checkAccountOwnership($user);
-
-        if ($gameProfile->getAccount() !== $this->getAccount()) {
-            throw new BadRequestHttpException("Game profile does not belong to this account.");
-        }
+        $this->assertProfileOfAccount($account, $gameProfile);
 
         if (!$this->locatorByGameBiz->has($gameProfile->getGameBiz())) {
             throw new BadRequestHttpException("Unsupported game service.");
@@ -274,16 +239,12 @@ class ApiGameProfilesController extends AbstractController
 
     #[Route('/gameProfiles/{gameProfile}/pulls/operations/{operationId}', name: 'pulls_operation_status', requirements: ['gameProfile' => '\d+'], methods: ['GET'])]
     public function apiGameProfilePullsOperationStatus(
-        #[CurrentUser] User $user,
+        #[MapEntity(message: "Gryphline Account not found.")] GryphlineAccount $account,
         #[MapEntity(message: "Game profile not found.")] GryphlineGameProfile $gameProfile,
         string $operationId,
         PullOperationTracker $operationTracker,
     ): Response {
-        $this->checkAccountOwnership($user);
-
-        if ($gameProfile->getAccount() !== $this->getAccount()) {
-            throw new BadRequestHttpException("Game profile does not belong to this account.");
-        }
+        $this->assertProfileOfAccount($account, $gameProfile);
 
         $operation = $operationTracker->getOperation($operationId);
         if ($operation === null || (int) ($operation['profile_id'] ?? 0) !== (int) $gameProfile->getId()) {
@@ -298,7 +259,7 @@ class ApiGameProfilesController extends AbstractController
     #[Route('/gameProfiles/{gameProfile}/pulls/overview', name: 'pulls_overview', requirements: ['gameProfile' => '\d+'], methods: ['GET'])]
     public function apiGameProfilePullsOverview(
         Request $req,
-        #[CurrentUser] User $user,
+        #[MapEntity(message: "Gryphline Account not found.")] GryphlineAccount $account,
         #[MapEntity(message: "Game profile not found.")] GryphlineGameProfile $gameProfile,
         GryphlinePullRepository $pullRepo,
         PullItemIconUrlBuilder $iconUrlBuilder,
@@ -306,11 +267,7 @@ class ApiGameProfilesController extends AbstractController
         PullOperationTracker $operationTracker,
         Authorization $mercureAuthorization,
     ): Response {
-        $this->checkAccountOwnership($user);
-
-        if ($gameProfile->getAccount() !== $this->getAccount()) {
-            throw new BadRequestHttpException("Game profile does not belong to this account.");
-        }
+        $this->assertProfileOfAccount($account, $gameProfile);
 
         if (!$this->locatorByGameBiz->has($gameProfile->getGameBiz())) {
             throw new BadRequestHttpException("Unsupported game service.");
@@ -350,16 +307,12 @@ class ApiGameProfilesController extends AbstractController
     #[Route('/gameProfiles/{gameProfile}/pulls', name: 'pulls_list', requirements: ['gameProfile' => '\d+'], methods: ['GET'])]
     public function apiGameProfilePullsList(
         Request $req,
-        #[CurrentUser] User $user,
+        #[MapEntity(message: "Gryphline Account not found.")] GryphlineAccount $account,
         #[MapEntity(message: "Game profile not found.")] GryphlineGameProfile $gameProfile,
         GryphlinePullRepository $pullRepo,
         PullItemIconUrlBuilder $iconUrlBuilder
     ): Response {
-        $this->checkAccountOwnership($user);
-
-        if ($gameProfile->getAccount() !== $this->getAccount()) {
-            throw new BadRequestHttpException("Game profile does not belong to this account.");
-        }
+        $this->assertProfileOfAccount($account, $gameProfile);
 
         if (!$this->locatorByGameBiz->has($gameProfile->getGameBiz())) {
             throw new BadRequestHttpException("Unsupported game service.");
@@ -428,5 +381,12 @@ class ApiGameProfilesController extends AbstractController
             'page' => $page,
             'limit' => $limit,
         ]);
+    }
+
+    private function assertProfileOfAccount(GryphlineAccount $account, GryphlineGameProfile $gameProfile): void
+    {
+        if ($gameProfile->getAccount() !== $account) {
+            throw new BadRequestHttpException("Game profile does not belong to this account.");
+        }
     }
 }

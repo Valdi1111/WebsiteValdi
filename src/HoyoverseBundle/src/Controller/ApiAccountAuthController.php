@@ -4,6 +4,7 @@ namespace App\HoyoverseBundle\Controller;
 
 use App\CoreBundle\Entity\User;
 use App\GamesBundle\Model\Auth\SubmitCaptchaRequest;
+use App\GamesBundle\Security\GameAccountOwnerVoter;
 use App\GamesBundle\Service\GeetestService;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\GamesBundle\Model\Auth\LoginStepResult;
@@ -47,15 +48,12 @@ class ApiAccountAuthController extends AbstractController
     }
 
     #[Route('/{account}/relogin/start', name: 'relogin_start', requirements: ['account' => '\d+'], methods: ['POST'])]
+    #[IsGranted(GameAccountOwnerVoter::OWNER, subject: 'account')]
     public function reloginStart(
         #[CurrentUser] User $user,
         #[MapEntity(message: 'Account not found.')] HoyoverseAccount $account,
         #[MapRequestPayload] StartLoginRequest $payload,
     ): Response {
-        if ($account->getUser() !== $user) {
-            throw $this->createAccessDeniedException('Cannot re-login an account belonging to another user.');
-        }
-
         $result = $this->authService->startLogin(
             user: $user,
             account: $payload->getAccount(),

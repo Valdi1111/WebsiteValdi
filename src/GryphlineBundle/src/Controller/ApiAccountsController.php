@@ -3,8 +3,12 @@
 namespace App\GryphlineBundle\Controller;
 
 use App\CoreBundle\Entity\User;
+use App\GamesBundle\Security\GameAccountOwnerVoter;
 use App\GryphlineBundle\Entity\GryphlineAccount;
+use App\GryphlineBundle\Exception\SkportAuthException;
 use App\GryphlineBundle\Repository\GryphlineAccountRepository;
+use App\GryphlineBundle\Service\GryphlineAuthService;
+use App\GryphlineBundle\Service\SkportAuthService;
 use App\GryphlineBundle\Service\SkportManagerService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -35,9 +39,18 @@ class ApiAccountsController extends AbstractController
         return $this->json($accounts);
     }
 
+    /**
+     * Adds an account from a pasted ACCOUNT_TOKEN, or re-logs the account given in "account_id".
+     * The token is identified first (hgId): invalid tokens are rejected before anything is saved, new accounts are
+     * deduplicated by hgId and a re-login with a token of another Gryphline account is refused, as in the credentials login.
+     */
     #[Route('', name: 'add', methods: ['POST'])]
-    public function apiAccountsAdd(Request $req, #[CurrentUser] User $user): Response
-    {
+    public function apiAccountsAdd(
+        Request $req,
+        #[CurrentUser] User $user,
+        SkportAuthService $skportAuthService,
+        GryphlineAuthService $authService,
+    ): Response {
         $payload = $req->getPayload();
         $token = trim((string) ($payload->get('account_token') ?? $payload->get('accountToken') ?? $payload->get('token') ?? ''));
 
@@ -45,57 +58,36 @@ class ApiAccountsController extends AbstractController
             throw new BadRequestHttpException("Parameter 'account_token' cannot be empty.");
         }
 
+        $reloginAccount = null;
         $accountId = $payload->get('account_id') ?? $payload->get('accountId');
         if ($accountId !== null && $accountId !== '') {
-            $account = $this->accountRepository->find((int) $accountId);
-            if ($account === null) {
+            $reloginAccount = $this->accountRepository->find((int) $accountId);
+            if ($reloginAccount === null) {
                 throw $this->createNotFoundException('Account not found.');
             }
-            if ($account->getUser() !== $user) {
-                throw $this->createAccessDeniedException('Cannot update an account belonging to another user.');
-            }
-            $account->setAccountToken($token)
-                ->setTokenRefreshFailed(false)
-                ->setSessionExpiresAt(null);
-            $statusCode = Response::HTTP_OK;
-        } else {
-            $existingAccount = $this->accountRepository->findOneBy([
-                'user' => $user,
-                'accountToken' => $token,
-            ]);
-
-            if ($existingAccount !== null) {
-                $account = $existingAccount;
-                $account->setAccountToken($token)
-                    ->setTokenRefreshFailed(false)
-                    ->setSessionExpiresAt(null);
-                $statusCode = Response::HTTP_OK;
-            } else {
-                $account = (new GryphlineAccount())
-                    ->setAccountToken($token)
-                    ->setUser($user);
-                $this->entityManager->persist($account);
-                $statusCode = Response::HTTP_CREATED;
-            }
+            // Not an {account} route, so the owner check is done here before calling Gryphline
+            $this->denyAccessUnlessGranted(GameAccountOwnerVoter::OWNER, $reloginAccount, 'Cannot update an account belonging to another user.');
         }
 
-        $this->entityManager->flush();
+        $hgId = $skportAuthService->fetchAccountInfo($token)->hgId;
+        if ($hgId === null) {
+            throw new SkportAuthException('Gryphline did not return the account UID for this token.');
+        }
 
-        return $this->json($account, $statusCode, context: [
+        $existingAccount = $reloginAccount ?? $this->accountRepository->findOneBy(['user' => $user, 'accountUid' => $hgId]);
+        $account = $authService->finalizeAuthenticatedAccount($user, $token, $reloginAccount, $hgId);
+
+        return $this->json($account, $existingAccount !== null ? Response::HTTP_OK : Response::HTTP_CREATED, context: [
             AbstractNormalizer::IGNORED_ATTRIBUTES => ['gameProfiles'],
         ]);
     }
 
     #[Route('/{account}/sync', name: 'sync', requirements: ['account' => '\d+'], methods: ['POST'])]
+    #[IsGranted(GameAccountOwnerVoter::OWNER, subject: 'account')]
     public function apiAccountsSync(
-        #[CurrentUser] User $user,
         #[MapEntity(message: "Account not found.")] GryphlineAccount $account,
         SkportManagerService $skportManagerService
     ): Response {
-        if ($account->getUser() !== $user) {
-            throw $this->createAccessDeniedException("Cannot sync an account belonging to another user.");
-        }
-
         $skportManagerService->updateCachedGameProfiles($account);
         $this->entityManager->flush();
 
@@ -103,14 +95,10 @@ class ApiAccountsController extends AbstractController
     }
 
     #[Route('/{account}', name: 'delete', requirements: ['account' => '\d+'], methods: ['DELETE'])]
+    #[IsGranted(GameAccountOwnerVoter::OWNER, subject: 'account')]
     public function apiAccountsDelete(
-        #[CurrentUser] User $user,
         #[MapEntity(message: "Account not found.")] GryphlineAccount $account
     ): Response {
-        if ($account->getUser() !== $user) {
-            throw $this->createAccessDeniedException("Cannot delete an account belonging to another user.");
-        }
-
         $id = $account->getId();
         $this->entityManager->remove($account);
         $this->entityManager->flush();

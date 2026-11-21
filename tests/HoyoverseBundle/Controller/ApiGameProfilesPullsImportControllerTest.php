@@ -88,7 +88,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         return [$account, $profile];
     }
 
-    private function createController(HoyoverseAccount $account): ApiGameProfilesController
+    private function createController(): ApiGameProfilesController
     {
         $giService = new GenshinImpactService(new NullLogger());
         $hsrService = new HonkaiStarRailService(new NullLogger());
@@ -102,7 +102,6 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
             $locator,
             $this->tempProjectDir,
         );
-        $controller->setAccount($account);
 
         $serializer = $this->createStub(SerializerInterface::class);
         $serializer->method('serialize')->willReturnCallback(
@@ -162,7 +161,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
     {
         $user = $this->createUser(1);
         [$account, $profile] = $this->createAccountAndProfile($user, 10, GenshinImpactService::GAME_ID);
-        $controller = $this->createController($account);
+        $controller = $this->createController();
 
         $importer = $this->createFakeImporter('paimon_moe', GenshinImpactService::class, ['.json'], PullBackupValidationResult::ok(42));
         $importerManager = new PullBackupImporterManager([$importer]);
@@ -187,7 +186,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
             ['file' => $file]
         );
 
-        $response = $controller->apiGameProfilePullsImportBackup($request, $user, $profile, $importerManager, $tracker, $bus);
+        $response = $controller->apiGameProfilePullsImportBackup($request, $user, $account, $profile, $importerManager, $tracker, $bus);
 
         $this->assertSame(Response::HTTP_ACCEPTED, $response->getStatusCode());
         $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
@@ -209,7 +208,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
     {
         $user = $this->createUser(1);
         [$account, $profile] = $this->createAccountAndProfile($user, 10, GenshinImpactService::GAME_ID);
-        $controller = $this->createController($account);
+        $controller = $this->createController();
 
         $importer = $this->createFakeImporter('paimon_moe', GenshinImpactService::class, ['.json'], PullBackupValidationResult::fail('Invalid paimon.moe schema.'));
         $importerManager = new PullBackupImporterManager([$importer]);
@@ -221,7 +220,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $request = Request::create('/api/accounts/1/gameProfiles/10/pulls/import-backup', 'POST', ['importer' => 'paimon_moe'], [], ['file' => $file]);
 
         try {
-            $controller->apiGameProfilePullsImportBackup($request, $user, $profile, $importerManager, $tracker, $bus);
+            $controller->apiGameProfilePullsImportBackup($request, $user, $account, $profile, $importerManager, $tracker, $bus);
             $this->fail('Expected BadRequestHttpException');
         } catch (BadRequestHttpException $e) {
             $this->assertSame('Invalid paimon.moe schema.', $e->getMessage());
@@ -237,7 +236,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
     {
         $user = $this->createUser(1);
         [$account, $profile] = $this->createAccountAndProfile($user, 10, GenshinImpactService::GAME_ID);
-        $controller = $this->createController($account);
+        $controller = $this->createController();
 
         $hsrImporter = $this->createFakeImporter('star_rail_station_csv', HonkaiStarRailService::class, ['.csv'], PullBackupValidationResult::ok(5));
         $importerManager = new PullBackupImporterManager([$hsrImporter]);
@@ -248,14 +247,14 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $request = Request::create('/api/accounts/1/gameProfiles/10/pulls/import-backup', 'POST', ['importer' => 'star_rail_station_csv'], [], ['file' => $file]);
 
         $this->expectException(BadRequestHttpException::class);
-        $controller->apiGameProfilePullsImportBackup($request, $user, $profile, $importerManager, $tracker, $bus);
+        $controller->apiGameProfilePullsImportBackup($request, $user, $account, $profile, $importerManager, $tracker, $bus);
     }
 
     public function testImportBackupReturnsConflictWhenBackupAlreadyActive(): void
     {
         $user = $this->createUser(1);
         [$account, $profile] = $this->createAccountAndProfile($user, 10, GenshinImpactService::GAME_ID);
-        $controller = $this->createController($account);
+        $controller = $this->createController();
 
         $importer = $this->createFakeImporter('paimon_moe', GenshinImpactService::class, ['.json'], PullBackupValidationResult::ok(10));
         $importerManager = new PullBackupImporterManager([$importer]);
@@ -266,7 +265,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $request = Request::create('/api/accounts/1/gameProfiles/10/pulls/import-backup', 'POST', ['importer' => 'paimon_moe'], [], ['file' => $file]);
 
         $this->expectException(ConflictHttpException::class);
-        $controller->apiGameProfilePullsImportBackup($request, $user, $profile, $importerManager, $tracker, $this->createStub(MessageBusInterface::class));
+        $controller->apiGameProfilePullsImportBackup($request, $user, $account, $profile, $importerManager, $tracker, $this->createStub(MessageBusInterface::class));
     }
 
     public function testOperationStatusReturnsOwnOperationAnd404ForOtherProfile(): void
@@ -276,24 +275,24 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $profile11 = (new HoyoverseGameProfile())->setAccount($account)->setGameId(GenshinImpactService::GAME_ID);
         (new \ReflectionProperty(HoyoverseGameProfile::class, 'id'))->setValue($profile11, 11);
 
-        $controller = $this->createController($account);
+        $controller = $this->createController();
         $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test');
         $op = $tracker->startBackupImport(10, 1, 'paimon_moe', 'Paimon.moe (JSON)', 15);
 
-        $res = $controller->apiGameProfilePullsOperationStatus($user, $profile10, $op['id'], $tracker);
+        $res = $controller->apiGameProfilePullsOperationStatus($account, $profile10, $op['id'], $tracker);
         $this->assertSame(Response::HTTP_OK, $res->getStatusCode());
         $data = json_decode((string) $res->getContent(), true, 512, JSON_THROW_ON_ERROR);
         $this->assertSame($op['id'], $data['operation']['id']);
 
         $this->expectException(NotFoundHttpException::class);
-        $controller->apiGameProfilePullsOperationStatus($user, $profile11, $op['id'], $tracker);
+        $controller->apiGameProfilePullsOperationStatus($account, $profile11, $op['id'], $tracker);
     }
 
     public function testPullsOverviewIncludesImportersMercureTopicActiveOperationAndSetsCookie(): void
     {
         $user = $this->createUser(1);
         [$account, $profile] = $this->createAccountAndProfile($user, 10, GenshinImpactService::GAME_ID);
-        $controller = $this->createController($account);
+        $controller = $this->createController();
 
         $importer = $this->createFakeImporter('paimon_moe', GenshinImpactService::class, ['.json'], PullBackupValidationResult::ok(10));
         $importerManager = new PullBackupImporterManager([$importer]);
@@ -326,7 +325,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $mercureAuth = new Authorization(new \Symfony\Component\Mercure\HubRegistry($hub));
 
         $req = Request::create('https://hoyoverse.test/api/accounts/1/gameProfiles/10/pulls/overview', 'GET');
-        $res = $controller->apiGameProfilePullsOverview($req, $user, $profile, $pullRepo, $iconBuilder, $importerManager, $tracker, $mercureAuth);
+        $res = $controller->apiGameProfilePullsOverview($req, $account, $profile, $pullRepo, $iconBuilder, $importerManager, $tracker, $mercureAuth);
 
         $this->assertSame(Response::HTTP_OK, $res->getStatusCode());
         $data = json_decode((string) $res->getContent(), true, 512, JSON_THROW_ON_ERROR);

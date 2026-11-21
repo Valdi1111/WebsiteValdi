@@ -3,10 +3,10 @@
 namespace App\PerfectworldBundle\Controller;
 
 use App\CoreBundle\Entity\User;
+use App\GamesBundle\Security\GameAccountOwnerVoter;
 use App\PerfectworldBundle\Entity\PerfectworldAccount;
 use App\PerfectworldBundle\Model\Auth\AddTokenAccountRequest;
 use App\PerfectworldBundle\Repository\PerfectworldAccountRepository;
-use App\PerfectworldBundle\Security\PerfectworldAccountVoter;
 use App\PerfectworldBundle\Service\PerfectworldAuthService;
 use App\PerfectworldBundle\Service\PerfectworldProfileSyncService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -53,7 +53,7 @@ class ApiAccountsController extends AbstractController
      * Re-login of an existing account with a pasted token (the token must belong to the same Perfect World account).
      */
     #[Route('/{account}/token', name: 'token_relogin', requirements: ['account' => '\d+'], methods: ['POST'])]
-    #[IsGranted(PerfectworldAccountVoter::OWNER, subject: 'account')]
+    #[IsGranted(GameAccountOwnerVoter::OWNER, subject: 'account')]
     public function apiAccountsTokenRelogin(
         #[CurrentUser] User $user,
         #[MapEntity(message: 'Account not found.')] PerfectworldAccount $account,
@@ -70,7 +70,7 @@ class ApiAccountsController extends AbstractController
      * Refreshes the game profiles from the SDK role list. An expired token flags the account and returns 409.
      */
     #[Route('/{account}/sync', name: 'sync', requirements: ['account' => '\d+'], methods: ['POST'])]
-    #[IsGranted(PerfectworldAccountVoter::OWNER, subject: 'account')]
+    #[IsGranted(GameAccountOwnerVoter::OWNER, subject: 'account')]
     public function apiAccountsSync(
         #[MapEntity(message: 'Account not found.')] PerfectworldAccount $account,
         PerfectworldProfileSyncService $profileSyncService,
@@ -81,7 +81,7 @@ class ApiAccountsController extends AbstractController
     }
 
     #[Route('/{account}', name: 'delete', requirements: ['account' => '\d+'], methods: ['DELETE'])]
-    #[IsGranted(PerfectworldAccountVoter::OWNER, subject: 'account')]
+    #[IsGranted(GameAccountOwnerVoter::OWNER, subject: 'account')]
     public function apiAccountsDelete(#[MapEntity(message: 'Account not found.')] PerfectworldAccount $account): Response
     {
         $id = $account->getId();

@@ -201,8 +201,11 @@ class GryphlineAuthService
     }
 
     /**
-     * Finalizes a GryphlineAccount (new or relogin) with a freshly acquired accountToken,
+     * Finalizes a GryphlineAccount (new or relogin) with a freshly acquired accountToken (credentials login or pasted token),
      * validates and populates OAuth session credentials, and performs non-blocking profile sync.
+     *
+     * The Gryphline account UID (hgId) is required: new accounts are deduplicated by it and a re-login must keep it.
+     * When the caller does not know it, it is read from the token before anything is written.
      */
     public function finalizeAuthenticatedAccount(
         User $user,
@@ -210,14 +213,19 @@ class GryphlineAuthService
         ?GryphlineAccount $reloginAccount = null,
         ?string $hgId = null,
     ): GryphlineAccount {
-        $normalizedHgId = $hgId !== null && trim($hgId) !== '' ? trim($hgId) : null;
+        if ($reloginAccount !== null && $reloginAccount->getUser() !== $user) {
+            throw new AccessDeniedException('Cannot re-login an account belonging to another user.');
+        }
+
+        $normalizedHgId = SkportAuthService::normalizeUid($hgId)
+            ?? $this->skportAuthService->fetchAccountInfo($accountToken)->hgId;
+        if ($normalizedHgId === null) {
+            throw new SkportAuthException('Gryphline did not return the account UID for this token.');
+        }
 
         if ($reloginAccount !== null) {
-            if ($reloginAccount->getUser() !== $user) {
-                throw new AccessDeniedException('Cannot re-login an account belonging to another user.');
-            }
-            $existingUid = $reloginAccount->getAccountUid();
-            if ($existingUid !== null && $existingUid !== '' && $normalizedHgId !== null && $existingUid !== $normalizedHgId) {
+            $existingUid = SkportAuthService::normalizeUid($reloginAccount->getAccountUid());
+            if ($existingUid !== null && $existingUid !== $normalizedHgId) {
                 throw new SkportAuthException(
                     sprintf('The logged-in Gryphline account (UID %s) does not match existing Account #%d (UID %s).', $normalizedHgId, $reloginAccount->getId(), $existingUid),
                     0,
@@ -227,13 +235,10 @@ class GryphlineAuthService
             }
             $account = $reloginAccount;
         } else {
-            $account = null;
-            if ($normalizedHgId !== null) {
-                $account = $this->accountRepository->findOneBy([
-                    'user' => $user,
-                    'accountUid' => $normalizedHgId,
-                ]);
-            }
+            $account = $this->accountRepository->findOneBy([
+                'user' => $user,
+                'accountUid' => $normalizedHgId,
+            ]);
 
             if ($account === null) {
                 $account = (new GryphlineAccount())->setUser($user);
@@ -241,9 +246,7 @@ class GryphlineAuthService
             }
         }
 
-        if ($normalizedHgId !== null) {
-            $account->setAccountUid($normalizedHgId);
-        }
+        $account->setAccountUid($normalizedHgId);
         $account->setAccountToken(trim($accountToken));
         $this->skportAuthService->getOrRefreshCredentials($account, force: true);
 

@@ -16,7 +16,6 @@ use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
-use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Serializer\SerializerInterface;
 
 class HoyoverseAuthControllerTest extends TestCase
@@ -69,22 +68,24 @@ class HoyoverseAuthControllerTest extends TestCase
         $this->assertSame(Response::HTTP_OK, $response->getStatusCode());
     }
 
-    public function testReloginStartChecksAccountOwnership(): void
+    public function testReloginStartPassesTheAccountToTheService(): void
     {
-        $user1 = $this->createMockUser(1);
-        $user2 = $this->createMockUser(2);
-        $accountOfUser2 = (new HoyoverseAccount())->setUser($user2);
+        $user = $this->createMockUser(1);
+        $account = (new HoyoverseAccount())->setUser($user);
 
-        $authService = $this->createStub(HoyoverseAuthService::class);
-        $geetestService = $this->createStub(GeetestService::class);
+        // Ownership of {account} is enforced by #[IsGranted(GAME_ACCOUNT_OWNER)] (see GameAccountOwnerRoutesTest)
+        $authService = $this->createMock(HoyoverseAuthService::class);
+        $authService->expects($this->once())
+            ->method('startLogin')
+            ->with($user, 'a@b.c', 'pwd', $account)
+            ->willReturn(new LoginStepResult(LoginStepResult::STATUS_AUTHENTICATED));
 
-        $controller = new ApiAccountAuthController($authService, $geetestService);
+        $controller = new ApiAccountAuthController($authService, $this->createStub(GeetestService::class));
         $this->attachMockContainer($controller);
 
         $payload = (new StartLoginRequest())->setAccount('a@b.c')->setPassword('pwd');
 
-        $this->expectException(AccessDeniedException::class);
-        $controller->reloginStart($user1, $accountOfUser2, $payload);
+        $this->assertSame(Response::HTTP_OK, $controller->reloginStart($user, $account, $payload)->getStatusCode());
     }
 
     public function testLoginCaptchaAndVerifyEmailDelegateToService(): void

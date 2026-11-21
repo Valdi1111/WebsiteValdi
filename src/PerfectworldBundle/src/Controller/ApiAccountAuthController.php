@@ -4,11 +4,11 @@ namespace App\PerfectworldBundle\Controller;
 
 use App\CoreBundle\Entity\User;
 use App\GamesBundle\Model\Auth\LoginStepResult;
+use App\GamesBundle\Security\GameAccountOwnerVoter;
 use App\PerfectworldBundle\Entity\PerfectworldAccount;
 use App\PerfectworldBundle\Model\Auth\ResendEmailRequest;
 use App\PerfectworldBundle\Model\Auth\StartLoginRequest;
 use App\PerfectworldBundle\Model\Auth\VerifyEmailRequest;
-use App\PerfectworldBundle\Security\PerfectworldAccountVoter;
 use App\PerfectworldBundle\Service\PerfectworldAuthService;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -40,7 +40,7 @@ class ApiAccountAuthController extends AbstractController
     }
 
     #[Route('/{account}/relogin/start', name: 'relogin_start', requirements: ['account' => '\d+'], methods: ['POST'])]
-    #[IsGranted(PerfectworldAccountVoter::OWNER, subject: 'account')]
+    #[IsGranted(GameAccountOwnerVoter::OWNER, subject: 'account')]
     public function reloginStart(
         #[CurrentUser] User $user,
         #[MapEntity(message: 'Account not found.')] PerfectworldAccount $account,

@@ -447,10 +447,7 @@ PEM;
             $existingUid = $account->getAccountUid();
 
             if ($existingUid !== null && $existingUid !== '' && $existingUid !== $aid) {
-                throw new HoyoverseAuthException(
-                    sprintf('The logged-in HoYoverse account (UID %s) does not match existing Account #%d (UID %s).', $aid, $account->getId(), $existingUid),
-                    Response::HTTP_UNPROCESSABLE_ENTITY
-                );
+                throw HoyoverseAuthException::accountMismatch($aid, $account->getId(), $existingUid);
             }
 
             $account->setAccountUid($aid);

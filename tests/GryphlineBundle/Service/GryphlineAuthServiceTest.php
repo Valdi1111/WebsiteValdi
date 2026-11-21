@@ -7,6 +7,7 @@ use App\GamesBundle\Service\AuthSessionStore;
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Exception\SkportAuthException;
 use App\GamesBundle\Model\Auth\LoginStepResult;
+use App\GryphlineBundle\Model\SkportAccountInfo;
 use App\GryphlineBundle\Model\SkportSessionCredentials;
 use App\GryphlineBundle\Repository\GryphlineAccountRepository;
 use App\GryphlineBundle\Service\GryphlineAuthService;
@@ -283,5 +284,86 @@ class GryphlineAuthServiceTest extends TestCase
         $this->expectException(SkportAuthException::class);
         $this->expectExceptionMessageMatches('/does not match existing Account #7/');
         $service->startLogin($user, 'other@gryphline.com', 'pwd', $existingAccount);
+    }
+
+    private function createFinalizeService(SkportAuthService $skportAuth, ?GryphlineAccountRepository $repo = null, ?EntityManagerInterface $em = null): GryphlineAuthService
+    {
+        return new GryphlineAuthService(
+            new MockHttpClient(),
+            new ArrayAdapter(),
+            new NullLogger(),
+            new AuthSessionStore('test-secret'),
+            $skportAuth,
+            $this->createStub(SkportManagerService::class),
+            $repo ?? $this->createStub(GryphlineAccountRepository::class),
+            $em ?? $this->createStub(EntityManagerInterface::class),
+        );
+    }
+
+    public function testPastedTokenOfAnotherAccountIsRejectedBeforeTheTokenIsWritten(): void
+    {
+        $user = $this->createMockUser(1);
+        $account = (new GryphlineAccount())->setUser($user)->setAccountUid('hg_111')->setAccountToken('old_token');
+        (new \ReflectionProperty(GryphlineAccount::class, 'id'))->setValue($account, 7);
+
+        $skportAuth = $this->createMock(SkportAuthService::class);
+        $skportAuth->expects($this->never())->method('getOrRefreshCredentials');
+
+        try {
+            $this->createFinalizeService($skportAuth)->finalizeAuthenticatedAccount($user, 'token_of_other_account', $account, '222');
+            $this->fail('Expected an account mismatch.');
+        } catch (SkportAuthException $e) {
+            $this->assertStringContainsString('(UID 222) does not match existing Account #7 (UID hg_111)', $e->getMessage());
+        }
+
+        $this->assertSame('old_token', $account->getAccountToken());
+        $this->assertSame('hg_111', $account->getAccountUid());
+    }
+
+    public function testMissingHgIdIsReadFromTheTokenBeforeAnythingIsWritten(): void
+    {
+        $user = $this->createMockUser(1);
+        $account = (new GryphlineAccount())->setUser($user)->setAccountUid('hg_111')->setAccountToken('old_token');
+
+        $skportAuth = $this->createMock(SkportAuthService::class);
+        $skportAuth->expects($this->once())->method('fetchAccountInfo')->with('token_without_hgid')->willReturn(new SkportAccountInfo('hg_222', null));
+        $skportAuth->expects($this->never())->method('getOrRefreshCredentials');
+
+        $this->expectException(SkportAuthException::class);
+        $this->expectExceptionMessage('does not match existing Account');
+        try {
+            $this->createFinalizeService($skportAuth)->finalizeAuthenticatedAccount($user, 'token_without_hgid', $account);
+        } finally {
+            $this->assertSame('old_token', $account->getAccountToken());
+        }
+    }
+
+    public function testTokenWithoutAnyHgIdIsRejected(): void
+    {
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->expects($this->never())->method('persist');
+        $skportAuth = $this->createStub(SkportAuthService::class);
+        $skportAuth->method('fetchAccountInfo')->willReturn(new SkportAccountInfo(null, null));
+
+        $this->expectException(SkportAuthException::class);
+        $this->expectExceptionMessage('did not return the account UID');
+        $this->createFinalizeService($skportAuth, em: $em)->finalizeAuthenticatedAccount($this->createMockUser(1), 'token');
+    }
+
+    public function testPastedTokenOfAnAccountAlreadyLinkedIsDeduplicatedByHgId(): void
+    {
+        $user = $this->createMockUser(1);
+        $existing = (new GryphlineAccount())->setUser($user)->setAccountUid('hg_777')->setAccountToken('old_token');
+        $repo = $this->createMock(GryphlineAccountRepository::class);
+        $repo->expects($this->once())->method('findOneBy')->with(['user' => $user, 'accountUid' => 'hg_777'])->willReturn($existing);
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->expects($this->never())->method('persist');
+        $skportAuth = $this->createMock(SkportAuthService::class);
+        $skportAuth->expects($this->once())->method('getOrRefreshCredentials')->with($existing, true);
+
+        $result = $this->createFinalizeService($skportAuth, $repo, $em)->finalizeAuthenticatedAccount($user, ' new_token ', null, ' hg_777 ');
+
+        $this->assertSame($existing, $result);
+        $this->assertSame('new_token', $existing->getAccountToken());
     }
 }

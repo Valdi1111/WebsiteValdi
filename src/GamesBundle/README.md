@@ -25,6 +25,7 @@ Design decisions are summarized in [§4](#4-design-notes).
 | **Pull tracking** | `Service/AbstractPullOperationTracker` (cache + private Mercure updates; backup imports may report per-banner progress in `banners`), `Model/Pull/{PullImportProgress, PullImportSummary}` (optional `updated` and `banners`), `Exception/PullProfileLockedException` |
 | **Pull item icons** | `Service/PullItemIcon*`, `Command/PullIconResolversCommand`, Liip filter `games_pull_item_icon` (see [`PULL_ITEM_ICONS.md`](../../docs/PULL_ITEM_ICONS.md)) |
 | **Login helpers** | `Service/AuthSessionStore`, `Service/GeetestService` (script cache + iframe response), `Model/Auth/{LoginStepResult, SubmitCaptchaRequest}` |
+| **Account ownership** | `Security/GameAccountOwnerVoter` (`GAME_ACCOUNT_OWNER`, subject `GameAccountInterface`, compares user ids) |
 | **Serialization** | `Normalizer/AbstractGameProfileNormalizer` |
 | **Games page** | `Controller/IndexController` (SPA catch-all), `Controller/GeetestController` (`/api/geetest-script/{version}`), `Service/GameProviderAccess` |
 
@@ -131,6 +132,8 @@ Why things are the way they are (useful before changing them):
 | `ProviderScope` rendered with `key={provider.key}` | Without the key React reuses the same component instances when switching tab, leaving the previous provider's accounts, modals and drawers on screen. |
 | Shared components driven by profile fields (`"field" in profile`) | Settings, tags and actions appear only when the backend exposes the field, so one component serves every provider without per-provider branches. |
 | Gryphline pulls expose both `item_type` and `item_type_label` | `item_type` (raw pool category) is also used by `PullItemIconQuery::fromPullRow()` to resolve icons; the label is only for display. |
+| Account ownership through `GameAccountOwnerVoter` | Every route with `{account}` declares `#[IsGranted(GameAccountOwnerVoter::OWNER, subject: 'account')]` (class level on `ApiGameProfilesController`, method level on the accounts/auth controllers) and receives the account as a `#[MapEntity]` argument, so the check runs before the action and cannot be forgotten in a new action (`GameAccountOwnerRoutesTest` fails). Users are compared by id, not by instance. Body parameters such as `account_id` on `POST /accounts` call `denyAccessUnlessGranted()` with the same voter; the auth services keep their own check for accounts reloaded from a login session. The "profile belongs to the account" check stays in the controllers (`assertProfileOfAccount()`). |
+| Re-login never changes the account identity | Credentials login and pasted token/cookie compare the provider UID (HoYoverse `account_id`, Gryphline `hgId`, Perfect World `uid`) with the stored one and refuse a different account (`422 ... does not match ...`) instead of overwriting it; the Gryphline background token refresh does the same and flags the account. New accounts are deduplicated by that UID. |
 | New shared fields are optional and new DTO parameters trailing | `PullImportSummary`/`PullImportProgress` are built positionally by existing providers and tests; providers that do not send `banners`, `multiple` or `roll_label` keep the previous UI. |
 
 ### Not shared on purpose
@@ -152,6 +155,7 @@ Why things are the way they are (useful before changing them):
 ## 5. Testing
 
 - `tests/GamesBundle/Routing/GamesRoutingTest` boots the kernel and matches real routes on the games host (provider APIs, GeeTest script/frames, SPA catch-all, legacy `/api/accounts` not routed, provider routes bound to the games host only).
+- `tests/GamesBundle/Security/GameAccountOwnerRoutesTest` boots the kernel, collects every provider route with `{account}` and runs Symfony's `IsGrantedAttributeListener` on each action: the owner passes, another user gets a 403. `GameAccountOwnerVoterTest` covers the voter for the three account entities.
 - Unit tests cover `GameProviderAccess`, provider-namespaced Mercure topics, `GameTasksConfiguration`, `AbstractTaskScheduleProvider`, `GeetestService::createFrameResponse()` and the shared normalizer flags (`supports_pulls`, `supports_pull_sync`).
 - Security (games page protected by `ROLE_USER_GAMES`, provider APIs by their roles, public PowerShell script) is not covered by automated tests: a `WebTestCase` would need a test database for the session (`PdoSessionHandler`). Check it manually with a user holding a single provider role.
 - There is no JavaScript test setup: after frontend changes run `npm run build` and check both providers in the browser (tabs, accounts, settings drawer, login modal, pulls page with live Mercure progress, diary).

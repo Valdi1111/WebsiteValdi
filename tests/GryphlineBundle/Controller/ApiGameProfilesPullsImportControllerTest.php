@@ -113,7 +113,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         );
     }
 
-    private function createController(GryphlineAccount $account): ApiGameProfilesController
+    private function createController(): ApiGameProfilesController
     {
         $endfield = $this->createEndfieldService();
         $locator = new ServiceLocator([
@@ -125,7 +125,6 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
             $locator,
             $this->tempProjectDir,
         );
-        $controller->setAccount($account);
 
         $serializer = $this->createStub(SerializerInterface::class);
         $serializer->method('serialize')->willReturnCallback(
@@ -210,7 +209,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
     {
         $user = $this->createUser(1);
         [$account, $profile] = $this->createAccountAndProfile($user, 10);
-        $controller = $this->createController($account);
+        $controller = $this->createController();
         $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test');
 
         $dispatched = [];
@@ -223,7 +222,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
                 return new Envelope($message);
             });
 
-        $response = $controller->apiGameProfilePullsSync($user, $profile, $bus, $tracker);
+        $response = $controller->apiGameProfilePullsSync($user, $account, $profile, $bus, $tracker);
 
         $this->assertSame(Response::HTTP_OK, $response->getStatusCode());
         $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
@@ -241,7 +240,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
     {
         $user = $this->createUser(1);
         [$account, $profile] = $this->createAccountAndProfile($user, 10);
-        $controller = $this->createController($account);
+        $controller = $this->createController();
 
         $pullRepo = $this->createStub(GryphlinePullRepository::class);
         $pullRepo->method('buildOverview')->willReturn([
@@ -271,7 +270,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $request = Request::create('https://gryphline.test/api/accounts/1/gameProfiles/10/pulls/overview', 'GET');
         $response = $controller->apiGameProfilePullsOverview(
             $request,
-            $user,
+            $account,
             $profile,
             $pullRepo,
             $this->createStub(PullItemIconUrlBuilder::class),
@@ -292,7 +291,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
     {
         $user = $this->createUser(1);
         [$account, $profile] = $this->createAccountAndProfile($user, 10);
-        $controller = $this->createController($account);
+        $controller = $this->createController();
 
         $importer = $this->createFakeImporter('endfield_export', ['.json'], PullBackupValidationResult::ok(25));
         $importerManager = new PullBackupImporterManager([$importer]);
@@ -317,7 +316,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
             ['file' => $file]
         );
 
-        $response = $controller->apiGameProfilePullsImportBackup($request, $user, $profile, $importerManager, $tracker, $bus);
+        $response = $controller->apiGameProfilePullsImportBackup($request, $user, $account, $profile, $importerManager, $tracker, $bus);
 
         $this->assertSame(Response::HTTP_ACCEPTED, $response->getStatusCode());
         $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
@@ -336,7 +335,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
     {
         $user = $this->createUser(1);
         [$account, $profile] = $this->createAccountAndProfile($user, 10);
-        $controller = $this->createController($account);
+        $controller = $this->createController();
 
         $importer = $this->createFakeImporter('endfield_export', ['.json'], PullBackupValidationResult::fail('Invalid export schema.'));
         $importerManager = new PullBackupImporterManager([$importer]);
@@ -348,7 +347,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $request = Request::create('/api/accounts/1/gameProfiles/10/pulls/import-backup', 'POST', ['importer' => 'endfield_export'], [], ['file' => $file]);
 
         try {
-            $controller->apiGameProfilePullsImportBackup($request, $user, $profile, $importerManager, $tracker, $bus);
+            $controller->apiGameProfilePullsImportBackup($request, $user, $account, $profile, $importerManager, $tracker, $bus);
             $this->fail('Expected BadRequestHttpException');
         } catch (BadRequestHttpException $e) {
             $this->assertSame('Invalid export schema.', $e->getMessage());
@@ -363,7 +362,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
     {
         $user = $this->createUser(1);
         [$account, $profile] = $this->createAccountAndProfile($user, 10);
-        $controller = $this->createController($account);
+        $controller = $this->createController();
 
         $importer = $this->createFakeImporter('endfield_export', ['.json'], PullBackupValidationResult::ok(10));
         $importerManager = new PullBackupImporterManager([$importer]);
@@ -374,25 +373,25 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $request = Request::create('/api/accounts/1/gameProfiles/10/pulls/import-backup', 'POST', ['importer' => 'endfield_export'], [], ['file' => $file]);
 
         $this->expectException(ConflictHttpException::class);
-        $controller->apiGameProfilePullsImportBackup($request, $user, $profile, $importerManager, $tracker, $this->createStub(MessageBusInterface::class));
+        $controller->apiGameProfilePullsImportBackup($request, $user, $account, $profile, $importerManager, $tracker, $this->createStub(MessageBusInterface::class));
     }
 
     public function testOperationStatusReturnsSnapshotOrNotFoundForOtherProfile(): void
     {
         $user = $this->createUser(1);
         [$account, $profile] = $this->createAccountAndProfile($user, 10);
-        $controller = $this->createController($account);
+        $controller = $this->createController();
 
         $tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test');
         $op = $tracker->startBackupImport(10, 1, 'endfield_export', 'Endfield Export', 10);
         $otherOp = $tracker->startBackupImport(99, 1, 'endfield_export', 'Endfield Export', 10);
 
-        $okResponse = $controller->apiGameProfilePullsOperationStatus($user, $profile, $op['id'], $tracker);
+        $okResponse = $controller->apiGameProfilePullsOperationStatus($account, $profile, $op['id'], $tracker);
         $this->assertSame(Response::HTTP_OK, $okResponse->getStatusCode());
         $payload = json_decode((string) $okResponse->getContent(), true, 512, JSON_THROW_ON_ERROR);
         $this->assertSame($op['id'], $payload['operation']['id']);
 
         $this->expectException(NotFoundHttpException::class);
-        $controller->apiGameProfilePullsOperationStatus($user, $profile, $otherOp['id'], $tracker);
+        $controller->apiGameProfilePullsOperationStatus($account, $profile, $otherOp['id'], $tracker);
     }
 }

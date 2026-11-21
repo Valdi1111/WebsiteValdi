@@ -10,7 +10,7 @@ APP_DIR="/path/to/your/app"
 BACKUP_SCRIPT="/path/to/your/script/mysql-backup.sh"
 NODE_SERVICES_DIR="node-services"
 SUPERVISOR_NODE_SERVICE="website-valdi:website-node-services"
-PHP_FPM_SERVICE="php8.4-fpm"
+PHP_FPM_SERVICE="php8.5-fpm"
 GIT_BRANCH="main"
 
 echo "=============================="

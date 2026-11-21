@@ -53,3 +53,36 @@ jobs:
             # Build del progetto con Webpack
             -   name: Build Webpack
                 run: npm run build
+
+    phpunit:
+        runs-on: ubuntu-latest
+
+        steps:
+            -   uses: actions/checkout@v4
+
+            # Same PHP version and extensions as the build job
+            -   name: Setup PHP 8.5
+                uses: shivammathur/setup-php@v2
+                with:
+                    php-version: '8.5'
+                    extensions: ctype, iconv, imagick, openssl, mbstring, xml, curl, zip, intl
+                    tools: composer:v2
+                    coverage: none
+
+            # Cache Composer packages before running composer install
+            -   name: Cache Composer packages
+                id: composer-cache
+                uses: actions/cache@v4
+                with:
+                    path: vendor
+                    key: ${{ runner.os }}-php-${{ hashFiles('**/composer.lock') }}
+                    restore-keys: |
+                        ${{ runner.os }}-php-
+
+            # Install Composer dependencies (with dev packages: PHPUnit is one of them)
+            -   name: Install Composer dependencies
+                run: composer install --no-interaction --prefer-dist
+
+            # The suite needs no database and no secrets: it runs with the committed .env and .env.test
+            -   name: Run PHPUnit
+                run: php bin/phpunit

@@ -67,6 +67,10 @@ class GryphlineGameProfileNormalizer extends AbstractGameProfileNormalizer
                 // Every Gryphline pull tracker is synced automatically through the account token
                 $result['supports_pulls'] = $gameService instanceof HasAutoPullImportInterface;
                 $result['supports_pull_sync'] = $gameService instanceof HasAutoPullImportInterface;
+                // Game-specific name of pulls (e.g. "Headhunts"), used for UI labels
+                $result['pull_label'] = $gameService instanceof HasAutoPullImportInterface
+                    ? $gameService->getRarityConfig()->getPullLabel()
+                    : null;
             }
         }
 

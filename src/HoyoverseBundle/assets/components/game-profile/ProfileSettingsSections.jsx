@@ -6,7 +6,7 @@ import React from "react";
 /**
  * HoYoverse setting sections rendered inside the shared GameProfileSettingsDrawer form.
  */
-export default function ProfileSettingsSections({ supports, hasAny, isProfileActive, account }) {
+export default function ProfileSettingsSections({ supports, hasAny, isProfileActive, profile, account }) {
     const accountCanRedeemCodes = Boolean(account?.can_redeem_codes);
 
     return <>
@@ -54,7 +54,7 @@ export default function ProfileSettingsSections({ supports, hasAny, isProfileAct
             </SettingRow>
         )}
 
-                        {/* Resource Diary Sync */}
+        {/* Resource Diary Sync */}
         {supports("sync_diary") && (
             <>
                 <Divider titlePlacement="start">
@@ -71,11 +71,11 @@ export default function ProfileSettingsSections({ supports, hasAny, isProfileAct
             </>
         )}
 
-                        {/* Gacha / Warp Tracker Sync */}
+        {/* Pulls Tracker Sync (titled with the game's pull name, e.g. "Wishes") */}
         {supports("sync_pulls") && (
             <>
                 <Divider titlePlacement="start">
-                    <strong>Gacha / Warp Tracker</strong>
+                    <strong>{profile?.pull_label ?? "Gacha"} / Pulls Tracker</strong>
                 </Divider>
                 <SettingRow
                     label="Auto Pulls Synchronization"
@@ -88,7 +88,7 @@ export default function ProfileSettingsSections({ supports, hasAny, isProfileAct
             </>
         )}
 
-                        {/* Stamina & Expeditions */}
+        {/* Stamina & Expeditions */}
         {hasAny("stamina_check", "stamina_threshold", "expeditions_check") && (
             <>
                 <Divider titlePlacement="start">
@@ -127,7 +127,7 @@ export default function ProfileSettingsSections({ supports, hasAny, isProfileAct
             </>
         )}
 
-                        {/* Realm Currency */}
+        {/* Realm Currency */}
         {hasAny("realm_currency_check", "realm_currency_threshold") && (
             <>
                 <Divider titlePlacement="start">
@@ -156,7 +156,7 @@ export default function ProfileSettingsSections({ supports, hasAny, isProfileAct
             </>
         )}
 
-                        {/* Daily Tasks & Weeklies Tasks */}
+        {/* Daily Tasks & Weeklies Tasks */}
         {hasAny("shop_status_check", "dailies_check", "weeklies_check") && (
             <>
                 <Divider titlePlacement="start">
@@ -195,7 +195,7 @@ export default function ProfileSettingsSections({ supports, hasAny, isProfileAct
             </>
         )}
 
-                        {/* Mimo Web Events */}
+        {/* Mimo Web Events */}
         {hasAny("mimo_check", "mimo_redeem", "mimo_redeem_draw", "mimo_lottery", "mimo_reserve_points") && (
             <>
                 <Divider titlePlacement="start">
@@ -254,7 +254,7 @@ export default function ProfileSettingsSections({ supports, hasAny, isProfileAct
             </>
         )}
 
-                        {/* Hilichurl Web Events */}
+        {/* Hilichurl Web Events */}
         {hasAny("hilichurl_check", "hilichurl_redeem") && (
             <>
                 <Divider titlePlacement="start">

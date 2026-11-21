@@ -84,6 +84,10 @@ class HoyoverseGameProfileNormalizer extends AbstractGameProfileNormalizer
                 // Server-side automatic sync (SToken); shared flag name across providers
                 $result['supports_pull_sync'] = $gameService instanceof HasStokenPullImportInterface;
                 $result['supports_powershell_pulls'] = $gameService instanceof HasPowershellPullImportInterface;
+                // Game-specific name of pulls (e.g. "Wishes", "Signals"), used for UI labels
+                $result['pull_label'] = $gameService instanceof HasPullTrackerInterface
+                    ? $gameService->getRarityConfig()->getPullLabel()
+                    : null;
             }
         }
 

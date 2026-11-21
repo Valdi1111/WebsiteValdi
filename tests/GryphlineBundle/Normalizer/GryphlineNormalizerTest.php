@@ -2,6 +2,8 @@
 
 namespace App\Tests\GryphlineBundle\Normalizer;
 
+use App\GamesBundle\Model\Game\RarityConfig;
+use App\GamesBundle\Model\Game\RarityTierConfig;
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
 use App\GryphlineBundle\Normalizer\GryphlineAccountNormalizer;
@@ -73,9 +75,19 @@ class GryphlineNormalizerTest extends TestCase
     {
         $dummy = $this->createDummyObjectNormalizer();
 
+        $endfield = $this->createStub(EndfieldService::class);
+        $endfield->method('getRarityConfig')->willReturn(new RarityConfig(
+            new RarityTierConfig(6, '6★', '6★'),
+            new RarityTierConfig(5, '5★', '5★'),
+            new RarityTierConfig(4, '4★', '4★'),
+            'Headhunts',
+            'Headhunt',
+            true,
+        ));
+
         $locator = $this->createStub(ServiceCollectionInterface::class);
         $locator->method('has')->willReturn(true);
-        $locator->method('get')->willReturn($this->createStub(EndfieldService::class));
+        $locator->method('get')->willReturn($endfield);
 
         $normalizer = new GryphlineGameProfileNormalizer($dummy, $locator);
 
@@ -94,6 +106,7 @@ class GryphlineNormalizerTest extends TestCase
         // Capability flags shared with other providers by the games SPA
         $this->assertTrue($result['supports_pulls']);
         $this->assertTrue($result['supports_pull_sync']);
+        $this->assertSame('Headhunts', $result['pull_label']);
     }
 
     public function testGameProfileNormalizerDenormalizationWhitelist(): void

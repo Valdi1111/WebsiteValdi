@@ -47,11 +47,13 @@ export default function AccountCard({
                             </Text>
                         </Space>
 
-                        {/* Status badges wrapped cleanly to avoid collisions on smaller screens */}
+                        {/* Status badges wrapped cleanly to avoid collisions on smaller screens.
+                            Flex gap instead of <Space>: the provider component renders a fragment,
+                            which <Space> would treat as a single item without spacing. */}
                         {AccountStatusTags && (
-                            <Space wrap size={[6, 6]}>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                                 <AccountStatusTags account={account} />
-                            </Space>
+                            </div>
                         )}
                     </div>
 

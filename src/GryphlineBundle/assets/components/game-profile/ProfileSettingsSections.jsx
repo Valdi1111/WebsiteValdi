@@ -6,7 +6,7 @@ import React from "react";
 /**
  * Gryphline setting sections rendered inside the shared GameProfileSettingsDrawer form.
  */
-export default function ProfileSettingsSections({ supports, hasAny, isProfileActive }) {
+export default function ProfileSettingsSections({ supports, hasAny, isProfileActive, profile }) {
     return <>
         {/* SKPort Check-In & Promo Codes */}
         {hasAny("skport_check_in", "skport_missed_check_in") && (
@@ -37,7 +37,7 @@ export default function ProfileSettingsSections({ supports, hasAny, isProfileAct
             </>
         )}
 
-                        {/* Stamina & Expeditions */}
+        {/* Stamina & Expeditions */}
         {hasAny("stamina_check", "stamina_threshold") && (
             <>
                 <Divider titlePlacement="start">
@@ -66,7 +66,7 @@ export default function ProfileSettingsSections({ supports, hasAny, isProfileAct
             </>
         )}
 
-                        {/* Daily Tasks & Weeklies Tasks */}
+        {/* Daily Tasks & Weeklies Tasks */}
         {hasAny("dailies_check", "weeklies_check") && (
             <>
                 <Divider titlePlacement="start">
@@ -95,11 +95,11 @@ export default function ProfileSettingsSections({ supports, hasAny, isProfileAct
             </>
         )}
 
-                        {/* Headhunting / Pulls Tracker */}
+        {/* Pulls Tracker Sync (titled with the game's pull name, e.g. "Headhunts") */}
         {supports("sync_pulls") && (
             <>
                 <Divider titlePlacement="start">
-                    <strong>Headhunting / Pulls Tracker</strong>
+                    <strong>{profile?.pull_label ?? "Gacha"} / Pulls Tracker</strong>
                 </Divider>
                 <SettingRow
                     label="Auto Pulls Synchronization"

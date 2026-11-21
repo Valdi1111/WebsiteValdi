@@ -529,6 +529,8 @@ cat << EOF > /etc/systemd/system/caddy.service
 Description=Caddy Mercure Hub Service
 After=network.target network-online.target
 Wants=network-online.target
+StartLimitBurst=5
+StartLimitIntervalSec=33
 
 [Service]
 Type=simple
@@ -536,10 +538,9 @@ User=www-data
 Group=www-data
 WorkingDirectory=$CADDY_DIR
 ExecStart=$CADDY_DIR/mercure run --config $CADDY_DIR/Caddyfile
+ExecReload=$CADDY_DIR/mercure reload --config $CADDY_DIR/Caddyfile --force
 Restart=always
 RestartSec=5s
-StartLimitBurst=5
-StartLimitIntervalSec=33
 
 # Environment and JWT keys
 Environment=HOME=$CADDY_HOME

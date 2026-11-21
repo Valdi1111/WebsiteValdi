@@ -196,6 +196,21 @@ nano /var/www/website-valdi-deploy/website-deploy.env   # APP_DIR, BACKUP_SCRIPT
   ```bash
   sudo systemctl reload caddy
   ```
+  The unit's `ExecReload` runs `mercure reload`, which sends the `Caddyfile` to the admin API (`localhost:2019`) of the running process.
+  - Requests in flight, video streams and Mercure subscriptions included, carry on through the reload.
+  - An invalid `Caddyfile` is refused: the command fails and the previous config keeps running.
+
+  On a server whose `caddy.service` was generated before the `ExecReload` line, systemd answers `Job type reload is not applicable`. To fix it, add the line under `ExecStart` by hand, then reload the unit (do not re-run `setup-server.sh`):
+  ```ini
+  ExecReload=/var/www/caddy/mercure reload --config /var/www/caddy/Caddyfile --force
+  ```
+  ```bash
+  sudo systemctl daemon-reload
+  ```
+  Until then, run the reload directly:
+  ```bash
+  /var/www/caddy/mercure reload --config /var/www/caddy/Caddyfile
+  ```
 - **Adding or renaming a sub-domain on an existing server:** edit `/var/www/caddy/Caddyfile` by hand (the site host list, plus `cors_origins` and `publish_origins` of the Mercure hub), then reload Caddy. Do **not** re-run `setup-server.sh`: it regenerates the Mercure JWT keys. Without the new origin in `cors_origins`, the browser blocks the Mercure `EventSource` and live progress silently falls back to polling.
 - **Security headers on an existing server:** a `Caddyfile` generated before the `security_headers` snippet has none of them. Copy the `(security_headers)` block from `setup-server.sh` after the global options, add `import security_headers` at the top of the application and `mercure.<domain>` site blocks, and reload Caddy. On a local domain, leave out the `Strict-Transport-Security` line.
   - The headers are set with `?`, so a header sent by Symfony wins: a response that needs a different value sets it itself, as `GeetestService` does with `Referrer-Policy: no-referrer`, and the Mercure hub endpoint keeps its own `X-Frame-Options: DENY` and `Content-Security-Policy`.

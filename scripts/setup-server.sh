@@ -399,9 +399,14 @@ EOF
 echo "==> Writing the Caddyfile to $CADDY_DIR/Caddyfile..."
 
 GLOBAL_TLS_DIRECTIVES="email $ADMIN_EMAIL"
+# HSTS only on public domains: on local ones the site block also answers on localhost and 127.0.0.1, and the
+# browser would then force HTTPS on every other dev server of the machine. No includeSubDomains: the apex domain
+# shares the site block, and the sub-domains not served here (e.g. the mail provider's mail.<domain>) may be HTTP only
+HSTS_HEADER='?Strict-Transport-Security "max-age=31536000"'
 
 if [ "$IS_LOCAL_DOMAIN" = true ]; then
-  echo " -> Local/development domain detected ($BASE_DOMAIN): configured the internal CA (local_certs) and SNI fallback"
+  echo " -> Local/development domain detected ($BASE_DOMAIN): configured the internal CA (local_certs) and SNI fallback, no HSTS"
+  HSTS_HEADER=""
   GLOBAL_TLS_DIRECTIVES="email $ADMIN_EMAIL
     local_certs
     default_sni $BASE_DOMAIN"
@@ -412,6 +417,22 @@ fi
 cat << EOF > "$CADDY_DIR/Caddyfile"
 {
     $GLOBAL_TLS_DIRECTIVES
+}
+
+# Security headers of the application. "?" sets a header only when PHP did not send it, so a response can
+# override it (GeetestService keeps Referrer-Policy: no-referrer on the captcha frame)
+(security_headers) {
+    header {
+        $HSTS_HEADER
+        ?X-Content-Type-Options "nosniff"
+        # SAMEORIGIN and not DENY: the GeeTest captcha is a same-origin iframe
+        ?X-Frame-Options "SAMEORIGIN"
+        ?Referrer-Policy "strict-origin-when-cross-origin"
+        # Only features no page uses: fullscreen (players, reader) and clipboard (copy buttons) stay allowed
+        ?Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+        -Via
+        -Server
+    }
 }
 
 # 1. Mercure hub
@@ -457,6 +478,8 @@ mercure.$BASE_DOMAIN {
 
 # 2. Symfony application and subdomains
 $SITE_HOSTS {
+    import security_headers
+
     root * $PROJECT_DIR/public
 
     encode zstd gzip

@@ -1,4 +1,4 @@
-name: NodeJS with Webpack
+name: CI
 
 on:
     push:
@@ -18,16 +18,19 @@ jobs:
         steps:
             -   uses: actions/checkout@v4
 
-            # Setup PHP 8.5 with required extensions and Composer
-            -   name: Setup PHP 8.5
+            # Setup PHP 8.5 with required extensions and Composer (shared with the phpunit job)
+            -   &setup-php
+                name: Setup PHP 8.5
                 uses: shivammathur/setup-php@v2
                 with:
                     php-version: '8.5'
                     extensions: ctype, iconv, imagick, openssl, mbstring, xml, curl, zip, intl
                     tools: composer:v2
+                    coverage: none
 
             # Cache Composer packages before running composer install
-            -   name: Cache Composer packages
+            -   &composer-cache
+                name: Cache Composer packages
                 id: composer-cache
                 uses: actions/cache@v4
                 with:
@@ -36,8 +39,9 @@ jobs:
                     restore-keys: |
                         ${{ runner.os }}-php-
 
-            # Install Composer dependencies
-            -   name: Install Composer dependencies
+            # Install Composer dependencies (with dev packages: PHPUnit is one of them)
+            -   &composer-install
+                name: Install Composer dependencies
                 run: composer install --no-interaction --prefer-dist
 
             # Setup Node.js 24.x
@@ -53,3 +57,19 @@ jobs:
             # Build del progetto con Webpack
             -   name: Build Webpack
                 run: npm run build
+
+    phpunit:
+        runs-on: ubuntu-latest
+
+        steps:
+            -   uses: actions/checkout@v4
+
+            -   *setup-php
+            -   *composer-cache
+            -   *composer-install
+
+            # The suite needs no database and no secrets: it runs with the committed .env and .env.test.
+            # A PHP warning or notice raised during a test, or a risky test, fails the job; deprecations do not
+            # (most come from vendor packages).
+            -   name: Run PHPUnit
+                run: php bin/phpunit --fail-on-warning --fail-on-notice --fail-on-risky

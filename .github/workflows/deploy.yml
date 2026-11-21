@@ -17,4 +17,4 @@ jobs:
                     username: ${{ secrets.SERVER_USER }}
                     key: ${{ secrets.SERVER_SSH_KEY }}
                     script: |
-                        /var/www/website-deploy.sh
+                        /var/www/website-valdi-deploy/website-deploy.sh

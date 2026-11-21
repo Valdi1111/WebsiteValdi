@@ -153,19 +153,22 @@ To allow the deploy user to restart Supervisor processes without a password prom
 YOURUSER ALL=(ALL) NOPASSWD:/usr/bin/supervisorctl
 ```
 
-The script runs from a copy outside the repository (`/var/www/website-deploy.sh`, the path used by the GitHub workflow) and reads the server values from a local, non-versioned file next to it, so the script itself never has to be edited:
+The script runs from its own folder outside the repository, `/var/www/website-valdi-deploy/`, owned by the deploy user, together with its local, non-versioned configuration `website-deploy.env`; the script itself is never edited on the server. Prepare it once, as the deploy user:
 
 ```bash
-cp /var/www/valdi.ovh/scripts/website-deploy.sh /var/www/website-deploy.sh
-chmod 0755 /var/www/website-deploy.sh
-cp /var/www/valdi.ovh/scripts/website-deploy.env.dist /var/www/website-deploy.env
-nano /var/www/website-deploy.env   # APP_DIR, BACKUP_SCRIPT, PHP_FPM_SERVICE (optional: NODE_SERVICES_DIR, SUPERVISOR_NODE_SERVICE, GIT_BRANCH)
+sudo mkdir -p /var/www/website-valdi-deploy
+sudo chown "$USER": /var/www/website-valdi-deploy
+install -m 0755 /var/www/valdi.ovh/scripts/website-deploy.sh /var/www/website-valdi-deploy/website-deploy.sh
+cp /var/www/valdi.ovh/scripts/website-deploy.env.dist /var/www/website-valdi-deploy/website-deploy.env
+nano /var/www/website-valdi-deploy/website-deploy.env   # APP_DIR, BACKUP_SCRIPT, PHP_FPM_SERVICE (optional: NODE_SERVICES_DIR, SUPERVISOR_NODE_SERVICE, GIT_BRANCH)
 ```
 
+- The GitHub workflow runs `/var/www/website-valdi-deploy/website-deploy.sh` over SSH. The `visudo` rule for `supervisorctl` above stays the same.
 - Values not set in `website-deploy.env` keep the defaults at the top of the script. `DEPLOY_ENV_FILE=/path/to/file` selects another configuration file.
 - Before the backup or any git command, the script stops with an error if `APP_DIR` is not a git checkout or `BACKUP_SCRIPT` is not executable.
-- **Self-update:** the last step copies `scripts/website-deploy.sh` from the freshly pulled code over `/var/www/website-deploy.sh` (written next to it, then `mv`). The running deploy finishes with the old version; the new one applies from the next deploy. The directory of the script must be writable by the deploy user, otherwise the step only prints a warning and the copy has to be done manually.
-- **First switch from an older script** (with the variables edited at the top of the file): an older script cannot update itself, so copy the new script and create `website-deploy.env` manually once, as above, reusing the values of the old script. From then on every deploy keeps the script up to date.
+- **Self-update:** the last step copies `scripts/website-deploy.sh` from the freshly pulled code over the copy in `/var/www/website-valdi-deploy/` (written next to it, then `mv`). The running deploy finishes with the old version; the new one applies from the next deploy. This works only while the folder is writable by the deploy user; otherwise the step prints a warning and the copy has to be done manually.
+- **A release uses the workflow of its tagged commit.** Prepare `/var/www/website-valdi-deploy/` before publishing the release that introduces this path, otherwise that release's deploy fails because the script is not found.
+- **First switch from an older script** (`/var/www/website-deploy.sh`, with the variables edited at the top of the file): an older script cannot update itself, so prepare the folder manually once as above, reusing the values of the old script in `website-deploy.env`. Once the first release with the new path has been deployed, the old `/var/www/website-deploy.sh` can be removed; from then on every deploy keeps the script up to date.
 
 ### 3.2 Deployment Pipeline Steps
 1. **Database backup** via `$BACKUP_SCRIPT`.

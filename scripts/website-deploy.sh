@@ -6,9 +6,10 @@ umask 002
 # ==========================================
 # Configuration
 # ==========================================
-# Server values live in a local, non-versioned file next to this script (website-deploy.env, see
-# scripts/website-deploy.env.dist), so the script itself can be replaced by the repository version at the
-# end of every deploy. Set DEPLOY_ENV_FILE to use another file.
+# On the server this script and its local, non-versioned configuration (website-deploy.env, see
+# scripts/website-deploy.env.dist) live together in a folder owned by the deploy user, /var/www/website-valdi-deploy/.
+# That folder must be writable by the deploy user: the last step replaces this script with the repository version
+# (self-update), so the script itself is never edited on the server. Set DEPLOY_ENV_FILE to use another file.
 SELF="$(readlink -f "${BASH_SOURCE[0]}")"
 DEPLOY_ENV_FILE="${DEPLOY_ENV_FILE:-$(dirname "$SELF")/website-deploy.env}"
 if [ -f "$DEPLOY_ENV_FILE" ]; then
@@ -108,7 +109,7 @@ elif install -m 0755 "$REPO_DEPLOY_SCRIPT" "$SELF.new" && mv "$SELF.new" "$SELF"
 else
   # The application is already deployed: report the problem without failing the whole deploy
   rm -f "$SELF.new"
-  echo " - [WARNING] Could not update $SELF (is its directory writable by $(id -un)?): copy $REPO_DEPLOY_SCRIPT manually." >&2
+  echo " - [WARNING] Could not update $SELF: its folder $(dirname "$SELF") must be writable by $(id -un) (e.g. /var/www/website-valdi-deploy/ owned by the deploy user). Copy $REPO_DEPLOY_SCRIPT there manually." >&2
 fi
 
 echo "=============================="

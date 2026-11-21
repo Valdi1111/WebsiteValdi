@@ -46,6 +46,7 @@ Each Gryphline account (`GryphlineAccount`) belongs to a platform user and is un
 - **Outages are not failures**: no network, DNS errors, timeouts, HTTP 5xx/429 or a body that is not JSON raise `SkportUnavailableException` (`502 Gryphline could not be reached`) and leave `token_refresh_failed` untouched, in the session refresh, the pasted-token check and the pull sync. Only a refusal from Gryphline/SKPort (`status`/`code` ≠ 0, an identity mismatch) flags the account. The exception carries no previous exception, because transport errors quote the request URL, which can contain the token.
 - **Token refresh**: `SkportAuthService::getOrRefreshCredentials()` never moves an account to another identity. If the token now returns a different `hgId`, `account_uid` is kept, the account is flagged `token_refresh_failed` and a `SkportAuthException` is thrown, so the user has to log in again.
 - Account ownership on `{account}` routes is checked by the shared `GameAccountOwnerVoter` (see the [GamesBundle design notes](../GamesBundle/README.md#4-design-notes)).
+- `account_token`, `session_cred` and `session_salt` are encrypted in the database when `DATABASE_ENCRYPTION_KEY` is set (see [Credentials encryption at rest](../GamesBundle/README.md#credentials-encryption-at-rest)).
 
 ### 2.1 Direct Credentials Login (Email + Password)
 `GryphlineAuthService` communicates with Gryphline's Authentication Server (`https://as.gryphline.com/user/auth/v1/token_by_email_password`):

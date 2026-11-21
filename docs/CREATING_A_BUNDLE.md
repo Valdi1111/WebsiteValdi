@@ -127,6 +127,18 @@ twig:
 
 *(Optional)* You can also place bundle-specific `doctrine.yaml`, `framework.yaml`, `messenger.yaml`, `monolog.yaml`, or `cache.yaml` files inside `src/ExampleBundle/config/packages/` (following the pattern in `AnimeBundle`, `HoyoverseBundle`, and `GryphlineBundle`).
 
+### Encrypted columns
+To store a secret (token, cookie, API key) encrypted at rest, map the field with the `CoreBundle` type:
+
+```php
+use App\CoreBundle\Doctrine\EncryptedTextType;
+
+#[ORM\Column(type: EncryptedTextType::NAME, nullable: true)]
+private ?string $apiToken = null;
+```
+
+The entity keeps seeing the plain value. The column is `LONGTEXT`, like `Types::TEXT`: an existing `TEXT` column needs no migration, any other column needs one. Do not use the field in `WHERE`, indexes or unique constraints (the same value encrypts differently each time). `core:database:encrypt` finds the column by itself from the Doctrine metadata. Details: [Encrypted Columns guide](../src/CoreBundle/src/Service/Encryption/README.md).
+
 ---
 
 ## 4. Application-Level Registration

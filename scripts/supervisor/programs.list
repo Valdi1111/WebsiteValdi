@@ -1,0 +1,27 @@
+# Supervisor programs of the "website-valdi" group, rendered by scripts/setup-supervisor.sh.
+# Format: type|name|queue|options|numprocs
+#   node             -> website-<name>            (node.conf.tpl, Express/Playwright node-services)
+#   messenger        -> website-messenger-<name>  (messenger.conf.tpl, one worker)
+#   messenger-multi  -> website-messenger-<name>  (messenger-multi.conf.tpl, <numprocs> workers)
+#   scheduler        -> website-scheduler-<name>  (scheduler.conf.tpl)
+# After editing, run: sudo scripts/setup-supervisor.sh
+
+node|node-services|||
+
+# Messenger workers
+messenger|core|core_async|--limit=100 --time-limit=3600|
+messenger|hoyoverse|hoyoverse|--limit=100 --time-limit=3600|
+messenger|hoyoverse-diary|hoyoverse_diary|--limit=100 --time-limit=3600|
+messenger|hoyoverse-redeem|hoyoverse_redeem|--limit=100 --time-limit=3600|
+messenger|hoyoverse-pulls|hoyoverse_pulls|--limit=100 --time-limit=3600|
+messenger|gryphline|gryphline|--limit=100 --time-limit=3600|
+messenger|gryphline-pulls|gryphline_pulls|--limit=100 --time-limit=3600|
+messenger|perfectworld|perfectworld|--limit=100 --time-limit=3600|
+messenger|perfectworld-pulls|perfectworld_pulls|--limit=100 --time-limit=3600|
+messenger-multi|anime-episode-download|anime_episode_download|--limit=1 --time-limit=3600|12
+
+# Schedulers
+scheduler|default|scheduler_default|--time-limit=86400|
+scheduler|hoyoverse|scheduler_hoyoverse|--time-limit=86400|
+scheduler|gryphline|scheduler_gryphline|--time-limit=86400|
+scheduler|perfectworld|scheduler_perfectworld|--time-limit=86400|

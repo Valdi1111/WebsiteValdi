@@ -142,9 +142,7 @@ Produced by [nte-exporter](https://github.com/RishiMenon2004/nte-exporter), whic
 ### Deployment
 
 1. Run the migrations, then `bin/console cache:pool:clear core.security_hierarchy.cache` (done by `website-deploy.sh`) and grant `ROLE_USER_PERFECTWORLD` to the users who need the tab.
-2. Supervisor workers, as for the other providers:
-   - [`website-scheduler-perfectworld.conf`](../../scripts/website-scheduler-perfectworld.conf) (`scheduler_perfectworld`) and [`website-messenger-perfectworld.conf`](../../scripts/website-messenger-perfectworld.conf) (`perfectworld`);
-   - a worker for `perfectworld_pulls`, configured like the other `*_pulls` workers. Without a consumer an import stays queued and blocks new imports for one hour (in development: `bin/console messenger:consume perfectworld_pulls -vv`).
+2. Supervisor workers: `perfectworld`, `scheduler_perfectworld` and `perfectworld_pulls` are already in [`scripts/supervisor/programs.list`](../../scripts/supervisor/programs.list); run `sudo scripts/setup-supervisor.sh` again to add them (see [Configure Supervisor Services](../../docs/SERVER_SETUP_AND_DEPLOY.md#27-configure-supervisor-services)). Without a `perfectworld_pulls` consumer an import stays queued and blocks new imports for one hour (in development: `bin/console messenger:consume perfectworld_pulls -vv`).
 3. Run `bin/console perfectworld:nte-catalog:update` once to build the catalog; the weekly task keeps it up to date afterwards.
 
 ---

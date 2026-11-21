@@ -29,7 +29,6 @@ yarn-error.log
 ###< liip/imagine-bundle ###
 
 /docker/covers
-/docker/apache/certs
 /compose.override.yaml
 /.idea/
 /node-services/node_modules/

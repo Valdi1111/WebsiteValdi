@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Verifica privilegi di root
+# Check for root privileges
 if [ "$EUID" -ne 0 ]; then
-  echo "[ERRORE] Esegui questo script con privilegi di root (es. sudo bash $0)" >&2
+  echo "[ERROR] Run this script with root privileges (e.g. sudo bash $0)" >&2
   exit 1
 fi
 
@@ -13,14 +13,14 @@ NODE_HOME="/opt/node"
 TARGET_BIN_DIR="$NODE_HOME/20-lts"
 REAL_USER="${SUDO_USER:-$USER}"
 
-# Eseguibili base del runtime Node
+# Core Node runtime executables
 ESSENTIAL_BINS=("node" "npm" "npx" "corepack")
 
-echo "==> 1. Installazione dipendenze di sistema..."
+echo "==> 1. Installing system dependencies..."
 apt-get update -qq
 apt-get install -y -qq curl tar acl >/dev/null
 
-echo "==> 2. Creazione utente e gruppo di sistema '$NODE_USER'..."
+echo "==> 2. Creating system user and group '$NODE_USER'..."
 if ! getent group "$NODE_GROUP" >/dev/null; then
   groupadd -r "$NODE_GROUP"
 fi
@@ -32,21 +32,21 @@ else
   mkdir -p "$NODE_HOME"
 fi
 
-echo "==> 3. Associazione del gruppo '$NODE_GROUP' agli utenti..."
+echo "==> 3. Adding users to the '$NODE_GROUP' group..."
 if [ -n "$REAL_USER" ] && id -u "$REAL_USER" >/dev/null 2>&1; then
   usermod -aG "$NODE_GROUP" "$REAL_USER"
-  echo " - Aggiunto a $REAL_USER"
+  echo " - Added $REAL_USER"
 fi
 
 usermod -aG "$NODE_GROUP" root
-echo " - Aggiunto a root"
+echo " - Added root"
 
 if id -u www-data >/dev/null 2>&1; then
   usermod -aG "$NODE_GROUP" www-data
-  echo " - Aggiunto a www-data"
+  echo " - Added www-data"
 fi
 
-echo "==> 4. Installazione NVM e Node 20 LTS..."
+echo "==> 4. Installing NVM and Node 20 LTS..."
 sudo -u "$NODE_USER" -H bash -c '
   export HOME="/opt/node"
 
@@ -61,7 +61,7 @@ sudo -u "$NODE_USER" -H bash -c '
   nvm alias default "lts/iron"
 '
 
-echo "==> 5. Rilevamento path binari Node..."
+echo "==> 5. Detecting the Node binary path..."
 NODE_BIN_DIR=$(sudo -u "$NODE_USER" -H bash -c '
   export HOME="/opt/node"
   export NVM_DIR="$HOME/.nvm"
@@ -70,16 +70,16 @@ NODE_BIN_DIR=$(sudo -u "$NODE_USER" -H bash -c '
 ')
 
 if [ -z "$NODE_BIN_DIR" ] || [ ! -d "$NODE_BIN_DIR" ]; then
-  echo "[ERRORE] Impossibile trovare la cartella bin di Node in NVM." >&2
+  echo "[ERROR] Could not find the Node bin directory in NVM." >&2
   exit 1
 fi
-echo " - Sorgente binari: $NODE_BIN_DIR"
+echo " - Binary source: $NODE_BIN_DIR"
 
 echo ""
-read -r -p "Vuoi installare PM2 globalmente tramite l'utente node? [s/N] " install_pm2_resp
+read -r -p "Install PM2 globally as the node user? [y/N] " install_pm2_resp
 case "$install_pm2_resp" in
-  [sS][iI]|[sS]|[yY][eE][sS]|[yY])
-    echo "==> Installazione PM2 in corso..."
+  [yY][eE][sS]|[yY])
+    echo "==> Installing PM2..."
     sudo -u "$NODE_USER" -H bash -c '
       export HOME="/opt/node"
       export NVM_DIR="$HOME/.nvm"
@@ -87,61 +87,61 @@ case "$install_pm2_resp" in
       npm install -g pm2
     '
     ESSENTIAL_BINS+=("pm2")
-    echo " - PM2 installato con successo."
+    echo " - PM2 installed successfully."
     ;;
   *)
-    echo " - Installazione PM2 saltata."
+    echo " - Skipped PM2 installation."
     ;;
 esac
 
 echo ""
-echo "==> 6. Creazione collegamenti in $TARGET_BIN_DIR..."
+echo "==> 6. Creating symlinks in $TARGET_BIN_DIR..."
 mkdir -p "$TARGET_BIN_DIR"
 
 for bin in "${ESSENTIAL_BINS[@]}"; do
   src_path="$NODE_BIN_DIR/$bin"
   if [ -x "$src_path" ]; then
     ln -sfn "$src_path" "$TARGET_BIN_DIR/$bin"
-    echo " - Collegato: $bin -> $TARGET_BIN_DIR/$bin"
+    echo " - Linked: $bin -> $TARGET_BIN_DIR/$bin"
   fi
 done
 
-echo "==> 7. Configurazione permessi, setgid e Default ACL su $NODE_HOME..."
-# Proprietà ricorsiva all'utente e gruppo node
+echo "==> 7. Setting permissions, setgid and default ACLs on $NODE_HOME..."
+# Recursive ownership to the node user and group
 chown -R "$NODE_USER:$NODE_GROUP" "$NODE_HOME"
 
-# Permessi standard Linux
+# Standard Linux permissions
 chmod -R u=rwX,g=rwX,o=rX "$NODE_HOME"
 
-# Setgid (g+s) su tutte le cartelle per forzare il gruppo proprietario
+# Setgid (g+s) on all directories to enforce the owning group
 find "$NODE_HOME" -type d -exec chmod g+s {} +
 
-# POSIX ACL: applica rwX a elementi esistenti e imposta le regole di default per i nuovi file/cartelle
+# POSIX ACLs: apply rwX to existing entries and set the default rules for new files/directories
 setfacl -R -m u::rwx,g::rwx,o::rx "$NODE_HOME"
 setfacl -R -d -m u::rwx,g::rwx,o::rx "$NODE_HOME"
 
 echo ""
-echo "==> Configurazione completata in $TARGET_BIN_DIR."
+echo "==> Setup completed in $TARGET_BIN_DIR."
 echo ""
 
-# Richiesta interattiva per /usr/local/bin
-read -r -p "Vuoi creare i collegamenti simbolici anche in /usr/local/bin per renderli globali nel PATH? [s/N] " response
+# Interactive prompt for /usr/local/bin
+read -r -p "Also create the symlinks in /usr/local/bin to make them available globally on the PATH? [y/N] " response
 case "$response" in
-  [sS][iI]|[sS]|[yY][eE][sS]|[yY])
-    echo "==> Creazione collegamenti in /usr/local/bin..."
+  [yY][eE][sS]|[yY])
+    echo "==> Creating symlinks in /usr/local/bin..."
     for bin in "${ESSENTIAL_BINS[@]}"; do
       if [ -e "$TARGET_BIN_DIR/$bin" ]; then
         ln -sfn "$TARGET_BIN_DIR/$bin" "/usr/local/bin/$bin"
-        echo " - Collegato: /usr/local/bin/$bin -> $TARGET_BIN_DIR/$bin"
+        echo " - Linked: /usr/local/bin/$bin -> $TARGET_BIN_DIR/$bin"
       fi
     done
-    echo "I comandi sono ora disponibili ovunque senza dover modificare il PATH."
+    echo "The commands are now available everywhere without changing the PATH."
     ;;
   *)
-    echo "Saltata creazione in /usr/local/bin."
-    echo "Per usare i comandi punta direttamente a '$TARGET_BIN_DIR' o aggiungilo al tuo PATH."
+    echo "Skipped creating symlinks in /usr/local/bin."
+    echo "To use the commands, point directly to '$TARGET_BIN_DIR' or add it to your PATH."
     ;;
 esac
 
 echo ""
-echo "Configurazione terminata. Ricorda di eseguire 'newgrp $NODE_GROUP' per aggiornare la sessione corrente."
+echo "Setup finished. Remember to run 'newgrp $NODE_GROUP' to refresh the current session."

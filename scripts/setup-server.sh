@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ==========================================================
-#           CONFIGURAZIONE PRINCIPALE (COSTANTI)
+#              MAIN CONFIGURATION (CONSTANTS)
 # ==========================================================
 DEFAULT_BASE_DOMAIN="valdi.ovh"
 DEFAULT_PHP_VERSION="8.5"
@@ -14,23 +14,23 @@ SUBDOMAINS=(
 )
 # ==========================================================
 
-# 1. Controllo privilegi di root
+# 1. Check for root privileges
 if [ "$EUID" -ne 0 ]; then
-  echo "[ERRORE] Esegui questo script con sudo o come root." >&2
+  echo "[ERROR] Run this script with sudo or as root." >&2
   exit 1
 fi
 
 echo "=========================================================="
-echo "    Setup Automatizzato Caddy + Mercure Hub ($DEFAULT_BASE_DOMAIN)    "
+echo "     Automated Caddy + Mercure Hub Setup ($DEFAULT_BASE_DOMAIN)      "
 echo "=========================================================="
 
 REAL_USER="${SUDO_USER:-$USER}"
 
-# 2. Richiesta dati interattiva
-read -r -p "Inserisci il dominio base [$DEFAULT_BASE_DOMAIN]: " BASE_DOMAIN
+# 2. Interactive input
+read -r -p "Enter the base domain [$DEFAULT_BASE_DOMAIN]: " BASE_DOMAIN
 BASE_DOMAIN="${BASE_DOMAIN:-$DEFAULT_BASE_DOMAIN}"
 
-read -r -p "Inserisci l'email per i certificati TLS Let's Encrypt [admin@$BASE_DOMAIN]: " ADMIN_EMAIL
+read -r -p "Enter the email for the Let's Encrypt TLS certificates [admin@$BASE_DOMAIN]: " ADMIN_EMAIL
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@$BASE_DOMAIN}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -41,11 +41,11 @@ else
   DEFAULT_PROJECT_DIR="/var/www/$BASE_DOMAIN"
 fi
 
-read -r -p "Inserisci il percorso della root del progetto Symfony [$DEFAULT_PROJECT_DIR]: " INPUT_PROJECT_DIR
+read -r -p "Enter the Symfony project root path [$DEFAULT_PROJECT_DIR]: " INPUT_PROJECT_DIR
 PROJECT_DIR="${INPUT_PROJECT_DIR:-$DEFAULT_PROJECT_DIR}"
 SITE_PUBLIC_DIR="$PROJECT_DIR/public"
 
-# Costruzione dinamica delle liste domini e origini CORS dall'array SUBDOMAINS
+# Build the domain and CORS origin lists dynamically from the SUBDOMAINS array
 HOSTS_DOMAINS="$BASE_DOMAIN mercure.$BASE_DOMAIN"
 SITE_HOSTS="$BASE_DOMAIN"
 CORS_ORIGINS="https://$BASE_DOMAIN"
@@ -57,43 +57,43 @@ for sub in "${SUBDOMAINS[@]}"; do
   CORS_ORIGINS="$CORS_ORIGINS https://${sub}.${BASE_DOMAIN}"
 done
 
-# 3. Configurazione automatica /etc/hosts per domini locali su Linux
+# 3. Automatic /etc/hosts setup for local domains on Linux
 IS_LOCAL_DOMAIN=false
 if [[ "$BASE_DOMAIN" =~ \.(wip|local|test|example|invalid|localhost|lan|home|internal)$ ]] || [ "$BASE_DOMAIN" = "localhost" ]; then
   IS_LOCAL_DOMAIN=true
   echo ""
-  echo "==> Configurazione /etc/hosts per la risoluzione dei domini locali..."
+  echo "==> Configuring /etc/hosts to resolve the local domains..."
   if ! grep -qw "$BASE_DOMAIN" /etc/hosts 2>/dev/null; then
     echo "127.0.0.1 $HOSTS_DOMAINS" >> /etc/hosts
-    echo " - Aggiunto a /etc/hosts: 127.0.0.1 $HOSTS_DOMAINS"
+    echo " - Added to /etc/hosts: 127.0.0.1 $HOSTS_DOMAINS"
   else
-    echo " - /etc/hosts contiene già una voce per $BASE_DOMAIN"
+    echo " - /etc/hosts already has an entry for $BASE_DOMAIN"
   fi
 fi
 
-# 4. Controllo e arresto web server in conflitto (porta 80/443)
+# 4. Detect and stop conflicting web servers (ports 80/443)
 echo ""
-echo "==> Controllo web server in conflitto sulle porte 80 e 443..."
+echo "==> Checking for web servers conflicting on ports 80 and 443..."
 for srv in apache2 nginx lighttpd; do
   if systemctl is-active --quiet "$srv" 2>/dev/null; then
-    echo " - Rilevato servizio '$srv' in esecuzione. Arresto e disabilitazione per liberare le porte 80 e 443..."
+    echo " - Service '$srv' is running. Stopping and disabling it to free ports 80 and 443..."
     systemctl stop "$srv" 2>/dev/null || true
     systemctl disable "$srv" 2>/dev/null || true
   fi
 done
 
-# 5. Associazione gruppo www-data a root e all'utente corrente
+# 5. Add root and the current user to the www-data group
 echo ""
-echo "==> Associazione gruppo 'www-data' agli utenti..."
+echo "==> Adding users to the 'www-data' group..."
 usermod -aG www-data root
-echo " - Aggiunto a root"
+echo " - Added root"
 
 if [ -n "$REAL_USER" ] && id -u "$REAL_USER" >/dev/null 2>&1; then
   usermod -aG www-data "$REAL_USER"
-  echo " - Aggiunto a $REAL_USER"
+  echo " - Added $REAL_USER"
 fi
 
-# Funzione helper per installare PHP-FPM + estensioni richieste
+# Helper function that installs PHP-FPM + the required extensions
 install_php_stack() {
   local ver="$1"
   local extensions=(
@@ -112,24 +112,24 @@ install_php_stack() {
     "php${ver}-intl"
   )
 
-  echo "==> Installazione di PHP ${ver}-FPM ed estensioni..."
+  echo "==> Installing PHP ${ver}-FPM and extensions..."
   apt-get update -qq
   apt-get install -y -qq software-properties-common >/dev/null
 
   if ! grep -rq "ondrej/php" /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null; then
-    echo " - Aggiunta repository PPA ondrej/php..."
+    echo " - Adding the ondrej/php PPA repository..."
     add-apt-repository ppa:ondrej/php -y >/dev/null
     apt-get update -qq
   fi
 
-  echo " - Installazione pacchetti: ${extensions[*]}..."
+  echo " - Installing packages: ${extensions[*]}..."
   apt-get install -y "${extensions[@]}"
   systemctl enable --now "php${ver}-fpm"
 }
 
-# 6. Selezione o installazione PHP-FPM e configurazione custom INI
+# 6. Select or install PHP-FPM and write the custom INI configuration
 echo ""
-echo "==> Rilevamento versioni PHP-FPM installate..."
+echo "==> Detecting installed PHP-FPM versions..."
 AVAILABLE_SOCKS=()
 if [ -d /run/php ]; then
   while IFS= read -r sock; do
@@ -139,63 +139,63 @@ fi
 
 PHP_SOCK=""
 if [ ${#AVAILABLE_SOCKS[@]} -gt 0 ]; then
-  echo "Seleziona la versione di PHP da utilizzare:"
+  echo "Select the PHP version to use:"
   for i in "${!AVAILABLE_SOCKS[@]}"; do
     sock_name=$(basename "${AVAILABLE_SOCKS[$i]}")
     php_ver=$(echo "$sock_name" | grep -oP '\d+\.\d+' || echo "$sock_name")
-    echo "  $((i+1))) Usa PHP $php_ver già installato (${AVAILABLE_SOCKS[$i]})"
+    echo "  $((i+1))) Use the installed PHP $php_ver (${AVAILABLE_SOCKS[$i]})"
   done
   OPT_INSTALL=$(( ${#AVAILABLE_SOCKS[@]} + 1 ))
   OPT_MANUAL=$(( ${#AVAILABLE_SOCKS[@]} + 2 ))
-  echo "  ${OPT_INSTALL}) Installa una nuova versione di PHP-FPM + estensioni"
-  echo "  ${OPT_MANUAL}) Inserisci manualmente il percorso/versione di un socket esistente"
+  echo "  ${OPT_INSTALL}) Install a new PHP-FPM version + extensions"
+  echo "  ${OPT_MANUAL}) Manually enter the path/version of an existing socket"
 
   while true; do
-    read -r -p "Scelta [1-${OPT_MANUAL}]: " PHP_CHOICE
+    read -r -p "Choice [1-${OPT_MANUAL}]: " PHP_CHOICE
     if [[ "$PHP_CHOICE" =~ ^[0-9]+$ ]] && [ "$PHP_CHOICE" -ge 1 ] && [ "$PHP_CHOICE" -le "${#AVAILABLE_SOCKS[@]}" ]; then
       PHP_SOCK="${AVAILABLE_SOCKS[$((PHP_CHOICE-1))]}"
       break
     elif [ "$PHP_CHOICE" -eq "$OPT_INSTALL" ]; then
-      read -r -p "Inserisci la versione di PHP da installare [$DEFAULT_PHP_VERSION]: " INSTALL_VER
+      read -r -p "Enter the PHP version to install [$DEFAULT_PHP_VERSION]: " INSTALL_VER
       INSTALL_VER="${INSTALL_VER:-$DEFAULT_PHP_VERSION}"
       install_php_stack "$INSTALL_VER"
       PHP_SOCK="/run/php/php${INSTALL_VER}-fpm.sock"
       break
     elif [ "$PHP_CHOICE" -eq "$OPT_MANUAL" ]; then
-      read -r -p "Inserisci la versione di PHP desiderata [$DEFAULT_PHP_VERSION]: " MANUAL_VER
+      read -r -p "Enter the desired PHP version [$DEFAULT_PHP_VERSION]: " MANUAL_VER
       MANUAL_VER="${MANUAL_VER:-$DEFAULT_PHP_VERSION}"
       PHP_SOCK="/run/php/php${MANUAL_VER}-fpm.sock"
       break
     else
-      echo "Scelta non valida, riprova."
+      echo "Invalid choice, please try again."
     fi
   done
 else
-  echo "[AVVISO] Nessun socket PHP-FPM trovato in /run/php/."
-  read -r -p "Vuoi installare ora PHP-FPM e le estensioni richieste? [S/n]: " DO_INSTALL_PHP
-  DO_INSTALL_PHP="${DO_INSTALL_PHP:-S}"
-  if [[ "$DO_INSTALL_PHP" =~ ^[SsYy]$ ]]; then
-    read -r -p "Inserisci la versione di PHP da installare [$DEFAULT_PHP_VERSION]: " INSTALL_VER
+  echo "[WARNING] No PHP-FPM socket found in /run/php/."
+  read -r -p "Install PHP-FPM and the required extensions now? [Y/n]: " DO_INSTALL_PHP
+  DO_INSTALL_PHP="${DO_INSTALL_PHP:-Y}"
+  if [[ "$DO_INSTALL_PHP" =~ ^[Yy]([Ee][Ss])?$ ]]; then
+    read -r -p "Enter the PHP version to install [$DEFAULT_PHP_VERSION]: " INSTALL_VER
     INSTALL_VER="${INSTALL_VER:-$DEFAULT_PHP_VERSION}"
     install_php_stack "$INSTALL_VER"
     PHP_SOCK="/run/php/php${INSTALL_VER}-fpm.sock"
   else
-    read -r -p "Inserisci manualmente la versione di PHP per il Caddyfile [$DEFAULT_PHP_VERSION]: " MANUAL_VER
+    read -r -p "Manually enter the PHP version for the Caddyfile [$DEFAULT_PHP_VERSION]: " MANUAL_VER
     MANUAL_VER="${MANUAL_VER:-$DEFAULT_PHP_VERSION}"
     PHP_SOCK="/run/php/php${MANUAL_VER}-fpm.sock"
   fi
 fi
 
 SELECTED_PHP_VER=$(basename "$PHP_SOCK" | grep -oP '\d+\.\d+' || true)
-echo " -> Socket selezionato: $PHP_SOCK"
+echo " -> Selected socket: $PHP_SOCK"
 
 if [ -n "$SELECTED_PHP_VER" ]; then
   if [ -x "/usr/bin/php$SELECTED_PHP_VER" ]; then
     update-alternatives --set php "/usr/bin/php$SELECTED_PHP_VER" >/dev/null 2>&1 || true
-    echo " -> PHP CLI impostato su /usr/bin/php$SELECTED_PHP_VER"
+    echo " -> PHP CLI set to /usr/bin/php$SELECTED_PHP_VER"
   fi
 
-  echo "==> Configurazione parametri PHP custom (99-custom.ini) per PHP $SELECTED_PHP_VER..."
+  echo "==> Writing custom PHP settings (99-custom.ini) for PHP $SELECTED_PHP_VER..."
   if [ -d "/etc/php/$SELECTED_PHP_VER/fpm/conf.d" ]; then
     cat << 'EOF' > "/etc/php/$SELECTED_PHP_VER/fpm/conf.d/99-custom.ini"
 date.timezone = Europe/Rome
@@ -207,7 +207,7 @@ memory_limit = 4G
 upload_max_filesize = 256M
 post_max_size = 260M
 EOF
-    echo " - Creato /etc/php/$SELECTED_PHP_VER/fpm/conf.d/99-custom.ini"
+    echo " - Created /etc/php/$SELECTED_PHP_VER/fpm/conf.d/99-custom.ini"
     systemctl restart "php${SELECTED_PHP_VER}-fpm" 2>/dev/null || true
   fi
 
@@ -218,21 +218,21 @@ date.default_latitude = 44.202091
 date.default_longitude = 12.036725
 memory_limit = 4G
 EOF
-    echo " - Creato /etc/php/$SELECTED_PHP_VER/cli/conf.d/99-custom.ini"
+    echo " - Created /etc/php/$SELECTED_PHP_VER/cli/conf.d/99-custom.ini"
   fi
 fi
 echo ""
 
-# 7. Installazione dipendenze di base
-echo "==> Installazione pacchetti di utilità (curl, wget, tar, unzip, libcap2-bin, openssl, acl)..."
+# 7. Install base dependencies
+echo "==> Installing utility packages (curl, wget, tar, unzip, libcap2-bin, openssl, acl)..."
 apt-get update -qq
 apt-get install -y -qq curl wget tar unzip libcap2-bin openssl acl >/dev/null
 
-# 7b. Installazione o aggiornamento di Composer
-echo "==> Verifica e installazione di Composer..."
+# 7b. Install or update Composer
+echo "==> Checking and installing Composer..."
 if command -v php >/dev/null 2>&1; then
   if [ -f /usr/local/bin/composer ]; then
-    echo " - Composer già presente, esecuzione aggiornamento..."
+    echo " - Composer already installed, running self-update..."
     COMPOSER_ALLOW_SUPERUSER=1 /usr/local/bin/composer self-update --quiet || true
   else
     EXPECTED_CHECKSUM="$(php -r 'copy("https://composer.github.io/installer.sig", "php://stdout");')"
@@ -240,7 +240,7 @@ if command -v php >/dev/null 2>&1; then
     ACTUAL_CHECKSUM="$(php -r "echo hash_file('sha384', '/tmp/composer-setup.php');")"
 
     if [ "$EXPECTED_CHECKSUM" != "$ACTUAL_CHECKSUM" ]; then
-      echo "[ERRORE] Checksum dell'installer di Composer non valido!" >&2
+      echo "[ERROR] Invalid Composer installer checksum!" >&2
       rm -f /tmp/composer-setup.php
       exit 1
     fi
@@ -248,53 +248,53 @@ if command -v php >/dev/null 2>&1; then
     php /tmp/composer-setup.php --quiet --install-dir=/usr/local/bin --filename=composer
     rm -f /tmp/composer-setup.php
     chmod +x /usr/local/bin/composer
-    echo " - Composer installato in /usr/local/bin/composer"
+    echo " - Composer installed in /usr/local/bin/composer"
   fi
 else
-  echo " [AVVISO] Binario PHP CLI non trovato, installazione di Composer saltata."
+  echo " [WARNING] PHP CLI binary not found, skipping Composer installation."
 fi
 
-# 7c. Installazione FFmpeg (include ffprobe) e yt-dlp
-echo "==> Installazione FFmpeg / FFprobe e yt-dlp..."
+# 7c. Install FFmpeg (includes ffprobe) and yt-dlp
+echo "==> Installing FFmpeg / FFprobe and yt-dlp..."
 apt-get install -y -qq ffmpeg >/dev/null
-echo " - FFmpeg e FFprobe installati"
+echo " - FFmpeg and FFprobe installed"
 
 if [ -f /usr/local/bin/yt-dlp ]; then
-  echo " - yt-dlp già presente, verifica aggiornamenti..."
+  echo " - yt-dlp already installed, checking for updates..."
   /usr/local/bin/yt-dlp -U >/dev/null 2>&1 || true
 else
   curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp" -o /usr/local/bin/yt-dlp
   chmod a+rx /usr/local/bin/yt-dlp
-  echo " - yt-dlp installato in /usr/local/bin/yt-dlp"
+  echo " - yt-dlp installed in /usr/local/bin/yt-dlp"
 fi
 echo ""
 
-# 8. Generazione chiave JWT sicura condivisa (256-bit / 64 caratteri esadecimali)
-# Symfony MercureBundle usa un unico MERCURE_JWT_SECRET sia per il publish che per il cookie di subscribe.
+# 8. Generate a secure shared JWT key (256-bit / 64 hex characters)
+# Symfony MercureBundle uses a single MERCURE_JWT_SECRET for both publishing and the subscribe cookie.
 MERCURE_JWT_KEY=$(openssl rand -hex 32)
 PUBLISHER_KEY="$MERCURE_JWT_KEY"
 SUBSCRIBER_KEY="$MERCURE_JWT_KEY"
 
-# 9. Preparazione directory di sistema
+# 9. Prepare the system directories
 CADDY_DIR="/var/www/caddy"
 LANDING_DIR="/var/www/mercure-landing"
 CADDY_HOME="/var/lib/caddy"
 LOG_FILE="/var/log/caddy.log"
 
-echo "==> Creazione alberatura directory..."
+echo "==> Creating the directory tree..."
 mkdir -p "$CADDY_DIR" "$LANDING_DIR" "$SITE_PUBLIC_DIR" "$CADDY_HOME"
 touch "$LOG_FILE"
 
-# 10. Rilevamento architettura e download di Mercure da GitHub Releases
+# 10. Detect the architecture and download Mercure from GitHub Releases
 ARCH=$(uname -m)
 case "$ARCH" in
   x86_64)  MERCURE_ARCH="Linux_x86_64" ;;
   aarch64) MERCURE_ARCH="Linux_arm64" ;;
   armv7l)  MERCURE_ARCH="Linux_armv7" ;;
-  *) echo "[ERRORE] Architettura non supportata: $ARCH" >&2; exit 1 ;;
+  *) echo "[ERROR] Unsupported architecture: $ARCH" >&2; exit 1 ;;
 esac
 
-echo "==> Ricerca e download dell'ultima release di Mercure ($MERCURE_ARCH)..."
+echo "==> Finding and downloading the latest Mercure release ($MERCURE_ARCH)..."
 DOWNLOAD_URL=$(curl -sSL "https://api.github.com/repos/dunglas/mercure/releases/latest" 2>/dev/null | grep -oE "https://[^\"]*mercure[^\"]*${MERCURE_ARCH}\.tar\.gz" | head -n 1 || true)
 
 if [ -z "$DOWNLOAD_URL" ]; then
@@ -306,19 +306,19 @@ if [ -z "$DOWNLOAD_URL" ]; then
   fi
 fi
 
-echo " - Scaricamento da: $DOWNLOAD_URL"
+echo " - Downloading from: $DOWNLOAD_URL"
 curl -fsSL "$DOWNLOAD_URL" | tar -xz -C "$CADDY_DIR" mercure
 chmod +x "$CADDY_DIR/mercure"
 
-# 11. Assegnazione capability per porte 80 e 443 a utente non root
-echo "==> Impostazione CAP_NET_BIND_SERVICE sul binario..."
+# 11. Grant a non-root user the capability to bind ports 80 and 443
+echo "==> Setting CAP_NET_BIND_SERVICE on the binary..."
 setcap 'cap_net_bind_service=+ep' "$CADDY_DIR/mercure"
 
-# 12. Creazione Landing Page HTML
-echo "==> Generazione landing page in $LANDING_DIR/index.html..."
+# 12. Create the HTML landing page
+echo "==> Generating the landing page in $LANDING_DIR/index.html..."
 cat << 'EOF' > "$LANDING_DIR/index.html"
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -384,10 +384,10 @@ cat << 'EOF' > "$LANDING_DIR/index.html"
 <body>
     <div class="card">
         <div class="status-badge">
-            <span class="dot"></span> Hub Operativo
+            <span class="dot"></span> Hub Online
         </div>
         <h1>Mercure Real-Time</h1>
-        <p>Il server di streaming SSE per le applicazioni di Valdi.ovh è attivo e in ascolto.</p>
+        <p>The SSE streaming server for the Valdi.ovh applications is up and listening.</p>
         <div class="endpoint">/.well-known/mercure</div>
         <div class="footer">Caddy + Mercure Protocol Server</div>
     </div>
@@ -395,13 +395,13 @@ cat << 'EOF' > "$LANDING_DIR/index.html"
 </html>
 EOF
 
-# 13. Generazione Caddyfile
-echo "==> Scrittura del Caddyfile in $CADDY_DIR/Caddyfile..."
+# 13. Generate the Caddyfile
+echo "==> Writing the Caddyfile to $CADDY_DIR/Caddyfile..."
 
 GLOBAL_TLS_DIRECTIVES="email $ADMIN_EMAIL"
 
 if [ "$IS_LOCAL_DOMAIN" = true ]; then
-  echo " -> Rilevato dominio locale/sviluppo ($BASE_DOMAIN): configurata CA interna (local_certs) e fallback SNI"
+  echo " -> Local/development domain detected ($BASE_DOMAIN): configured the internal CA (local_certs) and SNI fallback"
   GLOBAL_TLS_DIRECTIVES="email $ADMIN_EMAIL
     local_certs
     default_sni $BASE_DOMAIN"
@@ -414,7 +414,7 @@ cat << EOF > "$CADDY_DIR/Caddyfile"
     $GLOBAL_TLS_DIRECTIVES
 }
 
-# 1. Hub Mercure
+# 1. Mercure hub
 mercure.$BASE_DOMAIN {
     log {
         format filter {
@@ -428,13 +428,13 @@ mercure.$BASE_DOMAIN {
 
     encode zstd gzip
 
-    # Landing page sulla root
+    # Landing page at the root
     handle / {
         root * $LANDING_DIR
         file_server
     }
 
-    # Direttiva Mercure
+    # Mercure directive
     mercure {
         protocol_version_compatibility 8
         publisher_jwt {env.MERCURE_PUBLISHER_JWT_KEY} HS256
@@ -455,7 +455,7 @@ mercure.$BASE_DOMAIN {
     respond "Not Found" 404
 }
 
-# 2. Applicazione Symfony e sottodomini
+# 2. Symfony application and subdomains
 $SITE_HOSTS {
     root * $PROJECT_DIR/public
 
@@ -475,8 +475,8 @@ $SITE_HOSTS {
 }
 EOF
 
-# 14. Creazione file systemd
-echo "==> Configurazione del servizio systemd (/etc/systemd/system/caddy.service)..."
+# 14. Create the systemd unit file
+echo "==> Configuring the systemd service (/etc/systemd/system/caddy.service)..."
 cat << EOF > /etc/systemd/system/caddy.service
 [Unit]
 Description=Caddy Mercure Hub Service
@@ -494,7 +494,7 @@ RestartSec=5s
 StartLimitBurst=5
 StartLimitIntervalSec=33
 
-# Environment e JWT Keys
+# Environment and JWT keys
 Environment=HOME=$CADDY_HOME
 Environment=MERCURE_PUBLISHER_JWT_KEY=$PUBLISHER_KEY
 Environment=MERCURE_SUBSCRIBER_JWT_KEY=$SUBSCRIBER_KEY
@@ -503,7 +503,7 @@ Environment=MERCURE_SUBSCRIBER_JWT_KEY=$SUBSCRIBER_KEY
 StandardOutput=append:$LOG_FILE
 StandardError=append:$LOG_FILE
 
-# Sicurezza di processo e capabilities
+# Process security and capabilities
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 LimitNOFILE=1048576
@@ -512,33 +512,33 @@ LimitNOFILE=1048576
 WantedBy=multi-user.target
 EOF
 
-# 15. Configurazione permessi base Caddy e log
-echo "==> Configurazione permessi Caddy..."
+# 15. Base permissions for Caddy and its log
+echo "==> Setting Caddy permissions..."
 chown -R www-data:www-data "$CADDY_DIR" "$LANDING_DIR" "$CADDY_HOME" "$LOG_FILE"
 chmod -R u=rwX,g=rwX,o=rX "$CADDY_DIR" "$LANDING_DIR"
 chmod 700 "$CADDY_HOME"
 chmod 644 "$LOG_FILE"
 
-# 16. Configurazione permessi avanzati sul progetto (setgid + ACL)
-echo "==> Applicazione permessi ed ereditarietà su $PROJECT_DIR..."
+# 16. Advanced project permissions (setgid + ACL)
+echo "==> Applying permissions and inheritance on $PROJECT_DIR..."
 TARGET_OWNER="${REAL_USER:-www-data}"
 
-# Assegna il proprietario all'utente reale (per lavorare comodamente) e gruppo www-data
+# Give ownership to the real user (to work comfortably) and the www-data group
 chown -R "$TARGET_OWNER:www-data" "$PROJECT_DIR"
 
-# Permessi standard lettura/scrittura per utente e gruppo, esecuzione per directory
+# Standard read/write permissions for user and group, execute for directories
 chmod -R u=rwX,g=rwX,o=rX "$PROJECT_DIR"
 
-# Bit setgid (g+s): ogni nuova directory creata all'interno erediterà il gruppo www-data
+# Setgid bit (g+s): every new directory created inside inherits the www-data group
 find "$PROJECT_DIR" -type d -exec chmod g+s {} +
 
-# POSIX ACL: garantisce che i nuovi file e cartelle creati da Symfony/PHP o dall'utente
-# abbiano sempre rwX sia per l'utente che per il gruppo www-data di default
+# POSIX ACLs: make sure new files and directories created by Symfony/PHP or the user
+# always get rwX for both the user and the www-data group by default
 setfacl -R -d -m u::rwx,g::rwx,o::rx "$PROJECT_DIR" 2>/dev/null || true
 setfacl -R -m u::rwx,g::rwx,o::rx "$PROJECT_DIR" 2>/dev/null || true
 
-# 17. Attivazione del servizio
-echo "==> Ricaricamento systemd e avvio del servizio caddy..."
+# 17. Enable the service
+echo "==> Reloading systemd and starting the caddy service..."
 systemctl daemon-reload
 systemctl enable caddy.service
 systemctl restart caddy.service
@@ -546,14 +546,14 @@ systemctl restart caddy.service
 sleep 1
 if ! systemctl is-active --quiet caddy.service; then
   echo ""
-  echo "[ERRORE] Il servizio Caddy non è riuscito ad avviarsi." >&2
-  echo "--- Ultimi log da $LOG_FILE ---" >&2
+  echo "[ERROR] The Caddy service failed to start." >&2
+  echo "--- Latest logs from $LOG_FILE ---" >&2
   tail -n 20 "$LOG_FILE" >&2 || true
   echo "-------------------------------" >&2
   exit 1
 fi
 
-# Copia del certificato Root CA di Caddy in posizione pubblica (Windows/browser) e nello store CA di Linux (PHP/cURL)
+# Copy Caddy's root CA certificate to a public location (Windows/browser) and into the Linux CA store (PHP/cURL)
 LOCAL_ROOT_CA="$CADDY_HOME/.local/share/caddy/pki/authorities/local/root.crt"
 if [ "$IS_LOCAL_DOMAIN" = true ]; then
   for _ in 1 2 3 4 5; do
@@ -567,71 +567,71 @@ if [ -f "$LOCAL_ROOT_CA" ]; then
   chmod 644 "$CADDY_DIR/caddy-root-ca.crt" 2>/dev/null || true
 
   if [ "$IS_LOCAL_DOMAIN" = true ] && [ -d /usr/local/share/ca-certificates ]; then
-    echo "==> Installazione Root CA locale di Caddy nello store di sistema (per PHP/cURL)..."
+    echo "==> Installing Caddy's local root CA into the system store (for PHP/cURL)..."
     cp "$LOCAL_ROOT_CA" /usr/local/share/ca-certificates/caddy-root-ca.crt
     chmod 644 /usr/local/share/ca-certificates/caddy-root-ca.crt
     update-ca-certificates >/dev/null 2>&1 || true
-    echo " - Installato /usr/local/share/ca-certificates/caddy-root-ca.crt"
+    echo " - Installed /usr/local/share/ca-certificates/caddy-root-ca.crt"
   fi
 fi
 
-# 18. Report finale
+# 18. Final report
 echo ""
 echo "=========================================================="
-echo "          INSTALLAZIONE COMPLETATA CON SUCCESSO!          "
+echo "           INSTALLATION COMPLETED SUCCESSFULLY!           "
 echo "=========================================================="
 echo ""
-echo "Gruppo 'www-data' associato a: root e $REAL_USER"
-echo "Cartella progetto configurata: $PROJECT_DIR"
-echo " -> Proprietà:               $TARGET_OWNER:www-data"
-echo " -> Ereditarietà gruppo:     Attiva (setgid g+s)"
-echo " -> Ereditarietà permessi:   Attiva (POSIX default ACLs)"
+echo "Added to the 'www-data' group: root and $REAL_USER"
+echo "Project folder configured: $PROJECT_DIR"
+echo " -> Ownership:               $TARGET_OWNER:www-data"
+echo " -> Group inheritance:       Enabled (setgid g+s)"
+echo " -> Permission inheritance:  Enabled (POSIX default ACLs)"
 echo ""
-echo "Domini configurati:         $SITE_HOSTS"
-echo "PHP Socket in uso:          $PHP_SOCK"
-echo "Config PHP custom:          /etc/php/${SELECTED_PHP_VER:-$DEFAULT_PHP_VERSION}/{fpm,cli}/conf.d/99-custom.ini"
-echo "Composer:                   $(/usr/local/bin/composer --version 2>/dev/null || echo 'Non installato')"
-echo "yt-dlp:                     $(/usr/local/bin/yt-dlp --version 2>/dev/null || echo 'Non installato')"
+echo "Configured domains:         $SITE_HOSTS"
+echo "PHP socket in use:          $PHP_SOCK"
+echo "Custom PHP config:          /etc/php/${SELECTED_PHP_VER:-$DEFAULT_PHP_VERSION}/{fpm,cli}/conf.d/99-custom.ini"
+echo "Composer:                   $(/usr/local/bin/composer --version 2>/dev/null || echo 'Not installed')"
+echo "yt-dlp:                     $(/usr/local/bin/yt-dlp --version 2>/dev/null || echo 'Not installed')"
 echo "MERCURE_JWT_KEY (pub+sub):  $MERCURE_JWT_KEY"
 if [ "$IS_LOCAL_DOMAIN" = true ] && [ -f "$CADDY_DIR/caddy-root-ca.crt" ]; then
-  echo "Root CA locale:             $CADDY_DIR/caddy-root-ca.crt (installata nello store Linux)"
+  echo "Local root CA:              $CADDY_DIR/caddy-root-ca.crt (installed in the Linux store)"
 fi
 echo "----------------------------------------------------------"
 echo ""
-echo "Per configurare Symfony nel tuo file .env / .env.local:"
+echo "To configure Symfony, add these to your .env / .env.local file:"
 echo ""
 echo "MERCURE_URL=https://mercure.$BASE_DOMAIN/.well-known/mercure"
 echo "MERCURE_PUBLIC_URL=https://mercure.$BASE_DOMAIN/.well-known/mercure"
 echo "MERCURE_JWT_SECRET=\"$MERCURE_JWT_KEY\""
 echo ""
-echo "Stato del servizio: systemctl status caddy"
-echo "Log in tempo reale: tail -f $LOG_FILE"
+echo "Service status: systemctl status caddy"
+echo "Live logs:      tail -f $LOG_FILE"
 
 if grep -qi microsoft /proc/version 2>/dev/null; then
   WSL_IP=$(ip -4 addr show eth0 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -n 1 || hostname -I | awk '{print $1}')
   echo ""
   echo "=========================================================="
-  echo "         [CONFIGURAZIONE RETE WINDOWS / WSL]              "
+  echo "              [WINDOWS / WSL NETWORK SETUP]               "
   echo "=========================================================="
-  echo "IP ATTUALE DI WSL: $WSL_IP"
+  echo "CURRENT WSL IP: $WSL_IP"
   echo ""
-  echo "1. AGGIORNAMENTO REGOLE 'netsh portproxy' IN WINDOWS:"
-  echo "   (Se usi il redirect da Windows o Pi-hole verso l'IP del PC):"
-  echo "   Apri PowerShell come AMMINISTRATORE ed esegui:"
+  echo "1. UPDATE THE 'netsh portproxy' RULES IN WINDOWS:"
+  echo "   (If you redirect from Windows or Pi-hole to the PC's IP):"
+  echo "   Open PowerShell as ADMINISTRATOR and run:"
   echo ""
   echo "   netsh interface portproxy set v4tov4 listenport=80 connectaddress=$WSL_IP connectport=80"
   echo "   netsh interface portproxy set v4tov4 listenport=443 connectaddress=$WSL_IP connectport=443"
   echo ""
-  echo "2. MAPPATURA HOSTS IN WINDOWS:"
+  echo "2. HOSTS MAPPING IN WINDOWS:"
   echo "   Add-Content -Path C:\\Windows\\System32\\drivers\\etc\\hosts -Value \"\`n127.0.0.1 $HOSTS_DOMAINS\""
   echo ""
-  echo "3. SOLUZIONE DEFINITIVA SENZA PORTPROXY (Windows 11):"
-  echo "   Crea o modifica C:\\Users\\$REAL_USER\\.wslconfig con:"
+  echo "3. PERMANENT FIX WITHOUT PORTPROXY (Windows 11):"
+  echo "   Create or edit C:\\Users\\$REAL_USER\\.wslconfig with:"
   echo "   [wsl2]"
   echo "   networkingMode=mirrored"
-  echo "   Poi riavvia WSL con 'wsl --shutdown'. WSL condividerà direttamente l'IP del PC!"
+  echo "   Then restart WSL with 'wsl --shutdown'. WSL will share the PC's IP directly!"
   echo "=========================================================="
 fi
 echo ""
-echo "Nota: Per usare il nuovo gruppo '$REAL_USER:www-data' nella sessione corrente,"
-echo "esegui 'newgrp www-data' oppure effettua un logout/login."
+echo "Note: to use the new group '$REAL_USER:www-data' in the current session,"
+echo "run 'newgrp www-data' or log out and back in."

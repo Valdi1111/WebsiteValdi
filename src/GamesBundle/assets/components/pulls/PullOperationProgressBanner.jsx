@@ -31,8 +31,9 @@ export default function PullOperationProgressBanner({ operation, onDismiss }) {
     const progressStatus =
         status === "failed" ? "exception" : status === "completed" ? "success" : "active";
 
+    // Syncs always track banners; backup imports do when the importer reports them (multi-file imports)
     const bannersList =
-        !isBackup && operation.banners && typeof operation.banners === "object"
+        operation.banners && typeof operation.banners === "object"
             ? Object.values(operation.banners)
             : [];
 
@@ -66,8 +67,14 @@ export default function PullOperationProgressBanner({ operation, onDismiss }) {
         if (banner.pages > 0 && banner.status === "running") {
             extraParts.push(`p.${banner.pages}`);
         }
+        if (isBackup && banner.total > 0 && banner.status === "running") {
+            extraParts.push(`${banner.processed ?? 0}/${banner.total}`);
+        }
         if (banner.imported > 0) {
             extraParts.push(`+${banner.imported}`);
+        }
+        if (banner.updated > 0) {
+            extraParts.push(`${banner.updated} updated`);
         }
         if (banner.promoted > 0) {
             extraParts.push(`${banner.promoted} linked`);
@@ -133,6 +140,11 @@ export default function PullOperationProgressBanner({ operation, onDismiss }) {
                             <Tag color="green" style={{ margin: 0 }}>
                                 Imported: {operation.imported ?? 0}
                             </Tag>
+                            {(operation.updated ?? 0) > 0 && (
+                                <Tag color="geekblue" style={{ margin: 0 }}>
+                                    Updated: {operation.updated}
+                                </Tag>
+                            )}
                             <Tag style={{ margin: 0 }}>
                                 Skipped: {operation.skipped ?? 0}
                             </Tag>

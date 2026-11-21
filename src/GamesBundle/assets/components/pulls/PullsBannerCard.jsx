@@ -144,8 +144,9 @@ export default function PullsBannerCard({ banner, rarityConfig, onViewDetails })
     const sShort = rarityConfig?.s?.short || "S";
     const aLabel = rarityConfig?.a?.label || "A";
     const aShort = rarityConfig?.a?.short || "A";
-    const pullLabel = rarityConfig?.pull_label || "Pulls";
-    const pullSingularLabel = rarityConfig?.pull_singular_label || "Pull";
+    // A banner may count its own unit (e.g. NTE "Rolls" vs "Arcs"); fallback to the game-wide label
+    const pullLabel = banner?.pull_label || rarityConfig?.pull_label || "Pulls";
+    const pullSingularLabel = banner?.pull_singular_label || rarityConfig?.pull_singular_label || "Pull";
 
     const sPityPercent = Math.min(100, Math.round((banner.s_pity / (banner.s_max_pity || 90)) * 100));
     const aPityPercent = Math.min(100, Math.round((banner.a_pity / (banner.a_max_pity || 10)) * 100));

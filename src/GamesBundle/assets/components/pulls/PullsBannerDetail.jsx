@@ -102,8 +102,9 @@ export default function PullsBannerDetail({
     const sShort = rarityConfig?.s?.short || "S";
     const aShort = rarityConfig?.a?.short || "A";
     const bShort = rarityConfig?.b?.short || "B";
-    const pullLabel = rarityConfig?.pull_label || "Pulls";
-    const pullSingularLabel = rarityConfig?.pull_singular_label || "Pull";
+    // A banner may count its own unit (e.g. NTE "Rolls" vs "Arcs"); fallback to the game-wide label
+    const pullLabel = banner?.pull_label || rarityConfig?.pull_label || "Pulls";
+    const pullSingularLabel = banner?.pull_singular_label || rarityConfig?.pull_singular_label || "Pull";
 
     const cardStyles = {
         body: {
@@ -117,6 +118,8 @@ export default function PullsBannerDetail({
         { rarity: bRarity, label: bShort, color: "#595959", textColor: "#fff" },
     ];
 
+    const hasRollLabels = (items || []).some((item) => "roll_label" in item);
+
     const getRowColor = (rarity) => {
         if (rarity >= sRarity) return "#d48806";
         if (rarity === aRarity) return "#722ed1";
@@ -129,12 +132,31 @@ export default function PullsBannerDetail({
             dataIndex: "pull_number",
             key: "pull_number",
             width: 70,
-            render: (num, record) => (
+            render: (num, record) => (num === null || num === undefined ? (
+                // Bonus rows (e.g. NTE Points Gift) are listed but are not pulls
+                <Text type="secondary">—</Text>
+            ) : (
                 <Text strong style={{ color: getRowColor(record.rarity) }}>
                     {num}
                 </Text>
-            ),
+            )),
         },
+        // Optional per-row roll outcome (NTE boards: dice value, Points Gift, Slumberland)
+        ...(hasRollLabels ? [{
+            title: "Roll",
+            dataIndex: "roll_label",
+            key: "roll_label",
+            width: 110,
+            render: (label) => {
+                if (label === "Points Gift") {
+                    return <Tag color="purple" style={{ margin: 0 }}>Points Gift</Tag>;
+                }
+                if (label === "Slumberland") {
+                    return <Tag color="geekblue" style={{ margin: 0 }}>Slumberland</Tag>;
+                }
+                return <Text type="secondary">{label ?? "—"}</Text>;
+            },
+        }] : []),
         {
             title: "Item",
             dataIndex: "name",
@@ -180,6 +202,10 @@ export default function PullsBannerDetail({
             key: "pity",
             width: 90,
             render: (pity, record) => {
+                // No pity value: bonus rows and rewards that do not reset pity (e.g. S items)
+                if (pity === null || pity === undefined) {
+                    return <Text type="secondary">—</Text>;
+                }
                 if (record.rarity >= sRarity) {
                     const scheme = getPityColor(pity, banner?.s_max_pity || 90);
                     return (

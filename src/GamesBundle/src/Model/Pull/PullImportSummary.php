@@ -5,7 +5,8 @@ namespace App\GamesBundle\Model\Pull;
 final readonly class PullImportSummary
 {
     /**
-     * @param list<string> $warnings
+     * @param list<string>                             $warnings
+     * @param array<string, array<string, mixed>>|null $banners Final per-banner progress (null = unchanged)
      */
     public function __construct(
         public string $importerKey,
@@ -15,6 +16,8 @@ final readonly class PullImportSummary
         public int $skipped,
         public array $warnings = [],
         public bool $dryRun = false,
+        public int $updated = 0,
+        public ?array $banners = null,
     ) {
     }
 }

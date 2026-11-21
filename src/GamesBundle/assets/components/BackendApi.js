@@ -47,6 +47,7 @@ export default function (apiUrl, { message }) {
     api._accounts.delete = async (id) => axiosInstance.delete(`/accounts/${id}`);
     api._accounts.loginStart = async (data) => axiosInstance.post(`/accounts/login/start`, data);
     api._accounts.reloginStart = async (accountId, data) => axiosInstance.post(`/accounts/${accountId}/relogin/start`, data);
+    api._accounts.tokenRelogin = async (accountId, data) => axiosInstance.post(`/accounts/${accountId}/token`, data);
     api._accounts.loginCaptcha = async (data) => axiosInstance.post(`/accounts/login/captcha`, data);
     api._accounts.loginVerifyEmail = async (data) => axiosInstance.post(`/accounts/login/verify-email`, data);
     api._accounts.loginResendEmail = async (data) => axiosInstance.post(`/accounts/login/resend-email`, data);
@@ -77,10 +78,15 @@ export default function (apiUrl, { message }) {
         }
         return url.toString();
     };
-    api._gameProfiles.importBackupPulls = async (accountId, gameProfileId, importerKey, file) => {
+    // Multi-file importers receive an array, sent as files[]; single-file ones keep the "file" field
+    api._gameProfiles.importBackupPulls = async (accountId, gameProfileId, importerKey, fileOrFiles) => {
         const formData = new FormData();
         formData.append("importer", importerKey);
-        formData.append("file", file);
+        if (Array.isArray(fileOrFiles)) {
+            fileOrFiles.forEach((file) => formData.append("files[]", file));
+        } else {
+            formData.append("file", fileOrFiles);
+        }
         return axiosInstance.post(
             `/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls/import-backup`,
             formData,

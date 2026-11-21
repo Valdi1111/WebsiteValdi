@@ -85,11 +85,10 @@ export default function AccountsPage() {
             .withErrorHandling()
             .accounts()
             .sync(accountId)
-            .then(() => {
-                loadAccounts();
-            })
+            // Reload on failure too: a failed sync may have updated the account status (e.g. expired login)
             .finally(() => {
                 setSyncingAccountId(null);
+                loadAccounts();
             });
     };
 

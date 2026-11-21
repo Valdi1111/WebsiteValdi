@@ -48,6 +48,8 @@ abstract class AbstractPullOperationTracker
     }
 
     /**
+     * @param array<string, array<string, mixed>>|null $banners Optional per-banner progress (multi-file imports),
+     *                                                          keyed by banner with at least "gacha_type" and "name"
      * @return array<string, mixed>
      */
     public function startBackupImport(
@@ -56,6 +58,7 @@ abstract class AbstractPullOperationTracker
         string $importerKey,
         string $importerLabel,
         int $estimatedTotal,
+        ?array $banners = null,
     ): array {
         $now = (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM);
         $operation = [
@@ -72,10 +75,11 @@ abstract class AbstractPullOperationTracker
             'processed' => 0,
             'imported' => 0,
             'skipped' => 0,
+            'updated' => 0,
             'promoted' => 0,
             'warnings' => [],
             'error' => null,
-            'banners' => null,
+            'banners' => $banners,
             'started_at' => $now,
             'updated_at' => $now,
             'finished_at' => null,
@@ -108,6 +112,12 @@ abstract class AbstractPullOperationTracker
         $operation['skipped'] = $progress->skipped;
         $operation['percent'] = $percent;
         $operation['warnings'] = $progress->warnings;
+        if ($progress->updated !== null) {
+            $operation['updated'] = $progress->updated;
+        }
+        if ($progress->banners !== null) {
+            $operation['banners'] = $progress->banners;
+        }
         $operation['updated_at'] = (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM);
 
         $this->saveAndPublish($operation);
@@ -133,7 +143,11 @@ abstract class AbstractPullOperationTracker
         $operation['processed'] = $summary->total;
         $operation['imported'] = $summary->imported;
         $operation['skipped'] = $summary->skipped;
+        $operation['updated'] = $summary->updated;
         $operation['warnings'] = $summary->warnings;
+        if ($summary->banners !== null) {
+            $operation['banners'] = $summary->banners;
+        }
         $operation['updated_at'] = $now;
         $operation['finished_at'] = $now;
 
@@ -283,6 +297,15 @@ abstract class AbstractPullOperationTracker
         $operation['status'] = 'failed';
         $operation['phase'] = 'failed';
         $operation['error'] = $error;
+        // Banners still waiting or running will never finish
+        if (is_array($operation['banners'] ?? null)) {
+            foreach ($operation['banners'] as $key => $banner) {
+                if (in_array($banner['status'] ?? 'queued', ['queued', 'running'], true)) {
+                    $operation['banners'][$key]['status'] = 'failed';
+                    $operation['banners'][$key]['error'] ??= $error;
+                }
+            }
+        }
         $operation['updated_at'] = $now;
         $operation['finished_at'] = $now;
 

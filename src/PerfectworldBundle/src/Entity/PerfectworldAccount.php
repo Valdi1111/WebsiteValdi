@@ -71,7 +71,7 @@ class PerfectworldAccount implements GameAccountInterface
      * @var Collection<int, PerfectworldGameProfile>
      */
     #[ORM\OneToMany(targetEntity: PerfectworldGameProfile::class, mappedBy: 'account', cascade: ['persist', 'remove'])]
-    #[ORM\OrderBy(['id' => 'ASC'])]
+    #[ORM\OrderBy(['id' => \SortDirection::Ascending])]
     private Collection $gameProfiles;
 
     public function __construct()

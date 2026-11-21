@@ -203,6 +203,9 @@ date.default_latitude = 44.202091
 date.default_longitude = 12.036725
 max_execution_time = 300
 memory_limit = 4G
+; Large uploads (EPUB books, game pull exports); the POST limit must exceed the single-file limit
+upload_max_filesize = 256M
+post_max_size = 260M
 EOF
     echo " - Creato /etc/php/$SELECTED_PHP_VER/fpm/conf.d/99-custom.ini"
     systemctl restart "php${SELECTED_PHP_VER}-fpm" 2>/dev/null || true

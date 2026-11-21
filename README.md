@@ -31,7 +31,7 @@ Each functional domain is isolated into its own **Symfony Bundle** under [`src/`
 ### 1. [`CoreBundle`](src/CoreBundle) — Shared Foundation & UI Kit
 Provides the cross-cutting infrastructure shared across all application bundles:
 - **Database-Backed Security & RBAC:** centralized authentication (`/login`, `/logout`), `User`, `Role`, `Permission`, `Token`, `RoleHierarchy`, and `RolePermission` entities, custom voters (`PermissionVoter`, `DatabaseRoleHierarchyVoter`), and API bearer/access token authentication (`AccessTokenHandler`).
-- **File Manager & Video Streaming (`FileManagerTrait` + `FileManager`):** full filesystem management via Flysystem (directory tree navigation, file upload, create/rename/move/copy/delete, CodeMirror code editor, file preview, download, and video streaming via `X-Sendfile` / HTTP Range requests). Includes the shared [`VideoPlayer`](src/CoreBundle/assets/components/VideoPlayer.jsx) powered by **Plyr**.
+- **File Manager & Video Streaming (`FileManagerTrait` + `FileManager`):** full filesystem management via Flysystem (directory tree navigation, file upload, create/rename/move/copy/delete, CodeMirror code editor, file preview, download, and video streaming via HTTP Range requests, with the files served by Caddy through `X-Accel-Redirect`). Includes the shared [`VideoPlayer`](src/CoreBundle/assets/components/VideoPlayer.jsx) powered by **Plyr**.
 - **Standard Table Architecture:** declarative table engine supporting both server-side (`RemoteTable`) and client-side (`LocalTable`) pagination, sorting, and multi-condition filtering:
   - **Backend** ([guide](src/CoreBundle/src/Model/StandardTable/README.md)): `TableParameters`, `TableConfiguration`, `TableJoin`, `TableRepositoryTrait` (flat scalar projections or entity hydration via `OffsetPaginator`, DQL filter operators, composite PK distinct counting).
   - **Frontend** ([guide](src/CoreBundle/assets/components/standard-table/README.md)): `BaseTable`, `MultiFilterDropdown`, `TableFilterRibbon`, `TableToolbar`, `TableMobileFilterDrawer`, search text highlighting, tag catalogs, and dynamic tooltips.
@@ -89,7 +89,7 @@ Account and pull tracking for **Neverness to Everness** ([full guide](src/Perfec
 ### 7. [`VideosBundle`](src/VideosBundle) — Personal Video Archive & Streaming
 Lightweight application for browsing and streaming videos stored in `VIDEOS_BASE_FOLDER`:
 - Exposes a dedicated web interface built around `CoreBundle`'s [`FileManager`](src/CoreBundle/assets/components/file-manager/FileManager.jsx) and [`VideoPlayer`](src/CoreBundle/assets/components/VideoPlayer.jsx).
-- Supports folder management, file operations, and optimized direct streaming via `FileManagerTrait` (`X-Sendfile` and HTTP Range support).
+- Supports folder management, file operations, and optimized direct streaming via `FileManagerTrait` (`X-Accel-Redirect` to Caddy and HTTP Range support).
 
 ---
 

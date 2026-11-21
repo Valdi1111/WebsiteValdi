@@ -462,10 +462,31 @@ $SITE_HOSTS {
     encode zstd gzip
     file_server
 
+    # Files sent by PHP (videos, books, downloads) are served by Caddy, as mod_xsendfile did on Apache:
+    # Symfony answers with an X-Accel-Redirect header and no body, and the PHP-FPM worker is freed at once
+    # instead of staying busy for the whole stream. Caddy always sets both request headers, replacing
+    # any value sent by the client.
+    request_header X-Sendfile-Type X-Accel-Redirect
+    request_header X-Accel-Mapping /=/
+    # "intercept" and not handle_response inside php_fastcgi: there the FastCGI connection stays open
+    # until the file is sent, and PHP-FPM keeps the worker until Caddy closes it
+    intercept {
+        @accel header X-Accel-Redirect *
+        handle_response @accel {
+            root * /
+            rewrite * {resp.header.X-Accel-Redirect}
+            method * GET
+            # Never show the real path to the client
+            header -X-Accel-Redirect
+            file_server
+        }
+    }
+
     php_fastcgi unix/$PHP_SOCK {
         try_files {path} index.php
-        env X_SENDFILE_TYPE X-Sendfile
         resolve_root_symlink
+        # Symfony trusts X-Sendfile-Type only on requests coming through here
+        env SYMFONY_TRUST_X_SENDFILE_TYPE_HEADER 1
     }
 
     @phpFile {

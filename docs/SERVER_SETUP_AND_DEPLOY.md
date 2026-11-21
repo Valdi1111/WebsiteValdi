@@ -10,7 +10,7 @@ The project is a modular **Symfony 8.1** application with a **React 19 + Ant Des
 
 | Layer | Technology | Role |
 | :--- | :--- | :--- |
-| **Web Server & TLS** | **Caddy + Mercure Hub** (`mercure` binary) | Automatic HTTPS reverse proxy (Let's Encrypt in production, internal CA `local_certs` for `.wip`/`.local` domains), `X-Sendfile` support for video/EPUB streaming, and built-in SSE hub on `mercure.<domain>`. |
+| **Web Server & TLS** | **Caddy + Mercure Hub** (`mercure` binary) | Automatic HTTPS reverse proxy (Let's Encrypt in production, internal CA `local_certs` for `.wip`/`.local` domains), PHP-FPM through FastCGI with files (videos, EPUBs, downloads) handed back to Caddy via `X-Accel-Redirect`, so a stream does not keep a PHP-FPM worker busy, and built-in SSE hub on `mercure.<domain>`. |
 | **PHP Backend** | **PHP 8.5 (`php8.5-fpm` & CLI)** + **Symfony 8.1** | REST APIs, database-backed security & permissions, Doctrine ORM 3, Messenger (async queues), and Scheduler (recurring jobs). |
 | **Database** | **MySQL / MariaDB** | Application entities, Symfony Messenger `doctrine://default` queues, and sessions. |
 | **Frontend Build** | **Webpack Encore** + **React 19** + **Ant Design 6** | Compiles per-bundle JS/CSS entry points into `public/build/`. |
@@ -50,7 +50,7 @@ What it interactively configures:
 2. **User groups:** adds `root` and the current user (`$SUDO_USER`) to the `www-data` group.
 3. **PHP 8.5 (`FPM` + `CLI`):** detects or installs via the `ondrej/php` PPA `php8.5-fpm`, `php8.5-cli`, and required extensions (`ldap`, `imap`, `readline`, `imagick`, `mbstring`, `mysql`, `curl`, `zip`, `xml`, `intl`), sets the default CLI binary, and writes `/etc/php/8.5/{fpm,cli}/conf.d/99-custom.ini` (`Europe/Rome`, `memory_limit = 4G`, `max_execution_time = 300`; FPM also gets `upload_max_filesize = 256M` and `post_max_size = 260M`).
 4. **External tools:** installs or updates `composer` in `/usr/local/bin/composer`, `ffmpeg`/`ffprobe`, and `yt-dlp` in `/usr/local/bin/yt-dlp`.
-5. **Caddy + Mercure Hub:** downloads the latest `mercure` release to `/var/www/caddy/mercure`, grants `CAP_NET_BIND_SERVICE` for non-root binding on ports `80`/`443`, generates HS256 JWT keys (`MERCURE_PUBLISHER_JWT_KEY` and `MERCURE_SUBSCRIBER_JWT_KEY`), generates `/var/www/caddy/Caddyfile` (with `X-Sendfile` enabled for PHP-FPM), and registers `/etc/systemd/system/caddy.service`.
+5. **Caddy + Mercure Hub:** downloads the latest `mercure` release to `/var/www/caddy/mercure`, grants `CAP_NET_BIND_SERVICE` for non-root binding on ports `80`/`443`, generates HS256 JWT keys (`MERCURE_PUBLISHER_JWT_KEY` and `MERCURE_SUBSCRIBER_JWT_KEY`), generates `/var/www/caddy/Caddyfile` (the hub, plus the application through PHP-FPM; the files PHP sends with `X-Accel-Redirect` are served by Caddy, which runs as `www-data` and so reads the media folders as PHP-FPM does), and registers `/etc/systemd/system/caddy.service`.
 6. **Project permissions:** sets `owner:www-data`, enables the `setgid` bit (`g+s`) on directories, and configures **default POSIX ACLs** (`setfacl`) on the project root so new files created by PHP/Symfony or the user keep `rwX` permissions.
 7. **Final summary & WSL notes:** prints the `MERCURE_*` environment variables to add to `.env.local` and, when running inside WSL, prints `netsh portproxy` / `.wslconfig` instructions for Windows.
 

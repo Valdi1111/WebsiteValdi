@@ -16,6 +16,7 @@ Each functional domain is isolated into its own **Symfony Bundle** under [`src/`
 | `games.<domain>` | [`GamesBundle`](src/GamesBundle) | Unified games frontend (one tab per provider) and code shared by game provider bundles |
 | *(`games.<domain>` → HoYoverse tab)* | [`HoyoverseBundle`](src/HoyoverseBundle) | HoYoLAB automation, check-in, promo code redemption, notes/endgame reminders, Diary & Pulls Tracker |
 | *(`games.<domain>` → Gryphline tab)* | [`GryphlineBundle`](src/GryphlineBundle) | Gryphline/SKPort automation (Arknights: Endfield), check-in, reminders & Headhunting Pulls |
+| *(`games.<domain>` → Perfect World tab)* | [`PerfectworldBundle`](src/PerfectworldBundle) | Perfect World account login & profiles (Neverness to Everness) with a Pulls Tracker fed by nte-exporter imports |
 | `videos.<domain>` | [`VideosBundle`](src/VideosBundle) | Personal video archive with web file manager & in-browser streaming player |
 | `mercure.<domain>` | **Caddy + Mercure** | Real-time SSE hub pushing live updates to React clients |
 
@@ -76,14 +77,22 @@ Automation and tracking suite for **Arknights: Endfield** on Gryphline / SKPort 
 
 ---
 
-### 6. [`VideosBundle`](src/VideosBundle) — Personal Video Archive & Streaming
+### 6. [`PerfectworldBundle`](src/PerfectworldBundle) — Perfect World Games
+Account and pull tracking for **Neverness to Everness** ([full guide](src/PerfectworldBundle/README.md)):
+- **Authentication:** Perfect World Games login with email + one-time code (no password, no captcha) or a token pasted from the NTE website, with token expiry tracking.
+- **Profiles:** game roles (UID, nickname, level, server, avatar) synced from the account.
+- **Pulls Tracker:** multi-file import of [nte-exporter](https://github.com/RishiMenon2004/nte-exporter) exports with automatic repair of old exporter files, board/Arc pity rules and an item catalog/icons built from the NTE_Assets datamine.
+
+---
+
+### 7. [`VideosBundle`](src/VideosBundle) — Personal Video Archive & Streaming
 Lightweight application for browsing and streaming videos stored in `VIDEOS_BASE_FOLDER`:
 - Exposes a dedicated web interface built around `CoreBundle`'s [`FileManager`](src/CoreBundle/assets/components/file-manager/FileManager.jsx) and [`VideoPlayer`](src/CoreBundle/assets/components/VideoPlayer.jsx).
 - Supports folder management, file operations, and optimized direct streaming via `FileManagerTrait` (`X-Sendfile` and HTTP Range support).
 
 ---
 
-### 7. Supporting Services (`node-services/`)
+### 8. Supporting Services (`node-services/`)
 A **Node.js / Express** microservice ([`node-services/`](node-services/)) powered by **Playwright (Chromium)** and `p-queue`:
 - Handles dynamic browser scraping/extraction for the **AnimeWorld** provider (`/animeworld`) with bounded concurrency and a `/health` endpoint monitored by Supervisor.
 
@@ -95,4 +104,4 @@ All technical documentation is located in [`docs/`](docs/README.md):
 
 - 🖥️ **[Infrastructure, First Installation, Updates & Shared Folder](docs/SERVER_SETUP_AND_DEPLOY.md)** — Stack overview (Caddy + Mercure, PHP 8.5, Node/Playwright, Supervisor), server provisioning with `scripts/setup-server.sh`, deployment via `scripts/website-deploy.sh`, and shared folder setup via `scripts/setup-shared-folder.sh`.
 - 🧩 **[Creating a New Bundle](docs/CREATING_A_BUNDLE.md)** — Standard layout, Composer/Symfony registration, Webpack Encore setup, and Caddy subdomain routing.
-- 📚 **[Full Documentation Index](docs/README.md)** — Links to detailed guides for `StandardTable` (Frontend & Backend), `HoyoverseBundle`, and `GryphlineBundle`.
+- 📚 **[Full Documentation Index](docs/README.md)** — Links to detailed guides for `StandardTable` (Frontend & Backend), `HoyoverseBundle`, `GryphlineBundle`, and `PerfectworldBundle`.

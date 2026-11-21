@@ -22,7 +22,7 @@ The project is a modular **Symfony 8.1** application with a **React 19 + Ant Des
 With `DOMAIN_NAME=valdi.ovh` (or a local development domain), Caddy routes traffic to the Symfony application across the subdomains listed in `SUBDOMAINS`:
 - `anime.<domain>` — Anime & Manga tracker + episode downloader
 - `books.<domain>` — E-Book library & EPUB reader
-- `games.<domain>` — Game automation and tracking (one tab per provider: HoYoverse / HoYoLAB, Gryphline / SKPort), see [`GamesBundle`](../src/GamesBundle/README.md)
+- `games.<domain>` — Game automation and tracking (one tab per provider: HoYoverse / HoYoLAB, Gryphline / SKPort, Perfect World / NTE), see [`GamesBundle`](../src/GamesBundle/README.md)
 - `videos.<domain>` — Video file manager & streaming
 - `mercure.<domain>` — Mercure SSE hub (with a status landing page at `/`)
 
@@ -116,6 +116,9 @@ Available configurations in [`scripts/`](../scripts/):
 - [`website-scheduler-default.conf`](../scripts/website-scheduler-default.conf) — `scheduler_default`
 - [`website-scheduler-hoyoverse.conf`](../scripts/website-scheduler-hoyoverse.conf) — `scheduler_hoyoverse`
 - [`website-scheduler-gryphline.conf`](../scripts/website-scheduler-gryphline.conf) — `scheduler_gryphline`
+- [`website-messenger-perfectworld.conf`](../scripts/website-messenger-perfectworld.conf) — `perfectworld` queue (NTE catalog update)
+- [`website-scheduler-perfectworld.conf`](../scripts/website-scheduler-perfectworld.conf) — `scheduler_perfectworld`
+- A worker for the `perfectworld_pulls` queue (`php bin/console messenger:consume perfectworld_pulls -vv --limit=100 --time-limit=3600`), configured like the other `*_pulls` workers: Perfect World pull imports wait in that queue. After the first deploy also run `php bin/console perfectworld:nte-catalog:update` once to build the NTE item catalog (then refreshed weekly by the `perfectworld` schedule).
 
 Replace `YOURUSER` and `/path/to/your/app` in the copied files under `/etc/supervisor/conf.d/`, then reload and start the services:
 

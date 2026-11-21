@@ -1,6 +1,6 @@
 # GamesBundle
 
-Shared foundation of the game provider bundles ([`HoyoverseBundle`](../HoyoverseBundle/README.md), [`GryphlineBundle`](../GryphlineBundle/README.md)) and host of the unified games frontend on **`games.<domain>`** (one tab per provider).
+Shared foundation of the game provider bundles ([`HoyoverseBundle`](../HoyoverseBundle/README.md), [`GryphlineBundle`](../GryphlineBundle/README.md), [`PerfectworldBundle`](../PerfectworldBundle/README.md)) and host of the unified games frontend on **`games.<domain>`** (one tab per provider).
 
 ```
 CoreBundle      users, roles/permissions, security, notifications, React layout, theme, tables, file manager
@@ -8,7 +8,7 @@ CoreBundle      users, roles/permissions, security, notifications, React layout,
 GamesBundle     shared game models/interfaces, pull tracking & icons, GeeTest/auth helpers, task scheduling,
    ▲            games page + shared SPA
    │
-HoyoverseBundle, GryphlineBundle   API clients, entities, game services, messages/handlers, provider-specific UI
+HoyoverseBundle, GryphlineBundle, PerfectworldBundle   API clients, entities, game services, messages/handlers, provider-specific UI
 ```
 
 Design decisions are summarized in [§4](#4-design-notes).
@@ -22,7 +22,7 @@ Design decisions are summarized in [§4](#4-design-notes).
 | **Game model** | `Model/Game/*` (capability interfaces such as `HasStaminaInterface`, `HasDailiesInterface`, `GachaConfig`, `RarityConfig`, `GameAccountInterface`, `GameProfileInterface`), `Model/GameNotes/*`, `Model/Pull/*` |
 | **Task messages** | `Message/{TaskMessageInterface, RegionalTaskMessageInterface, ProfileTaskMessageInterface, FeatureFlagMessageInterface}` |
 | **Task configuration** | `DependencyInjection/GameTasksConfiguration` (`addTaskNode()`, `registerTaskParameters()`), `Scheduler/AbstractTaskScheduleProvider` |
-| **Pull tracking** | `Service/AbstractPullOperationTracker` (cache + private Mercure updates), `Exception/PullProfileLockedException` |
+| **Pull tracking** | `Service/AbstractPullOperationTracker` (cache + private Mercure updates; backup imports may report per-banner progress in `banners`), `Model/Pull/{PullImportProgress, PullImportSummary}` (optional `updated` and `banners`), `Exception/PullProfileLockedException` |
 | **Pull item icons** | `Service/PullItemIcon*`, `Command/PullIconResolversCommand`, Liip filter `games_pull_item_icon` (see [`PULL_ITEM_ICONS.md`](../../docs/PULL_ITEM_ICONS.md)) |
 | **Login helpers** | `Service/AuthSessionStore`, `Service/GeetestService` (script cache + iframe response), `Model/Auth/{LoginStepResult, SubmitCaptchaRequest}` |
 | **Serialization** | `Normalizer/AbstractGameProfileNormalizer` |
@@ -39,6 +39,8 @@ games:
             role: ROLE_USER_HOYOVERSE
         gryphline:
             role: ROLE_USER_GRYPHLINE
+        perfectworld:
+            role: ROLE_USER_PERFECTWORLD
 ```
 
 - The games page requires `ROLE_USER_GAMES`, implied by every provider user role through the database role hierarchy. Each tab is shown only when the user has the provider role; provider APIs keep their own `#[IsGranted]`.
@@ -89,16 +91,27 @@ export default {
 
 Shared components are driven by the fields the backend exposes for each profile (`"field" in profile`) and by common capability flags: `supports_pulls` (pull tracker available), `supports_pull_sync` (server-side automatic sync).
 
+Optional fields understood by the shared pulls pages:
+
+| Field | Where | Effect |
+| :--- | :--- | :--- |
+| `multiple`, `max_files` | `available_backup_importers[]` (overview) | `BackupPullImportModal` accepts several files, sent as `files[]` in one request (otherwise a single `file`) |
+| `banners` | backup import operation | per-banner tags in `PullOperationProgressBanner` and in the import modal (`processed/total`, `imported`, `updated`) |
+| `updated` | backup import operation | records rewritten by the import (e.g. a newer exporter fixing older data) |
+| `pull_label`, `pull_singular_label` | banner summary | unit counted by that banner (e.g. NTE "Rolls" vs "Arcs"), falls back to `rarity_config.pull_label` |
+| `roll_label` | pull rows | extra "Roll" column in `PullsBannerDetail` (NTE: dice value, Points Gift, Slumberland) |
+| `pity` / `pull_number` = `null` | pull rows | shown as "—" (bonus rows, rewards that do not reset pity) |
+
 ---
 
 ## 3. Adding a game provider
 
 1. Create the provider bundle (see [`CREATING_A_BUNDLE.md`](../../docs/CREATING_A_BUNDLE.md)) depending on `GamesBundle` models and interfaces.
 2. Routing: `host: '%games.domain_name%'`, `prefix: /api/<key>`, controllers protected by the provider role.
-3. Tasks: define them with `GameTasksConfiguration` in the bundle `configure()`/`loadExtension()` and add a `ScheduleProvider` extending `AbstractTaskScheduleProvider` with `#[AsSchedule('<key>')]`.
+3. Tasks (only if the provider has scheduled automations): define them with `GameTasksConfiguration` in the bundle `configure()`/`loadExtension()` and add a `ScheduleProvider` extending `AbstractTaskScheduleProvider` with `#[AsSchedule('<key>')]`.
 4. Pull tracking: extend `AbstractPullOperationTracker` returning `<key>` from `getProviderKey()`.
-5. Roles: data migration adding `ROLE_USER_<KEY>` with `ROLE_USER_<KEY> → ROLE_USER_GAMES` in the role hierarchy, then `cache:pool:clear core.security_hierarchy.cache`.
-6. Register the provider in `config/packages/games.yaml` and its descriptor in `assets/providers.js`.
+5. Roles: data migration adding `ROLE_ADMIN_<KEY>` and `ROLE_USER_<KEY>` with `ROLE_ADMIN_<KEY> → ROLE_USER_<KEY> → ROLE_USER_GAMES` in the role hierarchy, then `cache:pool:clear core.security_hierarchy.cache`.
+6. Register the provider in `config/packages/games.yaml`, its descriptor in `assets/providers.js`, and the `@<Key>Bundle` alias in `webpack.config.js` and `phpstorm.config.js`.
 
 ---
 
@@ -118,6 +131,7 @@ Why things are the way they are (useful before changing them):
 | `ProviderScope` rendered with `key={provider.key}` | Without the key React reuses the same component instances when switching tab, leaving the previous provider's accounts, modals and drawers on screen. |
 | Shared components driven by profile fields (`"field" in profile`) | Settings, tags and actions appear only when the backend exposes the field, so one component serves every provider without per-provider branches. |
 | Gryphline pulls expose both `item_type` and `item_type_label` | `item_type` (raw pool category) is also used by `PullItemIconQuery::fromPullRow()` to resolve icons; the label is only for display. |
+| New shared fields are optional and new DTO parameters trailing | `PullImportSummary`/`PullImportProgress` are built positionally by existing providers and tests; providers that do not send `banners`, `multiple` or `roll_label` keep the previous UI. |
 
 ### Not shared on purpose
 

@@ -1,0 +1,12 @@
+doctrine:
+    dbal:
+        types:
+            wall_clock_datetime_immutable: App\PerfectworldBundle\Doctrine\WallClockDateTimeImmutableType
+    orm:
+        mappings:
+            App\PerfectworldBundle:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/PerfectworldBundle/src/Entity'
+                prefix: 'App\PerfectworldBundle\Entity'
+                alias: PerfectworldBundle

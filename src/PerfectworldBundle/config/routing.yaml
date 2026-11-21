@@ -1,0 +1,8 @@
+controllers:
+    resource:
+        path: ../src/Controller/
+        namespace: App\PerfectworldBundle\Controller
+    type: attribute
+    name_prefix: perfectworld_
+    prefix: /api/perfectworld
+    host: '%games.domain_name%'

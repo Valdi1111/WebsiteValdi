@@ -337,6 +337,17 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         },
  *     },
  * }
+ * @psalm-type PerfectworldConfig = array{
+ *     tasks?: array{
+ *         catalog_update?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: string|Param, // Default: "App\\PerfectworldBundle\\Message\\Batch\\NteCatalogUpdateMessage"
+ *             cron?: string|Param, // Default: null
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *     },
+ * }
  * @psalm-type PasswordsConfig = array{
  *     domain_name?: scalar|Param|null, // Default: null
  *     encryption_key?: scalar|Param|null, // Default: null
@@ -1949,6 +1960,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     books?: BooksConfig,
  *     hoyoverse?: HoyoverseConfig,
  *     gryphline?: GryphlineConfig,
+ *     perfectworld?: PerfectworldConfig,
  *     passwords?: PasswordsConfig,
  *     videos?: VideosConfig,
  *     doctrine?: DoctrineConfig,
@@ -1971,6 +1983,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         books?: BooksConfig,
  *         hoyoverse?: HoyoverseConfig,
  *         gryphline?: GryphlineConfig,
+ *         perfectworld?: PerfectworldConfig,
  *         passwords?: PasswordsConfig,
  *         videos?: VideosConfig,
  *         doctrine?: DoctrineConfig,
@@ -1997,6 +2010,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         books?: BooksConfig,
  *         hoyoverse?: HoyoverseConfig,
  *         gryphline?: GryphlineConfig,
+ *         perfectworld?: PerfectworldConfig,
  *         passwords?: PasswordsConfig,
  *         videos?: VideosConfig,
  *         doctrine?: DoctrineConfig,
@@ -2020,6 +2034,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         books?: BooksConfig,
  *         hoyoverse?: HoyoverseConfig,
  *         gryphline?: GryphlineConfig,
+ *         perfectworld?: PerfectworldConfig,
  *         passwords?: PasswordsConfig,
  *         videos?: VideosConfig,
  *         doctrine?: DoctrineConfig,

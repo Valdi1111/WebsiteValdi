@@ -1,0 +1,482 @@
+<?php
+
+namespace App\PerfectworldBundle\Service\Catalog;
+
+use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Target;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
+
+/**
+ * Builds the compact NTE catalog from the Waifus-Grace/NTE_Assets datamine.
+ *
+ * The repository weighs several GB, so it is never cloned: the commit SHA comes from the GitHub API
+ * and every file is downloaded from raw.githubusercontent.com at that SHA, so all tables belong to
+ * the same datamine. Any problem (README not "(Global)", required table missing, empty or unusable)
+ * throws before anything is saved, so the previous catalog stays in place.
+ *
+ * The result is merged over the previous catalog: ids are never reused by the game, so entries that
+ * a partial datamine no longer contains are kept.
+ */
+class NteCatalogBuilder
+{
+    public const string DEFAULT_REF = 'main';
+
+    private const string COMMIT_API_URL = 'https://api.github.com/repos/Waifus-Grace/NTE_Assets/commits/%s';
+    private const string README_PATH = 'README.md';
+    private const string LOCALIZATION_PATH = 'Localization/en/game.json';
+    private const string AVATAR_TABLE_PATH = 'DataTable/Avarta/AvatarDataTable.json';
+    private const string ARC_POOL_TABLE_PATH = 'DataTable/Fork/DT_ForkLotteryPoolData.json';
+
+    /**
+     * Item tables in precedence order: the first table defining an id sets its type, later tables only
+     * fill the fields still missing (e.g. DT_AppearanceData has no icon for gliders, DT_ItemConfig has).
+     * GachaIllustrate is not used: it is a gacha portrait table without names or qualities that repeats
+     * characters, arcs and dice with 1024px illustrations instead of icons.
+     */
+    private const array ITEM_TABLES = [
+        ['path' => 'DataTable/Character/DT_Character.json', 'type' => NteCatalog::TYPE_CHARACTER, 'required' => true],
+        ['path' => 'DataTable/Fork/DT_ForkItemData.json', 'type' => NteCatalog::TYPE_ARC, 'required' => true],
+        ['path' => 'DataTable/Inventory/DT_ItemConfig.json', 'type' => NteCatalog::TYPE_ITEM, 'required' => true],
+        ['path' => 'DataTable/Inventory/DT_CapitalItemConfig.json', 'type' => NteCatalog::TYPE_ITEM, 'required' => false],
+        ['path' => 'DataTable/Vehicle/DT_VehicleItemData.json', 'type' => NteCatalog::TYPE_COSMETIC, 'required' => false],
+        ['path' => 'DataTable/Character/Appearance/DT_AppearanceData.json', 'type' => NteCatalog::TYPE_COSMETIC, 'required' => false],
+    ];
+
+    /** Item types of the generic item tables that are cosmetics (outfits, gliders, liveries). */
+    private const array COSMETIC_ITEM_TYPES = [
+        'ITEM_TYPE_FASHION',
+        'ITEM_TYPE_GLIDE',
+        'ITEM_TYPE_VEHICLE_SKIN',
+    ];
+
+    private const array QUALITY_TO_RANK = [
+        'ITEM_QUALITY_ORANGE' => 'S',
+        'ITEM_QUALITY_PURPLE' => 'A',
+        'ITEM_QUALITY_BLUE' => 'B',
+    ];
+
+    /** Row fields holding the name, quality and icon (StaticItemData first, StaticAppearanceData second). */
+    private const array NAME_FIELDS = ['ItemName', 'Name'];
+    private const array QUALITY_FIELDS = ['ItemQuality', 'Quality'];
+    private const array ICON_FIELDS = ['ItemIcon', 'ItemIconBig', 'HeadIconBig'];
+    private const array AVATAR_ICON_FIELDS = ['icon', 'BigImage'];
+
+    /** Localization keys naming the boards ("Lottery_Kachimingcheng_heiyu" => "Foretold Finale"). */
+    private const string BOARD_NAME_KEY_PATTERN = '/^Lottery_Kachimingcheng_(.+)$/i';
+
+    /** Export pool suffixes whose board name key uses a different suffix. */
+    private const array BOARD_NAME_KEY_ALIASES = [
+        'anhunqu' => 'ahq',
+        'permanent' => 'changzhu',
+    ];
+
+    public function __construct(
+        #[Target('perfectworld.nte_assets.client')]
+        private readonly HttpClientInterface $httpClient,
+        private readonly NteCatalog $catalog,
+        #[Target('perfectworld')]
+        private readonly LoggerInterface $logger,
+    ) {
+    }
+
+    /**
+     * Builds the catalog at the given ref (branch, tag or commit) and merges it over the stored one.
+     * The result is not saved: callers persist it with NteCatalog::save().
+     *
+     * @return array{sha: string, version: string, built_at: string, items: array<string, array{id: string, name: string, rank: ?string, type: string, icon_path: ?string}>, avatars: array<string, string>, pools: array<string, string>}
+     *
+     * @throws \RuntimeException when the build is aborted (the previous catalog must be kept)
+     */
+    public function build(?string $ref = null): array
+    {
+        $sha = $this->resolveSha($ref !== null && trim($ref) !== '' ? trim($ref) : self::DEFAULT_REF);
+        $version = $this->fetchGlobalVersion($sha);
+
+        $localization = $this->fetchJson($sha, self::LOCALIZATION_PATH);
+        if (!is_array($localization) || $localization === []) {
+            throw new \RuntimeException(sprintf('NTE_Assets %s is missing or empty at %s.', self::LOCALIZATION_PATH, $sha));
+        }
+
+        $items = [];
+        foreach (self::ITEM_TABLES as $table) {
+            $rows = $this->fetchTableRows($sha, $table['path'], $table['required']);
+            if ($rows === null) {
+                continue;
+            }
+
+            $usable = 0;
+            foreach ($rows as $rowId => $row) {
+                if (!is_array($row) || trim((string) $rowId) === '') {
+                    continue;
+                }
+                $usable += $this->addItem($items, (string) $rowId, $this->resolveItemType($table['type'], (string) $rowId, $row), $row, $localization) ? 1 : 0;
+            }
+
+            if ($table['required'] && $usable === 0) {
+                throw new \RuntimeException(sprintf('NTE_Assets table %s yielded no catalog entries at %s.', $table['path'], $sha));
+            }
+            unset($rows);
+        }
+
+        // Entries without any usable name are dropped: callers store the name in a NOT NULL column
+        $items = array_filter($items, static fn (array $entry): bool => $entry['name'] !== null);
+
+        $avatars = $this->buildAvatars($sha);
+        $pools = $this->buildPools($sha, $localization);
+        unset($localization);
+
+        $previous = $this->catalog->all();
+        $catalog = [
+            'sha' => $sha,
+            'version' => $version,
+            'built_at' => new \DateTimeImmutable()->format(\DateTimeInterface::ATOM),
+            'items' => array_replace($previous['items'], $items),
+            'avatars' => array_replace($previous['avatars'], $avatars),
+            'pools' => array_replace($previous['pools'], $pools),
+        ];
+
+        $this->logger->info('NTE catalog built', [
+            'sha' => $sha,
+            'version' => $version,
+            'items' => count($items),
+            'merged_items' => count($catalog['items']),
+            'avatars' => count($avatars),
+            'pools' => count($pools),
+        ]);
+
+        return $catalog;
+    }
+
+    private function resolveSha(string $ref): string
+    {
+        if (!preg_match('#^[A-Za-z0-9._/-]{1,200}$#', $ref)) {
+            throw new \RuntimeException(sprintf('Invalid NTE_Assets ref "%s".', $ref));
+        }
+
+        $response = $this->httpClient->request('GET', sprintf(self::COMMIT_API_URL, $ref), [
+            'headers' => [
+                // Plain-text SHA instead of the full commit payload (datamine commits list thousands of files)
+                'Accept' => 'application/vnd.github.sha',
+                'X-GitHub-Api-Version' => '2022-11-28',
+            ],
+        ]);
+
+        $sha = strtolower(trim($response->getContent()));
+        if (!preg_match('/^[0-9a-f]{40}$/', $sha)) {
+            throw new \RuntimeException(sprintf('Unexpected GitHub answer while resolving NTE_Assets ref "%s".', $ref));
+        }
+
+        return $sha;
+    }
+
+    /**
+     * The README states the datamined build ("> Version: 1.5.4 (Global)"): only global datamines match
+     * the ids and names of the exports, so anything else aborts the build.
+     */
+    private function fetchGlobalVersion(string $sha): string
+    {
+        $readme = $this->fetchFile($sha, self::README_PATH);
+        if ($readme === null) {
+            throw new \RuntimeException(sprintf('NTE_Assets README is missing at %s.', $sha));
+        }
+
+        if (!preg_match('/Version:\s*([^\s(]+)\s*\(Global\)/i', $readme, $matches)) {
+            throw new \RuntimeException(sprintf('NTE_Assets README at %s does not describe a Global datamine.', $sha));
+        }
+
+        return $matches[1];
+    }
+
+    /**
+     * Adds a row (or fills the missing fields of an entry from a previous table).
+     *
+     * @param array<string, array{id: string, name: ?string, rank: ?string, type: string, icon_path: ?string}> $items
+     * @param array<string, mixed> $row
+     * @param array<string, mixed> $localization
+     *
+     * @return bool whether the entry now has a usable name
+     */
+    private function addItem(array &$items, string $rowId, string $type, array $row, array $localization): bool
+    {
+        $entry = [
+            'id' => $rowId,
+            'name' => $this->resolveText($this->firstField($row, self::NAME_FIELDS), $localization),
+            'rank' => $this->resolveRank($this->firstField($row, self::QUALITY_FIELDS)),
+            'type' => $type,
+            'icon_path' => $this->resolveIconPath($row, self::ICON_FIELDS),
+        ];
+
+        $key = NteCatalog::normalizeId($rowId);
+        if (!isset($items[$key])) {
+            $items[$key] = $entry;
+        } else {
+            foreach (['name', 'rank', 'icon_path'] as $field) {
+                $items[$key][$field] ??= $entry[$field];
+            }
+        }
+
+        return $items[$key]['name'] !== null;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function resolveItemType(string $tableType, string $rowId, array $row): string
+    {
+        if ($tableType !== NteCatalog::TYPE_ITEM) {
+            return $tableType;
+        }
+
+        $itemType = is_string($row['ItemType'] ?? null) ? $this->enumValue($row['ItemType']) : '';
+        if (str_starts_with(strtolower($rowId), 'fashion_') || in_array($itemType, self::COSMETIC_ITEM_TYPES, true)) {
+            return NteCatalog::TYPE_COSMETIC;
+        }
+
+        return NteCatalog::TYPE_ITEM;
+    }
+
+    /**
+     * Profile avatars (SDK "avatar" field, e.g. "Fashion_1042_1") live in AvatarDataTable.
+     *
+     * @return array<string, string>
+     */
+    private function buildAvatars(string $sha): array
+    {
+        $rows = $this->fetchTableRows($sha, self::AVATAR_TABLE_PATH, false) ?? [];
+
+        $avatars = [];
+        foreach ($rows as $rowId => $row) {
+            if (!is_array($row) || trim((string) $rowId) === '') {
+                continue;
+            }
+            $iconPath = $this->resolveIconPath($row, self::AVATAR_ICON_FIELDS);
+            if ($iconPath !== null) {
+                $avatars[NteCatalog::normalizeId((string) $rowId)] = $iconPath;
+            }
+        }
+
+        return $avatars;
+    }
+
+    /**
+     * Arc pools come from DT_ForkLotteryPoolData ("ShowText1", e.g. "Bright Moon Special"); boards have
+     * no table, so their names come from the "Lottery_Kachimingcheng_<suffix>" localization keys.
+     *
+     * @param array<string, mixed> $localization
+     *
+     * @return array<string, string>
+     */
+    private function buildPools(string $sha, array $localization): array
+    {
+        $pools = [];
+
+        foreach ($this->fetchTableRows($sha, self::ARC_POOL_TABLE_PATH, false) ?? [] as $poolId => $row) {
+            if (!is_array($row) || !str_starts_with(strtolower((string) $poolId), 'forklottery_')) {
+                continue;
+            }
+            $name = $this->resolveText($row['ShowText1'] ?? null, $localization) ?? $this->resolveText($row['Name'] ?? null, $localization);
+            if ($name !== null) {
+                $pools[NteCatalog::normalizeId((string) $poolId)] = $name;
+            }
+        }
+
+        $boardNames = [];
+        foreach ($localization as $strings) {
+            if (!is_array($strings)) {
+                continue;
+            }
+            foreach ($strings as $key => $value) {
+                if (is_string($value) && trim($value) !== '' && preg_match(self::BOARD_NAME_KEY_PATTERN, (string) $key, $matches)) {
+                    $boardNames[strtolower($matches[1])] ??= trim($value);
+                }
+            }
+        }
+
+        foreach ($boardNames as $suffix => $name) {
+            $pools['lottery_' . $suffix] ??= $name;
+        }
+        foreach (self::BOARD_NAME_KEY_ALIASES as $poolSuffix => $keySuffix) {
+            if (isset($boardNames[$keySuffix])) {
+                $pools['lottery_' . $poolSuffix] ??= $boardNames[$keySuffix];
+            }
+        }
+
+        return $pools;
+    }
+
+    /**
+     * Resolves an FText through the English localization: the embedded LocalizedString is from an older
+     * build, so the namespace + key lookup comes first, then the key in any namespace (some keys live
+     * outside the namespace of their TableId), then the embedded string. Blank values count as missing.
+     *
+     * @param array<string, mixed> $localization
+     */
+    private function resolveText(mixed $text, array $localization): ?string
+    {
+        if (!is_array($text)) {
+            return null;
+        }
+
+        $key = is_string($text['Key'] ?? null) ? $text['Key'] : '';
+        if ($key !== '') {
+            $namespace = $this->namespaceFromTableId(is_string($text['TableId'] ?? null) ? $text['TableId'] : '');
+            $value = $this->nonBlank($localization[$namespace][$key] ?? null);
+            if ($value !== null) {
+                return $value;
+            }
+
+            foreach ($localization as $strings) {
+                if (is_array($strings) && ($value = $this->nonBlank($strings[$key] ?? null)) !== null) {
+                    return $value;
+                }
+            }
+        }
+
+        return $this->nonBlank($text['LocalizedString'] ?? null);
+    }
+
+    /**
+     * "/Game/Text/ST_Player.ST_Player" => "ST_Player".
+     */
+    private function namespaceFromTableId(string $tableId): string
+    {
+        if ($tableId === '') {
+            return '';
+        }
+
+        $dot = strrpos($tableId, '.');
+        if ($dot !== false) {
+            return substr($tableId, $dot + 1);
+        }
+
+        $slash = strrpos($tableId, '/');
+
+        return $slash !== false ? substr($tableId, $slash + 1) : $tableId;
+    }
+
+    private function resolveRank(mixed $quality): ?string
+    {
+        return is_string($quality) ? (self::QUALITY_TO_RANK[$this->enumValue($quality)] ?? null) : null;
+    }
+
+    /**
+     * "/Game/UI/UI_Icon/Fork/fork_HugVine_256.fork_HugVine_256" => "UI_Icon/Fork/fork_HugVine_256.png".
+     * The object name after the dot may differ in case from the file name, so only the path is kept.
+     *
+     * @param array<string, mixed> $row
+     * @param list<string> $fields
+     */
+    private function resolveIconPath(array $row, array $fields): ?string
+    {
+        foreach ($fields as $field) {
+            $assetPath = is_array($row[$field] ?? null) ? ($row[$field]['AssetPathName'] ?? null) : null;
+            if (!is_string($assetPath) || !str_starts_with($assetPath, '/Game/UI/')) {
+                continue;
+            }
+
+            $path = explode('.', substr($assetPath, strlen('/Game/UI/')), 2)[0];
+            if ($path !== '' && preg_match('#^[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*$#', $path)) {
+                return $path . '.png';
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @param list<string> $fields
+     */
+    private function firstField(array $row, array $fields): mixed
+    {
+        foreach ($fields as $field) {
+            if (array_key_exists($field, $row)) {
+                return $row[$field];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * "EItemQuality::ITEM_QUALITY_ORANGE" => "ITEM_QUALITY_ORANGE".
+     */
+    private function enumValue(string $value): string
+    {
+        $separator = strrpos($value, '::');
+
+        return $separator !== false ? substr($value, $separator + 2) : $value;
+    }
+
+    private function nonBlank(mixed $value): ?string
+    {
+        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+    }
+
+    /**
+     * Rows of an exported DataTable ([{"Type": "DataTable", "Rows": {...}}]).
+     *
+     * @return array<int|string, mixed>|null null when an optional table is missing
+     */
+    private function fetchTableRows(string $sha, string $path, bool $required): ?array
+    {
+        $data = $this->fetchJson($sha, $path);
+
+        $rows = null;
+        if (is_array($data)) {
+            foreach (array_is_list($data) ? $data : [$data] as $export) {
+                if (is_array($export) && is_array($export['Rows'] ?? null)) {
+                    $rows = $export['Rows'];
+                    break;
+                }
+            }
+        }
+
+        if ($rows === null || $rows === []) {
+            if ($required) {
+                throw new \RuntimeException(sprintf('NTE_Assets table %s is missing or empty at %s.', $path, $sha));
+            }
+
+            $this->logger->warning('Optional NTE_Assets table missing or empty, skipped', ['path' => $path, 'sha' => $sha]);
+
+            return null;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * raw.githubusercontent.com serves JSON as text/plain, so the body is decoded here.
+     *
+     * @return array<int|string, mixed>|null null when the file does not exist
+     */
+    private function fetchJson(string $sha, string $path): ?array
+    {
+        $content = $this->fetchFile($sha, $path);
+        if ($content === null) {
+            return null;
+        }
+
+        if (str_starts_with($content, "\xEF\xBB\xBF")) {
+            $content = substr($content, 3);
+        }
+
+        try {
+            $data = json_decode($content, true, 512, \JSON_THROW_ON_ERROR | \JSON_BIGINT_AS_STRING);
+        } catch (\JsonException $e) {
+            throw new \RuntimeException(sprintf('NTE_Assets file %s at %s is not valid JSON: %s', $path, $sha, $e->getMessage()), 0, $e);
+        }
+
+        return is_array($data) ? $data : null;
+    }
+
+    private function fetchFile(string $sha, string $path): ?string
+    {
+        $response = $this->httpClient->request('GET', sprintf('%s/%s/%s', NteCatalog::RAW_BASE_URL, $sha, $path));
+        if ($response->getStatusCode() === 404) {
+            return null;
+        }
+
+        return $response->getContent();
+    }
+}

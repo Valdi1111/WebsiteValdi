@@ -36,6 +36,10 @@ class GamesRoutingTest extends KernelTestCase
         yield 'gryphline accounts api' => ['/api/gryphline/accounts', 'gryphline_api_gryphline_accounts_get'];
         yield 'hoyoverse pulls overview api' => ['/api/hoyoverse/accounts/1/gameProfiles/2/pulls/overview', 'hoyoverse_api_hoyoverse_game_profiles_pulls_overview'];
         yield 'gryphline pulls overview api' => ['/api/gryphline/accounts/1/gameProfiles/2/pulls/overview', 'gryphline_api_gryphline_game_profiles_pulls_overview'];
+        yield 'perfectworld accounts api' => ['/api/perfectworld/accounts', 'perfectworld_api_perfectworld_accounts_get'];
+        yield 'perfectworld game profile api' => ['/api/perfectworld/accounts/1/gameProfiles/2', 'perfectworld_api_perfectworld_game_profiles_id_get'];
+        yield 'perfectworld pulls overview api' => ['/api/perfectworld/accounts/1/gameProfiles/2/pulls/overview', 'perfectworld_api_perfectworld_game_profiles_pulls_overview'];
+        yield 'perfectworld pull operation api' => ['/api/perfectworld/accounts/1/gameProfiles/2/pulls/operations/abc', 'perfectworld_api_perfectworld_game_profiles_pulls_operation_status'];
         yield 'public powershell script' => ['/api/hoyoverse/pulls/script/powershell', 'hoyoverse_public_pulls_script_powershell'];
         // Built by BackendApi.getGeetestFrameUrl() in the SPA
         yield 'hoyoverse geetest frame' => ['/api/hoyoverse/accounts/login/geetest-frame', 'hoyoverse_api_hoyoverse_accounts_auth_geetest_frame'];
@@ -44,6 +48,7 @@ class GamesRoutingTest extends KernelTestCase
         yield 'spa root' => ['/', 'games_index'];
         yield 'spa hoyoverse tab' => ['/hoyoverse', 'games_index'];
         yield 'spa gryphline pulls deep link' => ['/gryphline/accounts/1/profiles/2/pulls', 'games_index'];
+        yield 'spa perfectworld tab' => ['/perfectworld', 'games_index'];
     }
 
     #[DataProvider('gamesHostRoutesProvider')]

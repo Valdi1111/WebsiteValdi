@@ -5,3 +5,5 @@ games:
             role: ROLE_USER_HOYOVERSE
         gryphline:
             role: ROLE_USER_GRYPHLINE
+        perfectworld:
+            role: ROLE_USER_PERFECTWORLD

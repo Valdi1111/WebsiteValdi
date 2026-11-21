@@ -1,0 +1,2 @@
+perfectworld:
+    resource: '@PerfectworldBundle/config/routing.yaml'

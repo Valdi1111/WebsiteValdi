@@ -1,0 +1,5 @@
+perfectworld:
+    tasks:
+        # Weekly rebuild of the NTE item catalog from NTE_Assets (new items after game patches)
+        catalog_update:
+            cron: '0 6 * * 1'

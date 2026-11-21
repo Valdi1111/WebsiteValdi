@@ -1,0 +1,14 @@
+framework:
+    http_client:
+        scoped_clients:
+            # NTE_Assets datamine (catalog tables and README) through the GitHub API and raw files.
+            # The Perfect World SDK client is declared inline in PerfectworldSdkClient, without logger.
+            perfectworld.nte_assets.client:
+                scope: '^https://(api\.github\.com|raw\.githubusercontent\.com)/'
+                timeout: 60
+                retry_failed:
+                    max_retries: 2
+                    delay: 1000
+                    http_codes: [ 429, 500, 502, 503, 504 ]
+                headers:
+                    'User-Agent': 'WebsiteValdi/1.0'

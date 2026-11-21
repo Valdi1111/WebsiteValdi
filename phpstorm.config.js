@@ -8,6 +8,7 @@ System.config({
         "@BooksBundle/*": "./src/BooksBundle/assets/*",
         "@HoyoverseBundle/*": "./src/HoyoverseBundle/assets/*",
         "@GryphlineBundle/*": "./src/GryphlineBundle/assets/*",
+        "@PerfectworldBundle/*": "./src/PerfectworldBundle/assets/*",
         "@PasswordsBundle/*": "./src/PasswordsBundle/assets/*",
         "@VideosBundle/*": "./src/VideosBundle/assets/*",
     }

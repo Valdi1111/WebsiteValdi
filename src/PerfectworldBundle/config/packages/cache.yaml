@@ -1,0 +1,14 @@
+framework:
+    cache:
+        # Namespaced pools use the "app" backend by default
+        pools:
+            perfectworld.auth_session.cache:
+                adapter: cache.adapter.filesystem
+                default_lifetime: 600
+            perfectworld.pull_import_status.cache:
+                adapter: cache.adapter.filesystem
+                default_lifetime: 3600
+            # Compact NTE item catalog: rebuilt by perfectworld:nte-catalog:update, never expires
+            perfectworld.nte_catalog.cache:
+                adapter: cache.adapter.filesystem
+                default_lifetime: 0

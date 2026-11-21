@@ -17,6 +17,7 @@ Encore
         '@BooksBundle': path.resolve(import.meta.dirname, 'src/BooksBundle/assets/'),
         '@HoyoverseBundle': path.resolve(import.meta.dirname, 'src/HoyoverseBundle/assets/'),
         '@GryphlineBundle': path.resolve(import.meta.dirname, 'src/GryphlineBundle/assets/'),
+        '@PerfectworldBundle': path.resolve(import.meta.dirname, 'src/PerfectworldBundle/assets/'),
         '@PasswordsBundle': path.resolve(import.meta.dirname, 'src/PasswordsBundle/assets/'),
         '@VideosBundle': path.resolve(import.meta.dirname, 'src/VideosBundle/assets/'),
     })

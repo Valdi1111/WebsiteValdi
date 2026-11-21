@@ -1,0 +1,12 @@
+monolog:
+    channels:
+        - perfectworld
+
+when@prod:
+    monolog:
+        handlers:
+            perfectworld_file:
+                type: stream
+                path: '%kernel.logs_dir%/perfectworld.log'
+                level: debug
+                channels: ['perfectworld']

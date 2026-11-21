@@ -5,6 +5,7 @@ namespace App\HoyoverseBundle\MessageHandler;
 use App\CoreBundle\Model\Notification\UniversalEmbed;
 use App\CoreBundle\Service\Notification\UnifiedNotificationService;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
+use App\HoyoverseBundle\Exception\HoyolabUnavailableException;
 use App\HoyoverseBundle\Message\UpdateCookieMessage;
 use App\HoyoverseBundle\Repository\HoyoverseAccountRepository;
 use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
@@ -66,7 +67,15 @@ class UpdateCookieMessageHandler
             return;
         }
 
-        $success = $this->cookieUtils->renew($parsedCookie);
+        try {
+            $success = $this->cookieUtils->renew($parsedCookie);
+        } catch (HoyolabUnavailableException $e) {
+            // HoYoverse unreachable (e.g. the server is offline): not a cookie problem, so keep the current state,
+            // send no notification (it could not be delivered anyway) and try again at the next run
+            $this->cookieUtils->getLogger()->warning(sprintf('Cookie refresh skipped for account %d: %s', $account->getId(), $e->getMessage()));
+
+            return;
+        }
         $previouslyFailed = $account->isCookieRefreshFailed();
 
         // Notification condition: notify only on state transitions (restored or newly failed)

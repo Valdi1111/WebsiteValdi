@@ -5,6 +5,7 @@ namespace App\Tests\HoyoverseBundle\Service;
 use App\CoreBundle\Entity\User;
 use App\GamesBundle\Service\AuthSessionStore;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
+use App\HoyoverseBundle\Exception\HoyolabUnavailableException;
 use App\HoyoverseBundle\Exception\HoyoverseAuthException;
 use App\GamesBundle\Model\Auth\LoginStepResult;
 use App\HoyoverseBundle\Model\ParsedCookie;
@@ -314,5 +315,43 @@ class HoyoverseAuthServiceTest extends TestCase
 
         $this->expectException(AccessDeniedException::class);
         $service->startLogin($user1, 'user@example.com', 'pwd', $accountOfUser2);
+    }
+
+    public function testLoginWhileHoyoverseIsUnreachableReportsItWithoutSavingAnything(): void
+    {
+        $passportClient = new MockHttpClient([
+            new MockResponse(json_encode([
+                'retcode' => 0,
+                'data' => [
+                    'token' => ['token_type' => 1, 'token' => 'v2_stoken_xyz'],
+                    'user_info' => ['aid' => '12345678', 'mid' => 'mid_abc'],
+                ],
+            ])),
+        ]);
+        $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
+        $cookieUtils->method('renew')->willThrowException(new HoyolabUnavailableException('HoYoverse passport API could not be reached.'));
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->expects($this->never())->method('persist');
+        $em->expects($this->never())->method('flush');
+
+        $service = new HoyoverseAuthService(
+            $passportClient,
+            new ArrayAdapter(),
+            new NullLogger(),
+            new AuthSessionStore('test-secret'),
+            new HoyolabUtilsService(),
+            $cookieUtils,
+            $this->createStub(HoyoverseAccountRepository::class),
+            $em,
+            $this->createStub(HoyolabManagerService::class),
+        );
+
+        try {
+            $service->startLogin($this->createMockUser(1), 'player@example.com', 'plain_pass_123');
+            $this->fail('The login cannot complete without ltoken_v2.');
+        } catch (HoyoverseAuthException $e) {
+            $this->assertSame('HoYoverse could not be reached to complete the login. Please try again later.', $e->getMessage());
+            $this->assertSame(502, $e->getStatusCode());
+        }
     }
 }

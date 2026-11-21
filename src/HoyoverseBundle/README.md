@@ -87,6 +87,8 @@ As an alternative to credentials login, the **Paste Cookie** tab allows pasting 
 - **Schedule**: `0 */4 * * *` (every 4 hours).
 - **Behavior**: `UpdateCookieMessageHandler` iterates over all accounts with `stoken_v2` and refreshes `ltoken_v2` and `cookie_token_v2`.
 - **Status Notifications**: notifies the user only on state transitions (first failure or recovery back to healthy).
+- **Outages are not failures**: when HoYoverse cannot be reached (no network, DNS, timeout, HTTP 5xx/429, a body that is not JSON) `HoyolabCookieUtilsService::renew()` throws `HoyolabUnavailableException`. The task then keeps the account state, sends no notification and tries again at the next run; only a refusal from HoYoverse (`retcode` ≠ 0, missing tokens) sets `cookie_refresh_failed`. During an email/password login the same outage stops the login with `502 HoYoverse could not be reached to complete the login. Please try again later.` and nothing is saved.
+- **Account badges**: "Session Active" (tooltip: `last_cookie_refreshed_at`) or "Session Refresh Failed" when `cookie_refresh_failed` is set; "Auto-Renew" and "Code Redemption" only tell whether the stored cookie contains `stoken_v2` and the redemption tokens, not whether they are still valid.
 
 ---
 
@@ -106,14 +108,22 @@ Two scheduled tasks ensure no HoYoLAB daily check-in is missed:
 
 - **Schedule**: `*/15 * * * *` (every 15 minutes) via `CodeRedeemBatchMessage`.
 - **Code Source**: queries the public API `https://api.ennead.cc/mihoyo/{game}/codes` to fetch active promo codes and their rewards.
-- **Anti-Duplicate Cache**: every code already processed for a specific `HoyoverseGameProfile` is persisted in cache (`hoyoverse.redeemed_codes.cache`) along with its outcome (`success`, `manual`, `error`), preventing repeated calls to HoYoverse APIs.
+- **Eligible profiles**: active profiles with the `code_redeem` setting enabled (on by default). The setting can be changed even when the account cannot redeem automatically: it then controls the manual-redemption notifications.
+- **Anti-Duplicate Cache** (`hoyoverse.redemption_history.cache`, no expiry):
+  - `redeemed_{profile}_{code}`: code processed for a profile (redeemed, or failed with a terminal error);
+  - `pending_{profile}_{code}`: redemption queued (30-minute lock, released on errors);
+  - `manual_notified_{profile}_{code}`: manual redemption already notified to a profile without redemption tokens;
+  - `manual_redeemed_{game}_{code}`: code already notified for a manual-only game.
 - **Redemption Modes**:
-  1. **Automatic API Redemption** (*Genshin Impact, Honkai: Star Rail, Zenless Zone Zero*):
-     - Proactively refreshes `cookie_token_v2` if the account has `stoken_v2`.
-     - Calls `webExchangeCdkeyRisk` with a 5-second safety delay between codes to respect HoYoverse rate limits.
-     - Sends a summary notification for each redeemed (or expired/already-claimed) code with its reward list.
-  2. **Manual Redemption Notification** (*Honkai Impact 3rd, Tears of Themis*, or profiles missing `cookie_token_v2`):
-     - Since these titles do not expose a web redemption endpoint, the system notifies the user as soon as a new active code is detected, including rewards and in-game redemption instructions.
+  1. **Automatic API Redemption** (*Genshin Impact, Honkai: Star Rail, Zenless Zone Zero*) for accounts whose cookie has `cookie_token_v2`, `account_mid_v2` and `account_id_v2` (the "Code Redemption Ready" tag):
+     - One `CodeRedeemProfileMessage` per profile and code on the `hoyoverse_redeem` transport, calling the game's `webExchangeCdkeyRisk` endpoint with the cookie stored in the database. The cookie is not refreshed right before redeeming: with `stoken_v2`, `cookie_token_v2` is kept fresh by the 4-hour `update_cookie` task (§2.3).
+     - At least 6 seconds between two calls for the same game, to stay below HoYoverse rate limits.
+     - **Success**: notification with the reward list.
+     - **Terminal errors** (already claimed, expired, invalid, max uses, in-game only, wrong region): the code is marked as processed and a failure notification links the redemption page.
+     - **Other errors**: failure notification with the redemption link, then Messenger retries the message (2 retries, 20 s and 40 s apart). Each failed attempt sends its notification.
+  2. **Manual Redemption Notification**, once per code:
+     - *Honkai Impact 3rd, Tears of Themis*: no web redemption endpoint, so the user is told to redeem the new code in game (rewards and instructions).
+     - Auto-redeemable games whose account cookie lacks `cookie_token_v2`, `account_mid_v2` or `account_id_v2` (or is not parseable): no API call is attempted (it could only fail). The user gets the code with the redemption link and a note that automatic redemption is not configured for the account (the "Code Redemption Unavailable" tag explains which tokens are missing).
 
 ---
 

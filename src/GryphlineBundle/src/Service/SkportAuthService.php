@@ -4,6 +4,7 @@ namespace App\GryphlineBundle\Service;
 
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Exception\SkportAuthException;
+use App\GryphlineBundle\Exception\SkportUnavailableException;
 use App\GryphlineBundle\Model\SkportAccountInfo;
 use App\GryphlineBundle\Model\SkportSessionCredentials;
 use Doctrine\ORM\EntityManagerInterface;
@@ -11,7 +12,10 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\HttpClient\ResponseInterface;
 
 class SkportAuthService
 {
@@ -47,8 +51,7 @@ class SkportAuthService
 
         $token = rawurldecode(trim((string) $account->getAccountToken()));
         if (empty($token)) {
-            $account->setTokenRefreshFailed(true);
-            $this->entityManager->flush();
+            $this->flagTokenRefreshFailed($account);
             throw new SkportAuthException(sprintf('GryphlineAccount ID %d does not have an accountToken configured.', $account->getId()));
         }
 
@@ -81,8 +84,15 @@ class SkportAuthService
 
             return $credentials;
         } catch (\Throwable $e) {
-            $account->setTokenRefreshFailed(true);
-            $this->entityManager->flush();
+            // Network errors and Gryphline outages say nothing about the token: keep the account state, retry later
+            $unavailable = self::asUnavailable($e);
+            if ($unavailable !== null) {
+                $this->logger->warning(sprintf('Credentials refresh skipped for GryphlineAccount ID %d: %s', $account->getId(), $unavailable->getMessage()));
+
+                throw $unavailable;
+            }
+
+            $this->flagTokenRefreshFailed($account);
 
             $this->logger->error(sprintf(
                 'Failed to refresh credentials for GryphlineAccount ID %d: %s',
@@ -102,6 +112,7 @@ class SkportAuthService
      * Step 1 of the OAuth flow: verifies the account token and returns the Gryphline account it belongs to.
      * Also used on its own to identify a pasted token before it is saved.
      *
+     * @throws SkportUnavailableException when Gryphline cannot be reached
      * @throws SkportAuthException when the token is invalid or expired
      */
     public function fetchAccountInfo(string $accountToken): SkportAccountInfo
@@ -109,14 +120,20 @@ class SkportAuthService
         $accountToken = rawurldecode(trim($accountToken));
 
         $infoUrl = '/user/info/v1/basic?token=' . urlencode($accountToken);
-        $infoResponse = $this->asClient->request(Request::METHOD_GET, $infoUrl);
+        try {
+            $infoResponse = $this->asClient->request(Request::METHOD_GET, $infoUrl);
+            self::assertAvailable($infoResponse);
 
-        if ($infoResponse->getStatusCode() !== Response::HTTP_OK) {
-            throw new SkportAuthException('OAuth Step 1 HTTP error: ' . $infoResponse->getStatusCode())
-                ->setApiStatusCode($infoResponse->getStatusCode());
+            if ($infoResponse->getStatusCode() !== Response::HTTP_OK) {
+                throw new SkportAuthException('OAuth Step 1 HTTP error: ' . $infoResponse->getStatusCode())
+                    ->setApiStatusCode($infoResponse->getStatusCode());
+            }
+
+            $infoData = $infoResponse->toArray(false);
+        } catch (TransportExceptionInterface|DecodingExceptionInterface) {
+            // The transport error quotes the URL, which contains the token: never pass it on
+            throw new SkportUnavailableException();
         }
-
-        $infoData = $infoResponse->toArray(false);
         if (($infoData['status'] ?? -1) !== 0) {
             $msg = $infoData['msg'] ?? ('status ' . ($infoData['status'] ?? 'unknown'));
             throw new SkportAuthException('OAuth Step 1 failed: ' . $msg)
@@ -130,6 +147,32 @@ class SkportAuthService
             hgId: self::normalizeUid($infoData['data']['hgId'] ?? null),
             nickname: is_scalar($nickname) && (string) $nickname !== '' ? (string) $nickname : null,
         );
+    }
+
+    /**
+     * HTTP 5xx/429 from Gryphline or SKPort: a temporary outage, not a rejected token.
+     */
+    private static function assertAvailable(ResponseInterface $response): void
+    {
+        $statusCode = $response->getStatusCode();
+        if (SkportUnavailableException::isUnavailableStatus($statusCode)) {
+            throw new SkportUnavailableException(sprintf('Gryphline is unavailable (HTTP %d). Please try again later.', $statusCode));
+        }
+    }
+
+    private static function asUnavailable(\Throwable $e): ?SkportUnavailableException
+    {
+        return match (true) {
+            $e instanceof SkportUnavailableException => $e,
+            $e instanceof TransportExceptionInterface, $e instanceof DecodingExceptionInterface => new SkportUnavailableException(),
+            default => null,
+        };
+    }
+
+    private function flagTokenRefreshFailed(GryphlineAccount $account): void
+    {
+        $account->setTokenRefreshFailed(true);
+        $this->entityManager->flush();
     }
 
     /**
@@ -161,6 +204,7 @@ class SkportAuthService
             ],
         ]);
 
+        self::assertAvailable($grantResponse);
         if ($grantResponse->getStatusCode() !== Response::HTTP_OK) {
             throw new SkportAuthException('OAuth Step 2 HTTP error: ' . $grantResponse->getStatusCode())
                 ->setApiStatusCode($grantResponse->getStatusCode());
@@ -187,6 +231,7 @@ class SkportAuthService
             ],
         ]);
 
+        self::assertAvailable($credResponse);
         if ($credResponse->getStatusCode() !== Response::HTTP_OK) {
             throw new SkportAuthException('OAuth Step 3 HTTP error: ' . $credResponse->getStatusCode())
                 ->setApiStatusCode($credResponse->getStatusCode());
@@ -222,8 +267,16 @@ class SkportAuthService
      */
     public function getEndfieldU8Token(GryphlineAccount $account, ?string $roleId = null): string
     {
+        // An account flagged by a failed renewal renews its session first. That verifies the token and the account
+        // identity (a token of another Gryphline account would import another player's pulls) and, on success,
+        // clears the flag; on failure it throws with the account still flagged.
+        if ($account->isTokenRefreshFailed()) {
+            $this->getOrRefreshCredentials($account, force: true);
+        }
+
         $token = rawurldecode(trim((string) $account->getAccountToken()));
         if (empty($token)) {
+            $this->flagTokenRefreshFailed($account);
             throw new SkportAuthException(sprintf('GryphlineAccount ID %d does not have an accountToken configured.', $account->getId()));
         }
 
@@ -236,9 +289,16 @@ class SkportAuthService
             ],
         ]);
 
-        $grantData = $grantResponse->toArray(false);
+        try {
+            self::assertAvailable($grantResponse);
+            $grantData = $grantResponse->toArray(false);
+        } catch (TransportExceptionInterface|DecodingExceptionInterface) {
+            throw new SkportUnavailableException();
+        }
         $oauthToken = $grantData['data']['token'] ?? '';
         if (($grantData['status'] ?? -1) !== 0 || $oauthToken === '') {
+            // The account token was rejected: flag the account as a failed session renewal would
+            $this->flagTokenRefreshFailed($account);
             throw new SkportAuthException('Endfield OAuth grant failed: ' . ($grantData['msg'] ?? 'no token'));
         }
 

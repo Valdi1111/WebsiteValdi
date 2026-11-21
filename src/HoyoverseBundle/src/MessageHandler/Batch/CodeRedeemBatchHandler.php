@@ -12,6 +12,7 @@ use App\HoyoverseBundle\Model\Game\HasAutoCodeRedemptionInterface;
 use App\HoyoverseBundle\Model\Game\HasCodeRedemptionInterface;
 use App\HoyoverseBundle\Model\RedeemableCode;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
+use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
@@ -43,6 +44,7 @@ class CodeRedeemBatchHandler
         #[Target('hoyoverse.redemption_history.cache')]
         private readonly CacheItemPoolInterface         $cache,
         private readonly MessageBusInterface            $bus,
+        private readonly HoyolabCookieUtilsService      $cookieUtils,
     )
     {
     }
@@ -152,6 +154,12 @@ class CodeRedeemBatchHandler
         foreach ($gameProfiles as $gameProfile) {
             $profileId = $gameProfile->getId();
 
+            // Without the redemption tokens the API call can only fail: ask the user to redeem the codes by hand instead
+            if (!$this->cookieUtils->canRedeemCodes($gameProfile->getAccount()?->getCookie())) {
+                $this->notifyManualRedemption($gameService, $gameProfile, $redeemableCodes);
+                continue;
+            }
+
             foreach ($redeemableCodes as $redeemableCode) {
                 $redeemedKey = sprintf('redeemed_%d_%s', $profileId, $redeemableCode->getCode());
                 $pendingKey = sprintf('pending_%d_%s', $profileId, $redeemableCode->getCode());
@@ -179,6 +187,37 @@ class CodeRedeemBatchHandler
 
                 $this->totalDispatched++;
             }
+        }
+    }
+
+    /**
+     * Auto-redeemable game, but the account cookie lacks cookie_token_v2/account_mid_v2/account_id_v2:
+     * notifies each new code once per profile, with the redemption link, instead of attempting a call that would fail.
+     *
+     * @param RedeemableCode[] $redeemableCodes
+     */
+    private function notifyManualRedemption(GameInterface&HasAutoCodeRedemptionInterface $gameService, HoyoverseGameProfile $gameProfile, array $redeemableCodes): void
+    {
+        $profileId = $gameProfile->getId();
+
+        foreach ($redeemableCodes as $redeemableCode) {
+            $code = $redeemableCode->getCode();
+            $notifiedKey = sprintf('manual_notified_%d_%s', $profileId, $code);
+            // Skip codes already notified, or already redeemed before the tokens went missing
+            if ($this->getCache()->hasItem($notifiedKey) || $this->getCache()->hasItem(sprintf('redeemed_%d_%s', $profileId, $code))) {
+                continue;
+            }
+
+            $notification = $this->createNotificationWithGameProfile($gameProfile)
+                ->setDescription("Code Found - Manual Redemption Required\nAutomatic redemption is not configured for this account.")
+                ->addField("Code", "[{$code}]({$gameService->getRedemptionLink()}?code={$code})", icon: "💰", inline: true)
+                ->addField("Rewards", implode("\n", $redeemableCode->getRewards()), inline: true);
+
+            $this->notificationService->sendToUser($gameProfile->getAccount()->getUser(), $notification, $gameProfile->getNotificationPlatforms());
+
+            $item = $this->getCache()->getItem($notifiedKey);
+            $item->set(true);
+            $this->getCache()->save($item);
         }
     }
 

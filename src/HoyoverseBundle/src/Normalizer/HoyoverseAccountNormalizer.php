@@ -29,11 +29,12 @@ class HoyoverseAccountNormalizer implements NormalizerInterface
             throw new InvalidArgumentException(sprintf("The object must be an instance of '%s'.", HoyoverseAccount::class));
         }
 
-        $parsedCookie = $this->cookieUtils->parseCookie($data->getCookie());
+        // A cookie without the basic tokens must not break the account list: it just has no capabilities
+        $parsedCookie = $this->cookieUtils->tryParseCookie($data->getCookie());
 
         $json = $this->objectNormalizer->normalize($data, $format, $context);
-        $json["can_redeem_codes"] = $parsedCookie->canRedeemCodes();
-        $json["can_auto_renew"] = $parsedCookie->canAutoRenew();
+        $json["can_redeem_codes"] = $parsedCookie?->canRedeemCodes() ?? false;
+        $json["can_auto_renew"] = $parsedCookie?->canAutoRenew() ?? false;
         return $json;
     }
 

@@ -1,9 +1,13 @@
-import { CloseCircleOutlined, GiftOutlined, ReloadOutlined, WarningOutlined } from "@ant-design/icons";
+import SessionStatusTag from "@GamesBundle/components/account/SessionStatusTag";
+import { GiftOutlined, ReloadOutlined, WarningOutlined } from "@ant-design/icons";
 import { Tag, Tooltip } from "antd";
 import React from "react";
 
 /**
  * HoYoverse credential status badges shown in the shared AccountCard header.
+ *
+ * - Session: red only when the automatic cookie renewal failed (cookie_refresh_failed), with the last renewal date.
+ * - Auto-Renew / Code Redemption: capabilities read from the tokens present in the stored cookie, not a validity check.
  */
 export default function AccountStatusTags({ account }) {
     const canRedeemCodes = Boolean(account.can_redeem_codes);
@@ -11,6 +15,8 @@ export default function AccountStatusTags({ account }) {
     const cookieRefreshFailed = Boolean(account.cookie_refresh_failed);
 
     return <>
+        <SessionStatusTag refreshFailed={cookieRefreshFailed} lastRefreshedAt={account.last_cookie_refreshed_at} />
+
         {canAutoRenew ? (
             <Tag color="green" icon={<ReloadOutlined />} style={{ margin: 0 }}>
                 Auto-Renew Ready
@@ -28,17 +34,9 @@ export default function AccountStatusTags({ account }) {
                 Code Redemption Ready
             </Tag>
         ) : (
-            <Tooltip title="Cookie is missing redemption tokens (cookie_token_v2, account_mid_v2, account_id_v2). Promo codes cannot be redeemed automatically.">
+            <Tooltip title="Cookie is missing redemption tokens (cookie_token_v2, account_mid_v2, account_id_v2). New promo codes are notified for manual redemption instead of being redeemed automatically.">
                 <Tag color="warning" icon={<WarningOutlined />} style={{ margin: 0 }}>
                     Code Redemption Unavailable
-                </Tag>
-            </Tooltip>
-        )}
-
-        {cookieRefreshFailed && (
-            <Tooltip title="Automatic cookie refresh failed. Please re-login to renew your HoYoverse tokens.">
-                <Tag color="error" icon={<CloseCircleOutlined />} style={{ margin: 0 }}>
-                    Refresh Failed
                 </Tag>
             </Tooltip>
         )}

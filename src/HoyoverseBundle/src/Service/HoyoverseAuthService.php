@@ -5,6 +5,7 @@ namespace App\HoyoverseBundle\Service;
 use App\CoreBundle\Entity\User;
 use App\GamesBundle\Service\AuthSessionStore;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
+use App\HoyoverseBundle\Exception\HoyolabUnavailableException;
 use App\HoyoverseBundle\Exception\HoyoverseAuthException;
 use App\GamesBundle\Model\Auth\LoginStepResult;
 use App\HoyoverseBundle\Model\ParsedCookie;
@@ -431,7 +432,12 @@ PEM;
             ->setAccountIdV2($aid)
             ->setAccountMidV2($mid);
 
-        if (!$this->cookieUtils->renew($parsedCookie)) {
+        try {
+            $renewed = $this->cookieUtils->renew($parsedCookie);
+        } catch (HoyolabUnavailableException) {
+            throw new HoyoverseAuthException('HoYoverse could not be reached to complete the login. Please try again later.', Response::HTTP_BAD_GATEWAY);
+        }
+        if (!$renewed) {
             throw new HoyoverseAuthException('Login succeeded, but failed to exchange stoken_v2 for ltoken_v2 and cookie_token_v2.');
         }
 

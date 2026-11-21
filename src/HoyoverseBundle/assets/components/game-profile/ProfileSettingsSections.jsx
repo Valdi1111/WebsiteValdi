@@ -41,7 +41,7 @@ export default function ProfileSettingsSections({ supports, hasAny, isProfileAct
                 description={
                     !accountCanRedeemCodes ? (
                         <span style={{ color: "#faad14" }}>
-                            Unavailable: Account cookie lacks redemption tokens (cookie_token_v2, account_mid_v2, account_id_v2). Re-add account cookie to enable.
+                            Automatic redemption unavailable: the account cookie lacks cookie_token_v2, account_mid_v2 or account_id_v2. New codes are notified for manual redemption; log in again with email and password to enable it.
                         </span>
                     ) : (
                         "Automatically claim newly discovered promo codes"
@@ -49,7 +49,7 @@ export default function ProfileSettingsSections({ supports, hasAny, isProfileAct
                 }
             >
                 <Form.Item name="code_redeem" valuePropName="checked" noStyle>
-                    <Switch disabled={!isProfileActive || !accountCanRedeemCodes} />
+                    <Switch disabled={!isProfileActive} />
                 </Form.Item>
             </SettingRow>
         )}

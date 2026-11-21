@@ -5,12 +5,15 @@ namespace App\HoyoverseBundle\Service;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Exception\ConfigurationException;
 use App\HoyoverseBundle\Exception\HoyolabException;
+use App\HoyoverseBundle\Exception\HoyolabUnavailableException;
 use App\HoyoverseBundle\Model\ParsedCookie;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
+use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
@@ -75,6 +78,32 @@ class HoyolabCookieUtilsService
         }
 
         return $cookie;
+    }
+
+    /**
+     * Same as parseCookie(), but returns null instead of throwing when the cookie is missing or lacks the basic tokens.
+     * Callers must not log the exception of parseCookie(): its message contains the cookie.
+     */
+    public function tryParseCookie(?string $cookieString): ?ParsedCookie
+    {
+        if ($cookieString === null || trim($cookieString) === '') {
+            return null;
+        }
+
+        try {
+            return $this->parseCookie($cookieString);
+        } catch (ConfigurationException) {
+            return null;
+        }
+    }
+
+    /**
+     * Whether the cookie carries the tokens required by the HoYoLAB web code redemption endpoints
+     * (cookie_token_v2, account_mid_v2, account_id_v2). They are the same for every auto-redeemable game.
+     */
+    public function canRedeemCodes(?string $cookieString): bool
+    {
+        return $this->tryParseCookie($cookieString)?->canRedeemCodes() ?? false;
     }
 
     /**
@@ -153,7 +182,10 @@ class HoyolabCookieUtilsService
      *
      * @param ParsedCookie $cookie The cookie model containing the refresh stoken_v2 and account IDs.
      *
-     * @return bool True if tokens were successfully refreshed, false otherwise.
+     * @return bool True if tokens were successfully refreshed, false if HoYoverse refused them (or stoken_v2 is missing).
+     *
+     * @throws HoyolabUnavailableException When HoYoverse could not be reached (network, timeout, HTTP 5xx/429,
+     *                                     unreadable body): a temporary problem that says nothing about the cookie.
      */
     public function renew(ParsedCookie $cookie): bool
     {
@@ -177,9 +209,13 @@ class HoyolabCookieUtilsService
                 ],
             ]);
 
-            if ($response->getStatusCode() !== Response::HTTP_OK) {
+            $statusCode = $response->getStatusCode();
+            if (HoyolabUnavailableException::isUnavailableStatus($statusCode)) {
+                throw new HoyolabUnavailableException(sprintf('HoYoverse passport API answered HTTP %d.', $statusCode));
+            }
+            if ($statusCode !== Response::HTTP_OK) {
                 $this->getLogger()->error('HoYoAuth: HTTP request failed', [
-                    'statusCode' => $response->getStatusCode(),
+                    'statusCode' => $statusCode,
                     'ltuid'      => $cookie->getLtuidV2(),
                 ]);
                 return false;
@@ -223,6 +259,11 @@ class HoyolabCookieUtilsService
             $cookie->setAccountMidV2($accountMid);
 
             return true;
+        } catch (HoyolabUnavailableException $e) {
+            throw $e;
+        } catch (TransportExceptionInterface|DecodingExceptionInterface) {
+            // No connection, DNS or timeout, or a body that is not JSON (e.g. a captive portal page)
+            throw new HoyolabUnavailableException('HoYoverse passport API could not be reached.');
         } catch (\Throwable $e) {
             $this->getLogger()->error('HoYoAuth: Exception thrown during refresh request: ' . $e->getMessage(), [
                 'exception' => $e,

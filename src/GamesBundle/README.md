@@ -65,7 +65,7 @@ Pull progress Mercure topics are namespaced by provider: `https://games.<domain>
 - `providers.js` — composition root: the **only** module importing the provider bundles. Shared components read the current provider through `useGameProvider()`.
 - `components/App.jsx` — layout route (`MainLayout`, one tab per provider), `/` redirects to the first provider, SPA 404 pages.
 - `components/ProviderScope.jsx` — everything under `/{provider}/*`: one `BackendApi` instance (`/api/{provider}`) and the provider descriptor (`GameProviderContext`, with `basePath`). Rendered with `key={provider.key}` so switching tab remounts the subtree.
-- Shared pages and components: `account/AccountsPage`, `account/AccountCard`, `account/useLoginWizard` + `account/CaptchaStep`, `game-profile/GameProfileCard`, `game-profile/GameProfileSettingsDrawer`, `pulls/*`, `SettingRow`, `ThresholdInput`, `GeetestCaptchaFrame`.
+- Shared pages and components: `account/AccountsPage`, `account/AccountCard`, `account/SessionStatusTag` (session badge driven by the renewal failure flag, used by HoYoverse and Gryphline), `account/useLoginWizard` + `account/CaptchaStep`, `game-profile/GameProfileCard`, `game-profile/GameProfileSettingsDrawer`, `pulls/*`, `SettingRow`, `ThresholdInput`, `GeetestCaptchaFrame`.
 
 ### Provider descriptor (`<ProviderBundle>/assets/provider.js`)
 

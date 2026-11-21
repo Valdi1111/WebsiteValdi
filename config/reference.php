@@ -131,6 +131,9 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     ...<string, DefinitionType|AliasType|PrototypeType|StackType|ArgumentsType|null>
  * }
  * @psalm-type ExtensionType = array<string, mixed>
+ * @psalm-type CoreConfig = array{
+ *     database_encryption_key?: scalar|Param|null, // Base64 of 32 random bytes encrypting the encrypted_text columns; empty or null stores them in plain text. // Default: null
+ * }
  * @psalm-type GamesConfig = array{
  *     domain_name?: scalar|Param|null, // Default: null
  *     providers?: array<string, array{ // Default: []
@@ -1955,6 +1958,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     imports?: ImportsConfig,
  *     parameters?: ParametersConfig,
  *     services?: ServicesConfig,
+ *     core?: CoreConfig,
  *     games?: GamesConfig,
  *     anime?: AnimeConfig,
  *     books?: BooksConfig,
@@ -1978,6 +1982,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         imports?: ImportsConfig,
  *         parameters?: ParametersConfig,
  *         services?: ServicesConfig,
+ *         core?: CoreConfig,
  *         games?: GamesConfig,
  *         anime?: AnimeConfig,
  *         books?: BooksConfig,
@@ -2005,6 +2010,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         imports?: ImportsConfig,
  *         parameters?: ParametersConfig,
  *         services?: ServicesConfig,
+ *         core?: CoreConfig,
  *         games?: GamesConfig,
  *         anime?: AnimeConfig,
  *         books?: BooksConfig,
@@ -2029,6 +2035,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         imports?: ImportsConfig,
  *         parameters?: ParametersConfig,
  *         services?: ServicesConfig,
+ *         core?: CoreConfig,
  *         games?: GamesConfig,
  *         anime?: AnimeConfig,
  *         books?: BooksConfig,

@@ -57,6 +57,18 @@ games:
 
 Pull progress Mercure topics are namespaced by provider: `https://games.<domain>/{provider}/profiles/{id}/pulls/progress` (profile IDs come from per-provider tables).
 
+### Credentials encryption at rest
+
+The account credentials use the `CoreBundle` encrypted column type (`encrypted_text`): with `DATABASE_ENCRYPTION_KEY` set they are stored encrypted, without it in plain text as before. Format, behaviour, conversion command (`core:database:encrypt`) and what is not covered: [Encrypted Columns guide](../CoreBundle/src/Service/Encryption/README.md); enabling it on a server: [`SERVER_SETUP_AND_DEPLOY.md` §3.4](../../docs/SERVER_SETUP_AND_DEPLOY.md#34-database-encryption-optional).
+
+| Entity | Encrypted columns |
+| :--- | :--- |
+| `HoyoverseAccount` | `cookie` (the full HoYoLAB cookie string, `stoken_v2` included) |
+| `GryphlineAccount` | `account_token`, `session_cred`, `session_salt` |
+| `PerfectworldAccount` | `token` |
+
+Identifiers and device ids (`account_uid`, `pw_uid`, `device_id`, `ndid`, `email`) stay in plain text: accounts are matched and deduplicated on them. `gryphline_account.session_cred` and `session_salt` were `VARCHAR(255)`: migration `Version20261121183000` makes them `LONGTEXT`, since encrypted values are longer.
+
 ---
 
 ## 2. Frontend (`assets/`)
@@ -156,6 +168,7 @@ Why things are the way they are (useful before changing them):
 
 - `tests/GamesBundle/Routing/GamesRoutingTest` boots the kernel and matches real routes on the games host (provider APIs, GeeTest script/frames, SPA catch-all, legacy `/api/accounts` not routed, provider routes bound to the games host only).
 - `tests/GamesBundle/Security/GameAccountOwnerRoutesTest` boots the kernel, collects every provider route with `{account}` and runs Symfony's `IsGrantedAttributeListener` on each action: the owner passes, another user gets a 403. `GameAccountOwnerVoterTest` covers the voter for the three account entities.
+- `tests/GamesBundle/Doctrine/EncryptedCredentialMappingTest` boots the kernel and checks that exactly the five credential columns of the game accounts use the `encrypted_text` type and are found by `core:database:encrypt` (metadata only, no database connection). The type itself is tested in `CoreBundle` (see the [Encrypted Columns guide](../CoreBundle/src/Service/Encryption/README.md#6-testing)).
 - Unit tests cover `GameProviderAccess`, provider-namespaced Mercure topics, `GameTasksConfiguration`, `AbstractTaskScheduleProvider`, `GeetestService::createFrameResponse()` and the shared normalizer flags (`supports_pulls`, `supports_pull_sync`).
 - Security (games page protected by `ROLE_USER_GAMES`, provider APIs by their roles, public PowerShell script) is not covered by automated tests: a `WebTestCase` would need a test database for the session (`PdoSessionHandler`). Check it manually with a user holding a single provider role.
 - There is no JavaScript test setup: after frontend changes run `npm run build` and check both providers in the browser (tabs, accounts, settings drawer, login modal, pulls page with live Mercure progress, diary).

@@ -2,6 +2,7 @@
 
 namespace App\GryphlineBundle\Entity;
 
+use App\CoreBundle\Doctrine\EncryptedTextType;
 use App\CoreBundle\Entity\User;
 use App\GamesBundle\Model\Game\GameAccountInterface;
 use App\GryphlineBundle\Repository\GryphlineAccountRepository;
@@ -29,7 +30,7 @@ class GryphlineAccount implements GameAccountInterface
     private ?User $user = null;
 
     #[Ignore]
-    #[ORM\Column(type: Types::TEXT)]
+    #[ORM\Column(type: EncryptedTextType::NAME)]
     private ?string $accountToken = null;
 
     #[Ignore]
@@ -37,11 +38,11 @@ class GryphlineAccount implements GameAccountInterface
     private ?string $accountUid = null;
 
     #[Ignore]
-    #[ORM\Column(length: 255, nullable: true)]
+    #[ORM\Column(type: EncryptedTextType::NAME, nullable: true)]
     private ?string $sessionCred = null;
 
     #[Ignore]
-    #[ORM\Column(length: 255, nullable: true)]
+    #[ORM\Column(type: EncryptedTextType::NAME, nullable: true)]
     private ?string $sessionSalt = null;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]

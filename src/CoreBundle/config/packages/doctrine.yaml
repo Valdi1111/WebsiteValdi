@@ -1,4 +1,7 @@
 doctrine:
+    dbal:
+        types:
+            encrypted_text: App\CoreBundle\Doctrine\EncryptedTextType
     orm:
         mappings:
             App\CoreBundle:

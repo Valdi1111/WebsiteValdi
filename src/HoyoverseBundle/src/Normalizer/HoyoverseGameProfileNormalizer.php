@@ -8,6 +8,7 @@ use App\GamesBundle\Model\Endgame\EndgameVariant;
 use App\GamesBundle\Model\Game\HasDailiesInterface;
 use App\GamesBundle\Model\Game\HasEndgamesInterface;
 use App\GamesBundle\Model\Game\HasManualPullsInterface;
+use App\GamesBundle\Model\Game\HasSRankHistoryImportInterface;
 use App\GamesBundle\Model\Game\HasStaminaInterface;
 use App\GamesBundle\Model\Game\HasWeekliesInterface;
 use App\GamesBundle\Normalizer\AbstractGameProfileNormalizer;
@@ -24,6 +25,7 @@ use App\HoyoverseBundle\Model\Game\HasPullTrackerInterface;
 use App\HoyoverseBundle\Model\Game\HasRealmCurrencyInterface;
 use App\HoyoverseBundle\Model\Game\HasShopStatusInterface;
 use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
+use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
@@ -55,6 +57,7 @@ class HoyoverseGameProfileNormalizer extends AbstractGameProfileNormalizer
     /**
      * @param ServiceCollectionInterface<GameInterface> $locatorByGameId
      * @param array<string, string>                     $timezones
+     * @param HoyolabCookieUtilsService|null            $cookieUtils Lazy: it needs the serializer, which needs this normalizer
      */
     public function __construct(
         #[Autowire(service: 'serializer.normalizer.object')]
@@ -63,6 +66,8 @@ class HoyoverseGameProfileNormalizer extends AbstractGameProfileNormalizer
         ServiceCollectionInterface $locatorByGameId,
         #[Autowire(param: 'hoyoverse.timezones')]
         private readonly array $timezones = [],
+        #[Autowire(lazy: true)]
+        private readonly ?HoyolabCookieUtilsService $cookieUtils = null,
     ) {
         parent::__construct($objectNormalizer, $locatorByGameId);
     }
@@ -96,6 +101,11 @@ class HoyoverseGameProfileNormalizer extends AbstractGameProfileNormalizer
                 // Server-side automatic sync (SToken); shared flag name across providers
                 $result['supports_pull_sync'] = $gameService instanceof HasStokenPullImportInterface;
                 $result['supports_powershell_pulls'] = $gameService instanceof HasPowershellPullImportInterface;
+                // Official S-rank history import: the game reads it with the HoYoLAB cookie, which must be usable
+                $result['supports_s_rank_history_import'] = $gameService instanceof HasPullTrackerInterface
+                    && $gameService instanceof HasManualPullsInterface
+                    && $gameService instanceof HasSRankHistoryImportInterface
+                    && $this->cookieUtils?->tryParseCookie($data->getAccount()?->getCookie()) !== null;
                 // Game-specific name of pulls (e.g. "Wishes", "Signals"), used for UI labels
                 $result['pull_label'] = $gameService instanceof HasPullTrackerInterface
                     ? $gameService->getRarityConfig()->getPullLabel()

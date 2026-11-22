@@ -4,6 +4,7 @@ namespace App\HoyoverseBundle\Controller;
 
 use App\CoreBundle\Entity\User;
 use App\GamesBundle\Model\Game\HasManualPullsInterface;
+use App\GamesBundle\Model\Game\HasSRankHistoryImportInterface;
 use App\GamesBundle\Model\Pull\Manual\CreateManualPullRequest;
 use App\GamesBundle\Model\Pull\Manual\DeclarePityRequest;
 use App\GamesBundle\Security\GameAccountOwnerVoter;
@@ -12,6 +13,7 @@ use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Entity\HoyoversePull;
 use App\HoyoverseBundle\Message\Profile\ImportPullsBackupMessage;
+use App\HoyoverseBundle\Message\Profile\ImportSRankHistoryMessage;
 use App\HoyoverseBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\HoyoverseBundle\Model\Diary\GameDiaryCurrency;
 use App\HoyoverseBundle\Model\Game\GameInterface;
@@ -22,6 +24,7 @@ use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
 use App\GamesBundle\Model\Pull\PullOperationKind;
 use App\HoyoverseBundle\Repository\HoyoverseDiaryEntryRepository;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
+use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
 use App\HoyoverseBundle\Service\Pull\HoyoversePullStatsCalculator;
 use App\HoyoverseBundle\Service\Pull\HoyoverseServerTimezoneResolver;
 use App\HoyoverseBundle\Service\Pull\ManualPullService;
@@ -484,6 +487,53 @@ class ApiGameProfilesController extends AbstractController
         return $this->json([
             'success' => true,
             'message' => 'Backup pulls import queued in background.',
+            'operation' => $operation,
+        ], Response::HTTP_ACCEPTED);
+    }
+
+    /**
+     * Queues the import of the official S-rank history (e.g. the Zenless "Signal Search" statistics) into the missing
+     * pulls of the profile. About 15 HoYoLAB requests: always in the background, tracked like the other pull operations.
+     */
+    #[Route('/gameProfiles/{gameProfile}/pulls/import-s-rank-history', name: 'pulls_import_s_rank_history', requirements: ['gameProfile' => '\d+'], methods: ['POST'])]
+    public function apiGameProfilePullsImportSRankHistory(
+        #[CurrentUser] User $user,
+        #[MapEntity(message: "Hoyoverse Account not found.")] HoyoverseAccount $account,
+        #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
+        HoyolabCookieUtilsService $cookieUtils,
+        PullOperationTracker $operationTracker,
+        MessageBusInterface $bus,
+    ): Response {
+        $this->assertProfileOfAccount($account, $gameProfile);
+
+        if (!$this->locatorByGameId->has($gameProfile->getGameId())) {
+            throw new BadRequestHttpException("Unsupported game service.");
+        }
+
+        $gameService = $this->locatorByGameId->get($gameProfile->getGameId());
+        if (!$gameService instanceof HasPullTrackerInterface || !$gameService instanceof HasManualPullsInterface || !$gameService instanceof HasSRankHistoryImportInterface) {
+            throw new BadRequestHttpException("This game profile cannot import an official S-rank history.");
+        }
+
+        if ($cookieUtils->tryParseCookie($account->getCookie()) === null) {
+            throw new BadRequestHttpException("The HoYoLAB cookie of this account is missing or incomplete: log in again.");
+        }
+
+        if ($operationTracker->hasActiveOperation((int) $gameProfile->getId(), PullOperationKind::S_RANK_HISTORY_IMPORT)) {
+            throw new ConflictHttpException("An official S-rank history import is already in progress for this profile.");
+        }
+
+        $operation = $operationTracker->startSRankHistoryImport(
+            (int) $gameProfile->getId(),
+            $user->getId(),
+            $gameService->getGachaConfig()->getBannerTypes(),
+        );
+
+        $bus->dispatch(new ImportSRankHistoryMessage((string) $operation['id'], (int) $gameProfile->getId()));
+
+        return $this->json([
+            'success' => true,
+            'message' => 'Official S-rank history import queued in background.',
             'operation' => $operation,
         ], Response::HTTP_ACCEPTED);
     }

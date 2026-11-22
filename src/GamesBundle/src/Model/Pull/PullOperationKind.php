@@ -9,6 +9,7 @@ enum PullOperationKind: string
     case STOKEN_SYNC = 'stoken_sync';
     case AUTO_SYNC = 'auto_sync';
     case SCHEDULED_SYNC = 'scheduled_sync';
+    case S_RANK_HISTORY_IMPORT = 's_rank_history_import';
 
     public function getLabel(): string
     {
@@ -17,6 +18,7 @@ enum PullOperationKind: string
             self::POWERSHELL_IMPORT => 'PowerShell Import',
             self::STOKEN_SYNC, self::AUTO_SYNC => 'Sync Pulls',
             self::SCHEDULED_SYNC => 'Automatic Sync',
+            self::S_RANK_HISTORY_IMPORT => 'Official S-Rank History',
         };
     }
 }

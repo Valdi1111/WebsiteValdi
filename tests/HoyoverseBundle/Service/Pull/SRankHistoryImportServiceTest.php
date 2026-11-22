@@ -433,6 +433,7 @@ class SRankHistoryImportServiceTest extends TestCase
         ));
         $this->assertSame(['Alpha', 'Unknown', 'Unknown', 'Unknown', 'Beta'], array_column($tenPull, 'name'));
         $this->assertSame([10, 11, 12, 13, 14], array_column($tenPull, 'pull_number'));
+        $this->assertSame([10, 11, 12, 13, 14], array_column($tenPull, HoyoversePullStatsCalculator::STORED_PULL_NUMBER_FIELD), 'The stored numbers order the second');
     }
 
     public function testAManualSIsReplacedByTheOfficialOneAndReported(): void

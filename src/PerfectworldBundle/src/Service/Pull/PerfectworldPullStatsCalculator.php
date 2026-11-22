@@ -360,6 +360,8 @@ class PerfectworldPullStatsCalculator
 
         $item['origin'] = self::getOrigin($row)->value;
         $item['declared_pity'] = isset($row['declaredPity']) ? (int) $row['declaredPity'] : null;
+        // Rate-up flag of an S when a source gives it (null = unknown, never a lost 50/50)
+        $item['is_up'] = isset($row['isUp']) ? (bool) $row['isUp'] : null;
 
         return $item;
     }

@@ -103,7 +103,7 @@ class ManualPullServiceTest extends TestCase
     }
 
     /**
-     * Rows as the repository returns them: wall-clock digits read back as Europe/Rome, ordered by date then pull id.
+     * Rows as the repository returns them: wall-clock digits read back as Europe/Rome, in the repository order.
      *
      * @param list<string> $gachaTypes
      *
@@ -128,9 +128,11 @@ class ManualPullServiceTest extends TestCase
                 'pulledAt' => new \DateTimeImmutable($pull->getPulledAt()->format('Y-m-d H:i:s'), new \DateTimeZone('Europe/Rome')),
                 'origin' => $pull->getOrigin(),
                 'declaredPity' => $pull->getDeclaredPity(),
+                'isUp' => $pull->isUp(),
+                'pullNumber' => $pull->getPullNumber(),
             ];
         }
-        usort($rows, static fn (array $a, array $b): int => [$a['pulledAt']->format('Y-m-d H:i:s'), $a['pullId']] <=> [$b['pulledAt']->format('Y-m-d H:i:s'), $b['pullId']]);
+        usort($rows, HoyoversePullRepository::compareRows(...));
 
         return $rows;
     }
@@ -461,5 +463,69 @@ class ManualPullServiceTest extends TestCase
         $this->assertSame([], $plan->warnings);
         $this->assertSame([], $this->fillers(), '50 recorded pulls up to the first copy: nothing is missing');
         $this->assertTrue($service->realign($this->profile, $this->game, '301')->isEmpty(), 'Idempotent');
+    }
+
+    public function testRealignCopiesTheRateUpFlagOfAMergedManualS(): void
+    {
+        $manual = $this->addPull('2026-01-02 09:59:00', 5, 'Raiden Shogun', origin: PullOrigin::Manual, declaredPity: 1)->setIsUp(false);
+        $other = $this->addPull('2026-01-05 09:59:00', 5, 'Nahida', origin: PullOrigin::Manual, declaredPity: 1)->setIsUp(true);
+        $recorded = $this->addPull('2026-01-02 10:05:00', 5, 'Raiden Shogun');
+        $sourced = $this->addPull('2026-01-05 10:05:00', 5, 'Nahida')->setIsUp(false);
+
+        $plan = $this->createService()->realign($this->profile, $this->game, '301');
+
+        $this->assertSame([$manual->getId() => $recorded->getId(), $other->getId() => $sourced->getId()], $plan->merges);
+        $this->assertFalse($recorded->isUp(), 'A false flag is copied too: it is known, unlike null');
+        $this->assertFalse($sourced->isUp(), 'The flag given by the recorded row\'s own source is kept');
+    }
+
+    public function testRealignWritesNumberedFillersBetweenTwoSOfOneTenPull(): void
+    {
+        $this->addPull('2026-01-01 10:00:00', 5, 'Furina');
+        // Two S of one 10-pull, as an S-rank history import would write them: pulls 30 and 34 of the banner
+        $first = $this->addPull('2026-01-03 12:00:00', 5, 'Raiden Shogun', origin: PullOrigin::Manual, declaredPity: 29)->setPullNumber(30);
+        $second = $this->addPull('2026-01-03 12:00:00', 5, 'Nahida', origin: PullOrigin::Manual, declaredPity: 4)->setPullNumber(34);
+        $service = $this->createService();
+
+        $plan = $service->realign($this->profile, $this->game, '301');
+        $this->assertSame([], $plan->warnings);
+
+        $numbered = array_values(array_filter($this->fillers(), static fn (HoyoversePull $pull): bool => $pull->getPullNumber() !== null));
+        $this->assertSame([31, 32, 33], array_map(static fn (HoyoversePull $pull): ?int => $pull->getPullNumber(), $numbered));
+        foreach ($numbered as $filler) {
+            $this->assertSame('2026-01-03 12:00:00', $filler->getPulledAt()->format('Y-m-d H:i:s'));
+        }
+        $this->assertCount(28 + 3, $this->fillers(), '28 before the first S (after Furina), 3 between the two');
+
+        // In the repository order the second only holds: S, three fillers, S; the computed pull numbers follow
+        $computed = (new HoyoversePullStatsCalculator(new PullGapPlanner()))->compute(
+            $this->findBannerRows($this->profile, ['301', '400']),
+            $this->game->getGachaConfig()->getBannerGroups()['301'],
+            $this->game->getRarityConfig(),
+        );
+        $tail = \array_slice($computed['items'], -5);
+        $this->assertSame([$first->getId(), $numbered[0]->getId(), $numbered[1]->getId(), $numbered[2]->getId(), $second->getId()], array_column($tail, 'id'));
+        $this->assertSame([30, 31, 32, 33, 34], array_column($tail, 'pull_number'));
+        $this->assertSame([29, 4], [$tail[0]['pity'], $tail[4]['pity']]);
+        $this->assertTrue($service->realign($this->profile, $this->game, '301')->isEmpty(), 'Idempotent');
+
+        // A wrong number on a filler is corrected in place
+        $numbered[1]->setPullNumber(99);
+        $fix = $service->realign($this->profile, $this->game, '301');
+        $this->assertSame([], $fix->fillerCreates);
+        $this->assertSame([], $fix->fillerDeletes);
+        $numbers = array_map(static fn (HoyoversePull $pull): ?int => $pull->getPullNumber(), $numbered);
+        sort($numbers);
+        $this->assertSame([31, 32, 33], $numbers);
+        $this->assertTrue($service->realign($this->profile, $this->game, '301')->isEmpty());
+
+        // Their pity comes from the official history: the user cannot change it
+        try {
+            $service->declarePity($this->profile, $this->game, $second, 6);
+            $this->fail('A numbered S keeps its pity');
+        } catch (ManualPullViolationException $e) {
+            $this->assertSame(ManualPullViolationException::OFFICIAL_PULL, $e->violation);
+            $this->assertSame(4, $second->getDeclaredPity());
+        }
     }
 }

@@ -354,6 +354,24 @@ class PerfectworldPullStatsCalculatorTest extends TestCase
         $this->assertSame('2026-06-01 10:00:03', $entries[3]->pulledAt->format('Y-m-d H:i:s'));
     }
 
+    public function testRateUpFlagIsExposedWhereTheRowHasOne(): void
+    {
+        $rows = [
+            self::boardRoll(1, '2026-06-01 10:00:00'),
+            self::boardRoll(2, '2026-06-01 10:05:00', 'character', NevernessToEvernessService::RARITY_S, 'Blackbird'),
+        ];
+        $rows[1]['isUp'] = true;
+
+        $result = self::calculator()->compute(
+            $rows,
+            self::bannerGroup(NevernessToEvernessService::BANNER_LIMITED),
+            self::labels(NevernessToEvernessService::BANNER_LIMITED),
+            now: WallClockDateTimeImmutableType::fromString('2026-07-01 00:00:00'),
+        );
+
+        $this->assertSame([null, true], array_column($result['items'], 'is_up'));
+    }
+
     public function testRowsWithoutFillersKeepTheExistingKeysAndAddWindowFields(): void
     {
         $rows = [
@@ -371,8 +389,8 @@ class PerfectworldPullStatsCalculatorTest extends TestCase
         $summary = $result['summary'];
 
         $this->assertSame([...self::SUMMARY_KEYS, 'unknown_count', 'open_window', 'oldest_s'], array_keys($summary));
-        $this->assertSame([...self::ITEM_KEYS, 'roll_label', 'origin', 'declared_pity'], array_keys($result['items'][0]));
-        $this->assertSame([...self::ITEM_KEYS, 'roll_label', 'origin', 'declared_pity', ...self::WINDOW_KEYS], array_keys($result['items'][1]));
+        $this->assertSame([...self::ITEM_KEYS, 'roll_label', 'origin', 'declared_pity', 'is_up'], array_keys($result['items'][0]));
+        $this->assertSame([...self::ITEM_KEYS, 'roll_label', 'origin', 'declared_pity', 'is_up', ...self::WINDOW_KEYS], array_keys($result['items'][1]));
         $this->assertSame(0, $summary['unknown_count']);
         $this->assertSame(2, $summary['b_count']);
         $this->assertSame('recorded', $result['items'][0]['origin']);

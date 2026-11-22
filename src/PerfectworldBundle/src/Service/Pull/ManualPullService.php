@@ -259,6 +259,7 @@ class ManualPullService
         $pulls = $this->loadPulls($profile, [
             ...array_keys($plan->declaredPityUpdates),
             ...array_keys($plan->merges),
+            ...array_values($plan->merges),
             ...array_keys($plan->fillerMoves),
             ...$plan->fillerDeletes,
         ]);
@@ -267,10 +268,15 @@ class ManualPullService
         foreach ($plan->declaredPityUpdates as $id => $declaredPity) {
             ($pulls[$id] ?? null)?->setDeclaredPity($declaredPity);
         }
-        foreach (array_keys($plan->merges) as $id) {
-            if (isset($pulls[$id])) {
-                $this->entityManager->remove($pulls[$id]);
+        foreach ($plan->merges as $id => $recordedId) {
+            if (!isset($pulls[$id])) {
+                continue;
             }
+            // The recorded S inherits the rate-up flag of the manual S unless its own source gave one
+            if (isset($pulls[$recordedId]) && $pulls[$recordedId]->isUp() === null) {
+                $pulls[$recordedId]->setIsUp($pulls[$id]->isUp());
+            }
+            $this->entityManager->remove($pulls[$id]);
         }
         foreach ($plan->fillerMoves as $id => $pulledAt) {
             ($pulls[$id] ?? null)?->setPulledAt($pulledAt)->setGroupPosition(self::allocatePosition($positions, $pulledAt));

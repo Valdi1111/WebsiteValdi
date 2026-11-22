@@ -86,7 +86,7 @@ class HoyoversePullStatsCalculator
     }
 
     /**
-     * @param list<array<string, mixed>> $rows        Rows of one banner group, oldest first (pulledAt, then pullId)
+     * @param list<array<string, mixed>> $rows        Rows of one banner group, oldest first (HoyoversePullRepository::findBannerRows() order)
      * @param BannerGroup                $bannerGroup
      * @param \DateTimeImmutable|null    $now         Server wall-clock "now" tagged as UTC (upper limit of the
      *                                                suggested dates); null uses the current UTC time
@@ -134,6 +134,8 @@ class HoyoversePullStatsCalculator
             $isS = !$isFiller && $this->isS($row, $rarityConfig);
             $isA = !$isFiller && !$isS && $rarity === $aRarity;
             $declaredPity = isset($row['declaredPity']) ? (int) $row['declaredPity'] : null;
+            // Rate-up flag of an S when a source gives it (null = unknown, never a lost 50/50)
+            $isUp = isset($row['isUp']) ? (bool) $row['isUp'] : null;
 
             /** @var \DateTimeInterface|string|null $pulledAt */
             $pulledAt = $row['pulledAt'] ?? null;
@@ -163,6 +165,7 @@ class HoyoversePullStatsCalculator
                     'pulled_at' => $pulledAtFormatted,
                     'origin' => $origin->value,
                     'declared_pity' => $declaredPity,
+                    'is_up' => $isUp,
                     ...$window,
                 ];
                 $sPity = 0;
@@ -193,6 +196,7 @@ class HoyoversePullStatsCalculator
                 'pulled_at' => $pulledAtFormatted,
                 'origin' => $origin->value,
                 'declared_pity' => $declaredPity,
+                'is_up' => $isUp,
                 ...$window,
             ];
             $items[] = $item;
@@ -290,6 +294,7 @@ class HoyoversePullStatsCalculator
                 declaredPity: isset($row['declaredPity']) ? (int) $row['declaredPity'] : null,
                 itemId: $itemId !== null && $itemId !== '' ? (string) $itemId : null,
                 name: isset($row['name']) ? (string) $row['name'] : null,
+                pullNumber: isset($row['pullNumber']) ? (int) $row['pullNumber'] : null,
             );
         }
 

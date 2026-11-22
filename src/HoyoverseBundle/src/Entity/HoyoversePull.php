@@ -63,6 +63,17 @@ class HoyoversePull
     #[ORM\Column(type: Types::SMALLINT, nullable: true)]
     private ?int $declaredPity = null;
 
+    /** Whether an S was the rate-up item, when a source says so (null = unknown, never "lost") */
+    #[ORM\Column(nullable: true)]
+    private ?bool $isUp = null;
+
+    /**
+     * Pull number in the banner, only on rows built from an official S-rank history and on the fillers placed between
+     * two of them in one second (never on recorded rows): it orders the rows of one second after the unnumbered ones.
+     */
+    #[ORM\Column(nullable: true)]
+    private ?int $pullNumber = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -208,6 +219,30 @@ class HoyoversePull
     public function setDeclaredPity(?int $declaredPity): static
     {
         $this->declaredPity = $declaredPity;
+
+        return $this;
+    }
+
+    public function isUp(): ?bool
+    {
+        return $this->isUp;
+    }
+
+    public function setIsUp(?bool $isUp): static
+    {
+        $this->isUp = $isUp;
+
+        return $this;
+    }
+
+    public function getPullNumber(): ?int
+    {
+        return $this->pullNumber;
+    }
+
+    public function setPullNumber(?int $pullNumber): static
+    {
+        $this->pullNumber = $pullNumber;
 
         return $this;
     }

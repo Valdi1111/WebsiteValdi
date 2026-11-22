@@ -20,6 +20,7 @@ use App\GryphlineBundle\Service\SkportAuthService;
 use App\GryphlineBundle\Service\SkportSignerService;
 use App\GryphlineBundle\Service\SkportUtilsService;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
@@ -460,6 +461,29 @@ class ManualPullServiceTest extends TestCase
         $this->assertCount(2, $this->rowsOf(PullOrigin::Filler), '4 - 2 recorded pulls in its window');
         $this->assertSame(['Typhoeus' => 4, 'Liino' => 3], $this->sPities());
         $this->assertTrue($service->realign($this->profile, $this->game, self::SPECIAL)->isEmpty(), 'Idempotent');
+    }
+
+    /**
+     * @return iterable<string, array{0: ?bool, 1: ?bool, 2: ?bool}>
+     */
+    public static function rateUpFlagProvider(): iterable
+    {
+        yield 'copied when the recorded S has none' => [true, null, true];
+        yield 'the recorded flag is kept' => [true, false, false];
+    }
+
+    #[DataProvider('rateUpFlagProvider')]
+    public function testRealignCopiesTheRateUpFlagOfTheMergedManualS(?bool $manualFlag, ?bool $recordedFlag, ?bool $expected): void
+    {
+        $liino = $this->seedBanner();
+        $service = $this->service();
+        $service->createManualS($this->profile, $this->game, $this->request(4, $liino->getId()))->setIsUp($manualFlag);
+
+        $this->recorded('2026-06-01 08:00:00');
+        $real = $this->recorded('2026-06-01 09:00:05', 6, 'Typhoeus', 'chr_typhoeus')->setIsUp($recordedFlag);
+
+        $this->assertCount(1, $service->realign($this->profile, $this->game, self::SPECIAL)->merges);
+        $this->assertSame($expected, $real->isUp());
     }
 
     public function testRealignAllCoversEveryConfiguredBanner(): void

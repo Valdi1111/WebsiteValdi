@@ -21,6 +21,9 @@ class ManualPullGuard
     /**
      * Operation A: declare (or clear, with a null pity) the real pity of an S.
      *
+     * Refused on an S with a pull number: it comes from an official S-rank history, whose pity is exact, and the
+     * room of its window is counted in pull numbers rather than seconds.
+     *
      * @param list<PullTimelineEntry> $entries
      *
      * @throws ManualPullViolationException
@@ -32,6 +35,13 @@ class ManualPullGuard
             throw new ManualPullViolationException(
                 ManualPullViolationException::INVALID_TARGET,
                 \sprintf('Pull #%d is not an S pull of this banner.', $sId),
+            );
+        }
+
+        if ($target->pullNumber !== null) {
+            throw new ManualPullViolationException(
+                ManualPullViolationException::OFFICIAL_PULL,
+                'The pity of this S comes from the official history of the banner: it cannot be changed.',
             );
         }
 

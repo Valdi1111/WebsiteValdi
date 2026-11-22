@@ -29,7 +29,7 @@ class PerfectworldPullRepository extends ServiceEntityRepository
     public function findBannerRows(PerfectworldGameProfile $profile, string $bannerKey): array
     {
         return $this->createQueryBuilder('p')
-            ->select('p.id, p.bannerKey, p.poolId, p.pulledAt, p.groupPosition, p.kind, p.rollResult, p.rewardType, p.rewardId, p.name, p.rarity, p.quantity, p.origin, p.declaredPity')
+            ->select('p.id, p.bannerKey, p.poolId, p.pulledAt, p.groupPosition, p.kind, p.rollResult, p.rewardType, p.rewardId, p.name, p.rarity, p.quantity, p.origin, p.declaredPity, p.isUp')
             ->where('p.gameProfile = :profile')
             ->andWhere('p.bannerKey = :bannerKey')
             ->setParameter('profile', $profile)

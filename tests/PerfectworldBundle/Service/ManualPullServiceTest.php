@@ -602,6 +602,27 @@ class ManualPullServiceTest extends TestCase
         $this->assertSame(4, $this->computeItems()[$recordedS->getId()]['pity']);
     }
 
+    /**
+     * @return iterable<string, array{0: ?bool, 1: ?bool, 2: ?bool}>
+     */
+    public static function rateUpFlagProvider(): iterable
+    {
+        yield 'copied when the recorded S has none' => [false, null, false];
+        yield 'the recorded flag is kept' => [false, true, true];
+    }
+
+    #[DataProvider('rateUpFlagProvider')]
+    public function testTheMergeCopiesTheRateUpFlagOfTheManualS(?bool $manualFlag, ?bool $recordedFlag, ?bool $expected): void
+    {
+        $anchor = $this->addRecorded(self::LIMITED, '2026-06-01 10:05:00', '1042');
+        $service = $this->createService();
+        $service->createManualS($this->profile, $this->game, self::request('2026-06-01 09:00:00', 4, '1050', $anchor->getId()))->setIsUp($manualFlag);
+
+        $recordedS = $this->addRecorded(self::LIMITED, '2026-06-01 09:00:30', '1050')->setIsUp($recordedFlag);
+        $this->assertCount(1, $service->realign($this->profile, $this->game, self::LIMITED)->merges);
+        $this->assertSame($expected, $recordedS->isUp());
+    }
+
     public function testRealignAllCoversEveryBanner(): void
     {
         $this->addRecorded(self::LIMITED, '2026-06-01 10:05:00', '1042')->setDeclaredPity(3);

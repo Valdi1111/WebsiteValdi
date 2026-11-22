@@ -116,6 +116,7 @@ Optional fields understood by the shared pulls pages:
 | `roll_label` | pull rows | extra "Roll" column in `PullsBannerDetail` (NTE: dice value, Points Gift, Slumberland) |
 | `pity` / `pull_number` = `null` | pull rows | shown as "—" (bonus rows, rewards that do not reset pity) |
 | `origin`, `declared_pity` | pull rows, `recent_s_pulls` | `filler` rows render as "?" (thumbnail, tag, "Unknown pull", estimated date); `manual` S get a tag and a dashed badge; a declared pity gets an indicator, and a warning when the computed pity differs |
+| `is_up` | pull rows, `recent_s_pulls` | not shown yet: whether an S was the rate-up item, `null` = unknown (no source said so), never a lost 50/50 |
 | `recorded_pity`, `insert_after`, `insert_before`, `suggested_at`, `has_room` | S rows | bounds and defaults of the "Correct pity" / "Add earlier S" modals; rows without `has_room` get no actions |
 | `unknown_count`, `open_window`, `oldest_s` | banner summary | number of filler rows; window used by "Add missing S" when the banner has no S; the chronologically first S (with its window fields and `icon_url`), anchor of "Add missing S" even when `recent_s_pulls` is capped (NTE: 50) |
 | rarity `0` | `rarities` filter of `GET .../pulls` | the "?" pill (filler rows), off by default like B |
@@ -163,13 +164,16 @@ Histories start where the source starts (API window, first backup), so the first
 | One idempotent realign step (`PullGapPlanner::plan()` applied by each provider's `ManualPullService::realign()`) | Runs inside the profile lock after manual edits, imports and the last sync page, so later real data shrinks the fillers instead of double counting. Its second run is always empty. |
 | A manual S merges only into a recorded S that arrived later (higher id) and has no declaration | Two copies of the same character minutes apart (constellations) stay separate, and a recorded S is never claimed twice. |
 | Fillers sit strictly between non-filler neighbours (largest time gap of the window, or 1 s before the history start) | Ordering never depends on each provider's tie-break (`pullId` string, `(int) seqId`, `group_position`). Their dates are estimates and move on realign. |
+| Except between two **numbered** S of one second (`PullTimelineEntry::$pullNumber`, HoYoverse `pull_number`) | The S of one 10-pull share its second, so a window between them is 0 s wide. When both S carry their pull number in the banner (rows built from an official S-rank history), its fillers take the second of the earlier S and the numbers in between: S, fillers, S. A provider that stores numbers (today only HoYoverse) orders a second by number after its unnumbered rows (MySQL puts `NULL` first; `PullTimelineEntry::pullNumberOrderKey()` in PHP). Without numbers the plan is unchanged. |
+| A second never mixes numbered and unnumbered non-filler rows | Their relative order would be unknown. If the planner meets one anyway, it warns and does not use a numbered gap touching that second. |
+| Nullable `is_up` on the three pull tables | Whether an S was the rate-up item, only when a source says so: `null` (every existing row) is unknown, never a lost 50/50. No counting reads it. |
 | `isS` / `countsAsPull` come from each provider's stats calculator (`toTimelineEntries()`) | The realign step counts exactly like the pity shown in the UI (NTE boards count only rolls). |
 | Provider-specific rows and ids | HoYoverse/Gryphline use `filler_`/`manual_` ids; Perfect World uses negative `group_position` slots, so imports (identity on `pulled_at` + position) never collide. |
 | Pull dates on `wall_clock_datetime_immutable` (`App\CoreBundle\Doctrine\WallClockDateTimeImmutableType`) | The three pull tables store wall-clock times read back as UTC: with the default timezone (Europe/Rome) the hour skipped when DST starts would shift on read, and realign would move the fillers placed there on every run (`tests/GamesBundle/Doctrine/PullWallClockTest`). |
 
 **Rules** (`Service/Pull/ManualPullGuard`, on the entries of one banner group). A violation throws `ManualPullViolationException`, which `PullApiExceptionSubscriber` renders as `422` with its `code`; a write while an import or sync holds the profile lock gets `409` with code `profile_locked`.
 
-- **Declare a pity** of an S: between the pulls recorded in its window and the banner's S max pity (`pity_out_of_range`). A value above the recorded one needs a usable gap in the window (`no_room`). Clearing it (`null`) is refused on a manual S, which is deleted instead (`pity_required`). Providers store the recorded value as `null` on a recorded S.
+- **Declare a pity** of an S: between the pulls recorded in its window and the banner's S max pity (`pity_out_of_range`). A value above the recorded one needs a usable gap in the window (`no_room`). Clearing it (`null`) is refused on a manual S, which is deleted instead (`pity_required`). Providers store the recorded value as `null` on a recorded S. An S with a pull number comes from an official history: its pity can be neither changed nor cleared (`official_pull`).
 - **Add an S** at the start of an anchor S's window, or of the open window after the last S:
   - its pity is between 1 and the S max pity (`pity_out_of_range`);
   - its date is strictly after the previous S and before the first recorded pull of that window (`date_out_of_range`), and not in the future (`date_in_future`);
@@ -177,7 +181,7 @@ Histories start where the source starts (API window, first backup), so the first
 
   So a manual S never splits the window of a recorded S.
 - **Duplicates**: a recorded S of the same item within `ManualPull::MERGE_WINDOW_SECONDS` (24 h) gives `possible_duplicate`. The form asks whether it is another copy and resends with `allow_duplicate: true`. Same item means the same `item_id` when both rows have one, otherwise the same normalized name (`PullGapPlanner::isSameItem()`).
-- **Merge** (in `plan()`): a manual S merges into the nearest recorded S of the same item within 24 h that was inserted after it and has no declared pity, and its declared pity moves to that row. On equal distance the earliest candidate in the timeline wins, not the lowest row id: a sync inserts the newest pulls first, so two copies of one item in one 10-pull would otherwise pair up the wrong way round.
+- **Merge** (in `plan()`): a manual S merges into the nearest recorded S of the same item within 24 h that was inserted after it and has no declared pity, and its declared pity moves to that row, with its `is_up` when the recorded row has none. On equal distance the earliest candidate in the timeline wins, not the lowest row id: a sync inserts the newest pulls first, so two copies of one item in one 10-pull would otherwise pair up the wrong way round.
 - **Dates** are sent and stored as wall-clock `Y-m-d H:i:s` without offset (`ManualPull::DATE_FORMAT`), like the recorded rows of the provider.
 
 ### Not shared on purpose

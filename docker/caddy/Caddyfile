@@ -8,8 +8,26 @@
 	https_port {$HTTPS_PORT}
 }
 
+# Security headers of the application, as in the Caddyfile written by scripts/setup-server.sh, without
+# Strict-Transport-Security (left out there too on local domains). "?" sets a header only when PHP did not
+# send it, so a response can override it (GeetestService keeps Referrer-Policy: no-referrer on the captcha frame)
+(security_headers) {
+	header {
+		?X-Content-Type-Options "nosniff"
+		# SAMEORIGIN and not DENY: the GeeTest captcha is a same-origin iframe
+		?X-Frame-Options "SAMEORIGIN"
+		?Referrer-Policy "strict-origin-when-cross-origin"
+		# Only features no page uses: fullscreen (players, reader) and clipboard (copy buttons) stay allowed
+		?Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		-Via
+		-Server
+	}
+}
+
 # 1. Mercure hub
 mercure.{$DOMAIN_NAME} {
+	import security_headers
+
 	log {
 		format filter {
 			fields {
@@ -53,6 +71,8 @@ http://mercure {
 
 # 2. Symfony application and subdomains (PHP runs in the php-fpm container, same project path)
 {$DOMAIN_NAME}, anime.{$DOMAIN_NAME}, books.{$DOMAIN_NAME}, games.{$DOMAIN_NAME}, passwords.{$DOMAIN_NAME}, videos.{$DOMAIN_NAME} {
+	import security_headers
+
 	root * /var/www/html/public
 
 	encode zstd gzip

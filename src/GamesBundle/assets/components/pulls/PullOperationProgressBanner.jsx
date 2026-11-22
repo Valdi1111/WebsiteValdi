@@ -13,6 +13,7 @@ const { Text } = Typography;
 
 const PHASE_LABELS = {
     queued: "Queued in background...",
+    fetching: "Reading the official history...",
     parsing: "Parsing backup & resolving item catalog...",
     importing: "Importing pulls...",
     syncing: "Syncing banners...",
@@ -61,6 +62,10 @@ export default function PullOperationProgressBanner({ operation, onDismiss }) {
         } else if (banner.status === "failed") {
             color = "error";
             icon = <CloseCircleOutlined />;
+        } else if (banner.status === "skipped") {
+            // Left unchanged on purpose (e.g. a conflict with the official history): the reason is in the tooltip
+            color = "warning";
+            icon = <WarningOutlined />;
         }
 
         const extraParts = [];

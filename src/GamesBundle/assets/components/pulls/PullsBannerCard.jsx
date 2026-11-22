@@ -1,3 +1,4 @@
+import { useGameProvider } from "@GamesBundle/components/GameProviderContext";
 import { Card, Button, Space, Typography, Tooltip, Progress } from "antd";
 import { RightOutlined, RocketOutlined } from "@ant-design/icons";
 import React, { useEffect, useState } from "react";
@@ -33,8 +34,10 @@ function getInitials(name) {
 export function PullsRecentBadge({ pull, maxPity = 90, pullSingularLabel = "Pull" }) {
     const colorScheme = getPityColor(pull.pity, maxPity);
     const [imgError, setImgError] = useState(false);
-    // Manual S (added by the user) and S with a declared (corrected) pity
+    // Manual S (added by the user), official S (from the official S-rank history) and S with a declared pity
     const isManual = pull.origin === "manual";
+    const isOfficial = pull.origin === "official";
+    const officialLabel = useGameProvider().officialPullLabel || "official";
     const hasDeclaredPity = pull.declared_pity !== null && pull.declared_pity !== undefined;
 
     useEffect(() => {
@@ -49,8 +52,9 @@ export function PullsRecentBadge({ pull, maxPity = 90, pullSingularLabel = "Pull
                 <div style={{ fontSize: 12 }}>
                     <div style={{ fontWeight: 600 }}>{pull.name}</div>
                     <div>Pity: {pull.pity} ({pullSingularLabel} #{pull.pull_number})</div>
-                    {hasDeclaredPity && <div>Declared pity: {pull.declared_pity}</div>}
+                    {hasDeclaredPity && !isOfficial && <div>Declared pity: {pull.declared_pity}</div>}
                     {isManual && <div>Added manually</div>}
+                    {isOfficial && <div>From the official {officialLabel} history</div>}
                     <div style={{ opacity: 0.8 }}>{pull.pulled_at}</div>
                 </div>
             }

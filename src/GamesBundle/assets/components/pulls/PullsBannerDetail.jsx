@@ -1,4 +1,5 @@
 import { useBackendApi } from "@GamesBundle/components/BackendApiContext";
+import { useGameProvider } from "@GamesBundle/components/GameProviderContext";
 import DeclarePityModal from "@GamesBundle/components/pulls/DeclarePityModal";
 import ManualSPullModal from "@GamesBundle/components/pulls/ManualSPullModal";
 import { PullsRecentBadge, getPityColor } from "@GamesBundle/components/pulls/PullsBannerCard";
@@ -29,6 +30,7 @@ import {
     UndoOutlined,
     DeleteOutlined,
     WarningOutlined,
+    CheckCircleOutlined,
 } from "@ant-design/icons";
 import React, { useEffect, useState } from "react";
 
@@ -41,6 +43,11 @@ const OPERATION_ACTIVE_HINT = "Not available while an import or sync is running"
 
 function isFiller(record) {
     return record?.origin === "filler";
+}
+
+// S rows built from the official S-rank history: their pity and date are not the user's to change
+function isOfficial(record) {
+    return record?.origin === "official";
 }
 
 function hasValue(value) {
@@ -222,7 +229,9 @@ export default function PullsBannerDetail({
     const screens = useBreakpoint();
     const isMobile = !screens.sm;
     const api = useBackendApi();
+    const provider = useGameProvider();
     const { message } = App.useApp();
+    const officialLabel = provider.officialPullLabel || "official";
 
     // Targets are kept after closing so the modals don't change content during the close animation.
     // S row whose pity is being corrected (DeclarePityModal)
@@ -393,6 +402,13 @@ export default function PullsBannerDetail({
                                 </Tag>
                             </Tooltip>
                         )}
+                        {isOfficial(record) && (
+                            <Tooltip title={`From the official ${officialLabel} history: pity and date are exact`}>
+                                <Tag color="cyan" style={{ margin: 0, fontSize: 11 }}>
+                                    {officialLabel}
+                                </Tag>
+                            </Tooltip>
+                        )}
                         {record.item_type && (
                             <Text type="secondary" style={{ fontSize: 12 }}>
                                 ({record.item_type_label ?? record.item_type})
@@ -436,9 +452,15 @@ export default function PullsBannerDetail({
                     return (
                         <Space size={4} align="center">
                             {pityTag}
-                            <Tooltip title={`Declared pity ${declared} (${recorded} recorded + ${unknown} unknown)`}>
-                                <EditOutlined style={{ color: "#1677ff", fontSize: 12 }} />
-                            </Tooltip>
+                            {isOfficial(record) ? (
+                                <Tooltip title={`Official pity ${declared} (${recorded} recorded + ${unknown} unknown)`}>
+                                    <CheckCircleOutlined style={{ color: "#13c2c2", fontSize: 12 }} />
+                                </Tooltip>
+                            ) : (
+                                <Tooltip title={`Declared pity ${declared} (${recorded} recorded + ${unknown} unknown)`}>
+                                    <EditOutlined style={{ color: "#1677ff", fontSize: 12 }} />
+                                </Tooltip>
+                            )}
                             {pity !== declared && (
                                 <Tooltip title="Recorded pulls exceed the declared pity">
                                     <WarningOutlined style={{ color: "#faad14" }} />
@@ -493,7 +515,8 @@ export default function PullsBannerDetail({
             key: "actions",
             width: 44,
             align: "center",
-            render: (_, record) => (isPitySRow(record) ? (
+            // Official S: no correction, no earlier S before them (the official history lists every S), no deletion
+            render: (_, record) => (isPitySRow(record) && !isOfficial(record) ? (
                 <PullRowActions
                     record={record}
                     sLabel={sLabel}
@@ -528,11 +551,15 @@ export default function PullsBannerDetail({
             window: pickInsertWindow(oldestS ?? banner?.open_window),
         });
     };
+    // Before an official S nothing is missing: the official history lists every S of the banner
+    const oldestSIsOfficial = isOfficial(oldestS);
     const addMissingSHint = operationActive
         ? OPERATION_ACTIVE_HINT
-        : !openWindowUsable
-            ? `No valid date to place a ${sLabel} in this banner`
-            : undefined;
+        : oldestSIsOfficial
+            ? `The official ${officialLabel} history lists every ${sLabel} of this banner`
+            : !openWindowUsable
+                ? `No valid date to place a ${sLabel} in this banner`
+                : undefined;
 
     const closeManualModal = () => setManualOpen(false);
     const closeDeclareModal = () => setDeclareOpen(false);
@@ -608,7 +635,7 @@ export default function PullsBannerDetail({
                         <Button
                             size="small"
                             icon={<PlusOutlined />}
-                            disabled={operationActive || !openWindowUsable || !banner?.key}
+                            disabled={operationActive || oldestSIsOfficial || !openWindowUsable || !banner?.key}
                             onClick={openAddMissingS}
                         >
                             {isMobile ? "Add" : `Add missing ${sLabel}`}

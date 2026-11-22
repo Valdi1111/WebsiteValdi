@@ -2,8 +2,9 @@ import AccountStatusTags, { getReloginState } from "@HoyoverseBundle/components/
 import AddAccountModal from "@HoyoverseBundle/components/account/AddAccountModal";
 import DiaryPage from "@HoyoverseBundle/components/diary/DiaryPage";
 import PowershellPullImportModal from "@HoyoverseBundle/components/game-profile/PowershellPullImportModal";
+import SRankHistoryImportModal from "@HoyoverseBundle/components/game-profile/SRankHistoryImportModal";
 import ProfileSettingsSections from "@HoyoverseBundle/components/game-profile/ProfileSettingsSections";
-import { UserSwitchOutlined, WindowsOutlined } from "@ant-design/icons";
+import { HistoryOutlined, UserSwitchOutlined, WindowsOutlined } from "@ant-design/icons";
 import React from "react";
 
 /**
@@ -53,7 +54,16 @@ export default {
             isAvailable: (profile) => Boolean(profile?.supports_powershell_pulls),
             Modal: PowershellPullImportModal,
         },
+        {
+            key: "s_rank_history",
+            label: "Import S-rank history from HoYoLAB",
+            icon: <HistoryOutlined/>,
+            isAvailable: (profile) => Boolean(profile?.supports_s_rank_history_import),
+            Modal: SRankHistoryImportModal,
+        },
     ],
+    // Tag of the S rows created from the official S-rank history (origin "official")
+    officialPullLabel: "HoYoLAB",
     extraRoutes: [
         { path: "accounts/:accountId/profiles/:gameProfileId/diary", element: <DiaryPage/> },
     ],

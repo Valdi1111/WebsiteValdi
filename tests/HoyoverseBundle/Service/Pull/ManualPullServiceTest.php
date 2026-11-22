@@ -431,4 +431,35 @@ class ManualPullServiceTest extends TestCase
         $this->assertCount(24, $this->fillers());
         $this->assertTrue($service->realign($this->profile, $this->game, '999')->isEmpty());
     }
+
+    public function testRealignMergesAManualSIntoTheFirstOfTwoCopiesOfOneTenPull(): void
+    {
+        $this->addPull('2026-01-10 10:00:00', 3);
+        $manual = $this->addPull('2026-01-04 10:00:00', 5, 'Furina', origin: PullOrigin::Manual, declaredPity: 50);
+        $service = $this->createService();
+        $service->realign($this->profile, $this->game, '301');
+        $this->assertCount(49, $this->fillers());
+
+        // A backup brings the older pulls, newest first like a sync: inside the 10-pull of 12:00 the row ids
+        // decrease while the pull ids grow. Furina is its 3rd and 7th pull, so the first copy is the 50th pull.
+        $tenPull = [];
+        for ($position = 10; $position >= 1; --$position) {
+            $tenPull[$position] = $this->addPull('2026-01-04 12:00:00', \in_array($position, [3, 7], true) ? 5 : 3, \in_array($position, [3, 7], true) ? 'Furina' : 'Cool Steel')
+                ->setPullId(sprintf('16000000000000%05d', 47 + $position));
+        }
+        for ($index = 47; $index >= 1; --$index) {
+            $this->addPull(sprintf('2026-01-01 %02d:%02d:00', intdiv($index, 60), $index % 60), 3)
+                ->setPullId(sprintf('16000000000000%05d', $index));
+        }
+        [$first, $second] = [$tenPull[3], $tenPull[7]];
+        $this->assertGreaterThan($second->getId(), $first->getId(), 'The first copy was inserted after the second one');
+
+        $plan = $service->realign($this->profile, $this->game, '301');
+        $this->assertSame([$manual->getId() => $first->getId()], $plan->merges, 'Equal distance: the first copy in the timeline wins, not the lowest row id');
+        $this->assertSame(50, $first->getDeclaredPity());
+        $this->assertNull($second->getDeclaredPity());
+        $this->assertSame([], $plan->warnings);
+        $this->assertSame([], $this->fillers(), '50 recorded pulls up to the first copy: nothing is missing');
+        $this->assertTrue($service->realign($this->profile, $this->game, '301')->isEmpty(), 'Idempotent');
+    }
 }

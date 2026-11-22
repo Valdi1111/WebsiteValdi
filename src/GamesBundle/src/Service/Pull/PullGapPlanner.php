@@ -131,7 +131,9 @@ class PullGapPlanner
     }
 
     /**
-     * Pairs each manual S with the nearest recorded S of the same item inserted after it.
+     * Pairs each manual S with the nearest recorded S of the same item inserted after it. Manual S are
+     * visited in timeline order and ties go to the earliest candidate in the timeline, so two copies of
+     * one item in one 10-pull pair up in order (first with first).
      *
      * A recorded S that already carries a declared pity is not a candidate: it has been claimed by
      * an earlier merge (realign runs after every insertion), and accepting it would merge another
@@ -169,8 +171,10 @@ class PullGapPlanner
                 if ($distance > ManualPull::MERGE_WINDOW_SECONDS) {
                     continue;
                 }
-                // Nearest in time wins; on a tie, the lowest id (inserted first)
-                if ($best === null || $distance < $bestDistance || ($distance === $bestDistance && $candidate->id < $best->id)) {
+                // Nearest in time wins; on a tie, the earliest in the timeline (candidates are visited in order). Not the
+                // lowest id: a sync inserts the newest pulls first, so inside a 10-pull the ids decrease with time, and
+                // two manual copies of one item would take the two recorded copies the other way round.
+                if ($best === null || $distance < $bestDistance) {
                     $best = $candidate;
                     $bestDistance = $distance;
                 }

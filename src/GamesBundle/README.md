@@ -177,7 +177,7 @@ Histories start where the source starts (API window, first backup), so the first
 
   So a manual S never splits the window of a recorded S.
 - **Duplicates**: a recorded S of the same item within `ManualPull::MERGE_WINDOW_SECONDS` (24 h) gives `possible_duplicate`. The form asks whether it is another copy and resends with `allow_duplicate: true`. Same item means the same `item_id` when both rows have one, otherwise the same normalized name (`PullGapPlanner::isSameItem()`).
-- **Merge** (in `plan()`): a manual S merges into the nearest recorded S of the same item within 24 h that was inserted after it and has no declared pity, and its declared pity moves to that row.
+- **Merge** (in `plan()`): a manual S merges into the nearest recorded S of the same item within 24 h that was inserted after it and has no declared pity, and its declared pity moves to that row. On equal distance the earliest candidate in the timeline wins, not the lowest row id: a sync inserts the newest pulls first, so two copies of one item in one 10-pull would otherwise pair up the wrong way round.
 - **Dates** are sent and stored as wall-clock `Y-m-d H:i:s` without offset (`ManualPull::DATE_FORMAT`), like the recorded rows of the provider.
 
 ### Not shared on purpose

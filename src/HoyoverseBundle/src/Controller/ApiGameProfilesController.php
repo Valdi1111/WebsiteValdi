@@ -4,7 +4,6 @@ namespace App\HoyoverseBundle\Controller;
 
 use App\CoreBundle\Entity\User;
 use App\GamesBundle\Model\Game\HasManualPullsInterface;
-use App\GamesBundle\Model\Game\HasSRankHistoryImportInterface;
 use App\GamesBundle\Model\Pull\Manual\CreateManualPullRequest;
 use App\GamesBundle\Model\Pull\Manual\DeclarePityRequest;
 use App\GamesBundle\Security\GameAccountOwnerVoter;
@@ -13,7 +12,6 @@ use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Entity\HoyoversePull;
 use App\HoyoverseBundle\Message\Profile\ImportPullsBackupMessage;
-use App\HoyoverseBundle\Message\Profile\ImportSRankHistoryMessage;
 use App\HoyoverseBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\HoyoverseBundle\Model\Diary\GameDiaryCurrency;
 use App\HoyoverseBundle\Model\Game\GameInterface;
@@ -24,13 +22,13 @@ use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
 use App\GamesBundle\Model\Pull\PullOperationKind;
 use App\HoyoverseBundle\Repository\HoyoverseDiaryEntryRepository;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
-use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
 use App\HoyoverseBundle\Service\Pull\HoyoversePullStatsCalculator;
 use App\HoyoverseBundle\Service\Pull\HoyoverseServerTimezoneResolver;
 use App\HoyoverseBundle\Service\Pull\ManualPullService;
 use App\HoyoverseBundle\Service\Pull\ManualPullSuggestionProvider;
 use App\HoyoverseBundle\Service\Pull\PullBackupImporterManager;
 use App\HoyoverseBundle\Service\Pull\PullOperationTracker;
+use App\HoyoverseBundle\Service\Pull\SRankHistoryImportLauncher;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -500,36 +498,12 @@ class ApiGameProfilesController extends AbstractController
         #[CurrentUser] User $user,
         #[MapEntity(message: "Hoyoverse Account not found.")] HoyoverseAccount $account,
         #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
-        HoyolabCookieUtilsService $cookieUtils,
-        PullOperationTracker $operationTracker,
-        MessageBusInterface $bus,
+        SRankHistoryImportLauncher $launcher,
     ): Response {
         $this->assertProfileOfAccount($account, $gameProfile);
 
-        if (!$this->locatorByGameId->has($gameProfile->getGameId())) {
-            throw new BadRequestHttpException("Unsupported game service.");
-        }
-
-        $gameService = $this->locatorByGameId->get($gameProfile->getGameId());
-        if (!$gameService instanceof HasPullTrackerInterface || !$gameService instanceof HasManualPullsInterface || !$gameService instanceof HasSRankHistoryImportInterface) {
-            throw new BadRequestHttpException("This game profile cannot import an official S-rank history.");
-        }
-
-        if ($cookieUtils->tryParseCookie($account->getCookie()) === null) {
-            throw new BadRequestHttpException("The HoYoLAB cookie of this account is missing or incomplete: log in again.");
-        }
-
-        if ($operationTracker->hasActiveOperation((int) $gameProfile->getId(), PullOperationKind::S_RANK_HISTORY_IMPORT)) {
-            throw new ConflictHttpException("An official S-rank history import is already in progress for this profile.");
-        }
-
-        $operation = $operationTracker->startSRankHistoryImport(
-            (int) $gameProfile->getId(),
-            $user->getId(),
-            $gameService->getGachaConfig()->getBannerTypes(),
-        );
-
-        $bus->dispatch(new ImportSRankHistoryMessage((string) $operation['id'], (int) $gameProfile->getId()));
+        // 400 without the capability or with an unusable cookie, 409 while one runs (shared with the console command)
+        $operation = $launcher->queue($gameProfile, $user->getId());
 
         return $this->json([
             'success' => true,

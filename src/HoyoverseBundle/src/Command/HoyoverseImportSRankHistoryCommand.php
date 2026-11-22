@@ -3,9 +3,8 @@
 namespace App\HoyoverseBundle\Command;
 
 use App\GamesBundle\Model\Pull\PullImportProgress;
-use App\HoyoverseBundle\Message\Profile\ImportSRankHistoryMessage;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
-use App\HoyoverseBundle\Service\Pull\PullOperationTracker;
+use App\HoyoverseBundle\Service\Pull\SRankHistoryImportLauncher;
 use App\HoyoverseBundle\Service\Pull\SRankHistoryImportService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -14,8 +13,12 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
+/**
+ * Exit code: failure when the profile cannot be imported, or when a banner was (or, in a dry run, would be) left
+ * unchanged or rolled back, so that a script can tell.
+ */
 #[AsCommand(
     name: 'hoyoverse:import-s-rank-history',
     description: 'Import the official S-rank history of a game profile (Zenless Zone Zero: HoYoLAB Signal Search) into its missing pulls.'
@@ -25,8 +28,7 @@ class HoyoverseImportSRankHistoryCommand extends Command
     public function __construct(
         private readonly HoyoverseGameProfileRepository $profileRepository,
         private readonly SRankHistoryImportService $importService,
-        private readonly PullOperationTracker $operationTracker,
-        private readonly MessageBusInterface $bus,
+        private readonly SRankHistoryImportLauncher $launcher,
     ) {
         parent::__construct();
     }
@@ -71,12 +73,14 @@ class HoyoverseImportSRankHistoryCommand extends Command
                 return Command::FAILURE;
             }
 
-            $operation = $this->operationTracker->startSRankHistoryImport(
-                $profileId,
-                $profile->getAccount()?->getUser()?->getId(),
-                $gameService->getGachaConfig()->getBannerTypes(),
-            );
-            $this->bus->dispatch(new ImportSRankHistoryMessage((string) $operation['id'], $profileId));
+            // The checks of the API endpoint: usable cookie, no S-rank history import of the profile already queued
+            try {
+                $operation = $this->launcher->queue($profile, $profile->getAccount()?->getUser()?->getId());
+            } catch (HttpExceptionInterface $e) {
+                $io->error($e->getMessage());
+
+                return Command::FAILURE;
+            }
             $io->success(\sprintf('Import queued on hoyoverse_pulls (operation ID: %s).', $operation['id']));
 
             return Command::SUCCESS;
@@ -110,7 +114,14 @@ class HoyoverseImportSRankHistoryCommand extends Command
         }
 
         if ($summary->skipped > 0) {
-            $io->caution(\sprintf('%d banner(s) left unchanged: see the reasons above.', $summary->skipped));
+            $io->error(\sprintf(
+                '%d banner(s) %s unchanged (skipped or rolled back): see the reasons above.%s',
+                $summary->skipped,
+                $dryRun ? 'would be left' : 'left',
+                $dryRun ? ' Nothing was written.' : '',
+            ));
+
+            return Command::FAILURE;
         }
         $io->success($dryRun ? 'Dry-run completed: nothing was written.' : 'S-rank history import completed.');
 

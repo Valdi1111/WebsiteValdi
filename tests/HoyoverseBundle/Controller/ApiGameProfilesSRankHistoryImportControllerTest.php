@@ -10,7 +10,14 @@ use App\HoyoverseBundle\Message\Profile\ImportSRankHistoryMessage;
 use App\HoyoverseBundle\Service\GenshinImpactService;
 use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
 use App\HoyoverseBundle\Service\HoyolabUtilsService;
+use App\GamesBundle\Service\Pull\PullGapPlanner;
+use App\GamesBundle\Service\Pull\SRankHistoryReconciler;
+use App\HoyoverseBundle\Repository\HoyoversePullRepository;
+use App\HoyoverseBundle\Service\Pull\HoyoversePullStatsCalculator;
+use App\HoyoverseBundle\Service\Pull\ManualPullService;
 use App\HoyoverseBundle\Service\Pull\PullOperationTracker;
+use App\HoyoverseBundle\Service\Pull\SRankHistoryImportLauncher;
+use App\HoyoverseBundle\Service\Pull\SRankHistoryImportService;
 use App\HoyoverseBundle\Service\ZenlessZoneZeroService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
@@ -22,6 +29,8 @@ use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\Store\InMemoryStore;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -33,7 +42,11 @@ use Symfony\Component\Serializer\Serializer;
 use Symfony\Component\Serializer\SerializerInterface;
 
 /**
- * POST .../pulls/import-s-rank-history: checks, operation and message.
+ * POST .../pulls/import-s-rank-history: checks, operation and message (SRankHistoryImportLauncher).
+ *
+ * The action is called directly, like the other controller tests: a WebTestCase would need a database (user refresh by
+ * the entity provider, role hierarchy, #[MapEntity], Doctrine Messenger transport). Routing and the owner voter of
+ * every {account} route are covered by GamesRoutingTest and GameAccountOwnerRoutesTest.
  */
 class ApiGameProfilesSRankHistoryImportControllerTest extends TestCase
 {
@@ -93,7 +106,22 @@ class ApiGameProfilesSRankHistoryImportControllerTest extends TestCase
             return new Envelope($message);
         });
 
-        return $controller->apiGameProfilePullsImportSRankHistory($this->user, $this->account, $profile, $cookieUtils, $this->tracker, $bus);
+        $planner = new PullGapPlanner();
+        $importService = new SRankHistoryImportService(
+            $this->createStub(EntityManagerInterface::class),
+            $this->createStub(HoyoversePullRepository::class),
+            new HoyoversePullStatsCalculator($planner),
+            new SRankHistoryReconciler($planner),
+            $this->createStub(ManualPullService::class),
+            $cookieUtils,
+            new LockFactory(new InMemoryStore()),
+            new ServiceLocator([
+                ZenlessZoneZeroService::GAME_ID => static fn () => $zzz,
+                GenshinImpactService::GAME_ID => static fn () => $genshin,
+            ]),
+        );
+
+        return $controller->apiGameProfilePullsImportSRankHistory($this->user, $this->account, $profile, new SRankHistoryImportLauncher($importService, $this->tracker, $bus));
     }
 
     public function testQueuesTheImportAsATrackedOperation(): void

@@ -25,7 +25,7 @@ class ManualPullViolationException extends \DomainException
     public const string INVALID_ITEM = 'invalid_item';
     /** A free-text item needs an item type the banner does not imply */
     public const string ITEM_TYPE_REQUIRED = 'item_type_required';
-    /** The S comes from an official S-rank history (it has a pull number): its pity is not an estimate */
+    /** The S (or the anchor S) comes from an official S-rank history (origin official): its pity is not an estimate */
     public const string OFFICIAL_PULL = 'official_pull';
 
     /**

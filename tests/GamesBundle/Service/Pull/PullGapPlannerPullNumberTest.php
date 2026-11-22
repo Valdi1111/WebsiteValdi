@@ -10,7 +10,8 @@ use App\GamesBundle\Service\Pull\PullGapPlanner;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Pull numbers in the planner (the S of one 10-pull share its second) and the timeline-order tie-break of the merge.
+ * Pull numbers in the planner (the S of one 10-pull share its second), official S rows, and the timeline-order
+ * tie-break of the merge.
  * The behaviour without numbers is covered, unchanged, by PullGapPlannerTest.
  */
 class PullGapPlannerPullNumberTest extends TestCase
@@ -27,8 +28,8 @@ class PullGapPlannerPullNumberTest extends TestCase
         // Pull 40 is an S after 39 unknown pulls; pull 44 is an S of the same 10-pull
         $entries = [
             self::recorded(1, '2025-01-01 09:00:00'),
-            self::manualS(20, '2025-01-01 12:00:00', 39, 40),
-            self::manualS(21, '2025-01-01 12:00:00', 4, 44),
+            self::officialS(20, '2025-01-01 12:00:00', 39, 40),
+            self::officialS(21, '2025-01-01 12:00:00', 4, 44),
             self::recorded(2, '2025-01-01 13:00:00'),
         ];
 
@@ -62,8 +63,8 @@ class PullGapPlannerPullNumberTest extends TestCase
     public function testNumberedSOneSecondApartGetTheirFillersInTheSecondOfTheEarlierOne(): void
     {
         $plan = $this->planner->plan([
-            self::manualS(20, '2025-01-01 12:00:00', 1, 1),
-            self::manualS(21, '2025-01-01 12:00:01', 3, 4),
+            self::officialS(20, '2025-01-01 12:00:00', 1, 1),
+            self::officialS(21, '2025-01-01 12:00:01', 3, 4),
         ]);
 
         $this->assertSame([], $plan->warnings);
@@ -74,8 +75,8 @@ class PullGapPlannerPullNumberTest extends TestCase
     public function testNumberedGapWithoutEnoughNumbersGivesAWarningAndNoFiller(): void
     {
         $plan = $this->planner->plan([
-            self::manualS(20, '2025-01-01 12:00:00', 1, 40),
-            self::manualS(21, '2025-01-01 12:00:00', 5, 42),
+            self::officialS(20, '2025-01-01 12:00:00', 1, 40),
+            self::officialS(21, '2025-01-01 12:00:00', 5, 42),
         ]);
 
         $this->assertTrue($plan->isEmpty());
@@ -85,8 +86,8 @@ class PullGapPlannerPullNumberTest extends TestCase
 
         // Numbers in the wrong order leave no room at all
         $reversed = $this->planner->plan([
-            self::manualS(20, '2025-01-01 12:00:00', 1, 42),
-            self::manualS(21, '2025-01-01 12:00:00', 2, 40),
+            self::officialS(20, '2025-01-01 12:00:00', 1, 42),
+            self::officialS(21, '2025-01-01 12:00:00', 2, 40),
         ]);
         $this->assertTrue($reversed->isEmpty());
         $this->assertStringContainsString('room for 0 after the previous S', $reversed->warnings[0]);
@@ -97,8 +98,8 @@ class PullGapPlannerPullNumberTest extends TestCase
         // One second apart, so that no second mixes numbered and unnumbered rows
         foreach ([[40, null], [null, 44]] as [$first, $second]) {
             $plan = $this->planner->plan([
-                self::manualS(20, '2025-01-01 12:00:00', 1, $first),
-                self::manualS(21, '2025-01-01 12:00:01', 4, $second),
+                self::officialS(20, '2025-01-01 12:00:00', 1, $first),
+                self::officialS(21, '2025-01-01 12:00:01', 4, $second),
             ]);
 
             $this->assertTrue($plan->isEmpty());
@@ -113,8 +114,8 @@ class PullGapPlannerPullNumberTest extends TestCase
         $plan = $this->planner->plan([
             self::recorded(1, '2025-01-01 09:00:00'),
             self::recorded(2, '2025-01-01 12:00:00'),
-            self::manualS(20, '2025-01-01 12:00:00', 2, 40),
-            self::manualS(21, '2025-01-01 12:00:00', 4, 44),
+            self::officialS(20, '2025-01-01 12:00:00', 2, 40),
+            self::officialS(21, '2025-01-01 12:00:00', 4, 44),
         ]);
 
         $this->assertCount(2, $plan->warnings);
@@ -126,8 +127,8 @@ class PullGapPlannerPullNumberTest extends TestCase
         $withFillers = $this->planner->plan([
             self::recorded(1, '2025-01-01 09:00:00'),
             new PullTimelineEntry(90, self::date('2025-01-01 12:00:00'), PullOrigin::Filler, false, true),
-            self::manualS(20, '2025-01-01 12:00:00', 2, 40),
-            self::manualS(21, '2025-01-01 12:00:00', 4, 44),
+            self::officialS(20, '2025-01-01 12:00:00', 2, 40),
+            self::officialS(21, '2025-01-01 12:00:00', 4, 44),
         ]);
         $this->assertSame([], $withFillers->warnings);
     }
@@ -136,10 +137,10 @@ class PullGapPlannerPullNumberTest extends TestCase
     {
         $entries = [
             new PullTimelineEntry(90, self::date('2025-01-01 08:00:00'), PullOrigin::Filler, false, true),
-            self::manualS(20, '2025-01-01 12:00:00', 1, 40),
+            self::officialS(20, '2025-01-01 12:00:00', 1, 40),
             new PullTimelineEntry(91, self::date('2025-01-01 12:00:00'), PullOrigin::Filler, false, true, pullNumber: 43),
             new PullTimelineEntry(92, self::date('2025-01-01 12:00:00'), PullOrigin::Filler, false, true, pullNumber: 45),
-            self::manualS(21, '2025-01-01 12:00:00', 4, 44),
+            self::officialS(21, '2025-01-01 12:00:00', 4, 44),
         ];
 
         $plan = $this->planner->plan($entries);
@@ -175,6 +176,36 @@ class PullGapPlannerPullNumberTest extends TestCase
         // A single manual copy takes the first recorded one too
         $single = $this->planner->plan([$entries[0], $entries[2], $entries[3]]);
         $this->assertSame([5 => 60], $single->merges);
+    }
+
+    public function testAnOfficialSMergesIntoTheRecordedSOfALaterImportLikeAManualOne(): void
+    {
+        // Pulls 2 and 4 of the banner are official S of one 10-pull, with their filler (pull 3) between them. Then the
+        // real 10-pull arrives, newest first (the first copy gets the higher id), in the provider order of that second:
+        // unnumbered recorded rows first, then the numbered ones
+        $entries = [
+            self::recorded(1, '2025-01-01 09:00:00'),
+            self::recordedS(61, '2025-01-01 12:00:00', '1046'),
+            self::recorded(62, '2025-01-01 12:00:00'),
+            self::recordedS(60, '2025-01-01 12:00:00', '1046'),
+            self::officialS(20, '2025-01-01 12:00:00', 2, 2, '1046'),
+            new PullTimelineEntry(90, self::date('2025-01-01 12:00:00'), PullOrigin::Filler, false, true, pullNumber: 3),
+            self::officialS(21, '2025-01-01 12:00:00', 2, 4, '1046'),
+        ];
+
+        $plan = $this->planner->plan($entries);
+
+        $this->assertSame([20 => 61, 21 => 60], $plan->merges, 'In order: first official copy with the first recorded copy');
+        $this->assertSame([61 => 2, 60 => 2], $plan->declaredPityUpdates);
+        $this->assertSame([90], $plan->fillerDeletes, 'The recorded pulls fill the windows now: the numbered filler goes');
+        $this->assertSame([], $plan->warnings, 'Once merged, the second holds no numbered S');
+
+        // An official S is never a merge target: a manual copy next to it stays a separate S
+        $nextToOfficial = $this->planner->plan([
+            self::officialS(20, '2025-01-01 12:00:00', 1, 1, '1046'),
+            self::manualS(30, '2025-01-01 12:05:00', 1, itemId: '1046'),
+        ]);
+        $this->assertSame([], $nextToOfficial->merges);
     }
 
     public function testPlanIsIdempotentOnRandomTimelinesWithNumberedTenPulls(): void
@@ -277,12 +308,12 @@ class PullGapPlannerPullNumberTest extends TestCase
             if ($roll <= 40) {
                 // One 10-pull: its first S closes a window of unknown length, the next ones are a few pulls later
                 $pullNumber += mt_rand(1, 90);
-                $entries[] = new PullTimelineEntry(1000 + $nextId++, $at, PullOrigin::Manual, true, true, mt_rand(1, 90), null, 'Furina', $pullNumber);
+                $entries[] = new PullTimelineEntry(1000 + $nextId++, $at, PullOrigin::Official, true, true, mt_rand(1, 90), null, 'Furina', $pullNumber);
                 $copies = mt_rand(1, 2);
                 for ($k = 0; $k < $copies; ++$k) {
                     $distance = mt_rand(1, 9);
                     $pullNumber += $distance;
-                    $entries[] = new PullTimelineEntry(1000 + $nextId++, $at, PullOrigin::Manual, true, true, $distance, null, 'Raiden', $pullNumber);
+                    $entries[] = new PullTimelineEntry(1000 + $nextId++, $at, PullOrigin::Official, true, true, $distance, null, 'Raiden', $pullNumber);
                 }
             } elseif ($roll <= 55) {
                 $entries[] = new PullTimelineEntry($nextId++, $at, PullOrigin::Recorded, true, true, mt_rand(0, 2) === 0 ? mt_rand(1, 90) : null, null, 'Neuvillette');
@@ -326,5 +357,13 @@ class PullGapPlannerPullNumberTest extends TestCase
     private static function manualS(int $id, string $at, int $declaredPity, ?int $pullNumber = null, ?string $itemId = null): PullTimelineEntry
     {
         return new PullTimelineEntry($id, self::date($at), PullOrigin::Manual, true, true, $declaredPity, $itemId, 'Furina', $pullNumber);
+    }
+
+    /**
+     * An S as an S-rank history import writes it: origin official, its pity declared, its pull number.
+     */
+    private static function officialS(int $id, string $at, int $declaredPity, ?int $pullNumber = null, ?string $itemId = null): PullTimelineEntry
+    {
+        return new PullTimelineEntry($id, self::date($at), PullOrigin::Official, true, true, $declaredPity, $itemId, 'Furina', $pullNumber);
     }
 }

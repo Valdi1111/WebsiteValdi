@@ -482,9 +482,9 @@ class ManualPullServiceTest extends TestCase
     public function testRealignWritesNumberedFillersBetweenTwoSOfOneTenPull(): void
     {
         $this->addPull('2026-01-01 10:00:00', 5, 'Furina');
-        // Two S of one 10-pull, as an S-rank history import would write them: pulls 30 and 34 of the banner
-        $first = $this->addPull('2026-01-03 12:00:00', 5, 'Raiden Shogun', origin: PullOrigin::Manual, declaredPity: 29)->setPullNumber(30);
-        $second = $this->addPull('2026-01-03 12:00:00', 5, 'Nahida', origin: PullOrigin::Manual, declaredPity: 4)->setPullNumber(34);
+        // Two official S of one 10-pull, as an S-rank history import would write them: pulls 30 and 34 of the banner
+        $first = $this->addPull('2026-01-03 12:00:00', 5, 'Raiden Shogun', origin: PullOrigin::Official, declaredPity: 29)->setPullNumber(30);
+        $second = $this->addPull('2026-01-03 12:00:00', 5, 'Nahida', origin: PullOrigin::Official, declaredPity: 4)->setPullNumber(34);
         $service = $this->createService();
 
         $plan = $service->realign($this->profile, $this->game, '301');
@@ -519,13 +519,55 @@ class ManualPullServiceTest extends TestCase
         $this->assertSame([31, 32, 33], $numbers);
         $this->assertTrue($service->realign($this->profile, $this->game, '301')->isEmpty());
 
-        // Their pity comes from the official history: the user cannot change it
-        try {
-            $service->declarePity($this->profile, $this->game, $second, 6);
-            $this->fail('A numbered S keeps its pity');
-        } catch (ManualPullViolationException $e) {
-            $this->assertSame(ManualPullViolationException::OFFICIAL_PULL, $e->violation);
-            $this->assertSame(4, $second->getDeclaredPity());
+        // They count like manual S, and the API tells them apart
+        $this->assertSame(['official', 'official'], [$tail[0]['origin'], $tail[4]['origin']]);
+        $this->assertSame(['Nahida', 'Raiden Shogun', 'Furina'], array_column($computed['summary']['recent_s_pulls'], 'name'));
+        $this->assertSame(3, $computed['summary']['s_count']);
+
+        // Their pity comes from the official history: the user can neither change it nor delete them, nor add an S
+        // right before one of them
+        $count = \count($this->pulls);
+        foreach ([
+            'declare' => fn () => $service->declarePity($this->profile, $this->game, $second, 6),
+            'clear' => fn () => $service->declarePity($this->profile, $this->game, $first, null),
+            'add' => fn () => $service->createManualS($this->profile, $this->game, new CreateManualPullRequest('301', 'Kirara', '2026-01-02 10:00:00', 5, anchorId: $first->getId(), itemType: 'Character')),
+        ] as $operation => $call) {
+            try {
+                $call();
+                $this->fail(\sprintf('"%s" on an official S must be refused', $operation));
+            } catch (ManualPullViolationException $e) {
+                $this->assertSame(ManualPullViolationException::OFFICIAL_PULL, $e->violation, $operation);
+            }
         }
+        try {
+            $service->deleteManual($this->profile, $this->game, $first);
+            $this->fail('An official S is not a manual row');
+        } catch (BadRequestHttpException) {
+        }
+        $this->assertSame([29, 4], [$first->getDeclaredPity(), $second->getDeclaredPity()]);
+        $this->assertCount($count, $this->pulls, 'Nothing written, nothing deleted');
+    }
+
+    public function testRealignMergesAnOfficialSIntoTheRecordedSThatArrivedLater(): void
+    {
+        $this->addPull('2026-01-01 10:00:00', 5, 'Furina');
+        $official = $this->addPull('2026-01-02 10:05:00', 5, 'Raiden Shogun', origin: PullOrigin::Official, declaredPity: 6)->setPullNumber(7)->setIsUp(true);
+        $service = $this->createService();
+        $service->realign($this->profile, $this->game, '301');
+        $this->assertCount(5, $this->fillers());
+
+        // A backup brings the real pulls of that day, the real Raiden at the same second
+        for ($i = 0; $i < 5; ++$i) {
+            $this->addPull(sprintf('2026-01-02 10:0%d:00', $i), 3);
+        }
+        $recorded = $this->addPull('2026-01-02 10:05:00', 5, 'Raiden Shogun');
+
+        $plan = $service->realign($this->profile, $this->game, '301');
+        $this->assertSame([$official->getId() => $recorded->getId()], $plan->merges);
+        $this->assertArrayNotHasKey((int) $official->getId(), $this->pulls);
+        $this->assertSame(PullOrigin::Recorded, $recorded->getOrigin(), 'The recorded row stays recorded');
+        $this->assertSame(6, $recorded->getDeclaredPity());
+        $this->assertTrue($recorded->isUp());
+        $this->assertSame([], $this->fillers(), 'Six recorded pulls: nothing is missing any more');
     }
 }

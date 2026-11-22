@@ -12,7 +12,7 @@ namespace App\GamesBundle\Model\Pull;
  *
  * Inside one second, rows without a pull number come first (provider tie-break), then the numbered
  * rows by number (pullNumberOrderKey()). A second is not supposed to hold both: numbers only exist
- * on rows built from an official S-rank history, whose seconds hold no recorded row.
+ * on official S rows (PullOrigin::Official) and the fillers between them, whose seconds hold no recorded row.
  */
 final readonly class PullTimelineEntry
 {
@@ -23,8 +23,8 @@ final readonly class PullTimelineEntry
      * @param int|null    $declaredPity Real pity declared by the user (S rows only)
      * @param string|null $itemId       Provider item id, used to match a manual S with a recorded one
      * @param string|null $name         Item name, used for matching when an item id is missing
-     * @param int|null    $pullNumber   Pull number in the banner, known only for rows built from an official
-     *                                  S-rank history and the fillers placed between two of them (null otherwise)
+     * @param int|null    $pullNumber   Pull number in the banner, known only for official S rows and the fillers
+     *                                  placed between two of them (null otherwise); it only orders a second
      */
     public function __construct(
         public int $id,

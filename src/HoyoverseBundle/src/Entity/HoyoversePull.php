@@ -68,7 +68,7 @@ class HoyoversePull
     private ?bool $isUp = null;
 
     /**
-     * Pull number in the banner, only on rows built from an official S-rank history and on the fillers placed between
+     * Pull number in the banner, only on official S rows (origin official) and on the fillers placed between
      * two of them in one second (never on recorded rows): it orders the rows of one second after the unnumbered ones.
      */
     #[ORM\Column(nullable: true)]

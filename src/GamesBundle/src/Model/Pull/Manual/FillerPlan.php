@@ -11,7 +11,7 @@ namespace App\GamesBundle\Model\Pull\Manual;
 final readonly class FillerPlan
 {
     /**
-     * @param array<int, int>                $merges              Manual S id => recorded S id that replaces it (delete the manual row)
+     * @param array<int, int>                $merges              Manual or official S id => recorded S id that replaces it (delete the merged row)
      * @param array<int, int>                $declaredPityUpdates Recorded S id => declared pity inherited from a merged manual S
      * @param array<int, \DateTimeImmutable> $fillerMoves         Existing filler id => new pull date
      * @param list<int>                      $fillerDeletes       Existing filler ids to delete

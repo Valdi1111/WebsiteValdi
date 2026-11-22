@@ -158,7 +158,7 @@ class PullGapPlanner
     }
 
     /**
-     * Pairs each manual S with the nearest recorded S of the same item inserted after it. Manual S are
+     * Pairs each manual or official S with the nearest recorded S of the same item inserted after it. They are
      * visited in timeline order and ties go to the earliest candidate in the timeline, so two copies of
      * one item in one 10-pull pair up in order (first with first).
      *
@@ -180,7 +180,8 @@ class PullGapPlanner
         $declaredPityUpdates = [];
         $used = [];
         foreach ($entries as $manual) {
-            if ($manual->origin !== PullOrigin::Manual || !$manual->isS) {
+            // An official S merges like a manual one: the recorded S that arrives later replaces it
+            if (($manual->origin !== PullOrigin::Manual && $manual->origin !== PullOrigin::Official) || !$manual->isS) {
                 continue;
             }
 
@@ -274,8 +275,8 @@ class PullGapPlanner
     }
 
     /**
-     * Seconds holding both numbered and unnumbered non-filler rows. Numbers exist only on rows built from an official
-     * S-rank history, whose seconds hold no recorded row, so this should never happen; when it does, the order of
+     * Seconds holding both numbered and unnumbered non-filler rows. Numbers exist only on official S rows (and the
+     * fillers between them), whose seconds hold no recorded row, so this should never happen; when it does, the order of
      * those rows is unknown and no numbered gap touching that second is used.
      *
      * @param list<PullTimelineEntry> $entries

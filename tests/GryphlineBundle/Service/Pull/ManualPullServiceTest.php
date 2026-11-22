@@ -429,6 +429,20 @@ class ManualPullServiceTest extends TestCase
         $this->service()->deleteManual($this->profile, $this->game, $liino);
     }
 
+    public function testDeleteManualRejectsAnOfficialS(): void
+    {
+        $this->seedBanner();
+        $official = $this->recorded('2026-06-01 09:00:00', 6, 'Typhoeus', 'chr_typhoeus')->setOrigin(PullOrigin::Official)->setDeclaredPity(1);
+        $count = \count($this->table);
+
+        try {
+            $this->service()->deleteManual($this->profile, $this->game, $official);
+            $this->fail('Only a manual row can be deleted');
+        } catch (BadRequestHttpException) {
+        }
+        $this->assertCount($count, $this->table);
+    }
+
     public function testDeleteManualRemovesTheFillersItNeeded(): void
     {
         $liino = $this->seedBanner();

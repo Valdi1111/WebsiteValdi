@@ -369,6 +369,7 @@ class HoyoversePullStatsCalculatorTest extends TestCase
             'id' => $id,
             'pullId' => match ($origin) {
                 PullOrigin::Manual => sprintf('manual_%08d', $id),
+                PullOrigin::Official => sprintf('official_%08d', $id),
                 PullOrigin::Filler => sprintf('filler_%08d', $id),
                 PullOrigin::Recorded => sprintf('17000000000000%05d', $id),
             },
@@ -542,6 +543,29 @@ class HoyoversePullStatsCalculatorTest extends TestCase
         $this->assertSame('2025-03-30 01:59:00', $entries[0]->pulledAt->format('Y-m-d H:i:s'));
         $this->assertSame(62 * 60, $entries[1]->pulledAt->getTimestamp() - $entries[0]->pulledAt->getTimestamp(), 'Spring forward: 62 wall-clock minutes (2 in Rome time)');
         $this->assertSame(30 * 60, $entries[3]->pulledAt->getTimestamp() - $entries[2]->pulledAt->getTimestamp(), 'Fall back: 30 wall-clock minutes (90 in Rome time)');
+    }
+
+    public function testAnOfficialSCountsLikeAManualS(): void
+    {
+        $rows = [
+            self::pull(1, '2026-06-01 10:00:00', 3),
+            self::pull(2, '2026-06-01 10:01:00', 3),
+            self::pull(3, '2026-06-01 10:02:00', 5, 'Furina', PullOrigin::Official, 3),
+            self::pull(4, '2026-06-01 10:03:00', 3),
+            self::pull(5, '2026-06-01 10:04:00', 5, 'Neuvillette', PullOrigin::Manual, 2),
+        ];
+        // The column value as a string, like a row built elsewhere
+        $rows[2]['origin'] = 'official';
+
+        $result = self::calculator()->compute($rows, self::genshinGroup('301'), self::genshinRarity());
+
+        $furina = self::itemById($result['items'], 3);
+        $this->assertSame(['official', 3, 3, 3], [$furina['origin'], $furina['pity'], $furina['pull_number'], $furina['declared_pity']]);
+        $this->assertSame(2, self::itemById($result['items'], 5)['pity']);
+        $this->assertSame(2, $result['summary']['s_count']);
+        $this->assertSame(['manual', 'official'], array_column($result['summary']['recent_s_pulls'], 'origin'));
+        $this->assertSame(0, $result['summary']['unknown_count']);
+        $this->assertSame(PullOrigin::Official, self::calculator()->toTimelineEntries($rows, self::genshinRarity())[2]->origin);
     }
 
     public function testRateUpFlagIsExposedAndPullNumberReachesTheTimeline(): void

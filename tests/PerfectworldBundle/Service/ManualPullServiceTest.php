@@ -487,7 +487,9 @@ class ManualPullServiceTest extends TestCase
         $service->declarePity($this->profile, $this->game, $s, 3);
         $filler = $this->rowsOf(PullOrigin::Filler)[0];
 
-        foreach ([$s, $filler] as $pull) {
+        $official = $this->addRecorded(self::LIMITED, '2026-06-01 09:00:00', '1050', -1)->setOrigin(PullOrigin::Official)->setDeclaredPity(1);
+
+        foreach ([$s, $filler, $official] as $pull) {
             try {
                 $service->deleteManual($this->profile, $this->game, $pull);
                 $this->fail('Expected a BadRequestHttpException.');
@@ -495,7 +497,7 @@ class ManualPullServiceTest extends TestCase
             }
         }
 
-        $this->assertCount(3, $this->rows);
+        $this->assertCount(4, $this->rows);
     }
 
     public function testDeletingAManualSRemovesItsFillers(): void

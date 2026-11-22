@@ -28,6 +28,7 @@ use App\HoyoverseBundle\Service\Pull\ManualPullService;
 use App\HoyoverseBundle\Service\Pull\ManualPullSuggestionProvider;
 use App\HoyoverseBundle\Service\Pull\PullBackupImporterManager;
 use App\HoyoverseBundle\Service\Pull\PullOperationTracker;
+use App\HoyoverseBundle\Service\Pull\SRankHistoryImportLauncher;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -484,6 +485,29 @@ class ApiGameProfilesController extends AbstractController
         return $this->json([
             'success' => true,
             'message' => 'Backup pulls import queued in background.',
+            'operation' => $operation,
+        ], Response::HTTP_ACCEPTED);
+    }
+
+    /**
+     * Queues the import of the official S-rank history (e.g. the Zenless "Signal Search" statistics) into the missing
+     * pulls of the profile. About 15 HoYoLAB requests: always in the background, tracked like the other pull operations.
+     */
+    #[Route('/gameProfiles/{gameProfile}/pulls/import-s-rank-history', name: 'pulls_import_s_rank_history', requirements: ['gameProfile' => '\d+'], methods: ['POST'])]
+    public function apiGameProfilePullsImportSRankHistory(
+        #[CurrentUser] User $user,
+        #[MapEntity(message: "Hoyoverse Account not found.")] HoyoverseAccount $account,
+        #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
+        SRankHistoryImportLauncher $launcher,
+    ): Response {
+        $this->assertProfileOfAccount($account, $gameProfile);
+
+        // 400 without the capability or with an unusable cookie, 409 while one runs (shared with the console command)
+        $operation = $launcher->queue($gameProfile, $user->getId());
+
+        return $this->json([
+            'success' => true,
+            'message' => 'Official S-rank history import queued in background.',
             'operation' => $operation,
         ], Response::HTTP_ACCEPTED);
     }

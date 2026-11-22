@@ -3,7 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 /**
  * Tracks live pull operation progress for a game profile via Mercure EventSource,
  * falling back automatically to HTTP polling when Mercure is unavailable, and
- * triggering onOperationCompleted once per completed operation ID.
+ * triggering onOperationCompleted once per finished (completed or failed) operation ID:
+ * a failed operation may have written part of its pulls (backup batches, earlier banners).
  */
 export default function usePullOperationProgress({
     mercureTopic,
@@ -35,11 +36,11 @@ export default function usePullOperationProgress({
         setActiveOperation(null);
     }, []);
 
-    // Trigger refresh callback once whenever a tracked operation finishes
+    // Trigger refresh callback once whenever a tracked operation finishes, also when it failed
     useEffect(() => {
         if (
             activeOperation &&
-            activeOperation.status === "completed" &&
+            (activeOperation.status === "completed" || activeOperation.status === "failed") &&
             !completedRefreshedIdsRef.current.has(activeOperation.id)
         ) {
             completedRefreshedIdsRef.current.add(activeOperation.id);

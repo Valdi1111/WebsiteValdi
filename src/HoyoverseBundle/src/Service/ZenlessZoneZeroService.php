@@ -4,6 +4,7 @@ namespace App\HoyoverseBundle\Service;
 
 use App\GamesBundle\Model\Game\HasEndgamesInterface;
 use App\GamesBundle\Model\Game\HasManualPullsInterface;
+use App\GamesBundle\Model\Game\HasSRankHistoryImportInterface;
 use App\HoyoverseBundle\Model\Diary\GameDiaryCurrency;
 use App\HoyoverseBundle\Model\Diary\ZenlessZoneZeroDiaryInfo;
 use App\HoyoverseBundle\Model\Diary\ZenlessZoneZeroDiaryItem;
@@ -28,6 +29,7 @@ use App\GamesBundle\Model\Game\HasNotesInterface;
 use App\HoyoverseBundle\Model\Game\NotesTrait;
 use App\GamesBundle\Model\Game\HasStaminaInterface;
 use App\HoyoverseBundle\Model\Game\ZenlessZoneZeroEndgamesTrait;
+use App\HoyoverseBundle\Model\Game\ZenlessZoneZeroSRankHistoryTrait;
 use App\GamesBundle\Model\GameNotes\GameNotesDailies;
 use App\GamesBundle\Model\GameNotes\GameNotesProgressMetric;
 use App\GamesBundle\Model\GameNotes\GameNotesStamina;
@@ -51,12 +53,13 @@ use Symfony\Component\DependencyInjection\Attribute\Target;
 #[AsAlias(GameInterface::class, target: self::TYPE)]
 #[AutoconfigureTag(name: 'hoyoverse.game.id', attributes: ['key' => self::GAME_ID])]
 #[AutoconfigureTag(name: 'hoyoverse.game.biz', attributes: ['key' => self::GAME_BIZ])]
-class ZenlessZoneZeroService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasShopStatusInterface, HasEndgamesInterface, HasStokenPullImportInterface, HasPowershellPullImportInterface, HasManualPullsInterface
+class ZenlessZoneZeroService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasShopStatusInterface, HasEndgamesInterface, HasStokenPullImportInterface, HasPowershellPullImportInterface, HasManualPullsInterface, HasSRankHistoryImportInterface
 {
     use NotesTrait;
     use DiaryTrait;
     use AutoCodeRedemptionTrait;
     use ZenlessZoneZeroEndgamesTrait;
+    use ZenlessZoneZeroSRankHistoryTrait;
     use HoyoversePullTrait;
 
     public const string TYPE = "zenless-zone-zero";

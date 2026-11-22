@@ -157,6 +157,57 @@ abstract class AbstractPullOperationTracker
     }
 
     /**
+     * An official S-rank history import, tracked per banner group. Its progress and its end go through
+     * updateBackupImportProgress() and completeBackupImport(), like a multi-file backup import.
+     *
+     * @param array<string, string> $bannerNamesByKey Banner key => banner name
+     * @return array<string, mixed>
+     */
+    public function startSRankHistoryImport(int $profileId, ?int $userId, array $bannerNamesByKey): array
+    {
+        $now = (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM);
+        $banners = [];
+        foreach ($bannerNamesByKey as $bannerKey => $bannerName) {
+            $banners[(string) $bannerKey] = [
+                'gacha_type' => (string) $bannerKey,
+                'name' => $bannerName,
+                'status' => 'queued',
+                'imported' => 0,
+                'updated' => 0,
+                'error' => null,
+            ];
+        }
+
+        $operation = [
+            'id' => Uuid::v4()->toRfc4122(),
+            'profile_id' => $profileId,
+            'user_id' => $userId,
+            'kind' => PullOperationKind::S_RANK_HISTORY_IMPORT->value,
+            'label' => PullOperationKind::S_RANK_HISTORY_IMPORT->getLabel(),
+            'importer_key' => null,
+            'status' => 'queued',
+            'phase' => 'queued',
+            'percent' => 0,
+            'total' => count($banners),
+            'processed' => 0,
+            'imported' => 0,
+            'skipped' => 0,
+            'updated' => 0,
+            'promoted' => 0,
+            'warnings' => [],
+            'error' => null,
+            'banners' => $banners,
+            'started_at' => $now,
+            'updated_at' => $now,
+            'finished_at' => null,
+        ];
+
+        $this->saveAndPublish($operation);
+
+        return $operation;
+    }
+
+    /**
      * @param array<string, string> $bannerNamesByType Map of bannerKey/gachaType/category => bannerName
      * @return array<string, mixed>
      */
@@ -362,9 +413,17 @@ abstract class AbstractPullOperationTracker
 
     public function hasActiveBackupImport(int $profileId): bool
     {
+        return $this->hasActiveOperation($profileId, PullOperationKind::BACKUP_IMPORT);
+    }
+
+    /**
+     * Whether the latest operation of the profile is of this kind and still queued or running.
+     */
+    public function hasActiveOperation(int $profileId, PullOperationKind $kind): bool
+    {
         $active = $this->getActiveOperationForProfile($profileId);
 
-        return $active !== null && ($active['kind'] ?? null) === PullOperationKind::BACKUP_IMPORT->value;
+        return $active !== null && ($active['kind'] ?? null) === $kind->value;
     }
 
     /**

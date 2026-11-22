@@ -33,6 +33,12 @@ class HoyoversePullStatsCalculator
     /** Premium currency spent per pull (Primogems, Stellar Jade, Polychromes). */
     public const int CURRENCY_PER_PULL = 160;
 
+    /**
+     * API field of the stored pull number (hoyoverse_pull.pull_number: official S rows and the fillers between two of
+     * them in one second, null elsewhere). "pull_number" stays the position computed from the rows.
+     */
+    public const string STORED_PULL_NUMBER_FIELD = 'official_pull_number';
+
     private const string WALL_CLOCK_FORMAT = 'Y-m-d H:i:s';
 
     public function __construct(
@@ -136,6 +142,7 @@ class HoyoversePullStatsCalculator
             $declaredPity = isset($row['declaredPity']) ? (int) $row['declaredPity'] : null;
             // Rate-up flag of an S when a source gives it (null = unknown, never a lost 50/50)
             $isUp = isset($row['isUp']) ? (bool) $row['isUp'] : null;
+            $storedPullNumber = isset($row['pullNumber']) ? (int) $row['pullNumber'] : null;
 
             /** @var \DateTimeInterface|string|null $pulledAt */
             $pulledAt = $row['pulledAt'] ?? null;
@@ -166,6 +173,7 @@ class HoyoversePullStatsCalculator
                     'origin' => $origin->value,
                     'declared_pity' => $declaredPity,
                     'is_up' => $isUp,
+                    self::STORED_PULL_NUMBER_FIELD => $storedPullNumber,
                     ...$window,
                 ];
                 $sPity = 0;
@@ -197,6 +205,7 @@ class HoyoversePullStatsCalculator
                 'origin' => $origin->value,
                 'declared_pity' => $declaredPity,
                 'is_up' => $isUp,
+                self::STORED_PULL_NUMBER_FIELD => $storedPullNumber,
                 ...$window,
             ];
             $items[] = $item;

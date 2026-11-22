@@ -123,6 +123,7 @@ class HoyoversePullStatsCalculatorTest extends TestCase
             'origin' => 'recorded',
             'declared_pity' => null,
             'is_up' => null,
+            'official_pull_number' => null,
             'recorded_pity' => 10,
             'insert_after' => $rows[73]['pulledAt']->format('Y-m-d H:i:s'),
             'insert_before' => $rows[74]['pulledAt']->format('Y-m-d H:i:s'),
@@ -135,12 +136,12 @@ class HoyoversePullStatsCalculatorTest extends TestCase
         $items = $result['items'];
         $this->assertCount(86, $items);
         $this->assertSame(
-            ['id', 'pull_number', 'pull_id', 'gacha_type', 'gacha_name', 'item_type', 'item_id', 'name', 'rarity', 'pity', 'pulled_at', 'origin', 'declared_pity', 'is_up'],
+            ['id', 'pull_number', 'pull_id', 'gacha_type', 'gacha_name', 'item_type', 'item_id', 'name', 'rarity', 'pity', 'pulled_at', 'origin', 'declared_pity', 'is_up', 'official_pull_number'],
             array_keys($items[0]),
             'New keys come after the existing ones',
         );
         $this->assertSame(
-            ['id', 'pull_number', 'pull_id', 'gacha_type', 'gacha_name', 'item_type', 'item_id', 'name', 'rarity', 'pity', 'pulled_at', 'origin', 'declared_pity', 'is_up', 'recorded_pity', 'insert_after', 'insert_before', 'suggested_at', 'has_room'],
+            ['id', 'pull_number', 'pull_id', 'gacha_type', 'gacha_name', 'item_type', 'item_id', 'name', 'rarity', 'pity', 'pulled_at', 'origin', 'declared_pity', 'is_up', 'official_pull_number', 'recorded_pity', 'insert_after', 'insert_before', 'suggested_at', 'has_room'],
             array_keys($items[73]),
             'S rows also carry their window',
         );
@@ -586,6 +587,8 @@ class HoyoversePullStatsCalculatorTest extends TestCase
         $this->assertSame([null, true, false, null], array_column($result['items'], 'is_up'));
         $this->assertSame([null, false, true], array_column($result['summary']['recent_s_pulls'], 'is_up'));
         $this->assertSame([1, 2, 3, 4], array_column($result['items'], 'pull_number'), 'The API pull number stays the computed one');
+        $this->assertSame([null, null, 3, null], array_column($result['items'], HoyoversePullStatsCalculator::STORED_PULL_NUMBER_FIELD), 'The stored one has its own field');
+        $this->assertSame([null, 3, null], array_column($result['summary']['recent_s_pulls'], HoyoversePullStatsCalculator::STORED_PULL_NUMBER_FIELD));
 
         $entries = self::calculator()->toTimelineEntries($rows, self::genshinRarity());
         $this->assertSame([null, null, 3, null], array_map(static fn (PullTimelineEntry $e): ?int => $e->pullNumber, $entries));

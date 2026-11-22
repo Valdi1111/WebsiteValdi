@@ -25,6 +25,7 @@ import axios from "axios";
  * @property {(accountId: string|number, gameProfileId: string|number, data: { banner: string, anchor_id: number|null, name: string, item_id: string|number|null, item_type: string|null, pulled_at: string, pity: number, allow_duplicate: boolean }) => Promise<axios.AxiosResponse<any>>} createManualPull
  * @property {(accountId: string|number, gameProfileId: string|number, pullId: string|number, pity: number|null) => Promise<axios.AxiosResponse<any>>} declarePullPity
  * @property {(accountId: string|number, gameProfileId: string|number, pullId: string|number) => Promise<axios.AxiosResponse<any>>} deleteManualPull
+ * @property {(accountId: string|number, gameProfileId: string|number) => Promise<axios.AxiosResponse<any>>} importSRankHistory
  */
 
 /**
@@ -97,6 +98,9 @@ export default function (apiUrl, { message }) {
             { headers: { "Content-Type": "multipart/form-data" } }
         );
     };
+    // Official S-rank history (e.g. HoYoLAB Signal Search): queued in the background, returns the tracked operation
+    api._gameProfiles.importSRankHistory = async (accountId, gameProfileId) =>
+        axiosInstance.post(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls/import-s-rank-history`);
     api._gameProfiles.getPullsOperationStatus = async (accountId, gameProfileId, operationId) =>
         axiosInstance.get(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls/operations/${encodeURIComponent(operationId)}`);
     api._gameProfiles.getPullsOverview = async (accountId, gameProfileId) =>

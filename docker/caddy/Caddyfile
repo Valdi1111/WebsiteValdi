@@ -3,13 +3,13 @@
 {
 	# Caddy's internal CA instead of Let's Encrypt (local domain)
 	local_certs
-	default_sni {$DEV_DOMAIN}
+	default_sni {$DOMAIN_NAME}
 	# HTTPS on the same port inside and outside the container, so that redirects and origins carry it
 	https_port {$HTTPS_PORT}
 }
 
 # 1. Mercure hub
-mercure.{$DEV_DOMAIN} {
+mercure.{$DOMAIN_NAME} {
 	log {
 		format filter {
 			fields {
@@ -24,12 +24,13 @@ mercure.{$DEV_DOMAIN} {
 
 	mercure {
 		protocol_version_compatibility 8
-		publisher_jwt {env.MERCURE_PUBLISHER_JWT_KEY} HS256
-		subscriber_jwt {env.MERCURE_SUBSCRIBER_JWT_KEY} HS256
+		# The same secret Symfony signs with (MERCURE_JWT_SECRET), from .env/.env.local
+		publisher_jwt {env.MERCURE_JWT_SECRET} HS256
+		subscriber_jwt {env.MERCURE_JWT_SECRET} HS256
 
 		# Both forms: the browser omits the port when HTTPS_PORT is 443
-		cors_origins https://{$DEV_DOMAIN} https://{$DEV_DOMAIN}:{$HTTPS_PORT} https://anime.{$DEV_DOMAIN} https://anime.{$DEV_DOMAIN}:{$HTTPS_PORT} https://books.{$DEV_DOMAIN} https://books.{$DEV_DOMAIN}:{$HTTPS_PORT} https://games.{$DEV_DOMAIN} https://games.{$DEV_DOMAIN}:{$HTTPS_PORT} https://passwords.{$DEV_DOMAIN} https://passwords.{$DEV_DOMAIN}:{$HTTPS_PORT} https://videos.{$DEV_DOMAIN} https://videos.{$DEV_DOMAIN}:{$HTTPS_PORT}
-		publish_origins https://{$DEV_DOMAIN} https://{$DEV_DOMAIN}:{$HTTPS_PORT} https://anime.{$DEV_DOMAIN} https://anime.{$DEV_DOMAIN}:{$HTTPS_PORT} https://books.{$DEV_DOMAIN} https://books.{$DEV_DOMAIN}:{$HTTPS_PORT} https://games.{$DEV_DOMAIN} https://games.{$DEV_DOMAIN}:{$HTTPS_PORT} https://passwords.{$DEV_DOMAIN} https://passwords.{$DEV_DOMAIN}:{$HTTPS_PORT} https://videos.{$DEV_DOMAIN} https://videos.{$DEV_DOMAIN}:{$HTTPS_PORT}
+		cors_origins https://{$DOMAIN_NAME} https://{$DOMAIN_NAME}:{$HTTPS_PORT} https://anime.{$DOMAIN_NAME} https://anime.{$DOMAIN_NAME}:{$HTTPS_PORT} https://books.{$DOMAIN_NAME} https://books.{$DOMAIN_NAME}:{$HTTPS_PORT} https://games.{$DOMAIN_NAME} https://games.{$DOMAIN_NAME}:{$HTTPS_PORT} https://passwords.{$DOMAIN_NAME} https://passwords.{$DOMAIN_NAME}:{$HTTPS_PORT} https://videos.{$DOMAIN_NAME} https://videos.{$DOMAIN_NAME}:{$HTTPS_PORT}
+		publish_origins https://{$DOMAIN_NAME} https://{$DOMAIN_NAME}:{$HTTPS_PORT} https://anime.{$DOMAIN_NAME} https://anime.{$DOMAIN_NAME}:{$HTTPS_PORT} https://books.{$DOMAIN_NAME} https://books.{$DOMAIN_NAME}:{$HTTPS_PORT} https://games.{$DOMAIN_NAME} https://games.{$DOMAIN_NAME}:{$HTTPS_PORT} https://passwords.{$DOMAIN_NAME} https://passwords.{$DOMAIN_NAME}:{$HTTPS_PORT} https://videos.{$DOMAIN_NAME} https://videos.{$DOMAIN_NAME}:{$HTTPS_PORT}
 	}
 
 	respond /healthz 200
@@ -41,9 +42,9 @@ mercure.{$DEV_DOMAIN} {
 # separate hub on port 80 (Mercure 1.x refuses it), and the browsers would never get the updates.
 http://mercure {
 	reverse_proxy https://127.0.0.1:{$HTTPS_PORT} {
-		header_up Host mercure.{$DEV_DOMAIN}
+		header_up Host mercure.{$DOMAIN_NAME}
 		transport http {
-			tls_server_name mercure.{$DEV_DOMAIN}
+			tls_server_name mercure.{$DOMAIN_NAME}
 			# Loopback to Caddy's own internal CA
 			tls_insecure_skip_verify
 		}
@@ -51,16 +52,30 @@ http://mercure {
 }
 
 # 2. Symfony application and subdomains (PHP runs in the php-fpm container, same project path)
-{$DEV_DOMAIN}, anime.{$DEV_DOMAIN}, books.{$DEV_DOMAIN}, games.{$DEV_DOMAIN}, passwords.{$DEV_DOMAIN}, videos.{$DEV_DOMAIN} {
+{$DOMAIN_NAME}, anime.{$DOMAIN_NAME}, books.{$DOMAIN_NAME}, games.{$DOMAIN_NAME}, passwords.{$DOMAIN_NAME}, videos.{$DOMAIN_NAME} {
 	root * /var/www/html/public
 
 	encode zstd gzip
 	file_server
 
+	# Files sent by PHP are served by Caddy: the PHP-FPM worker is freed at once
+	request_header X-Sendfile-Type X-Accel-Redirect
+	request_header X-Accel-Mapping /=/
+	intercept {
+		@accel header X-Accel-Redirect *
+		handle_response @accel {
+			root * /
+			rewrite * {resp.header.X-Accel-Redirect}
+			method * GET
+			header -X-Accel-Redirect
+			file_server
+		}
+	}
+
 	php_fastcgi php-fpm:9000 {
 		try_files {path} index.php
-		env X_SENDFILE_TYPE X-Sendfile
 		resolve_root_symlink
+		env SYMFONY_TRUST_X_SENDFILE_TYPE_HEADER 1
 	}
 
 	@phpFile {

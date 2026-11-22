@@ -38,11 +38,14 @@ services:
         # Caddy + Mercure, the binary scripts/setup-server.sh installs: hub and application, as on the server
         image: dunglas/mercure:v1.1.6
         restart: unless-stopped
+        # The files Symfony reads: DOMAIN_NAME and MERCURE_JWT_SECRET come from .env.local
+        env_file:
+            - path: .env
+            - path: .env.local
+              required: false
         environment:
-            DEV_DOMAIN: "${DEV_DOMAIN:-valdi.test}"
+            # Also used by "ports" below, which Compose interpolates from the shell (never from .env.local)
             HTTPS_PORT: "${HTTPS_PORT:-8443}"
-            MERCURE_PUBLISHER_JWT_KEY: "!ChangeThisMercureHubJWTSecretKey!"
-            MERCURE_SUBSCRIBER_JWT_KEY: "!ChangeThisMercureHubJWTSecretKey!"
         volumes:
             - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
             - ./:/var/www/html:ro          # same path as php-fpm, for php_fastcgi

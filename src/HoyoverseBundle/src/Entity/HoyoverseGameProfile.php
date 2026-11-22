@@ -127,10 +127,11 @@ class HoyoverseGameProfile implements GameProfileInterface
     private ?bool $endgamesCheck = false;
 
     /**
-     * Endgames reminder also for modes played below the maximum (off: only for modes not played yet).
+     * Endgames Reminder per mode and variant, e.g. {"deadly_assault": {"reminder": "full_clear", "hard_reminder": "off"}}
+     * (EndgameReminder values, see EndgameSettings); null or missing entries take the defaults declared by the game.
      */
-    #[ORM\Column(options: ["default" => "0"])]
-    private ?bool $endgamesFullClear = false;
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $endgamesSettings = null;
 
     #[ORM\Column(options: ["default" => "0"])]
     private ?bool $syncDiary = false;
@@ -564,14 +565,14 @@ class HoyoverseGameProfile implements GameProfileInterface
         return $this;
     }
 
-    public function isEndgamesFullClear(): ?bool
+    public function getEndgamesSettings(): ?array
     {
-        return $this->endgamesFullClear;
+        return $this->endgamesSettings;
     }
 
-    public function setEndgamesFullClear(?bool $endgamesFullClear): static
+    public function setEndgamesSettings(?array $endgamesSettings): static
     {
-        $this->endgamesFullClear = $endgamesFullClear;
+        $this->endgamesSettings = $endgamesSettings;
         return $this;
     }
 

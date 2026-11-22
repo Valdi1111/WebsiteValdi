@@ -233,12 +233,13 @@ class DeadlyAssaultData
     }
 
     /**
-     * Hard mode opens only with the normal mode at the maximum. has_hard is not used: what it means for a
-     * player who has not tried Hard mode yet is unknown.
+     * Hard mode opens with the normal mode at the maximum (9★). has_hard only says that the period has Hard mode
+     * data: seen false on 2026-11-22 with 9★ and Hard mode not tried yet, true once it was played. Either one
+     * means unlocked.
      */
     public function isHardUnlocked(): bool
     {
-        return $this->isFullyCleared();
+        return $this->getHasData() !== false && ($this->isFullyCleared() || $this->getHasHard() === true);
     }
 
     public function isHardPlayed(): bool

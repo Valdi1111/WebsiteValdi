@@ -4,7 +4,11 @@ hoyoverse:
         EU: 'Europe/Paris'
         NA: 'America/New_York'
     endgames_reminder:
-        days_before_end: 7
+        zzz:
+            shiyu_defense:
+                days_before_end: 7
+            deadly_assault:
+                days_before_end: 7
     tasks:
         hoyolab_check_in:
             cron: '0 20 * * *'

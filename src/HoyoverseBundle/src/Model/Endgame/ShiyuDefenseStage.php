@@ -70,14 +70,14 @@ class ShiyuDefenseStage
      */
     public function isPlayed(): bool
     {
-        return ($this->getScore() ?? 0) > 0 || in_array($this->getRating(), ['S', 'A', 'B'], true);
+        return ($this->getScore() ?? 0) > 0 || ($this->getRating() ?? '') !== '';
     }
 
     /**
-     * S rating, given from ShiyuDefenseData::S_RANK_SCORE points.
+     * S rank as rated by HoYoLAB: the score is not compared with any threshold.
      */
     public function isSRank(): bool
     {
-        return $this->getRating() === 'S' || ($this->getScore() ?? 0) >= ShiyuDefenseData::S_RANK_SCORE;
+        return ShiyuDefenseData::isSRating($this->getRating());
     }
 }

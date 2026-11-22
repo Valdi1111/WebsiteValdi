@@ -2,15 +2,14 @@
 
 namespace App\HoyoverseBundle\Model\Game;
 
+use App\GamesBundle\Model\Endgame\EndgameDefinition;
+use App\GamesBundle\Model\Endgame\EndgameReminder;
+use App\GamesBundle\Model\Endgame\EndgameVariant;
 use App\GamesBundle\Model\Endgame\GameEndgame;
-use App\GamesBundle\Model\Endgame\GameEndgames;
-use App\GamesBundle\Model\Endgame\GameEndgameStage;
 use App\GamesBundle\Model\Game\HasEndgamesInterface;
 use App\GamesBundle\Model\Game\RuntimeAccountDataInterface;
-use App\HoyoverseBundle\Exception\HoyolabException;
 use App\HoyoverseBundle\Exception\RetrieveDeadlyAssaultDataException;
 use App\HoyoverseBundle\Exception\RetrieveShiyuDefenseDataException;
-use App\HoyoverseBundle\Model\Endgame\DeadlyAssaultChallenge;
 use App\HoyoverseBundle\Model\Endgame\DeadlyAssaultData;
 use App\HoyoverseBundle\Model\Endgame\ShiyuDefenseData;
 use App\HoyoverseBundle\Service\Pull\HoyoverseServerTimezoneResolver;
@@ -23,6 +22,15 @@ use Symfony\Contracts\Service\Attribute\Required;
  */
 trait ZenlessZoneZeroEndgamesTrait
 {
+    public const string ENDGAMES_CONFIG_KEY = 'zzz';
+
+    public const string ENDGAME_SHIYU_DEFENSE = 'shiyu_defense';
+
+    public const string ENDGAME_DEADLY_ASSAULT = 'deadly_assault';
+
+    /** Profile setting of the Deadly Assault Hard mode, next to the "reminder" of the normal mode */
+    public const string ENDGAME_VARIANT_HARD = 'hard_reminder';
+
     private ?HoyoverseServerTimezoneResolver $serverTimezoneResolver = null;
 
     public function getServerTimezoneResolver(): ?HoyoverseServerTimezoneResolver
@@ -34,6 +42,33 @@ trait ZenlessZoneZeroEndgamesTrait
     public function setServerTimezoneResolver(HoyoverseServerTimezoneResolver $serverTimezoneResolver): void
     {
         $this->serverTimezoneResolver = $serverTimezoneResolver;
+    }
+
+    final public static function getEndgamesConfigKey(): string
+    {
+        return self::ENDGAMES_CONFIG_KEY;
+    }
+
+    /**
+     * Shiyu Defense, then Deadly Assault with its Hard mode (optional content: no reminder unless the player asks).
+     */
+    final public static function getEndgameDefinitions(): array
+    {
+        return [
+            new EndgameDefinition(self::ENDGAME_SHIYU_DEFENSE, 'Shiyu Defense'),
+            new EndgameDefinition(self::ENDGAME_DEADLY_ASSAULT, 'Deadly Assault', [
+                new EndgameVariant(EndgameVariant::DEFAULT_KEY, 'Deadly Assault'),
+                new EndgameVariant(self::ENDGAME_VARIANT_HARD, 'Deadly Assault (Hard)', EndgameReminder::Off),
+            ]),
+        ];
+    }
+
+    public function fetchEndgame(EndgameDefinition $definition, RuntimeAccountDataInterface $account): array
+    {
+        return match ($definition->key) {
+            self::ENDGAME_SHIYU_DEFENSE => $this->readShiyuDefenseEndgames($definition, $account),
+            self::ENDGAME_DEADLY_ASSAULT => $this->readDeadlyAssaultEndgames($definition, $account),
+        };
     }
 
     public function getUrlShiyuDefense(): string
@@ -96,52 +131,9 @@ trait ZenlessZoneZeroEndgamesTrait
     }
 
     /**
-     * Every mode is read on its own: one that cannot be read (request refused, unexpected shape) is left out with a
-     * warning and the others are still returned. Only when no mode could be read the error of the first one is
-     * thrown, so an account-wide problem (expired cookie, authentication retcode) still fails the task like in the
-     * other reminders.
+     * @return list<GameEndgame>
      */
-    public function getEndgamesData(RuntimeAccountDataInterface $account): GameEndgames
-    {
-        $endgames = new GameEndgames();
-        $errors = [];
-        $modes = [
-            'Shiyu Defense' => fn (): array => $this->readShiyuDefenseEndgames($account),
-            'Deadly Assault' => fn (): array => $this->readDeadlyAssaultEndgames($account),
-        ];
-
-        foreach ($modes as $name => $read) {
-            try {
-                foreach ($read() as $endgame) {
-                    $endgames->addEndgame($endgame);
-                }
-            } catch (\Throwable $e) {
-                $errors[$name] = $e;
-                $profile = $account->getGameProfile();
-                // Class and retcode only: the message and the response body can carry account data
-                $this->getLogger()->warning(sprintf(
-                    '%s could not be read, skipped by the endgames reminder: %s%s',
-                    $name,
-                    $e::class,
-                    $e instanceof HoyolabException && $e->getHoyolabRetcode() !== null ? sprintf(' (retcode %d)', $e->getHoyolabRetcode()) : ''
-                ), [
-                    'uid' => $profile->getGameUid(),
-                    'region' => $profile->getRegion(),
-                ]);
-            }
-        }
-
-        if (count($errors) === count($modes)) {
-            throw reset($errors);
-        }
-
-        return $endgames;
-    }
-
-    /**
-     * @return GameEndgame[]
-     */
-    private function readShiyuDefenseEndgames(RuntimeAccountDataInterface $account): array
+    private function readShiyuDefenseEndgames(EndgameDefinition $definition, RuntimeAccountDataInterface $account): array
     {
         $profile = $account->getGameProfile();
         $region = (string) $profile->getRegion();
@@ -160,13 +152,53 @@ trait ZenlessZoneZeroEndgamesTrait
             return [];
         }
 
-        return [$this->createShiyuDefenseEndgame($shiyuDefense, $region)];
+        if ($shiyuDefense->isPlayed() && !$shiyuDefense->isFourthFloorPlayed() && !$shiyuDefense->isFifthFloorPlayed()) {
+            // A score without the floor detail (HoYoLAB updates the totals first): played, but how far from the
+            // maximum cannot be told yet, so no reminder in this run rather than a wrong one
+            $this->getLogger()->info('Shiyu Defense score without the floor detail: skipped by the endgames reminder.', [
+                'uid' => $profile->getGameUid(),
+                'region' => $region,
+            ]);
+
+            return [];
+        }
+
+        $endgame = new GameEndgame()
+            ->setName($definition->name)
+            ->setEndTime($this->getShiyuDefenseEndTime($shiyuDefense, $region))
+            ->setPlayed($shiyuDefense->isPlayed())
+            ->setMaxed($shiyuDefense->isFullyCleared());
+
+        // One line per floor, with its own icon; the stages below S rank under floor 5
+        $endgame->addProgressLine(sprintf(
+            'Floor 4: %s',
+            $shiyuDefense->isFourthFloorPlayed() ? ($shiyuDefense->getFourthFloorRating() ?: 'played') : 'not played'
+        ), '⚔️');
+
+        if (!$shiyuDefense->isFifthFloorPlayed()) {
+            return [$endgame->addProgressLine('Floor 5: not played', '⚔️')];
+        }
+
+        $endgame->addProgressLine(sprintf('Floor 5: %d/%d S', $shiyuDefense->getSRankStageCount(), ShiyuDefenseData::STAGE_COUNT), '⚔️');
+        foreach (array_values($shiyuDefense->getStages() ?? []) as $index => $stage) {
+            if ($stage->isSRank()) {
+                continue;
+            }
+
+            $endgame->addProgressLine(sprintf(
+                '↳ Stage %d: %s',
+                $index + 1,
+                $stage->isPlayed() ? trim(sprintf('%s (%s)', $stage->getRating() ?? '', number_format($stage->getScore() ?? 0))) : 'not played'
+            ));
+        }
+
+        return [$endgame];
     }
 
     /**
-     * @return GameEndgame[] normal mode, then Hard mode
+     * @return list<GameEndgame> normal mode, then Hard mode
      */
-    private function readDeadlyAssaultEndgames(RuntimeAccountDataInterface $account): array
+    private function readDeadlyAssaultEndgames(EndgameDefinition $definition, RuntimeAccountDataInterface $account): array
     {
         $region = (string) $account->getGameProfile()->getRegion();
 
@@ -174,23 +206,21 @@ trait ZenlessZoneZeroEndgamesTrait
         $deadlyAssaultEnd = $this->toServerInstant($deadlyAssault->getEndTime(), $region);
 
         $normal = new GameEndgame()
-            ->setName('Deadly Assault')
+            ->setName($definition->getVariant(EndgameVariant::DEFAULT_KEY)?->name ?? $definition->name)
+            ->setVariant(EndgameVariant::DEFAULT_KEY)
             ->setEndTime($deadlyAssaultEnd)
             ->setPlayed($deadlyAssault->isPlayed())
-            ->setProgress($deadlyAssault->getStars())
-            ->setMaxProgress(DeadlyAssaultData::MAX_STARS)
-            ->setProgressUnit('★');
-        $this->addDeadlyAssaultStages($normal, $deadlyAssault->getChallenges() ?? [], $deadlyAssault->getRoomMaxScore());
+            ->setMaxed($deadlyAssault->isFullyCleared())
+            ->addProgressLine(sprintf('%d/%d ★', $deadlyAssault->getStars(), DeadlyAssaultData::MAX_STARS));
 
         $hard = new GameEndgame()
-            ->setName('Deadly Assault (Hard)')
+            ->setName($definition->getVariant(self::ENDGAME_VARIANT_HARD)?->name ?? $definition->name)
+            ->setVariant(self::ENDGAME_VARIANT_HARD)
             ->setUnlocked($deadlyAssault->isHardUnlocked())
             ->setEndTime($deadlyAssaultEnd)
             ->setPlayed($deadlyAssault->isHardPlayed())
-            ->setProgress($deadlyAssault->getHardStars())
-            ->setMaxProgress(DeadlyAssaultData::HARD_MAX_STARS)
-            ->setProgressUnit('★');
-        $this->addDeadlyAssaultStages($hard, $deadlyAssault->getHardChallenges() ?? [], $deadlyAssault->getRoomMaxScore());
+            ->setMaxed($deadlyAssault->isHardFullyCleared())
+            ->addProgressLine(sprintf('%d/%d ★', $deadlyAssault->getHardStars(), DeadlyAssaultData::HARD_MAX_STARS));
 
         return [$normal, $hard];
     }
@@ -241,47 +271,6 @@ trait ZenlessZoneZeroEndgamesTrait
         }
 
         return (int) $date['year'] <= 0;
-    }
-
-    private function createShiyuDefenseEndgame(ShiyuDefenseData $shiyuDefense, string $region): GameEndgame
-    {
-        $endgame = new GameEndgame()
-            ->setName('Shiyu Defense')
-            ->setEndTime($this->getShiyuDefenseEndTime($shiyuDefense, $region))
-            ->setPlayed($shiyuDefense->isPlayed())
-            ->setProgress($shiyuDefense->getSRankStageCount())
-            ->setMaxProgress(ShiyuDefenseData::STAGE_COUNT)
-            ->setProgressUnit('stages at S rank');
-
-        foreach (array_values($shiyuDefense->getStages() ?? []) as $index => $stage) {
-            $endgame->addStage(
-                new GameEndgameStage()
-                    ->setName(sprintf('Stage %d', $index + 1))
-                    ->setScore($stage->getScore())
-                    ->setMaxScore($stage->getMaxScore())
-                    ->setResult($stage->getRating())
-                    ->setMaxed($stage->isSRank())
-            );
-        }
-
-        return $endgame;
-    }
-
-    /**
-     * @param DeadlyAssaultChallenge[] $challenges
-     */
-    private function addDeadlyAssaultStages(GameEndgame $endgame, array $challenges, ?int $maxScore): void
-    {
-        foreach (array_values($challenges) as $index => $challenge) {
-            $endgame->addStage(
-                new GameEndgameStage()
-                    ->setName($challenge->getBossName() ?? sprintf('Boss %d', $index + 1))
-                    ->setScore($challenge->getScore())
-                    ->setMaxScore($maxScore)
-                    ->setResult(sprintf('%d★', $challenge->getStar() ?? 0))
-                    ->setMaxed($challenge->isFullyCleared())
-            );
-        }
     }
 
     /**

@@ -2,57 +2,40 @@
 
 namespace App\Tests\GamesBundle\Model\Endgame;
 
+use App\GamesBundle\Model\Endgame\EndgameReminder;
 use App\GamesBundle\Model\Endgame\GameEndgame;
-use App\GamesBundle\Model\Endgame\GameEndgameStage;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class GameEndgameTest extends TestCase
 {
-    private function endgame(bool $played, ?int $progress, int $maxProgress = 9, bool $unlocked = true): GameEndgame
+    private static function endgame(bool $played, bool $maxed = false, bool $unlocked = true): GameEndgame
     {
         return new GameEndgame()
             ->setName('Example Mode')
             ->setUnlocked($unlocked)
             ->setPlayed($played)
-            ->setProgress($progress)
-            ->setMaxProgress($maxProgress)
-            ->setProgressUnit('★');
+            ->setMaxed($maxed);
     }
 
     /**
-     * @return iterable<string, array{0: GameEndgame, 1: bool, 2: bool}>
+     * @return iterable<string, array{0: GameEndgame, 1: bool, 2: bool, 3: bool}>
      */
     public static function reminderProvider(): iterable
     {
-        $endgame = static fn (bool $played, ?int $progress, bool $unlocked = true) => new GameEndgame()
-            ->setUnlocked($unlocked)
-            ->setPlayed($played)
-            ->setProgress($progress)
-            ->setMaxProgress(9);
-
-        // [endgame, reminded when only unplayed modes count, reminded until full clear]
-        yield 'not played' => [$endgame(false, 0), true, true];
-        yield 'played, 8 of 9' => [$endgame(true, 8), false, true];
-        yield 'played, 9 of 9' => [$endgame(true, 9), false, false];
-        yield 'played, progress unknown' => [$endgame(true, null), false, true];
-        yield 'locked and not played' => [$endgame(false, 0, false), false, false];
+        // [endgame, reminded with off, with not_played, with full_clear]
+        yield 'not played' => [self::endgame(false), false, true, true];
+        yield 'played below the maximum' => [self::endgame(true), false, false, true];
+        yield 'played at the maximum' => [self::endgame(true, true), false, false, false];
+        yield 'locked and not played' => [self::endgame(false, unlocked: false), false, false, false];
     }
 
     #[DataProvider('reminderProvider')]
-    public function testNeedsReminderInBothModes(GameEndgame $endgame, bool $untilPlayed, bool $untilMaxed): void
+    public function testNeedsReminderForEverySetting(GameEndgame $endgame, bool $off, bool $notPlayed, bool $fullClear): void
     {
-        $this->assertSame($untilPlayed, $endgame->needsReminder(false));
-        $this->assertSame($untilMaxed, $endgame->needsReminder(true));
-    }
-
-    public function testIsMaxedNeedsBothValues(): void
-    {
-        $this->assertTrue($this->endgame(true, 9)->isMaxed());
-        $this->assertTrue($this->endgame(true, 10)->isMaxed());
-        $this->assertFalse($this->endgame(true, 8)->isMaxed());
-        $this->assertFalse($this->endgame(true, null)->isMaxed());
-        $this->assertFalse($this->endgame(true, 9)->setMaxProgress(null)->isMaxed());
+        $this->assertSame($off, $endgame->needsReminder(EndgameReminder::Off));
+        $this->assertSame($notPlayed, $endgame->needsReminder(EndgameReminder::NotPlayed));
+        $this->assertSame($fullClear, $endgame->needsReminder(EndgameReminder::FullClear));
     }
 
     /**
@@ -75,7 +58,7 @@ class GameEndgameTest extends TestCase
     #[DataProvider('windowProvider')]
     public function testEndsWithinSevenDays(string $now, bool $expected): void
     {
-        $endgame = $this->endgame(false, 0)->setEndTime(new \DateTimeImmutable('2026-03-20 03:59:59', new \DateTimeZone('+01:00')));
+        $endgame = self::endgame(false)->setEndTime(new \DateTimeImmutable('2026-03-20 03:59:59', new \DateTimeZone('+01:00')));
 
         $this->assertSame($expected, $endgame->endsWithin(new \DateTimeImmutable($now), 7));
     }
@@ -83,7 +66,7 @@ class GameEndgameTest extends TestCase
     public function testWindowCountsRealHoursAcrossDaylightSavingTime(): void
     {
         // Servers keep UTC+01:00 all year, Europe/Paris is at UTC+02:00 in July
-        $endgame = $this->endgame(false, 0)->setEndTime(new \DateTimeImmutable('2026-07-10 03:59:59', new \DateTimeZone('+01:00')));
+        $endgame = self::endgame(false)->setEndTime(new \DateTimeImmutable('2026-07-10 03:59:59', new \DateTimeZone('+01:00')));
 
         $this->assertFalse($endgame->endsWithin(new \DateTimeImmutable('2026-07-02 15:00:00', new \DateTimeZone('Europe/Paris')), 7));
         $this->assertTrue($endgame->endsWithin(new \DateTimeImmutable('2026-07-03 15:00:00', new \DateTimeZone('Europe/Paris')), 7));
@@ -92,21 +75,32 @@ class GameEndgameTest extends TestCase
 
     public function testUnknownEndIsNeverWithinTheWindow(): void
     {
-        $this->assertFalse($this->endgame(false, 0)->endsWithin(new \DateTimeImmutable(), 7));
+        $this->assertFalse(self::endgame(false)->endsWithin(new \DateTimeImmutable(), 7));
     }
 
-    public function testFormattedProgressAndStages(): void
+    public function testDefaultsAndProgressLines(): void
     {
-        $endgame = $this->endgame(true, 7)
-            ->addStage(new GameEndgameStage()->setName('Example Boss')->setScore(18450)->setMaxScore(65000)->setResult('1★'))
-            ->addStage(new GameEndgameStage()->setName('Stage 2')->setScore(0)->setMaxScore(50000))
-            ->addStage(new GameEndgameStage()->setName('Stage 3')->setScore(31000));
+        $endgame = new GameEndgame()->addProgressLine('7/9 ★');
 
-        $this->assertSame('7/9 ★', $endgame->getFormattedProgress());
+        $this->assertSame('reminder', $endgame->getVariant());
+        $this->assertTrue($endgame->isUnlocked());
+        $this->assertFalse($endgame->isPlayed());
+        $this->assertFalse($endgame->isMaxed());
+        $this->assertSame(['7/9 ★'], $endgame->getProgressLines());
+        $this->assertFalse($endgame->hasProgressIcons());
+    }
+
+    public function testProgressLinesWithIcons(): void
+    {
+        $endgame = new GameEndgame()
+            ->addProgressLine('Floor 4: S', '⚔️')
+            ->addProgressLine('Floor 5: 2/3 S', '⚔️')
+            ->addProgressLine('↳ Stage 2: A (21,000)');
+
+        $this->assertTrue($endgame->hasProgressIcons());
         $this->assertSame(
-            ['Example Boss: 18,450/65,000 (1★)', 'Stage 2: not played', 'Stage 3: 31,000'],
-            array_map(static fn (GameEndgameStage $stage) => $stage->getFormattedOutput(), $endgame->getStages())
+            ["⚔️\u{00A0}\u{00A0}Floor 4: S", "⚔️\u{00A0}\u{00A0}Floor 5: 2/3 S", '↳ Stage 2: A (21,000)'],
+            $endgame->getProgressLines()
         );
-        $this->assertFalse($endgame->getStages()[1]->isPlayed());
     }
 }

@@ -3,10 +3,10 @@
 namespace App\GamesBundle\Model\Endgame;
 
 /**
- * Player's progress in one endgame mode for the current period (e.g. Shiyu Defense, Deadly Assault).
+ * Player's progress in one endgame mode, or one variant of it (e.g. Deadly Assault Hard), for the current period.
  *
- * The game service decides what "played" means and measures the progress towards the maximum (e.g. stages at
- * S rank, stars): this class only compares them and checks the end of the period.
+ * The game decides what "played" and "maximum" mean and writes the short progress lines shown in the notification
+ * (e.g. "Floor 5: 2/3 S", "7/9 ★"): this class only applies the profile setting and checks the end of the period.
  */
 class GameEndgame
 {
@@ -14,22 +14,21 @@ class GameEndgame
 
     private ?string $name = null;
 
+    /** Key of the EndgameVariant this result belongs to */
+    private string $variant = EndgameVariant::DEFAULT_KEY;
+
     private bool $unlocked = true;
 
     private ?\DateTimeImmutable $endTime = null;
 
     private bool $played = false;
 
-    private ?int $progress = null;
-
-    private ?int $maxProgress = null;
-
-    private ?string $progressUnit = null;
+    private bool $maxed = false;
 
     /**
-     * @var list<GameEndgameStage>
+     * @var list<array{text: string, icon: ?string}>
      */
-    private array $stages = [];
+    private array $progressLines = [];
 
     public function getName(): ?string
     {
@@ -39,6 +38,17 @@ class GameEndgame
     public function setName(?string $name): self
     {
         $this->name = $name;
+        return $this;
+    }
+
+    public function getVariant(): string
+    {
+        return $this->variant;
+    }
+
+    public function setVariant(string $variant): self
+    {
+        $this->variant = $variant;
         return $this;
     }
 
@@ -78,69 +88,62 @@ class GameEndgame
         return $this;
     }
 
-    public function getProgress(): ?int
-    {
-        return $this->progress;
-    }
-
-    public function setProgress(?int $progress): self
-    {
-        $this->progress = $progress;
-        return $this;
-    }
-
-    public function getMaxProgress(): ?int
-    {
-        return $this->maxProgress;
-    }
-
-    public function setMaxProgress(?int $maxProgress): self
-    {
-        $this->maxProgress = $maxProgress;
-        return $this;
-    }
-
-    public function getProgressUnit(): ?string
-    {
-        return $this->progressUnit;
-    }
-
-    public function setProgressUnit(?string $progressUnit): self
-    {
-        $this->progressUnit = $progressUnit;
-        return $this;
-    }
-
-    /**
-     * @return list<GameEndgameStage>
-     */
-    public function getStages(): array
-    {
-        return $this->stages;
-    }
-
-    public function addStage(GameEndgameStage $stage): self
-    {
-        $this->stages[] = $stage;
-        return $this;
-    }
-
     public function isMaxed(): bool
     {
-        if ($this->getProgress() === null || $this->getMaxProgress() === null) {
-            return false;
-        }
+        return $this->maxed;
+    }
 
-        return $this->getProgress() >= $this->getMaxProgress();
+    public function setMaxed(bool $maxed): self
+    {
+        $this->maxed = $maxed;
+        return $this;
     }
 
     /**
-     * Whether the player should be reminded of this mode: while it has not been played and, when
-     * $untilMaxed is set, also while it is below the maximum. A locked mode never needs a reminder.
+     * Short lines describing the progress of a played mode, each with its icon in front when it has one, e.g.
+     * ["⚔️  Floor 4: S", "⚔️  Floor 5: 2/3 S", "↳ Stage 2: A (21,000)"].
+     *
+     * @return list<string>
      */
-    public function needsReminder(bool $untilMaxed): bool
+    public function getProgressLines(): array
     {
-        if (!$this->isUnlocked()) {
+        return array_map(
+            static fn (array $line) => $line['icon'] !== null ? "{$line['icon']}\u{00A0}\u{00A0}{$line['text']}" : $line['text'],
+            $this->progressLines
+        );
+    }
+
+    /**
+     * @param string|null $icon shown in front of the line (e.g. "⚔️"); a mode whose lines have icons is shown without
+     *                          an icon of its own, so that the lines stay aligned
+     */
+    public function addProgressLine(string $line, ?string $icon = null): self
+    {
+        $this->progressLines[] = ['text' => $line, 'icon' => $icon];
+        return $this;
+    }
+
+    /**
+     * Whether the progress lines carry their own icons.
+     */
+    public function hasProgressIcons(): bool
+    {
+        foreach ($this->progressLines as $line) {
+            if ($line['icon'] !== null) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether the player should be reminded of this mode with the given profile setting. A locked mode never needs a
+     * reminder, a mode not played always does unless the setting is off.
+     */
+    public function needsReminder(EndgameReminder $reminder): bool
+    {
+        if ($reminder === EndgameReminder::Off || !$this->isUnlocked()) {
             return false;
         }
 
@@ -148,7 +151,7 @@ class GameEndgame
             return true;
         }
 
-        return $untilMaxed && !$this->isMaxed();
+        return $reminder === EndgameReminder::FullClear && !$this->isMaxed();
     }
 
     /**
@@ -164,13 +167,5 @@ class GameEndgame
         $remaining = $this->getEndTime()->getTimestamp() - $now->getTimestamp();
 
         return $remaining > 0 && $remaining <= $days * self::SECONDS_PER_DAY;
-    }
-
-    /**
-     * Progress towards the maximum, e.g. "7/9 ★".
-     */
-    public function getFormattedProgress(): string
-    {
-        return trim(sprintf('%d/%d %s', $this->getProgress() ?? 0, $this->getMaxProgress() ?? 0, $this->getProgressUnit() ?? ''));
     }
 }

@@ -3,8 +3,10 @@
 namespace App\Tests\HoyoverseBundle\Service\Endgame;
 
 use App\CoreBundle\Entity\User;
+use App\CoreBundle\Model\Notification\EmbedField;
 use App\CoreBundle\Model\Notification\UniversalEmbed;
 use App\CoreBundle\Service\Notification\UnifiedNotificationService;
+use App\GamesBundle\Model\Endgame\EndgameReminder;
 use App\GamesBundle\Model\Endgame\GameEndgame;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
@@ -18,6 +20,7 @@ use App\HoyoverseBundle\Model\ParsedCookie;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
+use App\HoyoverseBundle\Service\HoyolabUtilsService;
 use App\HoyoverseBundle\Service\GenshinImpactService;
 use App\HoyoverseBundle\Service\Pull\HoyoverseServerTimezoneResolver;
 use App\HoyoverseBundle\Service\ZenlessZoneZeroService;
@@ -77,6 +80,7 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
         $service = new ZenlessZoneZeroService($logger ?? new NullLogger());
         $service->setDenormalizer(static::getContainer()->get('serializer'));
         $service->setServerTimezoneResolver(new HoyoverseServerTimezoneResolver());
+        $service->setHoyolabUtils(new HoyolabUtilsService());
         $service->setHoyolabClient(new MockHttpClient(function (string $method, string $url) use ($shiyuBody, $assaultBody): MockResponse {
             parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
             $path = (string) parse_url($url, PHP_URL_PATH);
@@ -115,11 +119,64 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
     private function endgamesByName(ZenlessZoneZeroService $service, string $region = 'prod_gf_eu'): array
     {
         $endgames = [];
-        foreach ($service->getEndgamesData($this->createAccount($region)) as $endgame) {
-            $endgames[$endgame->getName()] = $endgame;
+        foreach (ZenlessZoneZeroService::getEndgameDefinitions() as $definition) {
+            foreach ($service->fetchEndgame($definition, $this->createAccount($region)) as $endgame) {
+                $endgames[$endgame->getName()] = $endgame;
+            }
         }
 
         return $endgames;
+    }
+
+    /**
+     * The reminder handler around $service, for an EU profile with the given settings.
+     *
+     * @param array<string, mixed>|null $settings endgames_settings of the profile
+     * @param list<UniversalEmbed>      $sent     notifications sent
+     */
+    private function createHandler(
+        ZenlessZoneZeroService $service,
+        ?array $settings,
+        array &$sent,
+        string $now = '2026-03-19 15:00:00',
+        ?LoggerInterface $logger = null,
+    ): EndgamesReminderProfileHandler {
+        $account = new HoyoverseAccount()->setUser(new User())->setCookie('ltoken_v2=test; ltuid_v2=123;');
+        $profile = $this->createAccount()->getGameProfile()
+            ->setAccount($account)
+            ->setGameName('Zenless Zone Zero')
+            ->setEndgamesCheck(true)
+            ->setEndgamesSettings($settings)
+            ->setNotificationPlatforms(['discord']);
+
+        $repo = $this->createStub(HoyoverseGameProfileRepository::class);
+        $repo->method('find')->willReturn($profile);
+        $locator = $this->createStub(ServiceCollectionInterface::class);
+        $locator->method('has')->willReturn(true);
+        $locator->method('get')->willReturn($service);
+        $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
+        $cookieUtils->method('parseCookie')->willReturn($this->createAccount()->getParsedCookie());
+        $notificationService = $this->createStub(UnifiedNotificationService::class);
+        $notificationService->method('sendToUser')->willReturnCallback(function (User $user, UniversalEmbed $embed) use (&$sent): void {
+            $sent[] = $embed;
+        });
+
+        $handler = new EndgamesReminderProfileHandler($repo, $cookieUtils, $locator, $logger ?? new NullLogger(), $notificationService);
+        $handler->setEndgamesConfig(static::getContainer()->getParameter('hoyoverse.endgames_reminder'));
+        $handler->setClock(new MockClock($now, 'Europe/Paris'));
+
+        return $handler;
+    }
+
+    /**
+     * @return list<array{0: string, 1: string, 2: ?string}> name, value and icon of the endgame fields, header excluded
+     */
+    private static function endgameFields(UniversalEmbed $embed): array
+    {
+        return array_map(
+            static fn (EmbedField $field) => [$field->getName(), $field->getValue(), $field->getIcon()],
+            array_slice($embed->getFields(), 3)
+        );
     }
 
     public function testContainerWiresTheTimezoneResolver(): void
@@ -132,33 +189,93 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
         );
     }
 
-    public function testContainerWiresTheReminderWindow(): void
+    public function testContainerWiresTheReminderWindows(): void
     {
         self::bootKernel();
 
-        $this->assertSame(7, static::getContainer()->getParameter('hoyoverse.endgames_reminder.days_before_end'));
-        $this->assertSame(7, static::getContainer()->get(EndgamesReminderProfileHandler::class)->getDaysBeforeEnd());
+        $this->assertSame(
+            ['zzz' => ['shiyu_defense' => ['days_before_end' => 7], 'deadly_assault' => ['days_before_end' => 7]]],
+            static::getContainer()->getParameter('hoyoverse.endgames_reminder')
+        );
+        $handler = static::getContainer()->get(EndgamesReminderProfileHandler::class);
+        foreach (ZenlessZoneZeroService::getEndgameDefinitions() as $definition) {
+            $this->assertSame(7, $handler->getDaysBeforeEnd('zzz', $definition));
+        }
+    }
+
+    public function testDeclaresShiyuDefenseAndDeadlyAssaultWithItsHardMode(): void
+    {
+        $this->assertSame('zzz', ZenlessZoneZeroService::getEndgamesConfigKey());
+
+        $declared = [];
+        foreach (ZenlessZoneZeroService::getEndgameDefinitions() as $definition) {
+            foreach ($definition->variants as $variant) {
+                $declared[$definition->key][$variant->key] = [$variant->name, $variant->defaultReminder];
+            }
+        }
+
+        $this->assertSame([
+            'shiyu_defense' => ['reminder' => ['Shiyu Defense', EndgameReminder::NotPlayed]],
+            'deadly_assault' => [
+                'reminder' => ['Deadly Assault', EndgameReminder::NotPlayed],
+                // Optional content: reminded only if the player asks
+                'hard_reminder' => ['Deadly Assault (Hard)', EndgameReminder::Off],
+            ],
+        ], $declared);
     }
 
     /**
-     * Same call as ApiGameProfilesController::apiGameProfilesUpdateSettings().
+     * Same calls as ApiGameProfilesController::apiGameProfilesUpdateSettings() and apiGameProfilesIdGet().
      */
     public function testEndgameSettingsAreSavedOnlyForGamesWithEndgames(): void
     {
         self::bootKernel();
-        $denormalizer = static::getContainer()->get('serializer');
-        $payload = ['endgames_check' => true, 'endgames_full_clear' => true];
+        $serializer = static::getContainer()->get('serializer');
+        $payload = [
+            'endgames_check' => true,
+            'endgames_settings' => [
+                'shiyu_defense' => ['reminder' => 'full_clear'],
+                // Invalid value, unknown variant and unknown mode: not stored
+                'deadly_assault' => ['reminder' => 'always', 'extra' => 'full_clear'],
+                'spiral_abyss' => ['reminder' => 'full_clear'],
+            ],
+        ];
 
         $zenless = (new HoyoverseGameProfile())->setGameId(ZenlessZoneZeroService::GAME_ID);
-        $denormalizer->denormalize($payload, HoyoverseGameProfile::class, null, [AbstractNormalizer::OBJECT_TO_POPULATE => $zenless]);
+        $serializer->denormalize($payload, HoyoverseGameProfile::class, null, [AbstractNormalizer::OBJECT_TO_POPULATE => $zenless]);
         $this->assertTrue($zenless->isEndgamesCheck());
-        $this->assertTrue($zenless->isEndgamesFullClear());
+        $this->assertSame(
+            ['shiyu_defense' => ['reminder' => 'full_clear'], 'deadly_assault' => ['reminder' => 'not_played', 'hard_reminder' => 'off']],
+            $zenless->getEndgamesSettings()
+        );
+
+        // A partial update keeps what it does not send
+        $serializer->denormalize(['endgames_settings' => ['deadly_assault' => ['hard_reminder' => 'full_clear']]], HoyoverseGameProfile::class, null, [AbstractNormalizer::OBJECT_TO_POPULATE => $zenless]);
+        $this->assertSame(
+            ['shiyu_defense' => ['reminder' => 'full_clear'], 'deadly_assault' => ['reminder' => 'not_played', 'hard_reminder' => 'full_clear']],
+            $zenless->getEndgamesSettings()
+        );
+
+        // Read back as the settings drawer gets it: effective values and the modes to build the form from
+        $json = json_decode($serializer->serialize($zenless->setEndgamesSettings(null), 'json'), true);
+        $this->assertSame(
+            ['shiyu_defense' => ['reminder' => 'not_played'], 'deadly_assault' => ['reminder' => 'not_played', 'hard_reminder' => 'off']],
+            $json['endgames_settings']
+        );
+        $this->assertSame(['shiyu_defense', 'deadly_assault'], array_column($json['endgames'], 'key'));
+        $this->assertSame(
+            [['key' => 'reminder', 'name' => 'Deadly Assault', 'default' => 'not_played'], ['key' => 'hard_reminder', 'name' => 'Deadly Assault (Hard)', 'default' => 'off']],
+            $json['endgames'][1]['variants']
+        );
 
         // Genshin Impact does not implement HasEndgamesInterface (yet)
         $genshin = (new HoyoverseGameProfile())->setGameId(GenshinImpactService::GAME_ID);
-        $denormalizer->denormalize($payload, HoyoverseGameProfile::class, null, [AbstractNormalizer::OBJECT_TO_POPULATE => $genshin]);
+        $serializer->denormalize($payload, HoyoverseGameProfile::class, null, [AbstractNormalizer::OBJECT_TO_POPULATE => $genshin]);
         $this->assertFalse($genshin->isEndgamesCheck());
-        $this->assertFalse($genshin->isEndgamesFullClear());
+        $this->assertNull($genshin->getEndgamesSettings());
+        $json = json_decode($serializer->serialize($genshin, 'json'), true);
+        $this->assertArrayNotHasKey('endgames_settings', $json);
+        $this->assertArrayNotHasKey('endgames', $json);
     }
 
     /**
@@ -167,56 +284,84 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
     public function testReminderHandlerWithHoyolabResponses(): void
     {
         $service = $this->createService(
-            ZenlessEndgameFixture::shiyuDefense([[24999, 'A'], [25000, 'S'], [49870, 'S']]),
-            ZenlessEndgameFixture::deadlyAssault([[19990, 2, 'Example Boss A'], [20000, 3, 'Example Boss B'], [52000, 3, 'Example Boss C']], []),
+            ZenlessEndgameFixture::shiyuDefense([[24999, 'A'], [25000, 'S'], [49870, 'S']], 'A'),
+            ZenlessEndgameFixture::deadlyAssault([[19990, 2, 'Example Boss A'], [20000, 3, 'Example Boss B'], [52000, 3, 'Example Boss C']], [], hasHard: false),
         );
+
+        // Default settings: both modes played, nothing to remind
+        $sent = [];
+        $this->createHandler($service, null, $sent)(new EndgamesReminderProfileMessage(1));
+        $this->assertSame([], $sent);
+
+        // Full clear: last day of Shiyu Defense, Deadly Assault ends in 5 days; Hard mode locked
+        $this->createHandler($service, ['shiyu_defense' => ['reminder' => 'full_clear'], 'deadly_assault' => ['reminder' => 'full_clear', 'hard_reminder' => 'full_clear']], $sent)(new EndgamesReminderProfileMessage(1));
+        $this->assertCount(1, $sent);
+        $this->assertSame('Zenless Zone Zero - Endgames Reminder', $sent[0]->getTitle());
+        $this->assertSame([
+            // One line per floor with its own icon
+            ['Shiyu Defense', "⚔️\u{00A0}\u{00A0}Floor 4: A\n⚔️\u{00A0}\u{00A0}Floor 5: 2/3 S\n↳ Stage 1: A (24,999)", null],
+            [EndgamesReminderProfileHandler::FILLER, EndgamesReminderProfileHandler::FILLER, null],
+            ['Ends in', '12 hr, 59 min', '🕒'],
+            ['Deadly Assault', '8/9 ★', '⚔️'],
+            [EndgamesReminderProfileHandler::FILLER, EndgamesReminderProfileHandler::FILLER, null],
+            ['Ends in', '5 days, 12 hr', '🕒'],
+        ], self::endgameFields($sent[0]));
+        foreach (array_slice($sent[0]->getFields(), 3) as $field) {
+            $this->assertTrue($field->isInline());
+        }
+    }
+
+    public function testUnreadableModeDoesNotHideTheOther(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())
+            ->method('warning')
+            ->with(
+                $this->logicalAnd(
+                    $this->stringContains('Shiyu Defense'),
+                    $this->stringContains(RetrieveShiyuDefenseDataException::class),
+                    $this->stringContains('10102'),
+                    $this->logicalNot($this->stringContains('Data is not public'))
+                )
+            );
+        $service = $this->createService(self::errorBody(), ZenlessEndgameFixture::deadlyAssault([], [], hasHard: false));
 
         $sent = [];
-        foreach ([false, true] as $fullClear) {
-            $account = new HoyoverseAccount()->setUser(new User())->setCookie('ltoken_v2=test; ltuid_v2=123;');
-            $profile = $this->createAccount()->getGameProfile()
-                ->setAccount($account)
-                ->setGameName('Zenless Zone Zero')
-                ->setEndgamesCheck(true)
-                ->setEndgamesFullClear($fullClear)
-                ->setNotificationPlatforms(['discord']);
+        $this->createHandler($service, null, $sent, logger: $logger)(new EndgamesReminderProfileMessage(1));
 
-            $repo = $this->createStub(HoyoverseGameProfileRepository::class);
-            $repo->method('find')->willReturn($profile);
-            $locator = $this->createStub(ServiceCollectionInterface::class);
-            $locator->method('has')->willReturn(true);
-            $locator->method('get')->willReturn($service);
-            $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
-            $cookieUtils->method('parseCookie')->willReturn($this->createAccount()->getParsedCookie());
-            $notificationService = $this->createStub(UnifiedNotificationService::class);
-            $notificationService->method('sendToUser')->willReturnCallback(function (User $user, UniversalEmbed $embed) use (&$sent, $fullClear): void {
-                $sent[] = [$fullClear, $embed];
-            });
-
-            $handler = new EndgamesReminderProfileHandler($repo, $cookieUtils, $locator, new NullLogger(), $notificationService);
-            // Last day of Shiyu Defense, Deadly Assault ends in 5 days
-            $handler->setClock(new MockClock('2026-03-19 15:00:00', 'Europe/Paris'));
-            $handler(new EndgamesReminderProfileMessage(1));
-        }
-
-        // Both modes played: nothing to remind until the full-clear setting is on
         $this->assertCount(1, $sent);
-        [$fullClear, $embed] = $sent[0];
-        $this->assertTrue($fullClear);
+        $this->assertSame(['Deadly Assault', 'Not played yet', '⚔️'], self::endgameFields($sent[0])[0]);
+    }
 
-        $fields = [];
-        foreach ($embed->getFields() as $field) {
-            $fields[$field->getName()] = $field->getValue();
-        }
-        $this->assertSame(
-            "2/3 stages at S rank\nStage 1: 24,999/50,000 (A)\nEnds in 12 hr (2026-03-20 03:59 UTC+01:00)",
-            $fields['Shiyu Defense']
-        );
-        $this->assertSame(
-            "8/9 ★\nExample Boss A: 19,990/65,000 (2★)\nEnds in 5 days, 12 hr (2026-03-25 03:59 UTC+01:00)",
-            $fields['Deadly Assault']
-        );
-        $this->assertArrayNotHasKey('Deadly Assault (Hard)', $fields);
+    public function testUnreadableDeadlyAssaultShapeDoesNotHideShiyuDefense(): void
+    {
+        $assault = ZenlessEndgameFixture::deadlyAssault();
+        // Not a date object nor null: the denormalization throws
+        $assault['data']['end_time'] = 'not a date';
+        $service = $this->createService(ZenlessEndgameFixture::shiyuDefense([], null), $assault);
+
+        $sent = [];
+        $this->createHandler($service, null, $sent)(new EndgamesReminderProfileMessage(1));
+
+        $this->assertCount(1, $sent);
+        $this->assertSame(['Shiyu Defense', 'Not played yet', '⚔️'], self::endgameFields($sent[0])[0]);
+    }
+
+    public function testWhenEveryModeFailsTheFirstErrorIsThrown(): void
+    {
+        $service = $this->createService(self::errorBody(), self::errorBody());
+
+        $sent = [];
+        $this->expectException(RetrieveShiyuDefenseDataException::class);
+        $this->createHandler($service, null, $sent)(new EndgamesReminderProfileMessage(1));
+    }
+
+    public function testFetchEndgameThrowsWhenTheRequestFails(): void
+    {
+        $service = $this->createService(self::errorBody(), self::errorBody());
+
+        $this->expectException(RetrieveDeadlyAssaultDataException::class);
+        $service->fetchEndgame(ZenlessZoneZeroService::getEndgameDefinitions()[1], $this->createAccount());
     }
 
     public function testRequestsShiyuDefenseAndDeadlyAssaultDetailEndpoints(): void
@@ -258,6 +403,8 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
         $this->assertSame([31250, 42010, 27480], array_map(static fn (ShiyuDefenseStage $s) => $s->getScore(), $stages));
         $this->assertSame(['S', 'S', 'S'], array_map(static fn (ShiyuDefenseStage $s) => $s->getRating(), $stages));
         $this->assertSame(50000, $stages[0]->getMaxScore());
+        $this->assertSame('S', $data->getFourthFloorRating());
+        $this->assertCount(1, $data->getFourthFloorChallenges());
         $this->assertTrue($data->isPlayed());
         $this->assertTrue($data->isFullyCleared());
     }
@@ -302,28 +449,29 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
             $this->assertTrue($endgame->isUnlocked());
             $this->assertTrue($endgame->isPlayed());
             $this->assertTrue($endgame->isMaxed());
-            $this->assertFalse($endgame->needsReminder(true));
+            $this->assertFalse($endgame->needsReminder(EndgameReminder::FullClear));
         }
+        $this->assertSame('hard_reminder', $endgames['Deadly Assault (Hard)']->getVariant());
 
         // Shiyu Defense: from the epoch, shown in the server offset of the profile
         $shiyuEnd = $endgames['Shiyu Defense']->getEndTime();
         $this->assertSame((int) ZenlessEndgameFixture::SHIYU_END_TIMESTAMP, $shiyuEnd->getTimestamp());
         $this->assertSame('2026-03-20 03:59:59 +01:00', $shiyuEnd->format('Y-m-d H:i:s P'));
-        $this->assertSame('3/3 stages at S rank', $endgames['Shiyu Defense']->getFormattedProgress());
+        $this->assertSame(["⚔️\u{00A0}\u{00A0}Floor 4: S", "⚔️\u{00A0}\u{00A0}Floor 5: 3/3 S"], $endgames['Shiyu Defense']->getProgressLines());
 
         // Deadly Assault: server wall-clock read in the server offset (EU = UTC+01:00)
         $assaultEnd = $endgames['Deadly Assault']->getEndTime();
         $this->assertSame('2026-03-25T02:59:59+00:00', $assaultEnd->setTimezone(new \DateTimeZone('UTC'))->format('c'));
         $this->assertEquals($assaultEnd, $endgames['Deadly Assault (Hard)']->getEndTime());
-        $this->assertSame('9/9 ★', $endgames['Deadly Assault']->getFormattedProgress());
-        $this->assertSame('3/3 ★', $endgames['Deadly Assault (Hard)']->getFormattedProgress());
+        $this->assertSame(['9/9 ★'], $endgames['Deadly Assault']->getProgressLines());
+        $this->assertSame(['3/3 ★'], $endgames['Deadly Assault (Hard)']->getProgressLines());
     }
 
-    public function testEndgamesBelowTheMaximumListEveryStageAndBoss(): void
+    public function testEndgamesBelowTheMaximumListWhatIsLeft(): void
     {
         $service = $this->createService(
-            ZenlessEndgameFixture::shiyuDefense([[24999, 'A'], [25000, 'S'], [49870, 'S']]),
-            ZenlessEndgameFixture::deadlyAssault([[19990, 2, 'Example Boss A'], [20000, 3, 'Example Boss B'], [52000, 3, 'Example Boss C']], []),
+            ZenlessEndgameFixture::shiyuDefense([[24999, 'A'], [45000, 'B'], [49870, 'S']], 'S'),
+            ZenlessEndgameFixture::deadlyAssault([[19990, 2, 'Example Boss A'], [20000, 3, 'Example Boss B'], [52000, 3, 'Example Boss C']], [], hasHard: false),
         );
 
         $endgames = $this->endgamesByName($service);
@@ -331,23 +479,65 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
         $shiyu = $endgames['Shiyu Defense'];
         $this->assertTrue($shiyu->isPlayed());
         $this->assertFalse($shiyu->isMaxed());
-        $this->assertSame('2/3 stages at S rank', $shiyu->getFormattedProgress());
-        $this->assertSame(
-            ['Stage 1: 24,999/50,000 (A)', 'Stage 2: 25,000/50,000 (S)', 'Stage 3: 49,870/50,000 (S)'],
-            array_map(static fn ($stage) => $stage->getFormattedOutput(), $shiyu->getStages())
-        );
-        $this->assertSame([false, true, true], array_map(static fn ($stage) => $stage->isMaxed(), $shiyu->getStages()));
+        // Only the stages below S rank, whatever their score
+        $this->assertSame(["⚔️\u{00A0}\u{00A0}Floor 4: S", "⚔️\u{00A0}\u{00A0}Floor 5: 1/3 S", '↳ Stage 1: A (24,999)', '↳ Stage 2: B (45,000)'], $shiyu->getProgressLines());
 
         $assault = $endgames['Deadly Assault'];
         $this->assertTrue($assault->isPlayed());
-        $this->assertSame('8/9 ★', $assault->getFormattedProgress());
-        $this->assertSame('Example Boss A: 19,990/65,000 (2★)', $assault->getStages()[0]->getFormattedOutput());
-        $this->assertFalse($assault->getStages()[0]->isMaxed());
-        $this->assertTrue($assault->getStages()[1]->isMaxed());
+        $this->assertFalse($assault->isMaxed());
+        $this->assertSame(['8/9 ★'], $assault->getProgressLines());
 
-        // Hard mode stays locked below nine stars
+        // Hard mode stays locked below 9★ without Hard mode data
         $this->assertFalse($endgames['Deadly Assault (Hard)']->isUnlocked());
-        $this->assertFalse($endgames['Deadly Assault (Hard)']->needsReminder(true));
+        $this->assertFalse($endgames['Deadly Assault (Hard)']->needsReminder(EndgameReminder::FullClear));
+    }
+
+    public function testFourthFloorOnlyIsPlayed(): void
+    {
+        $service = $this->createService(ZenlessEndgameFixture::shiyuDefense([], 'A'), ZenlessEndgameFixture::deadlyAssault());
+
+        $shiyu = $this->endgamesByName($service)['Shiyu Defense'];
+
+        $this->assertTrue($shiyu->isPlayed());
+        $this->assertFalse($shiyu->isMaxed());
+        $this->assertSame(["⚔️\u{00A0}\u{00A0}Floor 4: A", "⚔️\u{00A0}\u{00A0}Floor 5: not played"], $shiyu->getProgressLines());
+    }
+
+    /**
+     * Shape seen live on 2026-11-22 right after a 9★ run: the totals are there, the per-boss lists come later.
+     */
+    public function testDeadlyAssaultTotalsBeforeTheBossList(): void
+    {
+        $assault = ZenlessEndgameFixture::deadlyAssault([], [], hasHard: false);
+        $assault['data']['total_score'] = 94473;
+        $assault['data']['total_star'] = 9;
+        $service = $this->createService(ZenlessEndgameFixture::shiyuDefense(), $assault);
+
+        $endgames = $this->endgamesByName($service);
+
+        $this->assertTrue($endgames['Deadly Assault']->isPlayed());
+        $this->assertTrue($endgames['Deadly Assault']->isMaxed());
+        $this->assertSame(['9/9 ★'], $endgames['Deadly Assault']->getProgressLines());
+        // 9★: Hard mode open even before has_hard says so
+        $this->assertTrue($endgames['Deadly Assault (Hard)']->isUnlocked());
+        $this->assertFalse($endgames['Deadly Assault (Hard)']->isPlayed());
+    }
+
+    /**
+     * Shape seen live on 2026-11-22 once the boss list arrived: 9★, Hard mode not tried yet, has_hard still false.
+     */
+    public function testNineStarsUnlockHardModeWithoutHardData(): void
+    {
+        $service = $this->createService(
+            ZenlessEndgameFixture::shiyuDefense(),
+            ZenlessEndgameFixture::deadlyAssault([[22349, 3, 'Example Boss A'], [21258, 3, 'Example Boss B'], [50866, 3, 'Example Boss C']], [], hasHard: false),
+        );
+
+        $hard = $this->endgamesByName($service)['Deadly Assault (Hard)'];
+
+        $this->assertTrue($hard->isUnlocked());
+        $this->assertFalse($hard->isPlayed());
+        $this->assertTrue($hard->needsReminder(EndgameReminder::NotPlayed));
     }
 
     public function testHardModeUnlockedButNotPlayed(): void
@@ -358,46 +548,52 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
 
         $this->assertTrue($hard->isUnlocked());
         $this->assertFalse($hard->isPlayed());
-        $this->assertTrue($hard->needsReminder(false));
+        $this->assertSame(['0/3 ★'], $hard->getProgressLines());
+        $this->assertTrue($hard->needsReminder(EndgameReminder::NotPlayed));
+        $this->assertFalse($hard->needsReminder(EndgameReminder::Off));
     }
 
-    public function testSummaryOnlyShiyuDefenseCountsAsPlayedButNotMaxed(): void
+    /**
+     * The totals can come before the floor detail (seen for Deadly Assault right after a run): played, but the
+     * distance from the maximum is unknown, so Shiyu Defense is left out of this run instead of a wrong reminder.
+     */
+    public function testShiyuDefenseScoreWithoutFloorDetailIsSkipped(): void
     {
         $body = ZenlessEndgameFixture::shiyuDefense();
-        // Shape of a response requested with without_v2_detail=true
         $body['data']['hadal_info_v2']['fitfh_layer_detail'] = null;
         $body['data']['hadal_info_v2']['fourth_layer_detail'] = null;
         $service = $this->createService($body, ZenlessEndgameFixture::deadlyAssault());
 
-        $shiyu = $this->endgamesByName($service)['Shiyu Defense'];
+        $this->assertSame([], $service->fetchEndgame(ZenlessZoneZeroService::getEndgameDefinitions()[0], $this->createAccount()));
 
-        $this->assertTrue($shiyu->isPlayed());
-        $this->assertFalse($shiyu->isMaxed());
-        $this->assertSame([], $shiyu->getStages());
+        $sent = [];
+        $this->createHandler($this->createService($body, ZenlessEndgameFixture::deadlyAssault()), ['shiyu_defense' => ['reminder' => 'full_clear']], $sent)(new EndgamesReminderProfileMessage(1));
+        $this->assertSame([], $sent);
     }
 
     /**
-     * Never seen for real: assumed shapes of a period the player has not played.
+     * Deadly Assault: shape seen live on 2026-11-22 for a period not played yet (dates present, everything else empty).
+     * Shiyu Defense: not seen yet, assumed.
      */
     public function testUnplayedPeriodsAreNotPlayed(): void
     {
-        $shiyu = ZenlessEndgameFixture::shiyuDefense([]);
+        $shiyu = ZenlessEndgameFixture::shiyuDefense([], null);
         $shiyu['data']['hadal_info_v2']['brief']['score'] = 0;
         $shiyu['data']['hadal_info_v2']['brief']['rating'] = '';
         $shiyu['data']['hadal_info_v2']['fitfh_layer_detail'] = null;
-        $shiyu['data']['hadal_info_v2']['fourth_layer_detail'] = null;
 
-        $assault = ZenlessEndgameFixture::deadlyAssault([], []);
+        $assault = ZenlessEndgameFixture::deadlyAssault([], [], hasHard: false);
         $assault['data']['has_data'] = false;
-        $assault['data']['has_hard'] = false;
+        $assault['data']['total_max_score'] = 0;
+        $assault['data']['room_max_score'] = 0;
 
         $endgames = $this->endgamesByName($this->createService($shiyu, $assault));
 
         $this->assertFalse($endgames['Shiyu Defense']->isPlayed());
-        $this->assertTrue($endgames['Shiyu Defense']->needsReminder(false));
+        $this->assertTrue($endgames['Shiyu Defense']->needsReminder(EndgameReminder::NotPlayed));
         $this->assertNotNull($endgames['Shiyu Defense']->getEndTime());
         $this->assertFalse($endgames['Deadly Assault']->isPlayed());
-        $this->assertSame('0/9 ★', $endgames['Deadly Assault']->getFormattedProgress());
+        $this->assertSame(['0/9 ★'], $endgames['Deadly Assault']->getProgressLines());
         $this->assertNotNull($endgames['Deadly Assault']->getEndTime());
         $this->assertFalse($endgames['Deadly Assault (Hard)']->isUnlocked());
     }
@@ -455,56 +651,6 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
     private static function errorBody(): array
     {
         return ['retcode' => 10102, 'message' => 'Data is not public for the user', 'data' => null];
-    }
-
-    public function testUnreadableShiyuDefenseDoesNotHideDeadlyAssault(): void
-    {
-        $logger = $this->createMock(LoggerInterface::class);
-        $logger->expects($this->once())
-            ->method('warning')
-            ->with(
-                $this->logicalAnd(
-                    $this->stringContains('Shiyu Defense'),
-                    $this->stringContains(RetrieveShiyuDefenseDataException::class),
-                    $this->stringContains('10102'),
-                    $this->logicalNot($this->stringContains('Data is not public'))
-                )
-            );
-        $service = $this->createService(self::errorBody(), ZenlessEndgameFixture::deadlyAssault(), $logger);
-
-        $this->assertSame(['Deadly Assault', 'Deadly Assault (Hard)'], array_keys($this->endgamesByName($service)));
-    }
-
-    public function testUnreadableDeadlyAssaultDoesNotHideShiyuDefense(): void
-    {
-        $logger = $this->createMock(LoggerInterface::class);
-        $logger->expects($this->once())
-            ->method('warning')
-            ->with($this->logicalAnd(
-                $this->stringContains('Deadly Assault'),
-                $this->stringContains(RetrieveDeadlyAssaultDataException::class)
-            ));
-        $service = $this->createService(ZenlessEndgameFixture::shiyuDefense(), self::errorBody(), $logger);
-
-        $this->assertSame(['Shiyu Defense'], array_keys($this->endgamesByName($service)));
-    }
-
-    public function testUnreadableDeadlyAssaultShapeDoesNotHideShiyuDefense(): void
-    {
-        $assault = ZenlessEndgameFixture::deadlyAssault();
-        // Not a date object nor null: the denormalization throws
-        $assault['data']['end_time'] = 'not a date';
-        $service = $this->createService(ZenlessEndgameFixture::shiyuDefense(), $assault);
-
-        $this->assertSame(['Shiyu Defense'], array_keys($this->endgamesByName($service)));
-    }
-
-    public function testWhenEveryModeFailsTheFirstErrorIsThrown(): void
-    {
-        $service = $this->createService(self::errorBody(), self::errorBody());
-
-        $this->expectException(RetrieveShiyuDefenseDataException::class);
-        $service->getEndgamesData($this->createAccount());
     }
 
     /**

@@ -117,7 +117,7 @@ class HoyoverseGameProfileNormalizerTest extends TestCase
             (new HoyoverseGameProfileNormalizer($objectNormalizer, $locator))->normalize((new HoyoverseGameProfile())->setGameId($gameId));
 
             $ignored = $objectNormalizer->normalizeContext[AbstractNormalizer::IGNORED_ATTRIBUTES] ?? [];
-            foreach (['endgamesCheck', 'endgamesFullClear'] as $field) {
+            foreach (['endgamesCheck', 'endgamesSettings'] as $field) {
                 $this->assertSame(!$supported, in_array($field, $ignored, true), sprintf('%s for game %d', $field, $gameId));
             }
         }

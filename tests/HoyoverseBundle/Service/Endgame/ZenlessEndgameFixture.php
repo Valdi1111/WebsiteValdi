@@ -19,9 +19,10 @@ final class ZenlessEndgameFixture
     /**
      * Body of game_record_zzz/api/zzz/hadal_info_v2 (Shiyu Defense) requested with the per-stage detail.
      *
-     * @param list<array{0: int, 1: string}> $stages score and rating of each fifth-frontier stage
+     * @param list<array{0: int, 1: string}> $stages            score and rating of each fifth-floor stage
+     * @param string|null                    $fourthFloorRating rating of the fourth floor, null = not attempted
      */
-    public static function shiyuDefense(array $stages = [[31250, 'S'], [42010, 'S'], [27480, 'S']]): array
+    public static function shiyuDefense(array $stages = [[31250, 'S'], [42010, 'S'], [27480, 'S']], ?string $fourthFloorRating = 'S'): array
     {
         $layers = [];
         foreach ($stages as $index => [$score, $rating]) {
@@ -62,12 +63,13 @@ final class ZenlessEndgameFixture
                         'max_score' => 150000,
                     ],
                     'fitfh_layer_detail' => ['layer_challenge_info_list' => $layers],
-                    'fourth_layer_detail' => [
+                    // Rated without a score, like in the real responses
+                    'fourth_layer_detail' => $fourthFloorRating === null ? null : [
                         'buffer' => ['title' => 'Example Buff', 'text' => '· Example buff description.'],
                         'challenge_time' => ['year' => 2026, 'month' => 3, 'day' => 8, 'hour' => 18, 'minute' => 0, 'second' => 0],
-                        'rating' => 'S',
+                        'rating' => $fourthFloorRating,
                         'layer_challenge_info_list' => [
-                            ['layer_id' => 61999041, 'avatar_list' => [self::agent(1011)], 'challenge_time' => ['year' => 2026, 'month' => 3, 'day' => 8, 'hour' => 18, 'minute' => 0, 'second' => 0]],
+                            ['layer_id' => 61999041, 'avatar_list' => [self::agent(1011)], 'buddy' => ['id' => 50001, 'rarity' => 'A', 'level' => 50, 'bangboo_rectangle_url' => 'https://example.com/bangboo.png'], 'challenge_time' => ['year' => 2026, 'month' => 3, 'day' => 8, 'hour' => 18, 'minute' => 0, 'second' => 0]],
                         ],
                     ],
                     'begin_time' => self::SHIYU_BEGIN_TIMESTAMP,
@@ -83,11 +85,13 @@ final class ZenlessEndgameFixture
      * Body of game_record_zzz/api/zzz/hadal_mem_detail_v2 (Deadly Assault).
      *
      * @param list<array{0: int, 1: int, 2: string}> $bosses score, stars and boss name of the normal mode
-     * @param list<array{0: int, 1: int, 2: string}> $hard   score, stars and boss name of the Hard mode
+     * @param list<array{0: int, 1: int, 2: string}> $hard    score, stars and boss name of the Hard mode
+     * @param bool                                   $hasHard Hard mode unlocked (has_hard)
      */
     public static function deadlyAssault(
         array $bosses = [[25120, 3, 'Example Boss A'], [31870, 3, 'Example Boss B'], [44300, 3, 'Example Boss C']],
         array $hard = [[30410, 3, 'Example Hard Boss']],
+        bool $hasHard = true,
     ): array {
         return [
             'retcode' => 0,
@@ -105,7 +109,7 @@ final class ZenlessEndgameFixture
                 'zone_id' => 699901,
                 'total_max_score' => 195000,
                 'room_max_score' => 65000,
-                'has_hard' => true,
+                'has_hard' => $hasHard,
                 'hard_list' => array_map(self::challenge(...), $hard),
                 'hard_rank_percent' => 3456,
             ],

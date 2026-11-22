@@ -8,19 +8,29 @@ use Symfony\Component\Serializer\Attribute\SerializedPath;
 /**
  * Shiyu Defense period of the player (game_record_zzz hadal_info_v2, requested with the per-stage detail).
  *
- * Only the fifth frontier is scored: three stages, ShiyuDefenseStage per stage. The rules of the Endgames
- * Reminder (played, maximum) are the constants and methods below.
+ * The first three floors are completed automatically; the fourth floor is rated without a score, the fifth floor
+ * (fifth frontier) has three scored stages, ShiyuDefenseStage per stage. The rules of the Endgames Reminder
+ * (played, maximum) are the constants and methods below.
  */
 class ShiyuDefenseData
 {
     /** Response format read by this class ("hadal_ver"; "v1" is the old format, with other keys) */
     public const string SUPPORTED_VERSION = 'v2';
 
-    /** Scored stages of the fifth frontier */
+    /** Scored stages of the fifth floor */
     public const int STAGE_COUNT = 3;
 
-    /** Score from which a stage gets the S rating (each stage is worth up to 50,000 points) */
-    public const int S_RANK_SCORE = 25000;
+    /** Rating of the fourth floor ("S"), without a score */
+    #[SerializedPath('[hadal_info_v2?][fourth_layer_detail?][rating]')]
+    private ?string $fourthFloorRating = null;
+
+    /**
+     * Teams sent to the fourth floor, only counted to tell whether it was attempted.
+     *
+     * @var list<array<string, mixed>>|null
+     */
+    #[SerializedPath('[hadal_info_v2?][fourth_layer_detail?][layer_challenge_info_list]')]
+    private ?array $fourthFloorChallenges = null;
 
     #[SerializedName('hadal_ver')]
     private ?string $version = null;
@@ -191,6 +201,42 @@ class ShiyuDefenseData
         return $this;
     }
 
+    public function getFourthFloorRating(): ?string
+    {
+        return $this->fourthFloorRating;
+    }
+
+    public function setFourthFloorRating(?string $fourthFloorRating): static
+    {
+        $this->fourthFloorRating = $fourthFloorRating;
+        return $this;
+    }
+
+    /**
+     * @return list<array<string, mixed>>|null
+     */
+    public function getFourthFloorChallenges(): ?array
+    {
+        return $this->fourthFloorChallenges;
+    }
+
+    /**
+     * @param list<array<string, mixed>>|null $fourthFloorChallenges
+     */
+    public function setFourthFloorChallenges(?array $fourthFloorChallenges): static
+    {
+        $this->fourthFloorChallenges = $fourthFloorChallenges;
+        return $this;
+    }
+
+    /**
+     * S rank as rated by HoYoLAB. A prefix match, so that a variant such as "S+" (seen on the overall rating) counts.
+     */
+    public static function isSRating(?string $rating): bool
+    {
+        return $rating !== null && str_starts_with($rating, 'S');
+    }
+
     /**
      * A missing version is read as the current format: the endpoint is hadal_info_v2.
      */
@@ -199,15 +245,18 @@ class ShiyuDefenseData
         return $this->getVersion() === null || $this->getVersion() === self::SUPPORTED_VERSION;
     }
 
-    /**
-     * Played = at least one attempt with a score or a rating (so a mode at the maximum is never "not played").
-     */
-    public function isPlayed(): bool
+    public function isFourthFloorPlayed(): bool
     {
-        if (($this->getScore() ?? 0) > 0) {
-            return true;
-        }
+        return ($this->getFourthFloorRating() ?? '') !== '' || ($this->getFourthFloorChallenges() ?? []) !== [];
+    }
 
+    public function isFourthFloorSRank(): bool
+    {
+        return self::isSRating($this->getFourthFloorRating());
+    }
+
+    public function isFifthFloorPlayed(): bool
+    {
         foreach ($this->getStages() ?? [] as $stage) {
             if ($stage->isPlayed()) {
                 return true;
@@ -217,16 +266,25 @@ class ShiyuDefenseData
         return false;
     }
 
+    /**
+     * Played = the fourth floor attempted, or a score or a rating on the fifth floor (so a mode at the maximum is
+     * never "not played").
+     */
+    public function isPlayed(): bool
+    {
+        return ($this->getScore() ?? 0) > 0 || $this->isFourthFloorPlayed() || $this->isFifthFloorPlayed();
+    }
+
     public function getSRankStageCount(): int
     {
         return count(array_filter($this->getStages() ?? [], static fn (ShiyuDefenseStage $stage) => $stage->isSRank()));
     }
 
     /**
-     * Maximum = every stage at S rank.
+     * Maximum = the fourth floor and every stage of the fifth floor at S rank.
      */
     public function isFullyCleared(): bool
     {
-        return $this->getSRankStageCount() >= self::STAGE_COUNT;
+        return $this->isFourthFloorSRank() && $this->getSRankStageCount() >= self::STAGE_COUNT;
     }
 }

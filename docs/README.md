@@ -5,6 +5,9 @@
 - 🖥️ **[Server Setup, Stack, Deploy & Shared Folder](SERVER_SETUP_AND_DEPLOY.md)**  
   Stack architecture (Caddy + Mercure, PHP 8.5, Node/Playwright, Supervisor), first-time installation, automated updates/deployment, and shared folder configuration (`condivisi`, POSIX ACLs, Samba).
 
+- 🐳 **[Docker Development Setup](DOCKER_DEV_SETUP.md)**  
+  Optional local environment (Caddy + Mercure, PHP 8.5-FPM, MySQL, Webpack): hosts entry, local CA, `.env.local`, build, migrations, first user, tests.
+
 - 🧩 **[Creating a New Bundle](CREATING_A_BUNDLE.md)**  
   Standard bundle directory layout, `AbstractBundle` class, multi-domain routing, PSR-4 autoloading, Webpack Encore, and Caddy subdomain setup.
 

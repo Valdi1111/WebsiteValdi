@@ -104,5 +104,6 @@ A **Node.js / Express** microservice ([`node-services/`](node-services/)) powere
 All technical documentation is located in [`docs/`](docs/README.md):
 
 - 🖥️ **[Infrastructure, First Installation, Updates & Shared Folder](docs/SERVER_SETUP_AND_DEPLOY.md)** — Stack overview (Caddy + Mercure, PHP 8.5, Node/Playwright, Supervisor), server provisioning with `scripts/setup-server.sh`, deployment via `scripts/website-deploy.sh`, and shared folder setup via `scripts/setup-shared-folder.sh`.
+- 🐳 **[Docker Development Setup](docs/DOCKER_DEV_SETUP.md)** — Optional local environment with Docker Compose (Caddy + Mercure, PHP 8.5-FPM, MySQL, Webpack): steps from a clean clone to the login page.
 - 🧩 **[Creating a New Bundle](docs/CREATING_A_BUNDLE.md)** — Standard layout, Composer/Symfony registration, Webpack Encore setup, and Caddy subdomain routing.
 - 📚 **[Full Documentation Index](docs/README.md)** — Links to detailed guides for `StandardTable` (Frontend & Backend), `HoyoverseBundle`, `GryphlineBundle`, and `PerfectworldBundle`.

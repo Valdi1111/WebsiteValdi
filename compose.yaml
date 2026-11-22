@@ -1,67 +1,67 @@
-version: '3.9'
-
 services:
-    php-8.3-fpm:
-        image: php-8.3-fpm
+    php-fpm:
         build:
             context: .
             dockerfile: ./docker/php/Dockerfile
+        # Run as the host user, so that the mounted project stays writable on both sides
+        # (see docs/DOCKER_DEV_SETUP.md for other ids, Docker rootless included)
+        user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+        environment:
+            HOME: /tmp
+            COMPOSER_HOME: /tmp/composer
         volumes:
             - ./:/var/www/html
+            - composer-cache:/tmp/composer
         depends_on:
-            - mysql
-            - mercure
-        networks:
-            - backend
-    apache-httpd:
-        image: apache-httpd
-        build:
-            context: .
-            dockerfile: ./docker/apache/Dockerfile
-        volumes:
-            - ./docker/apache/vhosts:/usr/local/apache2/conf/extra/docker
-            - ./docker/apache/certs:/etc/ssl/certs
-            - ./:/var/www/html
-        ports:
-            - "8443:443"
-        depends_on:
-            - php-8.3-fpm
+            mysql:
+                condition: service_healthy
         networks:
             - backend
     mysql:
-        image: mysql
+        image: mysql:8.4
         restart: unless-stopped
         environment:
             MYSQL_ROOT_PASSWORD: "!ChangeMe!"
+        healthcheck:
+            test: ["CMD-SHELL", "mysqladmin ping -h127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+            interval: 5s
+            timeout: 5s
+            retries: 30
+            start_period: 20s
         volumes:
             - mysql-data:/var/lib/mysql
         ports:
-            - "3306:3306"
+            - "127.0.0.1:3306:3306"
         networks:
             - backend
     mercure:
-        image: dunglas/mercure
+        # Caddy + Mercure, the binary scripts/setup-server.sh installs: hub and application, as on the server
+        image: dunglas/mercure:v1.1.6
         restart: unless-stopped
+        # The files Symfony reads: DOMAIN_NAME and MERCURE_JWT_SECRET come from .env.local
+        env_file:
+            - path: .env
+            - path: .env.local
+              required: false
         environment:
-            # Comment the following line to enable HTTPS
-            SERVER_NAME: ":80"
-            MERCURE_PUBLISHER_JWT_KEY: "!ChangeThisMercureHubJWTSecretKey!"
-            MERCURE_SUBSCRIBER_JWT_KEY: "!ChangeThisMercureHubJWTSecretKey!"
-            # Set the URL of your Symfony project (without trailing slash!) as value of the cors_origins directive
-            #MERCURE_EXTRA_DIRECTIVES: |
-            #    cors_origins http://127.0.0.1:8000
-        # Comment the following line to disable the development mode
-        command: /usr/bin/caddy run --config /etc/caddy/Caddyfile.dev
+            # Also used by "ports" below, which Compose interpolates from the shell (never from .env.local)
+            HTTPS_PORT: "${HTTPS_PORT:-8443}"
         volumes:
-            - mercure_data:/data
+            - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+            - ./:/var/www/html:ro          # same path as php-fpm, for php_fastcgi
+            - mercure_data:/data           # also holds Caddy's local CA
             - mercure_config:/config
         ports:
-            - "3000:80"
+            - "127.0.0.1:${HTTPS_PORT:-8443}:${HTTPS_PORT:-8443}"
+        depends_on:
+            - php-fpm
         networks:
             - backend
     webpack:
-        image: webpack
         working_dir: /app
+        user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+        environment:
+            HOME: /tmp
         build:
             context: .
             dockerfile: ./docker/webpack/Dockerfile
@@ -76,6 +76,8 @@ volumes:
         name: "website-valdi-mercure-data"
     mercure_config:
         name: "website-valdi-mercure-config"
+    composer-cache:
+        name: "website-valdi-composer-cache"
 
 networks:
     backend:

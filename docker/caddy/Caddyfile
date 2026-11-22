@@ -1,0 +1,105 @@
+# Development Caddyfile: same layout as the one scripts/setup-server.sh writes on the server,
+# served by the Mercure binary (Caddy + the Mercure module) of the dunglas/mercure image.
+{
+	# Caddy's internal CA instead of Let's Encrypt (local domain)
+	local_certs
+	default_sni {$DOMAIN_NAME}
+	# HTTPS on the same port inside and outside the container, so that redirects and origins carry it
+	https_port {$HTTPS_PORT}
+}
+
+# Security headers of the application, as in the Caddyfile written by scripts/setup-server.sh, without
+# Strict-Transport-Security (left out there too on local domains). "?" sets a header only when PHP did not
+# send it, so a response can override it (GeetestService keeps Referrer-Policy: no-referrer on the captcha frame)
+(security_headers) {
+	header {
+		?X-Content-Type-Options "nosniff"
+		# SAMEORIGIN and not DENY: the GeeTest captcha is a same-origin iframe
+		?X-Frame-Options "SAMEORIGIN"
+		?Referrer-Policy "strict-origin-when-cross-origin"
+		# Only features no page uses: fullscreen (players, reader) and clipboard (copy buttons) stay allowed
+		?Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		-Via
+		-Server
+	}
+}
+
+# 1. Mercure hub
+mercure.{$DOMAIN_NAME} {
+	import security_headers
+
+	log {
+		format filter {
+			fields {
+				request>uri query {
+					replace authorization REDACTED
+				}
+			}
+		}
+	}
+
+	encode zstd gzip
+
+	mercure {
+		protocol_version_compatibility 8
+		# The same secret Symfony signs with (MERCURE_JWT_SECRET), from .env/.env.local
+		publisher_jwt {env.MERCURE_JWT_SECRET} HS256
+		subscriber_jwt {env.MERCURE_JWT_SECRET} HS256
+
+		# Both forms: the browser omits the port when HTTPS_PORT is 443
+		cors_origins https://{$DOMAIN_NAME} https://{$DOMAIN_NAME}:{$HTTPS_PORT} https://anime.{$DOMAIN_NAME} https://anime.{$DOMAIN_NAME}:{$HTTPS_PORT} https://books.{$DOMAIN_NAME} https://books.{$DOMAIN_NAME}:{$HTTPS_PORT} https://games.{$DOMAIN_NAME} https://games.{$DOMAIN_NAME}:{$HTTPS_PORT} https://passwords.{$DOMAIN_NAME} https://passwords.{$DOMAIN_NAME}:{$HTTPS_PORT} https://videos.{$DOMAIN_NAME} https://videos.{$DOMAIN_NAME}:{$HTTPS_PORT}
+		publish_origins https://{$DOMAIN_NAME} https://{$DOMAIN_NAME}:{$HTTPS_PORT} https://anime.{$DOMAIN_NAME} https://anime.{$DOMAIN_NAME}:{$HTTPS_PORT} https://books.{$DOMAIN_NAME} https://books.{$DOMAIN_NAME}:{$HTTPS_PORT} https://games.{$DOMAIN_NAME} https://games.{$DOMAIN_NAME}:{$HTTPS_PORT} https://passwords.{$DOMAIN_NAME} https://passwords.{$DOMAIN_NAME}:{$HTTPS_PORT} https://videos.{$DOMAIN_NAME} https://videos.{$DOMAIN_NAME}:{$HTTPS_PORT}
+	}
+
+	respond /healthz 200
+	respond "Not Found" 404
+}
+
+# Internal address PHP publishes to (MERCURE_URL=http://mercure/.well-known/mercure).
+# It forwards to the hub above: listing http://mercure in the same block would start a second,
+# separate hub on port 80 (Mercure 1.x refuses it), and the browsers would never get the updates.
+http://mercure {
+	reverse_proxy https://127.0.0.1:{$HTTPS_PORT} {
+		header_up Host mercure.{$DOMAIN_NAME}
+		transport http {
+			tls_server_name mercure.{$DOMAIN_NAME}
+			# Loopback to Caddy's own internal CA
+			tls_insecure_skip_verify
+		}
+	}
+}
+
+# 2. Symfony application and subdomains (PHP runs in the php-fpm container, same project path)
+{$DOMAIN_NAME}, anime.{$DOMAIN_NAME}, books.{$DOMAIN_NAME}, games.{$DOMAIN_NAME}, passwords.{$DOMAIN_NAME}, videos.{$DOMAIN_NAME} {
+	import security_headers
+
+	root * /var/www/html/public
+
+	encode zstd gzip
+	file_server
+
+	# Files sent by PHP are served by Caddy: the PHP-FPM worker is freed at once
+	request_header X-Sendfile-Type X-Accel-Redirect
+	request_header X-Accel-Mapping /=/
+	intercept {
+		@accel header X-Accel-Redirect *
+		handle_response @accel {
+			root * /
+			rewrite * {resp.header.X-Accel-Redirect}
+			method * GET
+			header -X-Accel-Redirect
+			file_server
+		}
+	}
+
+	php_fastcgi php-fpm:9000 {
+		try_files {path} index.php
+		resolve_root_symlink
+		env SYMFONY_TRUST_X_SENDFILE_TYPE_HEADER 1
+	}
+
+	@phpFile {
+		path *.php*
+	}
+	error @phpFile "Not found" 404
+}

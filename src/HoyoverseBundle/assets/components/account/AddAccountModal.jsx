@@ -204,7 +204,14 @@ export default function AddAccountModal({
                         type="info"
                         showIcon
                         title="Direct HoYoverse Login (Auto-Renewal & Code Redemption)"
-                        description="Your credentials are encrypted with HoYoverse's RSA public key and used exclusively to generate stoken_v2, ltoken_v2, and cookie_token_v2. Your password is never stored. If you log in via Google/Apple/PSN without a HoYoverse password, link an email/password in your HoYoverse Account Center or use the 'Paste Cookie' tab."
+                        description="Your credentials are encrypted with HoYoverse's RSA public key and used exclusively to generate stoken_v2, ltoken_v2, and cookie_token_v2. Your password is never stored."
+                    />
+
+                    <Alert
+                        type="info"
+                        showIcon
+                        title="No HoYoverse password?"
+                        description="Accounts created on PlayStation or Xbox, or with a third-party login such as Google or Apple, are HoYoverse accounts too: link an email and set a password in the HoYoverse Account Center (or the in-game User Center), then sign in here for every feature. Otherwise use 'Paste Cookie': check-in, notes and reminders work until the cookie expires, and so does the Zenless Zone Zero pulls sync (recent months, like the in-game history). Genshin Impact pulls sync still needs this login (stoken_v2)."
                     />
 
                     <Form.Item

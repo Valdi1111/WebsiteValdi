@@ -6,13 +6,16 @@ use App\GamesBundle\Message\ProfileTaskMessageInterface;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\HoyoverseBundle\Model\Game\GameInterface;
+use App\HoyoverseBundle\Model\Game\HasChroniclePullImportInterface;
 use App\HoyoverseBundle\Model\Game\HasPullTrackerInterface;
 use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
+use App\HoyoverseBundle\Model\Pull\PullSyncSource;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
 use App\HoyoverseBundle\Service\Pull\ManualPullService;
 use App\HoyoverseBundle\Service\Pull\PullBackupImportService;
 use App\HoyoverseBundle\Service\Pull\PullOperationTracker;
+use App\HoyoverseBundle\Service\Pull\PullSyncSourceResolver;
 use App\HoyoverseBundle\Service\Pull\PullSyntheticReconcilerManager;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Lock\LockFactory;
@@ -47,6 +50,7 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
     private PullOperationTracker $operationTracker;
     private LockFactory $lockFactory;
     private ManualPullService $manualPullService;
+    private PullSyncSourceResolver $pullSyncSourceResolver;
 
     #[Required]
     public function setEntityManager(EntityManagerInterface $entityManager): void
@@ -90,6 +94,12 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
         $this->manualPullService = $manualPullService;
     }
 
+    #[Required]
+    public function setPullSyncSourceResolver(PullSyncSourceResolver $pullSyncSourceResolver): void
+    {
+        $this->pullSyncSourceResolver = $pullSyncSourceResolver;
+    }
+
     public function __invoke(SyncPullsPageProfileMessage $message): void
     {
         $this->handleProfile($message);
@@ -123,12 +133,22 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
             $authkey = $message->getAuthkey();
             $extraQueryParams = $message->getExtraQueryParams();
 
+            // Without an authkey in the message, an account without stoken_v2 reads the pages from the HoYoLAB
+            // battle chronicle when the game supports it; every other case keeps the authkey + getGachaLog flow
+            $chronicleService = null;
+            if (($authkey === null || $authkey === '')
+                && $gameService instanceof HasChroniclePullImportInterface
+                && $this->pullSyncSourceResolver->resolve($gameService, $accountData->getParsedCookie()) === PullSyncSource::Chronicle
+            ) {
+                $chronicleService = $gameService;
+            }
+
             // 1. Resolve or generate authkey on the first page if not already carried in the message
-            if (($authkey === null || $authkey === '') && $gameService instanceof HasStokenPullImportInterface) {
+            if ($chronicleService === null && ($authkey === null || $authkey === '') && $gameService instanceof HasStokenPullImportInterface) {
                 $authkey = $this->cookieUtils->generateAuthKey($profile, $gameService->getAuthkeyAppId());
             }
 
-            if ($authkey === null || $authkey === '') {
+            if ($chronicleService === null && ($authkey === null || $authkey === '')) {
                 $reason = 'No authkey available and game does not support SToken import.';
                 $this->logger->warning(sprintf(
                     'Cannot sync pulls page for %s (Profile %d, Banner %s): %s',
@@ -146,14 +166,16 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
 
             // 2. Fetch gacha pulls for the current page from the upstream API
             try {
-                $pulls = $gameService->fetchPullsPage(
-                    $profile,
-                    $gachaType,
-                    $authkey,
-                    $message->getEndId(),
-                    $extraQueryParams,
-                    self::PAGE_SIZE
-                );
+                $pulls = $chronicleService !== null
+                    ? $chronicleService->fetchChroniclePullsPage($accountData, $gachaType, $message->getEndId())
+                    : $gameService->fetchPullsPage(
+                        $profile,
+                        $gachaType,
+                        $authkey,
+                        $message->getEndId(),
+                        $extraQueryParams,
+                        self::PAGE_SIZE
+                    );
             } catch (\Throwable $e) {
                 if ($operationId !== null) {
                     $this->operationTracker->failSyncBanner($operationId, $gachaType, $e->getMessage(), $bannerName);

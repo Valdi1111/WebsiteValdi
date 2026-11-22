@@ -125,7 +125,14 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
 
             // 1. Resolve or generate authkey on the first page if not already carried in the message
             if (($authkey === null || $authkey === '') && $gameService instanceof HasStokenPullImportInterface) {
-                $authkey = $this->cookieUtils->generateAuthKey($profile, $gameService->getAuthkeyAppId());
+                try {
+                    $authkey = $this->cookieUtils->generateAuthKey($profile, $gameService->getAuthkeyAppId());
+                } catch (\Throwable $e) {
+                    if ($operationId !== null) {
+                        $this->operationTracker->failSyncBanner($operationId, $gachaType, $e->getMessage(), $bannerName);
+                    }
+                    throw $e;
+                }
             }
 
             if ($authkey === null || $authkey === '') {

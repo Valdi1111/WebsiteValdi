@@ -242,6 +242,8 @@ abstract class AbstractPullOperationTracker
         $banners[$bannerKey]['imported'] = (int) ($banners[$bannerKey]['imported'] ?? 0) + $newCount;
         $banners[$bannerKey]['promoted'] = (int) ($banners[$bannerKey]['promoted'] ?? 0) + $promotedCount;
         $banners[$bannerKey]['status'] = $bannerFinished ? 'completed' : 'running';
+        // A page was read successfully: a failure recorded by an earlier attempt is stale
+        $banners[$bannerKey]['error'] = null;
 
         $operation['banners'] = $banners;
         $operation = $this->recomputeSyncAggregates($operation);
@@ -404,6 +406,8 @@ abstract class AbstractPullOperationTracker
         $operation['imported'] = $totalImported;
         $operation['promoted'] = $totalPromoted;
         $operation['updated_at'] = $now;
+        // An error left by an earlier failed state is stale once a retry succeeds: only the "failed" branch sets it
+        $operation['error'] = null;
 
         if ($totalBanners > 0 && $finishedBanners >= $totalBanners) {
             $operation['percent'] = 100;
@@ -415,13 +419,13 @@ abstract class AbstractPullOperationTracker
             } else {
                 $operation['status'] = 'completed';
                 $operation['phase'] = 'completed';
-                if ($errors !== []) {
-                    $operation['warnings'] = $errors;
-                }
+                $operation['warnings'] = $errors;
             }
         } else {
             $operation['status'] = 'running';
             $operation['phase'] = 'syncing';
+            // The operation may be resuming after a failure (Messenger retry): drop the closed-state leftovers
+            $operation['finished_at'] = null;
             $effectiveProgress = $finishedBanners + ($runningBanners > 0 ? 0.5 : 0.0);
             $operation['percent'] = $totalBanners > 0
                 ? min(95, (int) floor(($effectiveProgress / $totalBanners) * 100))

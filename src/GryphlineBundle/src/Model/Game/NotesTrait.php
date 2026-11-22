@@ -2,12 +2,16 @@
 
 namespace App\GryphlineBundle\Model\Game;
 
+use App\GamesBundle\Model\Game\CachedNotesTrait;
 use App\GamesBundle\Model\Game\HasNotesInterface;
 use App\GamesBundle\Model\GameNotes\GameNotes;
 use App\GryphlineBundle\Exception\SkportApiException;
 use App\GamesBundle\Model\Game\RuntimeAccountDataInterface;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Contracts\Cache\CacheInterface;
+use Symfony\Contracts\Service\Attribute\Required;
 
 /**
  * @mixin GameInterface
@@ -15,7 +19,28 @@ use Symfony\Component\HttpFoundation\Response;
  */
 trait NotesTrait
 {
-    public function getNotes(RuntimeAccountDataInterface $account, bool $retryOn401 = true): GameNotes
+    use CachedNotesTrait;
+
+    #[Required]
+    public function setNotesCache(
+        #[Target('gryphline.notes.cache')]
+        CacheInterface $cache
+    ): void
+    {
+        $this->notesCache = $cache;
+    }
+
+    public function getNotes(RuntimeAccountDataInterface $account, bool $fresh = false): GameNotes
+    {
+        $data = $this->getCachedNotesData($account, $fresh, fn (): array => $this->fetchNotesData($account));
+
+        return $this->getDenormalizer()->denormalize($data, $this->getNotesClass());
+    }
+
+    /**
+     * @return array{0: array<string, mixed>, 1: bool} the notes payload, and whether it may be cached
+     */
+    private function fetchNotesData(RuntimeAccountDataInterface $account, bool $retryOn401 = true): array
     {
         $profile = $account->getGameProfile();
         $creds = $this->ensureCredentials($account);
@@ -42,7 +67,7 @@ trait NotesTrait
             $this->getLogger()->warning('SKPort session expired during notes request, forcing OAuth refresh...');
             $this->ensureCredentials($account, force: true);
 
-            return $this->getNotes($account, retryOn401: false);
+            return $this->fetchNotesData($account, retryOn401: false);
         }
 
         if ($response->getStatusCode() !== Response::HTTP_OK) {
@@ -57,9 +82,8 @@ trait NotesTrait
                 ->setResponseBody($body);
         }
 
-        return $this->getDenormalizer()->denormalize(
-            $body['data']['detail'] ?? $body['data'] ?? [],
-            $this->getNotesClass()
-        );
+        $data = $body['data']['detail'] ?? $body['data'] ?? null;
+
+        return [is_array($data) ? $data : [], is_array($data)];
     }
 }

@@ -119,7 +119,7 @@ Produced by [nte-exporter](https://github.com/RishiMenon2004/nte-exporter), whic
 
 ### Missing pulls
 
-Shared feature (plan in [`docs/PULLS_MISSING_HISTORY_PLAN.md`](../../docs/PULLS_MISSING_HISTORY_PLAN.md), rules in `GamesBundle` `ManualPullGuard`/`PullGapPlanner`), implemented by `Service/Pull/ManualPullService`:
+Shared feature (design and rules in [GamesBundle § 4.1](../GamesBundle/README.md#41-missing-pulls-manual-s-and-declared-pity): `ManualPullGuard`, `PullGapPlanner`), implemented by `Service/Pull/ManualPullService`:
 
 | Endpoint | Route name suffix | Notes |
 | :--- | :--- | :--- |

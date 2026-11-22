@@ -167,6 +167,19 @@ Histories start where the source starts (API window, first backup), so the first
 | Provider-specific rows and ids | HoYoverse/Gryphline use `filler_`/`manual_` ids; Perfect World uses negative `group_position` slots, so imports (identity on `pulled_at` + position) never collide. |
 | Pull dates on `wall_clock_datetime_immutable` (`App\CoreBundle\Doctrine\WallClockDateTimeImmutableType`) | The three pull tables store wall-clock times read back as UTC: with the default timezone (Europe/Rome) the hour skipped when DST starts would shift on read, and realign would move the fillers placed there on every run (`tests/GamesBundle/Doctrine/PullWallClockTest`). |
 
+**Rules** (`Service/Pull/ManualPullGuard`, on the entries of one banner group). A violation throws `ManualPullViolationException`, which `PullApiExceptionSubscriber` renders as `422` with its `code`; a write while an import or sync holds the profile lock gets `409` with code `profile_locked`.
+
+- **Declare a pity** of an S: between the pulls recorded in its window and the banner's S max pity (`pity_out_of_range`). A value above the recorded one needs a usable gap in the window (`no_room`). Clearing it (`null`) is refused on a manual S, which is deleted instead (`pity_required`). Providers store the recorded value as `null` on a recorded S.
+- **Add an S** at the start of an anchor S's window, or of the open window after the last S:
+  - its pity is between 1 and the S max pity (`pity_out_of_range`);
+  - its date is strictly after the previous S and before the first recorded pull of that window (`date_out_of_range`), and not in the future (`date_in_future`);
+  - with a pity above 1, its date is at least `PullGapPlanner::MIN_GAP_SECONDS` (2 s) after the previous S, so that its fillers fit (`no_room`).
+
+  So a manual S never splits the window of a recorded S.
+- **Duplicates**: a recorded S of the same item within `ManualPull::MERGE_WINDOW_SECONDS` (24 h) gives `possible_duplicate`. The form asks whether it is another copy and resends with `allow_duplicate: true`. Same item means the same `item_id` when both rows have one, otherwise the same normalized name (`PullGapPlanner::isSameItem()`).
+- **Merge** (in `plan()`): a manual S merges into the nearest recorded S of the same item within 24 h that was inserted after it and has no declared pity, and its declared pity moves to that row.
+- **Dates** are sent and stored as wall-clock `Y-m-d H:i:s` without offset (`ManualPull::DATE_FORMAT`), like the recorded rows of the provider.
+
 ### Not shared on purpose
 
 - **Message classes**: each one routes to its provider's Messenger transport through `#[AsMessage]`.

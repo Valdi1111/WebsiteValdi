@@ -14,7 +14,7 @@ use Doctrine\Persistence\ManagerRegistry;
 class GryphlinePullRepository extends ServiceEntityRepository
 {
     /** Fields read by GryphlinePullStatsCalculator. */
-    private const string STATS_FIELDS = 'p.id, p.seqId, p.poolType, p.poolCategory, p.poolId, p.poolName, p.itemId, p.name, p.rarity, p.pulledAt, p.origin, p.declaredPity';
+    private const string STATS_FIELDS = 'p.id, p.seqId, p.poolType, p.poolCategory, p.poolId, p.poolName, p.itemId, p.name, p.rarity, p.pulledAt, p.origin, p.declaredPity, p.isUp';
 
     public function __construct(ManagerRegistry $registry)
     {

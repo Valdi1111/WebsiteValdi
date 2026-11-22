@@ -18,6 +18,10 @@ use App\GamesBundle\Model\Pull\PullTimelineEntry;
  *
  * All dates are derived from a neighbouring row with setTimestamp(), so they keep the
  * timezone object of the provider's own values (wall-clock values stored as UTC stay UTC).
+ *
+ * Pull numbers (PullTimelineEntry::$pullNumber) only matter where two numbered S are closer than
+ * MIN_GAP_SECONDS, i.e. the S of one 10-pull: their fillers then go in the second of the earlier
+ * S with consecutive numbers. Without numbers the plan is the same as before they existed.
  */
 class PullGapPlanner
 {
@@ -55,6 +59,14 @@ class PullGapPlanner
 
         $slots = [];
         $warnings = [];
+        $mixedSeconds = $this->findMixedSeconds($effective);
+        foreach ($mixedSeconds as $pulledAt) {
+            $warnings[] = \sprintf(
+                'The pulls of %s mix rows with and without a pull number: their order inside that second is unknown, so no filler is numbered there.',
+                $pulledAt->format(ManualPull::DATE_FORMAT),
+            );
+        }
+
         foreach ($this->splitWindows($effective)['closed'] as $window) {
             $s = $window['s'];
             if ($s->declaredPity === null) {
@@ -67,19 +79,34 @@ class PullGapPlanner
             }
 
             $gap = $this->findGap($window['boundaries']);
-            if ($gap === null) {
-                $warnings[] = \sprintf(
+            if ($gap !== null) {
+                foreach ($this->spreadInGap($gap[0], $gap[1], $needed) as $pulledAt) {
+                    $slots[] = new FillerSlot($pulledAt, $s->id);
+                }
+                continue;
+            }
+
+            $numbered = $this->findNumberedGap($window, $mixedSeconds);
+            if ($numbered !== null && $numbered['room'] >= $needed) {
+                for ($k = 1; $k <= $needed; ++$k) {
+                    $slots[] = new FillerSlot($numbered['lower']->pulledAt, $s->id, (int) $numbered['lower']->pullNumber + $k);
+                }
+                continue;
+            }
+
+            $warnings[] = $numbered === null
+                ? \sprintf(
                     'No room for %d unknown pull(s) before S #%d: its neighbours are less than %d seconds apart.',
                     $needed,
                     $s->id,
                     self::MIN_GAP_SECONDS,
+                )
+                : \sprintf(
+                    'No room for %d unknown pull(s) before S #%d: its pull number leaves room for %d after the previous S.',
+                    $needed,
+                    $s->id,
+                    max(0, $numbered['room']),
                 );
-                continue;
-            }
-
-            foreach ($this->spreadInGap($gap[0], $gap[1], $needed) as $pulledAt) {
-                $slots[] = new FillerSlot($pulledAt, $s->id);
-            }
         }
 
         return $this->matchFillers($entries, $slots, $merges, $declaredPityUpdates, $warnings);
@@ -131,7 +158,9 @@ class PullGapPlanner
     }
 
     /**
-     * Pairs each manual S with the nearest recorded S of the same item inserted after it.
+     * Pairs each manual or official S with the nearest recorded S of the same item inserted after it. They are
+     * visited in timeline order and ties go to the earliest candidate in the timeline, so two copies of
+     * one item in one 10-pull pair up in order (first with first).
      *
      * A recorded S that already carries a declared pity is not a candidate: it has been claimed by
      * an earlier merge (realign runs after every insertion), and accepting it would merge another
@@ -151,7 +180,8 @@ class PullGapPlanner
         $declaredPityUpdates = [];
         $used = [];
         foreach ($entries as $manual) {
-            if ($manual->origin !== PullOrigin::Manual || !$manual->isS) {
+            // An official S merges like a manual one: the recorded S that arrives later replaces it
+            if (($manual->origin !== PullOrigin::Manual && $manual->origin !== PullOrigin::Official) || !$manual->isS) {
                 continue;
             }
 
@@ -169,8 +199,10 @@ class PullGapPlanner
                 if ($distance > ManualPull::MERGE_WINDOW_SECONDS) {
                     continue;
                 }
-                // Nearest in time wins; on a tie, the lowest id (inserted first)
-                if ($best === null || $distance < $bestDistance || ($distance === $bestDistance && $candidate->id < $best->id)) {
+                // Nearest in time wins; on a tie, the earliest in the timeline (candidates are visited in order). Not the
+                // lowest id: a sync inserts the newest pulls first, so inside a 10-pull the ids decrease with time, and
+                // two manual copies of one item would take the two recorded copies the other way round.
+                if ($best === null || $distance < $bestDistance) {
                     $best = $candidate;
                     $bestDistance = $distance;
                 }
@@ -205,23 +237,32 @@ class PullGapPlanner
             $entries,
             static fn (PullTimelineEntry $entry): bool => $entry->origin === PullOrigin::Filler,
         ));
+        // Unnumbered before numbered inside a second, like the providers' order (without numbers: date, then id)
         usort(
             $fillers,
-            static fn (PullTimelineEntry $a, PullTimelineEntry $b): int => [$a->pulledAt->getTimestamp(), $a->id] <=> [$b->pulledAt->getTimestamp(), $b->id],
+            static fn (PullTimelineEntry $a, PullTimelineEntry $b): int => [$a->pulledAt->getTimestamp(), ...PullTimelineEntry::pullNumberOrderKey($a->pullNumber), $a->id]
+                <=> [$b->pulledAt->getTimestamp(), ...PullTimelineEntry::pullNumberOrderKey($b->pullNumber), $b->id],
         );
         usort(
             $slots,
-            static fn (FillerSlot $a, FillerSlot $b): int => $a->pulledAt->getTimestamp() <=> $b->pulledAt->getTimestamp(),
+            static fn (FillerSlot $a, FillerSlot $b): int => [$a->pulledAt->getTimestamp(), ...PullTimelineEntry::pullNumberOrderKey($a->pullNumber)]
+                <=> [$b->pulledAt->getTimestamp(), ...PullTimelineEntry::pullNumberOrderKey($b->pullNumber)],
         );
 
         $moves = [];
+        $pullNumbers = [];
         $creates = [];
         foreach ($slots as $index => $slot) {
             $filler = $fillers[$index] ?? null;
             if ($filler === null) {
                 $creates[] = $slot;
-            } elseif ($filler->pulledAt->getTimestamp() !== $slot->pulledAt->getTimestamp()) {
+                continue;
+            }
+            if ($filler->pulledAt->getTimestamp() !== $slot->pulledAt->getTimestamp()) {
                 $moves[$filler->id] = $slot->pulledAt;
+            }
+            if ($filler->pullNumber !== $slot->pullNumber) {
+                $pullNumbers[$filler->id] = $slot->pullNumber;
             }
         }
 
@@ -230,7 +271,60 @@ class PullGapPlanner
             $deletes[] = $filler->id;
         }
 
-        return new FillerPlan($merges, $declaredPityUpdates, $moves, $deletes, $creates, $warnings);
+        return new FillerPlan($merges, $declaredPityUpdates, $moves, $deletes, $creates, $warnings, $pullNumbers);
+    }
+
+    /**
+     * Seconds holding both numbered and unnumbered non-filler rows. Numbers exist only on official S rows (and the
+     * fillers between them), whose seconds hold no recorded row, so this should never happen; when it does, the order of
+     * those rows is unknown and no numbered gap touching that second is used.
+     *
+     * @param list<PullTimelineEntry> $entries
+     * @return array<int, \DateTimeImmutable> Timestamp => a date of that second, in chronological order
+     */
+    private function findMixedSeconds(array $entries): array
+    {
+        $seconds = [];
+        foreach ($entries as $entry) {
+            if ($entry->origin === PullOrigin::Filler) {
+                continue;
+            }
+            $timestamp = $entry->pulledAt->getTimestamp();
+            $seconds[$timestamp] ??= ['at' => $entry->pulledAt, 'numbered' => false, 'unnumbered' => false];
+            $seconds[$timestamp][$entry->pullNumber !== null ? 'numbered' : 'unnumbered'] = true;
+        }
+
+        $mixed = [];
+        foreach ($seconds as $timestamp => $second) {
+            if ($second['numbered'] && $second['unnumbered']) {
+                $mixed[$timestamp] = $second['at'];
+            }
+        }
+
+        return $mixed;
+    }
+
+    /**
+     * The gap between two numbered S closer than MIN_GAP_SECONDS (the S of one 10-pull share its second): fillers fit
+     * there by pull number, in the second of the earlier S. Only for a window holding nothing but its S, after a
+     * numbered previous S, and when neither second mixes numbered and unnumbered rows.
+     *
+     * @param array{s: PullTimelineEntry, previous: ?PullTimelineEntry, boundaries: list<?\DateTimeImmutable>} $window
+     * @param array<int, \DateTimeImmutable>                                                                $mixedSeconds
+     * @return array{lower: PullTimelineEntry, room: int}|null Previous S and the pull numbers free before the S (may be < 1)
+     */
+    private function findNumberedGap(array $window, array $mixedSeconds): ?array
+    {
+        $lower = $window['previous'];
+        $upper = $window['s'];
+        if ($lower === null || \count($window['boundaries']) !== 2 || $lower->pullNumber === null || $upper->pullNumber === null) {
+            return null;
+        }
+        if (isset($mixedSeconds[$lower->pulledAt->getTimestamp()]) || isset($mixedSeconds[$upper->pulledAt->getTimestamp()])) {
+            return null;
+        }
+
+        return ['lower' => $lower, 'room' => $upper->pullNumber - $lower->pullNumber - 1];
     }
 
     /**
@@ -403,6 +497,7 @@ class PullGapPlanner
             declaredPity: $declaredPity,
             itemId: $entry->itemId,
             name: $entry->name,
+            pullNumber: $entry->pullNumber,
         );
     }
 }

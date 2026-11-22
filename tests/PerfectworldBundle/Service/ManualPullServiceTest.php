@@ -487,7 +487,9 @@ class ManualPullServiceTest extends TestCase
         $service->declarePity($this->profile, $this->game, $s, 3);
         $filler = $this->rowsOf(PullOrigin::Filler)[0];
 
-        foreach ([$s, $filler] as $pull) {
+        $official = $this->addRecorded(self::LIMITED, '2026-06-01 09:00:00', '1050', -1)->setOrigin(PullOrigin::Official)->setDeclaredPity(1);
+
+        foreach ([$s, $filler, $official] as $pull) {
             try {
                 $service->deleteManual($this->profile, $this->game, $pull);
                 $this->fail('Expected a BadRequestHttpException.');
@@ -495,7 +497,7 @@ class ManualPullServiceTest extends TestCase
             }
         }
 
-        $this->assertCount(3, $this->rows);
+        $this->assertCount(4, $this->rows);
     }
 
     public function testDeletingAManualSRemovesItsFillers(): void
@@ -600,6 +602,27 @@ class ManualPullServiceTest extends TestCase
         $this->assertCount(1, $fillers, '4 declared - 3 recorded');
         $this->assertSame('2026-06-01 07:59:59', $fillers[0]->getPulledAt()?->format('Y-m-d H:i:s'));
         $this->assertSame(4, $this->computeItems()[$recordedS->getId()]['pity']);
+    }
+
+    /**
+     * @return iterable<string, array{0: ?bool, 1: ?bool, 2: ?bool}>
+     */
+    public static function rateUpFlagProvider(): iterable
+    {
+        yield 'copied when the recorded S has none' => [false, null, false];
+        yield 'the recorded flag is kept' => [false, true, true];
+    }
+
+    #[DataProvider('rateUpFlagProvider')]
+    public function testTheMergeCopiesTheRateUpFlagOfTheManualS(?bool $manualFlag, ?bool $recordedFlag, ?bool $expected): void
+    {
+        $anchor = $this->addRecorded(self::LIMITED, '2026-06-01 10:05:00', '1042');
+        $service = $this->createService();
+        $service->createManualS($this->profile, $this->game, self::request('2026-06-01 09:00:00', 4, '1050', $anchor->getId()))->setIsUp($manualFlag);
+
+        $recordedS = $this->addRecorded(self::LIMITED, '2026-06-01 09:00:30', '1050')->setIsUp($recordedFlag);
+        $this->assertCount(1, $service->realign($this->profile, $this->game, self::LIMITED)->merges);
+        $this->assertSame($expected, $recordedS->isUp());
     }
 
     public function testRealignAllCoversEveryBanner(): void

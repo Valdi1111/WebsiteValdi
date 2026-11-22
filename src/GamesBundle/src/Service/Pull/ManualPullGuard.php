@@ -21,6 +21,8 @@ class ManualPullGuard
     /**
      * Operation A: declare (or clear, with a null pity) the real pity of an S.
      *
+     * Refused on an official S (built from an official S-rank history): its pity is exact, not an estimate.
+     *
      * @param list<PullTimelineEntry> $entries
      *
      * @throws ManualPullViolationException
@@ -32,6 +34,13 @@ class ManualPullGuard
             throw new ManualPullViolationException(
                 ManualPullViolationException::INVALID_TARGET,
                 \sprintf('Pull #%d is not an S pull of this banner.', $sId),
+            );
+        }
+
+        if ($target->origin === PullOrigin::Official) {
+            throw new ManualPullViolationException(
+                ManualPullViolationException::OFFICIAL_PULL,
+                'The pity of this S comes from the official history of the banner: it cannot be changed.',
             );
         }
 
@@ -67,7 +76,7 @@ class ManualPullGuard
 
     /**
      * Operation B: add a manual S at the start of the anchor's window (or of the open window
-     * after the last S when there is no anchor).
+     * after the last S when there is no anchor). Refused when the anchor is an official S.
      *
      * @param list<PullTimelineEntry> $entries
      * @param \DateTimeImmutable      $now     Latest accepted pull date (the caller shifts it when it needs a tolerance)
@@ -85,10 +94,18 @@ class ManualPullGuard
         bool $allowDuplicate,
         \DateTimeImmutable $now,
     ): void {
-        if ($anchorId !== null && $this->findS($entries, $anchorId) === null) {
+        $anchor = $anchorId !== null ? $this->findS($entries, $anchorId) : null;
+        if ($anchorId !== null && $anchor === null) {
             throw new ManualPullViolationException(
                 ManualPullViolationException::INVALID_ANCHOR,
                 \sprintf('Pull #%d is not an S pull of this banner.', $anchorId),
+            );
+        }
+        // The official history lists every S of the banner: none is missing right before one of them
+        if ($anchor?->origin === PullOrigin::Official) {
+            throw new ManualPullViolationException(
+                ManualPullViolationException::OFFICIAL_PULL,
+                'This S comes from the official history of the banner: no S is missing right before it.',
             );
         }
 
@@ -139,8 +156,9 @@ class ManualPullGuard
             return;
         }
 
+        // An official S is a known pull too, like a recorded one
         foreach ($entries as $entry) {
-            if ($entry->origin !== PullOrigin::Recorded || !$entry->isS) {
+            if (($entry->origin !== PullOrigin::Recorded && $entry->origin !== PullOrigin::Official) || !$entry->isS) {
                 continue;
             }
             if (abs($entry->pulledAt->getTimestamp() - $at) > ManualPull::MERGE_WINDOW_SECONDS) {
@@ -153,7 +171,8 @@ class ManualPullGuard
             throw new ManualPullViolationException(
                 ManualPullViolationException::POSSIBLE_DUPLICATE,
                 \sprintf(
-                    'A recorded S pull of "%s" exists on %s. Is this another copy?',
+                    '%s S pull of "%s" exists on %s. Is this another copy?',
+                    $entry->origin === PullOrigin::Official ? 'An official' : 'A recorded',
                     $entry->name ?? $name,
                     $entry->pulledAt->format(ManualPull::DATE_FORMAT),
                 ),

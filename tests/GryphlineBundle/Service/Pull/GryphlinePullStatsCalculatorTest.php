@@ -32,7 +32,7 @@ class GryphlinePullStatsCalculatorTest extends TestCase
 
     private const array ITEM_KEYS = [
         'id', 'pull_number', 'seq_id', 'pool_type', 'pool_category', 'pool_name', 'gacha_name', 'item_type',
-        'item_type_label', 'item_id', 'name', 'rarity', 'pity', 'pulled_at', 'origin', 'declared_pity',
+        'item_type_label', 'item_id', 'name', 'rarity', 'pity', 'pulled_at', 'origin', 'declared_pity', 'is_up',
     ];
 
     /** Keys only S items (and their recent_s_pulls copies) carry, after the others */
@@ -235,6 +235,7 @@ class GryphlinePullStatsCalculatorTest extends TestCase
             'pulled_at' => '2026-06-01 00:12:00',
             'origin' => 'recorded',
             'declared_pity' => null,
+            'is_up' => null,
             'recorded_pity' => 12,
             'insert_after' => null,
             'insert_before' => '2026-06-01 00:01:00',
@@ -458,6 +459,32 @@ class GryphlinePullStatsCalculatorTest extends TestCase
         $this->assertSame([3, 2, 1], array_column($bOnly['items'], 'pull_number'));
     }
 
+    public function testAnOfficialSCountsLikeAManualS(): void
+    {
+        $rows = [$this->row(4), $this->row(4), $this->row(6, 'Liino', declaredPity: 3), $this->row(4)];
+        $rows[2]['origin'] = 'official';
+
+        $result = $this->calculator()->compute($rows, $this->bannerGroups()[self::SPECIAL], $this->rarityConfig());
+
+        $this->assertSame('official', $result['items'][2]['origin'], 'Not read back as a recorded row');
+        $this->assertSame(3, $result['items'][2]['pity']);
+        $this->assertSame(1, $result['summary']['s_count']);
+        $this->assertSame(['official'], array_column($result['summary']['recent_s_pulls'], 'origin'));
+        $this->assertSame(PullOrigin::Official, $this->calculator()->toTimelineEntries($rows, $this->rarityConfig())[2]->origin);
+    }
+
+    public function testRateUpFlagIsExposedWhereTheRowHasOne(): void
+    {
+        $rows = [$this->row(4), $this->row(6, 'Liino'), $this->row(6, 'Si')];
+        $rows[1]['isUp'] = true;
+        $rows[2]['isUp'] = false;
+
+        $result = $this->calculator()->compute($rows, $this->bannerGroups()[self::SPECIAL], $this->rarityConfig());
+
+        $this->assertSame([null, true, false], array_column($result['items'], 'is_up'));
+        $this->assertSame([false, true], array_column($result['summary']['recent_s_pulls'], 'is_up'));
+    }
+
     public function testItemsCarryRawCategoryAndItsLabel(): void
     {
         $rows = [
@@ -490,6 +517,7 @@ class GryphlinePullStatsCalculatorTest extends TestCase
             'pulled_at' => '2026-06-01 00:02:00',
             'origin' => 'recorded',
             'declared_pity' => null,
+            'is_up' => null,
         ], $items[1]);
         $this->assertNull(GryphlinePullStatsCalculator::getItemTypeLabel(null));
     }

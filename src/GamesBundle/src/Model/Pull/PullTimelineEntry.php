@@ -9,6 +9,10 @@ namespace App\GamesBundle\Model\Pull;
  * (oldest first, with the provider's own tie-break for rows sharing the same second).
  * $isS and $countsAsPull must come from the provider's own pity calculator rules, so the
  * realign step counts pulls exactly like the pity statistics do.
+ *
+ * Inside one second, rows without a pull number come first (provider tie-break), then the numbered
+ * rows by number (pullNumberOrderKey()). A second is not supposed to hold both: numbers only exist
+ * on official S rows (PullOrigin::Official) and the fillers between them, whose seconds hold no recorded row.
  */
 final readonly class PullTimelineEntry
 {
@@ -19,6 +23,8 @@ final readonly class PullTimelineEntry
      * @param int|null    $declaredPity Real pity declared by the user (S rows only)
      * @param string|null $itemId       Provider item id, used to match a manual S with a recorded one
      * @param string|null $name         Item name, used for matching when an item id is missing
+     * @param int|null    $pullNumber   Pull number in the banner, known only for official S rows and the fillers
+     *                                  placed between two of them (null otherwise); it only orders a second
      */
     public function __construct(
         public int $id,
@@ -29,6 +35,19 @@ final readonly class PullTimelineEntry
         public ?int $declaredPity = null,
         public ?string $itemId = null,
         public ?string $name = null,
+        public ?int $pullNumber = null,
     ) {
+    }
+
+    /**
+     * Sort key of a pull number inside one second, the order of MySQL for a nullable column in ascending order:
+     * unnumbered rows first, then numbered rows by number. Compare the keys with <=> (PHP alone would treat
+     * null as equal to 0).
+     *
+     * @return array{0: bool, 1: int}
+     */
+    public static function pullNumberOrderKey(?int $pullNumber): array
+    {
+        return [$pullNumber !== null, $pullNumber ?? 0];
     }
 }

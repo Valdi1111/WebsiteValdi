@@ -97,6 +97,10 @@ class PerfectworldPull
     #[ORM\Column(type: Types::SMALLINT, nullable: true)]
     private ?int $declaredPity = null;
 
+    /** Whether an S was the rate-up item, when a source says so (null = unknown, never "lost") */
+    #[ORM\Column(nullable: true)]
+    private ?bool $isUp = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -302,6 +306,18 @@ class PerfectworldPull
     public function setDeclaredPity(?int $declaredPity): static
     {
         $this->declaredPity = $declaredPity;
+
+        return $this;
+    }
+
+    public function isUp(): ?bool
+    {
+        return $this->isUp;
+    }
+
+    public function setIsUp(?bool $isUp): static
+    {
+        $this->isUp = $isUp;
 
         return $this;
     }

@@ -79,6 +79,8 @@ class GryphlinePullStatsCalculator
             $declared = [
                 'origin' => $origin->value,
                 'declared_pity' => self::declaredPityOf($row),
+                // Rate-up flag of an S when a source gives it (null = unknown, never a lost 50/50)
+                'is_up' => isset($row['isUp']) ? (bool) $row['isUp'] : null,
             ];
 
             /** @var \DateTimeInterface|string|null $pulledAt */

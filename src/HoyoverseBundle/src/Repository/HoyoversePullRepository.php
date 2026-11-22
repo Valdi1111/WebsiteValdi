@@ -3,6 +3,7 @@
 namespace App\HoyoverseBundle\Repository;
 
 use App\GamesBundle\Model\Pull\PullOrigin;
+use App\GamesBundle\Model\Pull\PullTimelineEntry;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Entity\HoyoversePull;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -130,7 +131,7 @@ class HoyoversePullRepository extends ServiceEntityRepository
     }
 
     /**
-     * Every row of the profile as plain arrays, oldest first (pulledAt, then pullId): the input of
+     * Every row of the profile as plain arrays, oldest first (see findBannerRows()): the input of
      * HoyoversePullStatsCalculator::groupRowsByBanner().
      *
      * @return list<array<string, mixed>>
@@ -141,9 +142,11 @@ class HoyoversePullRepository extends ServiceEntityRepository
     }
 
     /**
-     * Rows of the given gacha types (every type when empty) as plain arrays, oldest first
-     * (pulledAt, then pullId), filler and manual rows included: the input of
-     * HoyoversePullStatsCalculator::compute() and of the realign step.
+     * Rows of the given gacha types (every type when empty) as plain arrays, oldest first, filler and
+     * manual rows included: the input of HoyoversePullStatsCalculator::compute() and of the realign step.
+     *
+     * Order: pulledAt, then pullNumber (MySQL puts NULL first, so the unnumbered rows of a second come before
+     * the numbered ones; compareRows() is the same order in PHP), then pullId.
      *
      * @param list<string> $gachaTypes
      *
@@ -152,7 +155,7 @@ class HoyoversePullRepository extends ServiceEntityRepository
     public function findBannerRows(HoyoverseGameProfile $profile, array $gachaTypes): array
     {
         $qb = $this->createQueryBuilder('p')
-            ->select('p.id, p.pullId, p.gachaType, p.gachaName, p.itemType, p.itemId, p.name, p.rarity, p.pulledAt, p.origin, p.declaredPity')
+            ->select('p.id, p.pullId, p.gachaType, p.gachaName, p.itemType, p.itemId, p.name, p.rarity, p.pulledAt, p.origin, p.declaredPity, p.isUp, p.pullNumber')
             ->where('p.gameProfile = :profile')
             ->setParameter('profile', $profile);
 
@@ -162,9 +165,33 @@ class HoyoversePullRepository extends ServiceEntityRepository
         }
 
         return $qb->orderBy('p.pulledAt', 'ASC')
+            ->addOrderBy('p.pullNumber', 'ASC')
             ->addOrderBy('p.pullId', 'ASC')
             ->getQuery()
             ->getArrayResult();
+    }
+
+    /**
+     * The order of findBannerRows() for rows built in PHP (keys pulledAt, pullNumber, pullId): pull date to the second,
+     * then the unnumbered rows before the numbered ones, numbered rows by number, then the pull id as a string.
+     *
+     * The date is compared on its wall-clock digits, like the column. The pull id is compared byte by byte, which gives
+     * the column's order for the ids stored today: game ids of the same length, and lowercase prefixes ("filler_",
+     * "manual_", "paimon_") followed by values whose "_" and "-" separators sit at the same places.
+     *
+     * @param array<string, mixed> $a
+     * @param array<string, mixed> $b
+     */
+    public static function compareRows(array $a, array $b): int
+    {
+        return [self::secondOf($a['pulledAt']), ...PullTimelineEntry::pullNumberOrderKey(isset($a['pullNumber']) ? (int) $a['pullNumber'] : null)]
+            <=> [self::secondOf($b['pulledAt']), ...PullTimelineEntry::pullNumberOrderKey(isset($b['pullNumber']) ? (int) $b['pullNumber'] : null)]
+            ?: strcmp((string) $a['pullId'], (string) $b['pullId']);
+    }
+
+    private static function secondOf(\DateTimeInterface|string $pulledAt): string
+    {
+        return $pulledAt instanceof \DateTimeInterface ? $pulledAt->format('Y-m-d H:i:s') : trim($pulledAt);
     }
 
     /**

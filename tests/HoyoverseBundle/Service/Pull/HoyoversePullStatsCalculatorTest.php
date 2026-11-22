@@ -7,6 +7,7 @@ use App\GamesBundle\Model\Pull\Manual\FillerPlan;
 use App\GamesBundle\Model\Pull\PullOrigin;
 use App\GamesBundle\Model\Pull\PullTimelineEntry;
 use App\GamesBundle\Service\Pull\PullGapPlanner;
+use App\HoyoverseBundle\Repository\HoyoversePullRepository;
 use App\HoyoverseBundle\Service\GenshinImpactService;
 use App\HoyoverseBundle\Service\Pull\HoyoversePullStatsCalculator;
 use App\HoyoverseBundle\Service\ZenlessZoneZeroService;
@@ -121,6 +122,7 @@ class HoyoversePullStatsCalculatorTest extends TestCase
             'pulled_at' => $rows[83]['pulledAt']->format('Y-m-d H:i:s'),
             'origin' => 'recorded',
             'declared_pity' => null,
+            'is_up' => null,
             'recorded_pity' => 10,
             'insert_after' => $rows[73]['pulledAt']->format('Y-m-d H:i:s'),
             'insert_before' => $rows[74]['pulledAt']->format('Y-m-d H:i:s'),
@@ -133,12 +135,12 @@ class HoyoversePullStatsCalculatorTest extends TestCase
         $items = $result['items'];
         $this->assertCount(86, $items);
         $this->assertSame(
-            ['id', 'pull_number', 'pull_id', 'gacha_type', 'gacha_name', 'item_type', 'item_id', 'name', 'rarity', 'pity', 'pulled_at', 'origin', 'declared_pity'],
+            ['id', 'pull_number', 'pull_id', 'gacha_type', 'gacha_name', 'item_type', 'item_id', 'name', 'rarity', 'pity', 'pulled_at', 'origin', 'declared_pity', 'is_up'],
             array_keys($items[0]),
             'New keys come after the existing ones',
         );
         $this->assertSame(
-            ['id', 'pull_number', 'pull_id', 'gacha_type', 'gacha_name', 'item_type', 'item_id', 'name', 'rarity', 'pity', 'pulled_at', 'origin', 'declared_pity', 'recorded_pity', 'insert_after', 'insert_before', 'suggested_at', 'has_room'],
+            ['id', 'pull_number', 'pull_id', 'gacha_type', 'gacha_name', 'item_type', 'item_id', 'name', 'rarity', 'pity', 'pulled_at', 'origin', 'declared_pity', 'is_up', 'recorded_pity', 'insert_after', 'insert_before', 'suggested_at', 'has_room'],
             array_keys($items[73]),
             'S rows also carry their window',
         );
@@ -367,6 +369,7 @@ class HoyoversePullStatsCalculatorTest extends TestCase
             'id' => $id,
             'pullId' => match ($origin) {
                 PullOrigin::Manual => sprintf('manual_%08d', $id),
+                PullOrigin::Official => sprintf('official_%08d', $id),
                 PullOrigin::Filler => sprintf('filler_%08d', $id),
                 PullOrigin::Recorded => sprintf('17000000000000%05d', $id),
             },
@@ -384,7 +387,7 @@ class HoyoversePullStatsCalculatorTest extends TestCase
 
     /**
      * Applies a plan to the rows like ManualPullService does, then reloads them like the repository:
-     * stored as wall-clock digits, read back tagged with Europe/Rome, ordered by date then pull id.
+     * stored as wall-clock digits, read back tagged with Europe/Rome, in the repository order.
      *
      * @param list<array<string, mixed>> $rows
      *
@@ -400,17 +403,20 @@ class HoyoversePullStatsCalculatorTest extends TestCase
             }
             $row['declaredPity'] = $plan->declaredPityUpdates[$row['id']] ?? $row['declaredPity'];
             $row['pulledAt'] = $plan->fillerMoves[$row['id']] ?? $row['pulledAt'];
+            if (\array_key_exists($row['id'], $plan->fillerPullNumbers)) {
+                $row['pullNumber'] = $plan->fillerPullNumbers[$row['id']];
+            }
             $result[] = $row;
         }
         foreach ($plan->fillerCreates as $slot) {
-            $result[] = self::pull($nextId++, $slot->pulledAt->format('Y-m-d H:i:s'), 0, 'Unknown', PullOrigin::Filler);
+            $result[] = ['pullNumber' => $slot->pullNumber] + self::pull($nextId++, $slot->pulledAt->format('Y-m-d H:i:s'), 0, 'Unknown', PullOrigin::Filler);
         }
 
         foreach ($result as &$row) {
             $row['pulledAt'] = new \DateTimeImmutable($row['pulledAt']->format('Y-m-d H:i:s'), new \DateTimeZone('Europe/Rome'));
         }
         unset($row);
-        usort($result, static fn (array $a, array $b): int => [$a['pulledAt']->format('Y-m-d H:i:s'), $a['pullId']] <=> [$b['pulledAt']->format('Y-m-d H:i:s'), $b['pullId']]);
+        usort($result, HoyoversePullRepository::compareRows(...));
 
         return $result;
     }
@@ -537,6 +543,52 @@ class HoyoversePullStatsCalculatorTest extends TestCase
         $this->assertSame('2025-03-30 01:59:00', $entries[0]->pulledAt->format('Y-m-d H:i:s'));
         $this->assertSame(62 * 60, $entries[1]->pulledAt->getTimestamp() - $entries[0]->pulledAt->getTimestamp(), 'Spring forward: 62 wall-clock minutes (2 in Rome time)');
         $this->assertSame(30 * 60, $entries[3]->pulledAt->getTimestamp() - $entries[2]->pulledAt->getTimestamp(), 'Fall back: 30 wall-clock minutes (90 in Rome time)');
+    }
+
+    public function testAnOfficialSCountsLikeAManualS(): void
+    {
+        $rows = [
+            self::pull(1, '2026-06-01 10:00:00', 3),
+            self::pull(2, '2026-06-01 10:01:00', 3),
+            self::pull(3, '2026-06-01 10:02:00', 5, 'Furina', PullOrigin::Official, 3),
+            self::pull(4, '2026-06-01 10:03:00', 3),
+            self::pull(5, '2026-06-01 10:04:00', 5, 'Neuvillette', PullOrigin::Manual, 2),
+        ];
+        // The column value as a string, like a row built elsewhere
+        $rows[2]['origin'] = 'official';
+
+        $result = self::calculator()->compute($rows, self::genshinGroup('301'), self::genshinRarity());
+
+        $furina = self::itemById($result['items'], 3);
+        $this->assertSame(['official', 3, 3, 3], [$furina['origin'], $furina['pity'], $furina['pull_number'], $furina['declared_pity']]);
+        $this->assertSame(2, self::itemById($result['items'], 5)['pity']);
+        $this->assertSame(2, $result['summary']['s_count']);
+        $this->assertSame(['manual', 'official'], array_column($result['summary']['recent_s_pulls'], 'origin'));
+        $this->assertSame(0, $result['summary']['unknown_count']);
+        $this->assertSame(PullOrigin::Official, self::calculator()->toTimelineEntries($rows, self::genshinRarity())[2]->origin);
+    }
+
+    public function testRateUpFlagIsExposedAndPullNumberReachesTheTimeline(): void
+    {
+        $rows = [
+            self::pull(1, '2026-06-01 10:00:00', 3),
+            self::pull(2, '2026-06-01 11:00:00', 5, 'Furina'),
+            self::pull(3, '2026-06-01 12:00:00', 5, 'Neuvillette', PullOrigin::Manual, 2),
+            self::pull(4, '2026-06-01 13:00:00', 5, 'Raiden Shogun'),
+        ];
+        $rows[1]['isUp'] = true;
+        $rows[2]['isUp'] = false;
+        $rows[2]['pullNumber'] = 3;
+
+        $result = self::calculator()->compute($rows, self::genshinGroup('301'), self::genshinRarity());
+
+        // true and false only where a source said so; null (unknown) everywhere else, never read as a lost 50/50
+        $this->assertSame([null, true, false, null], array_column($result['items'], 'is_up'));
+        $this->assertSame([null, false, true], array_column($result['summary']['recent_s_pulls'], 'is_up'));
+        $this->assertSame([1, 2, 3, 4], array_column($result['items'], 'pull_number'), 'The API pull number stays the computed one');
+
+        $entries = self::calculator()->toTimelineEntries($rows, self::genshinRarity());
+        $this->assertSame([null, null, 3, null], array_map(static fn (PullTimelineEntry $e): ?int => $e->pullNumber, $entries));
     }
 
     /**

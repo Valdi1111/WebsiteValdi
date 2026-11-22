@@ -126,6 +126,12 @@ class HoyoverseGameProfile implements GameProfileInterface
     #[ORM\Column(options: ["default" => "0"])]
     private ?bool $endgamesCheck = false;
 
+    /**
+     * Endgames reminder also for modes played below the maximum (off: only for modes not played yet).
+     */
+    #[ORM\Column(options: ["default" => "0"])]
+    private ?bool $endgamesFullClear = false;
+
     #[ORM\Column(options: ["default" => "0"])]
     private ?bool $syncDiary = false;
 
@@ -555,6 +561,17 @@ class HoyoverseGameProfile implements GameProfileInterface
     public function setEndgamesCheck(?bool $endgamesCheck): static
     {
         $this->endgamesCheck = $endgamesCheck;
+        return $this;
+    }
+
+    public function isEndgamesFullClear(): ?bool
+    {
+        return $this->endgamesFullClear;
+    }
+
+    public function setEndgamesFullClear(?bool $endgamesFullClear): static
+    {
+        $this->endgamesFullClear = $endgamesFullClear;
         return $this;
     }
 

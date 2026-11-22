@@ -39,6 +39,8 @@ export default {
             hilichurl_redeem: false,
             dailies_check: false,
             weeklies_check: false,
+            endgames_check: false,
+            endgames_full_clear: false,
         },
         Sections: ProfileSettingsSections,
     },

@@ -18,6 +18,7 @@ use App\HoyoverseBundle\Message\Batch\SyncDiaryBatchMessage;
 use App\HoyoverseBundle\Message\Batch\SyncPullsBatchMessage;
 use App\HoyoverseBundle\Message\Batch\WeekliesReminderBatchMessage;
 use App\HoyoverseBundle\Message\UpdateCookieMessage;
+use App\HoyoverseBundle\MessageHandler\Profile\EndgamesReminderProfileHandler;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -44,6 +45,7 @@ class HoyoverseBundle extends AbstractBundle
         $configurator->parameters()->set('hoyoverse.timezone.SEA', $config['timezones']['SEA']);
         $configurator->parameters()->set('hoyoverse.timezone.EU', $config['timezones']['EU']);
         $configurator->parameters()->set('hoyoverse.timezone.NA', $config['timezones']['NA']);
+        $configurator->parameters()->set('hoyoverse.endgames_reminder.days_before_end', $config['endgames_reminder']['days_before_end']);
 
         GameTasksConfiguration::registerTaskParameters($configurator, 'hoyoverse', $config['tasks'] ?? []);
     }
@@ -58,6 +60,16 @@ class HoyoverseBundle extends AbstractBundle
                         ->stringNode('SEA')->cannotBeEmpty()->defaultValue('Asia/Shanghai')->end()
                         ->stringNode('EU')->cannotBeEmpty()->defaultValue('Europe/Paris')->end()
                         ->stringNode('NA')->cannotBeEmpty()->defaultValue('America/New_York')->end()
+                    ->end()
+                ->end()
+                ->arrayNode('endgames_reminder')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->integerNode('days_before_end')
+                            ->info('The daily endgames reminder covers the modes whose period ends within this many days (24 h each).')
+                            ->min(1)
+                            ->defaultValue(EndgamesReminderProfileHandler::DEFAULT_DAYS_BEFORE_END)
+                        ->end()
                     ->end()
                 ->end()
                 ->arrayNode('tasks')

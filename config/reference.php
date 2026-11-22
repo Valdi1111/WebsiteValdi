@@ -182,6 +182,9 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         EU?: string|Param, // Default: "Europe/Paris"
  *         NA?: string|Param, // Default: "America/New_York"
  *     },
+ *     endgames_reminder?: array{
+ *         days_before_end?: int|Param, // The daily endgames reminder covers the modes whose period ends within this many days (24 h each). // Default: 7
+ *     },
  *     tasks?: array{
  *         hoyolab_check_in?: array{
  *             enabled?: bool|Param, // Default: true

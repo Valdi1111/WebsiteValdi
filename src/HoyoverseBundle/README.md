@@ -18,7 +18,7 @@ It supports direct credentials or cookie-based authentication, automatic session
 | **Expeditions Reminder** | ✅ | ✅ (Assignments) | ❌ | ❌ | ❌ |
 | **Realm Currency Reminder** | ✅ (Serenitea Pot) | ❌ | ❌ | ❌ | ❌ |
 | **Shop Status Reminder** | ❌ | ❌ | ✅ (Video Store / VHS) | ❌ | ❌ |
-| **Endgames Reminder** | ✅ (Spiral Abyss, Imaginarium Theater, Stygian Onslaught) | ✅ (Memory of Chaos, Pure Fiction, Apocalyptic Shadow, Anomaly Arbitration) | ✅ (Shiyu Defense, Deadly Assault) | ❌ | ❌ |
+| **Endgames Reminder** | ❌ | ❌ | ✅ (Shiyu Defense, Deadly Assault and its Hard mode) | ❌ | ❌ |
 | **Diary Sync (Monthly Currencies)** | ✅ (Primogems, Mora) | ✅ (Stellar Jades, Passes) | ✅ (Polychromes, Tapes) | ❌ | ❌ |
 | **Automatic Pulls Sync (`stoken_v2`)** | ✅ | ❌ *(Unsupported by HoYoverse)* | ✅ | ❌ | ❌ |
 | **PowerShell Pulls Sync** | ✅ | ✅ | ✅ | ❌ | ❌ |
@@ -36,7 +36,7 @@ Supported features for each game are declared through **Capability Interfaces**:
 | `HasStaminaInterface` | `NotesTrait` | `staminaCheck`, `staminaThreshold` | The game exposes current/max Stamina and full recovery time, enabling **Stamina Reminder**. |
 | `HasDailiesInterface` | `NotesTrait` | `dailiesCheck` | The game exposes daily activity progress (e.g. Commissions, Activity Points, Engagement/Scratch Card/Cafe), enabling **Dailies Reminder**. |
 | `HasWeekliesInterface` | `NotesTrait` | `weekliesCheck` | The game exposes weekly activity progress (e.g. Resin Discounts, Echo of War/Sim. Universe, Bounty/Ridu Points), enabling **Weeklies Reminder**. |
-| `HasEndgamesInterface` | `GenshinImpactEndgamesTrait`, `HonkaiStarRailEndgamesTrait`, `ZenlessZoneZeroEndgamesTrait` | `endgamesCheck` *(handled via trait)* | The game exposes competitive Endgame rotation status endpoints, enabling **Endgames Reminder**. |
+| `HasEndgamesInterface` | `ZenlessZoneZeroEndgamesTrait` | `endgamesCheck`, `endgamesFullClear` | `getEndgamesData()` returns one `GameEndgame` (`GamesBundle\Model\Endgame`) per endgame mode of the current period: end of the period, played, progress towards the maximum, score of each stage. Enables the **Endgames Reminder** (*ZZZ*). |
 
 #### HoYoverse-Specific Interfaces (`App\HoyoverseBundle\Model\Game\*`)
 | Interface | Associated Trait | Fields / Flags Exposed by Normalizer | Purpose / Enabled Feature |
@@ -155,11 +155,23 @@ Reminders are split into **Global Tasks** (run at fixed intervals regardless of 
 - **Behavior**: checks all daily or weekly metrics for the game (e.g. 4/4 Commissions on GI, 500 Activity Points or Echo of War on HSR, Engagement/Scratch Card/Coff Cafe/Bounty Commissions on ZZZ) and sends a reminder **only if at least one activity is incomplete**.
 
 ### 5.6 Endgames Reminder (`EndgamesReminderBatchMessage`)
-- **Regional Schedule**: `0 15 * * *` (15:00 local server time).
-- **Alert Window**: sends a reminder only when an endgame mode is about to expire (**1 to 3 days remaining** before rotation reset) and the player **has not yet reached full stars/stages**:
-  - **Genshin Impact**: *Spiral Abyss* (Floor 12, 36★), *Imaginarium Theater* (Act 10), *Stygian Onslaught*.
-  - **Honkai: Star Rail**: *Memory of Chaos*, *Pure Fiction*, *Apocalyptic Shadow*, *Anomaly Arbitration*.
-  - **Zenless Zone Zero**: *Shiyu Defense* (Frontier 7, S-Rank), *Deadly Assault* (9★).
+- **Regional Schedule**: `0 15 * * *` (15:00 local server time) — *Zenless Zone Zero*.
+- **Settings**: `endgamesCheck` (*Endgames Reminder*) turns it on; `endgamesFullClear` (*Remind Until Full Clear*, off by default) chooses what is reminded: off = only the modes not played yet, on = also the modes played but below the maximum.
+- **Alert Window**: every day while the period ends within `hoyoverse.endgames_reminder.days_before_end` days (default `7`, counted in 24-hour days from the run). With the 15:00 run and a period ending at 03:59:59 server time, the first reminder comes on the 7th day before the end and the last one the day before. No notification when nothing is left to do; no deduplication (one run per day).
+- **Data** (`ZenlessZoneZeroEndgamesTrait`, no `DS` header, `schedule_type=1` = current period, `2` = previous one):
+  - *Shiyu Defense*: `game_record_zzz/api/zzz/hadal_info_v2` (`role_id`, `server`), with the per-stage detail (no `without_v2_detail`) → `ShiyuDefenseData`, `ShiyuDefenseStage`.
+  - *Deadly Assault*: `game_record_zzz/api/zzz/hadal_mem_detail_v2` (`uid`, `region`) → `DeadlyAssaultData`, `DeadlyAssaultChallenge` (normal mode `list`, Hard mode `hard_list`).
+- **Rules** (constants and methods of `ShiyuDefenseData` and `DeadlyAssaultData`, the place to change them):
+
+  | Mode | Played | At the maximum |
+  | :--- | :--- | :--- |
+  | Shiyu Defense | an attempt with a score (total or stage score above 0) | the three fifth-frontier stages at S rank (rating `S`, or at least `S_RANK_SCORE` = 25,000 of 50,000 points) |
+  | Deadly Assault | an attempt with a score | 9★ (3★ on each of the three bosses, as reported by HoYoLAB) |
+  | Deadly Assault (Hard) | reminded only once unlocked, i.e. with 9★ in normal mode; then an attempt with a score | 3★ (one boss) |
+- **Notification**: one per profile, one field per mode: `Not played yet`, or the progress (`2/3 stages at S rank`, `8/9 ★`) followed by the stages or bosses below the maximum with their scores; last line `Ends in … (end in server time)`.
+- **Dates**: Shiyu Defense uses its epoch `end_time`. Deadly Assault only has `{year, month, day, …}` objects, which are server wall-clock times: `HoyoverseServerTimezoneResolver::serverWallClockToInstant()` reads them in the fixed offset of the profile's server (§7.5).
+- **Unexpected responses**: missing or `null` fields, empty lists and `has_data: false` count as not played; a mode without an end date gets no reminder (`info` log); a Shiyu Defense response whose `hadal_ver` is not `v2` is left out with a `warning` in the `hoyoverse.zzz` log. No response for a period that was not played has been observed yet: these shapes are assumptions.
+- **Other games**: `GenshinImpactEndgamesTrait` (requests only) and `HonkaiStarRailEndgamesTrait` (empty) do not implement `HasEndgamesInterface` yet. A game gets the reminder by implementing `getEndgamesData()`.
 
 ---
 

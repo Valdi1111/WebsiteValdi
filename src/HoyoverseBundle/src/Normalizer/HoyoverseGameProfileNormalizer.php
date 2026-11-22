@@ -3,6 +3,7 @@
 namespace App\HoyoverseBundle\Normalizer;
 
 use App\GamesBundle\Model\Game\HasDailiesInterface;
+use App\GamesBundle\Model\Game\HasEndgamesInterface;
 use App\GamesBundle\Model\Game\HasManualPullsInterface;
 use App\GamesBundle\Model\Game\HasStaminaInterface;
 use App\GamesBundle\Model\Game\HasWeekliesInterface;
@@ -39,6 +40,7 @@ class HoyoverseGameProfileNormalizer extends AbstractGameProfileNormalizer
         HasHilichurlInterface::class => ['hilichurlCheck', 'hilichurlRedeem'],
         HasDailiesInterface::class => ['dailiesCheck'],
         HasWeekliesInterface::class => ['weekliesCheck'],
+        HasEndgamesInterface::class => ['endgamesCheck', 'endgamesFullClear'],
         HasDiaryInterface::class => ['syncDiary'],
         HasStokenPullImportInterface::class => ['syncPulls'],
     ];

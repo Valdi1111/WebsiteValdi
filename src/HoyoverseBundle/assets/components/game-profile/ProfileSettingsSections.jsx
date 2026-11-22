@@ -195,6 +195,35 @@ export default function ProfileSettingsSections({ supports, hasAny, isProfileAct
             </>
         )}
 
+        {/* Endgames */}
+        {hasAny("endgames_check", "endgames_full_clear") && (
+            <>
+                <Divider titlePlacement="start">
+                    <strong>Endgames</strong>
+                </Divider>
+                {supports("endgames_check") && (
+                    <SettingRow
+                        label="Endgames Reminder"
+                        description="Send a daily alert in the last days of an endgame period (e.g. Shiyu Defense, Deadly Assault) for the modes not played yet"
+                    >
+                        <Form.Item name="endgames_check" valuePropName="checked" noStyle>
+                            <Switch disabled={!isProfileActive} />
+                        </Form.Item>
+                    </SettingRow>
+                )}
+                {supports("endgames_full_clear") && (
+                    <SettingRow
+                        label="Remind Until Full Clear"
+                        description="Also alert for the modes played but not at the maximum yet (e.g. stages below S rank, missing stars)"
+                    >
+                        <Form.Item name="endgames_full_clear" valuePropName="checked" noStyle>
+                            <Switch disabled={!isProfileActive} />
+                        </Form.Item>
+                    </SettingRow>
+                )}
+            </>
+        )}
+
         {/* Mimo Web Events */}
         {hasAny("mimo_check", "mimo_redeem", "mimo_redeem_draw", "mimo_lottery", "mimo_reserve_points") && (
             <>

@@ -128,6 +128,9 @@ export default function GameProfileCard({ profile, account, onOpenSettings }) {
                                     {isEnabled("weeklies_check") && (
                                         <Tag color="volcano">Weeklies</Tag>
                                     )}
+                                    {isEnabled("endgames_check") && (
+                                        <Tag color="red">Endgames</Tag>
+                                    )}
                                     {isEnabled("sync_diary") && (
                                         <Tag color="geekblue">Diary Sync</Tag>
                                     )}

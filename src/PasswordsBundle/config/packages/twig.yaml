@@ -1,3 +1,0 @@
-twig:
-    globals:
-        passwords_domain_name: '%passwords.domain_name%'

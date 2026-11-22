@@ -72,7 +72,7 @@ Create `.env.local` at the project root based on [`.env`](../.env) and configure
 - External API credentials (MyAnimeList, AniList, AnimeWorld) and notification transports (`TELEGRAM_DSN`, `DISCORD_DSN`)
 - Node microservice port: `NODE_SERVICES_PORT=3003` (and `node-services/.env.local` if overriding its default port `3000`)
 
-`DATABASE_ENCRYPTION_KEY` *(optional)* encrypts the `encrypted_text` columns, today the game account credentials. It belongs in the secrets vault, like `PASSWORDS_ENCRYPTION_KEY`, with `.env.local` as the alternative: see [§3.4](#34-database-encryption-optional), also for an installation that already has data in those columns.
+`DATABASE_ENCRYPTION_KEY` *(optional)* encrypts the `encrypted_text` columns, today the game account credentials. It belongs in the secrets vault, with `.env.local` as the alternative: see [§3.4](#34-database-encryption-optional), also for an installation that already has data in those columns.
 
 ### 2.5 Setup Shared Folder
 Configure the shared folder used for anime downloads, videos, and book libraries (see [Section 4](#4-shared-folder-media--file-managers)):
@@ -233,7 +233,7 @@ Columns mapped with the `CoreBundle` type `encrypted_text` are stored in plain t
    ```bash
    openssl rand -base64 32
    ```
-3. **Configure it in the secrets vault**, as for `PASSWORDS_ENCRYPTION_KEY`:
+3. **Configure it in the secrets vault**:
    ```bash
    php bin/console secrets:set DATABASE_ENCRYPTION_KEY --env=prod
    ```

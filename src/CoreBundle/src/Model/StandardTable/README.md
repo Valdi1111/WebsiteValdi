@@ -412,7 +412,7 @@ protected function buildCountDistinctExpression(QueryBuilder $qb, TableConfigura
 ```
 
 ### Benefits
-* Works transparently on both standard entities (`Credential::$id`) and multi-tenant composite entities (`SeasonFolder::$id`, `SeasonFolder::$tracker`).
+* Works transparently on both standard entities (`EpisodeDownload::$id`) and multi-tenant composite entities (`SeasonFolder::$id`, `SeasonFolder::$tracker`).
 * Produces valid, portable DQL across SQLite, PostgreSQL, and MySQL.
 
 ---

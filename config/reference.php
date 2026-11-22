@@ -368,10 +368,6 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         },
  *     },
  * }
- * @psalm-type PasswordsConfig = array{
- *     domain_name?: scalar|Param|null, // Default: null
- *     encryption_key?: scalar|Param|null, // Default: null
- * }
  * @psalm-type VideosConfig = array{
  *     domain_name?: scalar|Param|null, // Default: null
  *     base_folder?: scalar|Param|null, // Default: null
@@ -1982,7 +1978,6 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *     hoyoverse?: HoyoverseConfig,
  *     gryphline?: GryphlineConfig,
  *     perfectworld?: PerfectworldConfig,
- *     passwords?: PasswordsConfig,
  *     videos?: VideosConfig,
  *     doctrine?: DoctrineConfig,
  *     doctrine_migrations?: DoctrineMigrationsConfig,
@@ -2006,7 +2001,6 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         hoyoverse?: HoyoverseConfig,
  *         gryphline?: GryphlineConfig,
  *         perfectworld?: PerfectworldConfig,
- *         passwords?: PasswordsConfig,
  *         videos?: VideosConfig,
  *         doctrine?: DoctrineConfig,
  *         doctrine_migrations?: DoctrineMigrationsConfig,
@@ -2034,7 +2028,6 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         hoyoverse?: HoyoverseConfig,
  *         gryphline?: GryphlineConfig,
  *         perfectworld?: PerfectworldConfig,
- *         passwords?: PasswordsConfig,
  *         videos?: VideosConfig,
  *         doctrine?: DoctrineConfig,
  *         doctrine_migrations?: DoctrineMigrationsConfig,
@@ -2059,7 +2052,6 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         hoyoverse?: HoyoverseConfig,
  *         gryphline?: GryphlineConfig,
  *         perfectworld?: PerfectworldConfig,
- *         passwords?: PasswordsConfig,
  *         videos?: VideosConfig,
  *         doctrine?: DoctrineConfig,
  *         doctrine_migrations?: DoctrineMigrationsConfig,

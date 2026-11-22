@@ -47,8 +47,8 @@ mercure.{$DOMAIN_NAME} {
 		subscriber_jwt {env.MERCURE_JWT_SECRET} HS256
 
 		# Both forms: the browser omits the port when HTTPS_PORT is 443
-		cors_origins https://{$DOMAIN_NAME} https://{$DOMAIN_NAME}:{$HTTPS_PORT} https://anime.{$DOMAIN_NAME} https://anime.{$DOMAIN_NAME}:{$HTTPS_PORT} https://books.{$DOMAIN_NAME} https://books.{$DOMAIN_NAME}:{$HTTPS_PORT} https://games.{$DOMAIN_NAME} https://games.{$DOMAIN_NAME}:{$HTTPS_PORT} https://passwords.{$DOMAIN_NAME} https://passwords.{$DOMAIN_NAME}:{$HTTPS_PORT} https://videos.{$DOMAIN_NAME} https://videos.{$DOMAIN_NAME}:{$HTTPS_PORT}
-		publish_origins https://{$DOMAIN_NAME} https://{$DOMAIN_NAME}:{$HTTPS_PORT} https://anime.{$DOMAIN_NAME} https://anime.{$DOMAIN_NAME}:{$HTTPS_PORT} https://books.{$DOMAIN_NAME} https://books.{$DOMAIN_NAME}:{$HTTPS_PORT} https://games.{$DOMAIN_NAME} https://games.{$DOMAIN_NAME}:{$HTTPS_PORT} https://passwords.{$DOMAIN_NAME} https://passwords.{$DOMAIN_NAME}:{$HTTPS_PORT} https://videos.{$DOMAIN_NAME} https://videos.{$DOMAIN_NAME}:{$HTTPS_PORT}
+		cors_origins https://{$DOMAIN_NAME} https://{$DOMAIN_NAME}:{$HTTPS_PORT} https://anime.{$DOMAIN_NAME} https://anime.{$DOMAIN_NAME}:{$HTTPS_PORT} https://books.{$DOMAIN_NAME} https://books.{$DOMAIN_NAME}:{$HTTPS_PORT} https://games.{$DOMAIN_NAME} https://games.{$DOMAIN_NAME}:{$HTTPS_PORT} https://videos.{$DOMAIN_NAME} https://videos.{$DOMAIN_NAME}:{$HTTPS_PORT}
+		publish_origins https://{$DOMAIN_NAME} https://{$DOMAIN_NAME}:{$HTTPS_PORT} https://anime.{$DOMAIN_NAME} https://anime.{$DOMAIN_NAME}:{$HTTPS_PORT} https://books.{$DOMAIN_NAME} https://books.{$DOMAIN_NAME}:{$HTTPS_PORT} https://games.{$DOMAIN_NAME} https://games.{$DOMAIN_NAME}:{$HTTPS_PORT} https://videos.{$DOMAIN_NAME} https://videos.{$DOMAIN_NAME}:{$HTTPS_PORT}
 	}
 
 	respond /healthz 200
@@ -70,7 +70,7 @@ http://mercure {
 }
 
 # 2. Symfony application and subdomains (PHP runs in the php-fpm container, same project path)
-{$DOMAIN_NAME}, anime.{$DOMAIN_NAME}, books.{$DOMAIN_NAME}, games.{$DOMAIN_NAME}, passwords.{$DOMAIN_NAME}, videos.{$DOMAIN_NAME} {
+{$DOMAIN_NAME}, anime.{$DOMAIN_NAME}, books.{$DOMAIN_NAME}, games.{$DOMAIN_NAME}, videos.{$DOMAIN_NAME} {
 	import security_headers
 
 	root * /var/www/html/public

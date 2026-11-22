@@ -18,7 +18,6 @@ Encore
         '@HoyoverseBundle': path.resolve(import.meta.dirname, 'src/HoyoverseBundle/assets/'),
         '@GryphlineBundle': path.resolve(import.meta.dirname, 'src/GryphlineBundle/assets/'),
         '@PerfectworldBundle': path.resolve(import.meta.dirname, 'src/PerfectworldBundle/assets/'),
-        '@PasswordsBundle': path.resolve(import.meta.dirname, 'src/PasswordsBundle/assets/'),
         '@VideosBundle': path.resolve(import.meta.dirname, 'src/VideosBundle/assets/'),
     })
     // directory where compiled assets will be stored
@@ -34,7 +33,6 @@ Encore
         {from: path.resolve(import.meta.dirname, 'src/CoreBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
         {from: path.resolve(import.meta.dirname, 'src/HoyoverseBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
         {from: path.resolve(import.meta.dirname, 'src/GryphlineBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
-        {from: path.resolve(import.meta.dirname, 'src/PasswordsBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
         {from: path.resolve(import.meta.dirname, 'src/VideosBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
     ])
 
@@ -49,7 +47,6 @@ Encore
     .addEntry('anime', '@AnimeBundle/app.js')
     .addEntry('books', '@BooksBundle/app.js')
     .addEntry('games', '@GamesBundle/app.js')
-    .addEntry('passwords', '@PasswordsBundle/app.js')
     .addEntry('videos', '@VideosBundle/app.js')
     .addEntry('app', '@App/app.js')
 

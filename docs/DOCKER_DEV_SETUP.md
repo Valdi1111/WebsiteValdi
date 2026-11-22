@@ -9,7 +9,7 @@ Prerequisites: Docker with the Compose plugin 2.24 or later (`env_file` with `re
 Local domain resolution (every subdomain of the application, plus the Mercure hub):
 
 ```bash
-echo '127.0.0.1 valdi.wip mercure.valdi.wip anime.valdi.wip books.valdi.wip games.valdi.wip passwords.valdi.wip videos.valdi.wip' | sudo tee -a /etc/hosts
+echo '127.0.0.1 valdi.wip mercure.valdi.wip anime.valdi.wip books.valdi.wip games.valdi.wip videos.valdi.wip' | sudo tee -a /etc/hosts
 ```
 
 `.env.local` (minimal; it is read by the `dev` environment):

@@ -21,7 +21,7 @@ class TableConfiguration
     private $queryModifier = null;
 
     /**
-     * @param string $rootEntityClass The FQCN of the root entity (e.g. Credential::class)
+     * @param string $rootEntityClass The FQCN of the root entity (e.g. EpisodeDownload::class)
      * @param string $rootAlias The root alias used in DQL queries (default: 'e')
      * @param array<string, string> $fieldMappings Map of [ 'frontendDataIndex' => 'dql.targetProperty' ]
      * @param array<string|int, string|TableJoin> $joins List of TableJoin instances or map of [ 'joinAlias' => 'targetRelation' ] (e.g. ['s' => 'e.server'])

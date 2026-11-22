@@ -8,7 +8,6 @@ return [
     App\HoyoverseBundle\HoyoverseBundle::class => ['all' => true],
     App\GryphlineBundle\GryphlineBundle::class => ['all' => true],
     App\PerfectworldBundle\PerfectworldBundle::class => ['all' => true],
-    App\PasswordsBundle\PasswordsBundle::class => ['all' => true],
     App\VideosBundle\VideosBundle::class => ['all' => true],
     Doctrine\Bundle\DoctrineBundle\DoctrineBundle::class => ['all' => true],
     Doctrine\Bundle\MigrationsBundle\DoctrineMigrationsBundle::class => ['all' => true],

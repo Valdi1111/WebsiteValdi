@@ -34,7 +34,7 @@ private ?string $apiToken = null;
 
 ## 2. Key and format
 
-- **Key**: `DATABASE_ENCRYPTION_KEY`, the base64 encoding of 32 random bytes (`openssl rand -base64 32`), from the secrets vault (`bin/console secrets:set DATABASE_ENCRYPTION_KEY --env=prod`, as for `PASSWORDS_ENCRYPTION_KEY`) or, as an alternative, from `.env.local`, read at runtime:
+- **Key**: `DATABASE_ENCRYPTION_KEY`, the base64 encoding of 32 random bytes (`openssl rand -base64 32`), from the secrets vault (`bin/console secrets:set DATABASE_ENCRYPTION_KEY --env=prod`) or, as an alternative, from `.env.local`, read at runtime:
   ```yaml
   # config/packages/core.yaml
   core:
@@ -79,7 +79,6 @@ php bin/console core:database:encrypt --decrypt   # way back: decrypts them (bef
 
 **Not covered** (stored in plain text, or protected by other means):
 - `CoreBundle` `Token.accessToken` (unique and looked up by value: it would need a hash, not encryption);
-- `PasswordsBundle`, which has its own `EncryptionService` and `PASSWORDS_ENCRYPTION_KEY` (its columns could now adopt `encrypted_text`);
 - `authkey` (HoYoverse) and `u8Token` (Gryphline) in the payload of `SyncPullsPageProfileMessage`, stored in the Messenger table while queued;
 - the multi-step login cache (`GamesBundle` `AuthSessionStore`: the temporary password is encrypted with a key derived from `kernel.secret`, the rest of the session data is not);
 - identifiers and device ids (e.g. `account_uid`, `pw_uid`, `device_id`, `ndid`, `email` of the game accounts);

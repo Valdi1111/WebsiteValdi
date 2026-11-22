@@ -39,39 +39,8 @@ use Symfony\Contracts\Service\ServiceCollectionInterface;
  */
 class ZenlessZoneZeroEndgamesTest extends KernelTestCase
 {
-    // Needed by CredentialNormalizer, built with the serializer; the test environment has no value for it
-    private const string PASSWORDS_KEY_ENV = 'PASSWORDS_ENCRYPTION_KEY';
-
-    /** @var array{server: mixed, env: mixed} */
-    private array $previous;
-
     /** @var list<array{path: string, query: array<string, string>}> */
     private array $requests = [];
-
-    protected function setUp(): void
-    {
-        $this->previous = ['server' => $_SERVER[self::PASSWORDS_KEY_ENV] ?? null, 'env' => $_ENV[self::PASSWORDS_KEY_ENV] ?? null];
-        $_SERVER[self::PASSWORDS_KEY_ENV] ??= 'test-only-key';
-        $_ENV[self::PASSWORDS_KEY_ENV] ??= 'test-only-key';
-    }
-
-    protected function tearDown(): void
-    {
-        // Shut the kernel down first, then give the environment back
-        parent::tearDown();
-
-        if ($this->previous['server'] === null) {
-            unset($_SERVER[self::PASSWORDS_KEY_ENV]);
-        } else {
-            $_SERVER[self::PASSWORDS_KEY_ENV] = $this->previous['server'];
-        }
-
-        if ($this->previous['env'] === null) {
-            unset($_ENV[self::PASSWORDS_KEY_ENV]);
-        } else {
-            $_ENV[self::PASSWORDS_KEY_ENV] = $this->previous['env'];
-        }
-    }
 
     private function createService(array $shiyuBody, array $assaultBody, ?LoggerInterface $logger = null): ZenlessZoneZeroService
     {

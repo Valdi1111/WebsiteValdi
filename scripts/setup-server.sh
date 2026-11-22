@@ -199,8 +199,6 @@ if [ -n "$SELECTED_PHP_VER" ]; then
   if [ -d "/etc/php/$SELECTED_PHP_VER/fpm/conf.d" ]; then
     cat << 'EOF' > "/etc/php/$SELECTED_PHP_VER/fpm/conf.d/99-custom.ini"
 date.timezone = Europe/Rome
-date.default_latitude = 44.202091
-date.default_longitude = 12.036725
 max_execution_time = 300
 memory_limit = 4G
 ; Large uploads (EPUB books, game pull exports); the POST limit must exceed the single-file limit
@@ -214,8 +212,6 @@ EOF
   if [ -d "/etc/php/$SELECTED_PHP_VER/cli/conf.d" ]; then
     cat << 'EOF' > "/etc/php/$SELECTED_PHP_VER/cli/conf.d/99-custom.ini"
 date.timezone = Europe/Rome
-date.default_latitude = 44.202091
-date.default_longitude = 12.036725
 memory_limit = 4G
 EOF
     echo " - Created /etc/php/$SELECTED_PHP_VER/cli/conf.d/99-custom.ini"

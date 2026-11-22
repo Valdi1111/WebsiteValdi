@@ -251,7 +251,52 @@ class SRankHistoryReconcilerTest extends TestCase
 
         $plan = $this->reconcile([self::record(40, 40, '2025-01-01 10:09:00', '1001', 'Alpha')], $entries);
 
-        $this->assertSame(['The manual S "Guess" of 2024-01-01 10:00:00 is not in the official history.'], $plan->conflicts);
+        $this->assertSame(['The manual S "Guess" of 2024-01-01 10:00:00 is not in the official history: delete it, or add it again with the right item, then import again.'], $plan->conflicts);
+    }
+
+    public function testAManualSDatedAfterTheHistoryIsStillAConflict(): void
+    {
+        // Pull 10 is the last official S; a manual S the history cannot pair is dated four days later. The official total
+        // (60) is high enough for the totals guard to stay silent: only the origin rule refuses it
+        $entries = [...$this->bPulls(9, '2025-01-01 10:00:00'), $this->s('2025-01-01 10:09:00', '1001', 'Alpha'),
+            $this->s('2025-01-05 10:00:00', '1099', 'Guess', PullOrigin::Manual, 5)];
+
+        $plan = $this->reconcile([self::record(10, 10, '2025-01-01 10:09:00', '1001', 'Alpha')], $entries, totalPulls: 60);
+
+        $this->assertSame(['The manual S "Guess" of 2025-01-05 10:00:00 is not in the official history: delete it, or add it again with the right item, then import again.'], $plan->conflicts);
+        $this->assertSame([], $plan->updates);
+    }
+
+    public function testMorePullsThanTheStoredAndOfficialTotalsIsAConflict(): void
+    {
+        // Pulls 1-32: S at 10 and 30, two pulls after. Ten of the pulls before Beta are stored one hour late, after Beta
+        // (two sources one hour apart): Beta still lands on 30, but ten made-up pulls would replace them before it
+        $entries = [...$this->bPulls(9, '2025-01-01 10:00:00'), $this->s('2025-01-01 10:09:00', '1001', 'Alpha'),
+            ...$this->bPulls(9, '2025-01-02 06:00:00'), $this->s('2025-01-02 07:00:00', '1002', 'Beta')];
+        for ($k = 0; $k < 10; ++$k) {
+            $entries[] = $this->b('2025-01-02 07:30:00');
+        }
+        array_push($entries, ...$this->bPulls(2, '2025-01-02 08:00:00'));
+        $records = [
+            self::record(10, 10, '2025-01-01 10:09:00', '1001', 'Alpha'),
+            self::record(30, 20, '2025-01-02 07:00:00', '1002', 'Beta'),
+        ];
+
+        $plan = $this->reconcile($records, $entries, totalPulls: 32, sCount: 2);
+
+        $this->assertSame(['42 pulls after the import, more than the 32 stored and the 32 of the official history: stored pulls would end up after an S (e.g. two sources one hour apart). If you pulled since the official history was last updated, import again later.'], $plan->conflicts);
+        $this->assertSame([], $plan->updates);
+    }
+
+    public function testMorePullsThanTheOfficialTotalAloneIsOnlyAWarning(): void
+    {
+        // Three pulls made since the official history was last updated: more than its total, not more than what is stored
+        $entries = [...$this->bPulls(9, '2025-01-01 10:00:00'), $this->s('2025-01-01 10:09:00', '1001', 'Alpha'), ...$this->bPulls(5, '2025-01-02 10:00:00')];
+
+        $plan = $this->reconcile([self::record(10, 10, '2025-01-01 10:09:00', '1001', 'Alpha')], $entries, totalPulls: 12);
+
+        $this->assertSame([], $plan->conflicts);
+        $this->assertSame(['15 pulls after the import, the official history counts 12.'], $plan->warnings);
     }
 
     public function testASecondMixingStoredPullsAndANewOfficialSIsAConflict(): void
@@ -312,6 +357,30 @@ class SRankHistoryReconcilerTest extends TestCase
         ], $plan->overwrites);
     }
 
+    public function testADeclaredPityEqualToTheOfficialOneIsNotReportedAsAUserValue(): void
+    {
+        // A sync merged an official S into the recorded one, which kept its pity: nothing is missing any more
+        $entries = [...$this->bPulls(9, '2025-01-01 10:00:00'), $alpha = $this->s('2025-01-01 10:09:00', '1001', 'Alpha', declaredPity: 10)];
+
+        $plan = $this->reconcile([self::record(10, 10, '2025-01-01 10:09:00', '1001', 'Alpha')], $entries);
+
+        $this->assertNull(self::updatesById($plan)[$alpha->id]->declaredPity, 'Cleared');
+        $this->assertSame([], $plan->overwrites, 'Written by the import, not by the user');
+    }
+
+    public function testStaleFillersAskForARealignWithoutAnySChange(): void
+    {
+        $aligned = [...$this->bPulls(9, '2025-01-01 10:00:00'), $this->s('2025-01-01 10:09:00', '1001', 'Alpha')];
+        $record = self::record(10, 10, '2025-01-01 10:09:00', '1001', 'Alpha');
+        $this->assertFalse($this->reconcile([$record], $aligned)->realignNeeded);
+
+        // A filler no declared pity asks for (e.g. a sync stopped before its last page)
+        $plan = $this->reconcile([$record], [$this->filler('2025-01-01 09:00:00'), ...$aligned]);
+        $this->assertSame([], $plan->conflicts);
+        $this->assertSame([], $plan->creates);
+        $this->assertTrue($plan->realignNeeded);
+    }
+
     public function testAUserDeclaredPityIsClearedWhenNothingIsMissing(): void
     {
         $entries = [...$this->bPulls(9, '2025-01-01 10:00:00'), $alpha = $this->s('2025-01-01 10:09:00', '1001', 'Alpha', declaredPity: 50)];
@@ -370,6 +439,13 @@ class SRankHistoryReconcilerTest extends TestCase
             $plan = $this->reconciler->reconcile(new SRankHistoryBanner('2', $records, $records === [$alpha] ? 9 : null), [], self::S_MAX_PITY);
             $this->assertContains($expected, $plan->conflicts);
             $this->assertSame([], $plan->creates);
+        }
+
+        // Compared strictly: a rate-up flag false and unknown, or ids "1001" and "01001", are different listings
+        $lost = self::record(10, 10, '2025-01-01 10:00:00', '1001', 'Alpha', false);
+        foreach ([self::record(10, 10, '2025-01-01 10:00:00', '1001', 'Alpha', null), self::record(10, 10, '2025-01-01 10:00:00', '01001', 'Alpha', false)] as $other) {
+            $plan = $this->reconcile([$lost, $other], []);
+            $this->assertSame(['Pull #10 is listed twice with different values ("Alpha", "Alpha").'], $plan->conflicts);
         }
 
         // An exact duplicate is only a warning, nine pulls apart in one second is fine

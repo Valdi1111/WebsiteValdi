@@ -21,13 +21,17 @@ use App\GamesBundle\Model\Pull\SRankHistory\SRankHistoryRowUpdate;
  * 2. Ordered alignment of the records with the stored S (fillers ignored): same item, and for a recorded S a date within
  *    ManualPull::MERGE_WINDOW_SECONDS (dates are never compared to the second: a stored S may be off by an hour), for an
  *    official S the same pull number, for a manual S (an estimate) the item only. The alignment keeps the most pairs,
- *    then the closest dates. A stored S left out is a conflict, unless it is newer than the whole official history.
+ *    then the closest dates. A stored S left out is a conflict, unless it is a recorded S newer than the whole official
+ *    history (pulled since the history was last updated). A manual S is never exempted: its date is an estimate.
  * 3. Target values, "official data wins": unmatched records become official S rows (their pity as declared pity, their
  *    pull number, exact date and rate-up flag); a matched manual S becomes an official S the same way; a matched recorded
  *    S keeps its date and item, takes the rate-up flag, and the official pity as declared pity only when pulls are still
  *    missing before it (null otherwise). Every user value replaced is reported in $overwrites.
  * 4. In-memory simulation: the stored rows with these values, then PullGapPlanner::plan() applied. It must give no
- *    warning, and every record must end up at its pull number, otherwise the banner is refused.
+ *    warning, every record must end up at its pull number, and the banner must not end up with more pulls than both the
+ *    stored rows and the official total (stored rows pushed after an S, e.g. two sources one hour apart, would be
+ *    replaced by made-up pulls), otherwise the banner is refused. More pulls than the official total alone is fine: pulls
+ *    made since the history was last updated.
  *
  * Inside one second the simulation orders like the providers (PullTimelineEntry): unnumbered rows first, in their stored
  * order, then the numbered ones by number. A second never mixes numbered and unnumbered non-filler rows: that is a
@@ -62,21 +66,29 @@ class SRankHistoryReconciler
         ));
         $pairs = $this->align($records, $stored);
 
-        // A stored S the official history does not list: only acceptable after its last record (pulled since)
+        // A stored S the official history does not list: only a recorded S after its last record is acceptable (pulled
+        // since). The date of a manual S is an estimate: unpaired, it may stand for an S the history lists under another name
         $conflicts = [];
         $lastRecordAt = $records[array_key_last($records)]->pulledAt->getTimestamp();
         $lastPaired = $pairs === [] ? -1 : max($pairs);
         $paired = array_flip($pairs);
         foreach ($stored as $index => $entry) {
-            if (isset($paired[$index]) || ($index > $lastPaired && $entry->pulledAt->getTimestamp() > $lastRecordAt)) {
+            if (isset($paired[$index])
+                || ($entry->origin === PullOrigin::Recorded && $index > $lastPaired && $entry->pulledAt->getTimestamp() > $lastRecordAt)) {
                 continue;
             }
-            $conflicts[] = \sprintf(
-                'The %s S "%s" of %s is not in the official history.',
-                $entry->origin->value,
-                $entry->name ?? '?',
-                $entry->pulledAt->format(ManualPull::DATE_FORMAT),
-            );
+            $conflicts[] = $entry->origin === PullOrigin::Manual
+                ? \sprintf(
+                    'The manual S "%s" of %s is not in the official history: delete it, or add it again with the right item, then import again.',
+                    $entry->name ?? '?',
+                    $entry->pulledAt->format(ManualPull::DATE_FORMAT),
+                )
+                : \sprintf(
+                    'The %s S "%s" of %s is not in the official history.',
+                    $entry->origin->value,
+                    $entry->name ?? '?',
+                    $entry->pulledAt->format(ManualPull::DATE_FORMAT),
+                );
         }
         if ($conflicts !== []) {
             return new SRankHistoryBannerPlan(records: $records, conflicts: $conflicts, warnings: $warnings);
@@ -149,6 +161,20 @@ class SRankHistoryReconciler
         }
         $result = self::applyPlan($simulated, $seqs, $plan, $nextId);
         array_push($conflicts, ...$this->findPositionMismatches($records, $result));
+
+        // More pulls than both the stored rows and the official total: stored rows were pushed after an S and made-up pulls
+        // took their place (a total above the official one alone is fine: pulls made since the history was updated)
+        $countPulls = static fn (array $rows): int => \count(array_filter($rows, static fn (PullTimelineEntry $entry): bool => $entry->countsAsPull));
+        $storedPulls = $countPulls($entries);
+        $pulls = $countPulls($result);
+        if ($banner->totalPulls !== null && $pulls > max($storedPulls, $banner->totalPulls)) {
+            $conflicts[] = \sprintf(
+                '%d pulls after the import, more than the %d stored and the %d of the official history: stored pulls would end up after an S (e.g. two sources one hour apart). If you pulled since the official history was last updated, import again later.',
+                $pulls,
+                $storedPulls,
+                $banner->totalPulls,
+            );
+        }
         if ($conflicts !== []) {
             return new SRankHistoryBannerPlan(records: $records, conflicts: $conflicts, warnings: $warnings);
         }
@@ -170,7 +196,9 @@ class SRankHistoryReconciler
                     $record->pulledAt->format(ManualPull::DATE_FORMAT),
                     $record->pity,
                 );
-            } elseif ($entry->origin === PullOrigin::Recorded && $entry->declaredPity !== null && $entry->declaredPity !== $declaredPity) {
+            } elseif ($entry->origin === PullOrigin::Recorded && $entry->declaredPity !== null && $entry->declaredPity !== $declaredPity
+                // Equal to the official pity: written by an earlier import (merged official S), not entered by the user
+                && $entry->declaredPity !== $record->pity) {
                 $overwrites[] = \sprintf(
                     'Declared pity of the S "%s" of %s: %d replaced by %s.',
                     $entry->name ?? '?',
@@ -192,8 +220,8 @@ class SRankHistoryReconciler
             }
         }
 
-        // Totals that differ do not stop the import: pulls made after the last sync legitimately differ
-        $pulls = \count(array_filter($result, static fn (PullTimelineEntry $entry): bool => $entry->countsAsPull));
+        // Totals that differ otherwise do not stop the import: pulls made since the history was updated, or missing pulls
+        // after the last S
         if ($banner->totalPulls !== null && $banner->totalPulls !== $pulls) {
             $warnings[] = \sprintf('%d pulls after the import, the official history counts %d.', $pulls, $banner->totalPulls);
         }
@@ -207,6 +235,7 @@ class SRankHistoryReconciler
             updates: $updates,
             overwrites: $overwrites,
             warnings: $warnings,
+            realignNeeded: !$plan->isEmpty(),
         );
     }
 
@@ -266,7 +295,7 @@ class SRankHistoryReconciler
             $known = $byNumber[$record->pullNumber] ?? null;
             if ($known === null) {
                 $byNumber[$record->pullNumber] = $record;
-            } elseif ($known == $record) {
+            } elseif (self::isSameRecord($known, $record)) {
                 $warnings[] = \sprintf('Pull #%d is listed twice by the official history.', $record->pullNumber);
             } else {
                 $errors[] = \sprintf('Pull #%d is listed twice with different values ("%s", "%s").', $record->pullNumber, $known->name, $record->name);
@@ -310,6 +339,20 @@ class SRankHistoryReconciler
         }
 
         return $records;
+    }
+
+    /**
+     * Field by field, strictly: a rate-up flag null and false, or ids "1001" and "01001", are different listings.
+     */
+    private static function isSameRecord(SRankHistoryRecord $a, SRankHistoryRecord $b): bool
+    {
+        return $a->itemId === $b->itemId
+            && $a->name === $b->name
+            && $a->itemType === $b->itemType
+            && $a->pullNumber === $b->pullNumber
+            && $a->pity === $b->pity
+            && $a->pulledAt->getTimestamp() === $b->pulledAt->getTimestamp()
+            && $a->isUp === $b->isUp;
     }
 
     /**

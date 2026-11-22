@@ -16,6 +16,9 @@ final readonly class SRankHistoryBannerPlan
      * @param list<SRankHistoryRowUpdate> $updates    Values of the stored S matched with a record (also when unchanged)
      * @param list<string>                $overwrites Values entered by the user that the official history replaces
      * @param list<string>                $warnings   Differences that do not stop the import
+     * @param bool                        $realignNeeded Whether the realign changes the fillers once these values are written;
+     *                                                   true even without any S change when the stored fillers are out of
+     *                                                   line (e.g. a sync that stopped before its last page)
      */
     public function __construct(
         public array $records = [],
@@ -24,6 +27,7 @@ final readonly class SRankHistoryBannerPlan
         public array $updates = [],
         public array $overwrites = [],
         public array $warnings = [],
+        public bool $realignNeeded = false,
     ) {
     }
 

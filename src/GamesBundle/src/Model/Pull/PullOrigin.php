@@ -10,7 +10,8 @@ namespace App\GamesBundle\Model\Pull;
  * - Official: an S pull built from an official S-rank history (HoYoLAB Signal Search), with its pity as
  *   declared pity and its pull number in the banner. Counted and merged like a manual S, but its pity and
  *   date are not estimates: the user cannot correct it, delete it or add an S right before it.
- *   A recorded S confirmed by that history stays recorded.
+ *   Written by the S-rank history import (SRankHistoryReconciler), which also turns a manual S it confirms into an
+ *   official one. A recorded S confirmed by that history stays recorded.
  * - Filler: an "unknown" pull created by the realign step to make the declared pities add up.
  *   Never edited or deleted by hand.
  */

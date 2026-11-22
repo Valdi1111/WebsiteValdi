@@ -23,6 +23,7 @@ It supports direct credentials or cookie-based authentication, automatic session
 | **Automatic Pulls Sync (`stoken_v2`)** | ✅ | ❌ *(Unsupported by HoYoverse)* | ✅ | ❌ | ❌ |
 | **PowerShell Pulls Sync** | ✅ | ✅ | ✅ | ❌ | ❌ |
 | **Backup File Pulls Import** | ✅ (`paimon.moe` JSON) | ✅ (`starrailstation.com` CSV) | ✅ (`zzz.rng.moe` JSON) | ❌ | ❌ |
+| **Official S-Rank History Import** | ❌ | ❌ | ✅ (HoYoLAB Signal Search) | ❌ | ❌ |
 
 ### 1.1 Game Service Architecture: Capability Interfaces, Traits & Dynamic Normalization
 
@@ -36,6 +37,7 @@ Supported features for each game are declared through **Capability Interfaces**:
 | `HasStaminaInterface` | `NotesTrait` | `staminaCheck`, `staminaThreshold` | The game exposes current/max Stamina and full recovery time, enabling **Stamina Reminder**. |
 | `HasDailiesInterface` | `NotesTrait` | `dailiesCheck` | The game exposes daily activity progress (e.g. Commissions, Activity Points, Engagement/Scratch Card/Cafe), enabling **Dailies Reminder**. |
 | `HasWeekliesInterface` | `NotesTrait` | `weekliesCheck` | The game exposes weekly activity progress (e.g. Resin Discounts, Echo of War/Sim. Universe, Bounty/Ridu Points), enabling **Weeklies Reminder**. |
+| `HasSRankHistoryImportInterface` | `ZenlessZoneZeroSRankHistoryTrait` | `supports_s_rank_history_import` (also needs a usable HoYoLAB cookie) | `getSRankHistory()` reads the official history of the S pulls of every banner (pull number, pity, date, `is_up`), with no 6-month limit, enabling the **Official S-Rank History Import** (*ZZZ*). |
 | `HasEndgamesInterface` | `ZenlessZoneZeroEndgamesTrait` | `endgamesCheck`, `endgamesSettings` | Static `getEndgamesConfigKey()` and `getEndgameDefinitions()` (`EndgameDefinition`, `GamesBundle\Model\Endgame`) declare the modes; `fetchEndgame()` returns one `GameEndgame` per variant of a mode: end of the period, played, maximum, progress lines. Enables the **Endgames Reminder** (*ZZZ*). |
 
 #### HoYoverse-Specific Interfaces (`App\HoyoverseBundle\Model\Game\*`)
@@ -284,7 +286,7 @@ To preserve pull history older than HoYoverse's 6–12 month API window, the bun
   ```
 
 ### 7.6 Real-Time Progress Tracking (Mercure + Polling Fallback)
-All asynchronous pull operations — **Backup Import**, **PowerShell Import**, **Manual SToken Sync**, and **Scheduled Sync** (`GamesBundle\Model\Pull\PullOperationKind`) — are tracked uniformly by `HoyoverseBundle\Service\Pull\PullOperationTracker` (extending `GamesBundle\Service\AbstractPullOperationTracker`):
+All asynchronous pull operations — **Backup Import**, **PowerShell Import**, **Manual SToken Sync**, **Scheduled Sync** and **Official S-Rank History Import** (`GamesBundle\Model\Pull\PullOperationKind`) — are tracked uniformly by `HoyoverseBundle\Service\Pull\PullOperationTracker` (extending `GamesBundle\Service\AbstractPullOperationTracker`):
 - **Cache Snapshot + Mercure Updates**:
   - Operation state is stored in `hoyoverse.pull_import_status.cache` (1-hour TTL, configured in `src/HoyoverseBundle/config/packages/cache.yaml`) and published as a **private** Mercure update on `https://{games.domain_name}/hoyoverse/profiles/{profileId}/pulls/progress` (payload `{ action: 'pulls:operation_progress', operation: {...} }`).
   - `GET .../pulls/overview` sets the `mercureAuthorization` cookie for the profile's topic and returns `mercure_topic`, `available_backup_importers`, and any currently running `active_operation`.
@@ -294,13 +296,31 @@ All asynchronous pull operations — **Backup Import**, **PowerShell Import**, *
   - Upon transitioning to `completed`, the page automatically refreshes the overview and selected banner view.
 
 ### 7.7 Missing Pulls (Manual S Pulls, Declared Pity, Filler Rows)
-- **Rows**: `hoyoverse_pull.origin` (`PullOrigin`: `recorded` / `manual` / `official` / `filler`; nothing writes `official` yet) and `declared_pity` (real pity declared on an S). A manual S has `pull_id = manual_<uuid>`; a filler (unknown pull) has `pull_id = filler_<uuid>`, rarity `0`, name `Unknown`, type `Unknown`. Both use the group's first gacha type (`301` for the Character Event Wish). `is_up` (nullable) says whether an S was the rate-up item when a source gives it; `pull_number` (nullable) is the pull number in the banner, only on official S rows and on the fillers between two of them in one second, never on recorded rows: it only orders the rows of one second.
+- **Rows**: `hoyoverse_pull.origin` (`PullOrigin`: `recorded` / `manual` / `official` / `filler`; `official` rows come from the S-rank history import, § 7.8) and `declared_pity` (real pity declared on an S). A manual S has `pull_id = manual_<uuid>`, an official S `official_<uuid>`; a filler (unknown pull) has `pull_id = filler_<uuid>`, rarity `0`, name `Unknown`, type `Unknown`. All use the group's first gacha type (`301` for the Character Event Wish). `is_up` (nullable) says whether an S was the rate-up item when a source gives it; `pull_number` (nullable) is the pull number in the banner, only on official S rows and on the fillers between two of them in one second, never on recorded rows: it only orders the rows of one second.
 - **Order** (`HoyoversePullRepository::findBannerRows()`, used by the stats, the lists and the realign): `pulled_at`, then `pull_number` (`NULL` first), then `pull_id` as a string, so inside one second: game ids < `filler_*` < `manual_*`, then the numbered rows by number. `HoyoversePullRepository::compareRows()` is the same order in PHP.
-- **Counting** (`HoyoversePullStatsCalculator`): fillers count as pulls (pity S, `pull_number`, totals, currency, monthly) but go to `unknown_count` instead of `b_count`, show `pity: null`, and reset the A pity. Rows expose `origin`, `declared_pity` and `is_up` (`pull_number` in the API stays the computed position); S rows also `recorded_pity`, `insert_after`, `insert_before`, `suggested_at`, `has_room`; summaries `unknown_count` and `open_window`. The list accepts rarity `0`.
+- **Counting** (`HoyoversePullStatsCalculator`): fillers count as pulls (pity S, `pull_number`, totals, currency, monthly) but go to `unknown_count` instead of `b_count`, show `pity: null`, and reset the A pity. Rows expose `origin`, `declared_pity`, `is_up` and the stored pull number as `official_pull_number` (`HoyoversePullStatsCalculator::STORED_PULL_NUMBER_FIELD`; `pull_number` in the API stays the computed position); S rows also `recorded_pity`, `insert_after`, `insert_before`, `suggested_at`, `has_room`; summaries `unknown_count` and `open_window`. The list accepts rarity `0`.
 - **Writes** (`ManualPullService`, profile lock taken non-blocking, `409` when busy): add an S (`createManualS`), declare a pity (`declarePity`, stored as `null` when equal to the recorded pity on a recorded S), delete a manual S. Each write runs `realign()` for its banner (`PullGapPlanner`: merges a manual or official S into the recorded S that arrives later, then creates, moves or deletes fillers).
 - **Automatic realign**: at the end of a backup import (`realignAll()`, not on dry runs) and on the last page of each banner sync. `findExistingLogicalPullCounts()` ignores non-recorded rows.
 - **Dates**: server wall-clock time tagged as UTC (`HoyoverseServerTimezoneResolver`); "now" is the profile's server time (`getServerWallClockNow()`). `pulled_at` uses the shared `wall_clock_datetime_immutable` type (`App\CoreBundle\Doctrine\WallClockDateTimeImmutableType`), read back as UTC, so times in the hour skipped when DST starts in Europe/Rome are never shifted.
 - **Suggestions** (`ManualPullSuggestionProvider`): S items of the Nanoka catalog plus the recorded S pulls of the game; free text allowed (with a required item type).
+
+### 7.8 Official S-Rank History Import (Zenless Zone Zero: HoYoLAB Signal Search)
+The "Signal Search" statistics of the HoYoLAB battle record list every S-rank of every banner since the start of the account, without the 6-month limit of `getGachaLog`, each with its pull number in the banner (`sort`), its pity (`count`), its date (`record_time`, epoch) and whether it was the rate-up item (`is_up`). A manual import fills the missing pulls with them (shared rules: GamesBundle § 4.1 and § 4.2).
+
+- **Reading** (`ZenlessZoneZeroSRankHistoryTrait`, `https://sg-act-public-api.hoyolab.com/event/nap_gacha_record/api/zzz/`, `uid`, `region`, `lang=en-us`, HoYoLAB cookie only: no `stoken_v2`, no `DS`): `index` (one `type_stats` entry per banner: `total_count`, `s_count`, `has_data_vers`, `next_s_cur_times`; plus `cur_ver`), then per banner `hist_pool_stat` for the versions of `has_data_vers` except `cur_ver`, at most 10 per request (more, or an unknown version, give `retcode -400005`), and `cur_pool_stat`. About 15 requests for a whole account, one second apart. Banner types `GACHA_TYPE_*` map to the configured banners (requests use `102`/`103` for the reruns, stored pulls `12`/`13`); item types `ItemType_Avatar`/`Weapon`/`Bangboo` to `Agents`/`W-Engines`/`Bangboo`; epochs to the server wall clock. A failed request or an unreadable record fails the whole import before anything is written.
+- **Writing** (`Service/Pull/SRankHistoryImportService`, profile lock taken before the first request): per configured banner, `SRankHistoryReconciler` plans the banner; a refused banner is left unchanged (`skipped`, with the reason); a banner with nothing to change is not written at all, so a second import writes nothing; otherwise, in one transaction, the matched S are updated, the official S created (`official_<uuid>`, `pull_number`, `declared_pity`, exact `pulled_at`, `is_up`), `ManualPullService::realign()` adds the fillers, and every record must then be at its pull number in the stored order, or the banner is rolled back (`failed`). Totals and S counts that differ from `index` are warnings, and so is every replaced user value (declared pity, date or pity of a manual S), prefixed with the banner name.
+- **Start**: `POST .../pulls/import-s-rank-history` (`400` for a game without the capability or an account whose HoYoLAB cookie cannot be parsed, `409` while one runs, `202` with the operation otherwise) queues `ImportSRankHistoryMessage` on `hoyoverse_pulls`; `ImportSRankHistoryHandler` re-queues it while the profile lock is busy, like a backup import. The operation (`s_rank_history_import`) is tracked per banner.
+- **UI**: `Import ▾` → *Import S-rank history from HoYoLAB* (`SRankHistoryImportModal`). Official S show a `HoYoLAB` tag and no row actions.
+- **CLI**:
+  ```bash
+  # Read, check and simulate every banner, print what would change, write nothing
+  php bin/console hoyoverse:import-s-rank-history <profileId> --dry-run
+
+  # Synchronous import, or queued on hoyoverse_pulls
+  php bin/console hoyoverse:import-s-rank-history <profileId>
+  php bin/console hoyoverse:import-s-rank-history <profileId> --async
+  ```
+- Out of scope: `next_s_cur_times` (current pity after the last S) is read but not used; Genshin Impact and Honkai: Star Rail have no equivalent endpoint implemented.
 
 ---
 
@@ -324,6 +344,7 @@ All asynchronous pull operations — **Backup Import**, **PowerShell Import**, *
 | `POST` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/sync` | Queues automatic pull sync via `stoken_v2` (returns `operation`) |
 | `POST` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-powershell` | Validates a PowerShell-extracted Gacha URL and queues import on `hoyoverse_pulls` (returns `operation`) |
 | `POST` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-backup` | Validates a backup file (`paimon_moe`, `star_rail_station_csv`, `zzz_rng_moe`) and queues import on `hoyoverse_pulls` (`202` / `400` / `409`) |
+| `POST` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-s-rank-history` | Queues the official S-rank history import (Zenless Signal Search) on `hoyoverse_pulls` (`202` / `400` / `409`) |
 | `GET` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/operations/{operationId}` | Returns the latest snapshot of a pull operation (fallback polling when Mercure is unavailable) |
 | `GET` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/manual/suggestions?banner=` | S items for the manual S form (`items`, `allow_free_text`, `item_types`) |
 | `POST` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/manual` | Adds a missing S pull (`201`; `422` with a `code` on a rule violation, `409` when the profile is busy) |

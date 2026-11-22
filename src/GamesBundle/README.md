@@ -22,8 +22,9 @@ Design decisions are summarized in [§4](#4-design-notes).
 | **Game model** | `Model/Game/*` (capability interfaces such as `HasStaminaInterface`, `HasDailiesInterface`, `GachaConfig`, `RarityConfig`, `GameAccountInterface`, `GameProfileInterface`), `Model/GameNotes/*`, `Model/Endgame/*` (`EndgameDefinition`, `EndgameVariant`, `EndgameReminder`, `EndgameSettings`, and the `GameEndgame` progress returned by `HasEndgamesInterface`), `Model/Pull/*` |
 | **Task messages** | `Message/{TaskMessageInterface, RegionalTaskMessageInterface, ProfileTaskMessageInterface, FeatureFlagMessageInterface}` |
 | **Task configuration** | `DependencyInjection/GameTasksConfiguration` (`addTaskNode()`, `registerTaskParameters()`), `Scheduler/AbstractTaskScheduleProvider` |
-| **Pull tracking** | `Service/AbstractPullOperationTracker` (cache + private Mercure updates; backup imports may report per-banner progress in `banners`), `Model/Pull/{PullImportProgress, PullImportSummary}` (optional `updated` and `banners`), `Exception/PullProfileLockedException` |
+| **Pull tracking** | `Service/AbstractPullOperationTracker` (cache + private Mercure updates; backup imports may report per-banner progress in `banners`; `startSRankHistoryImport()` tracks the S-rank history import per banner), `Model/Pull/{PullImportProgress, PullImportSummary}` (optional `updated` and `banners`), `Exception/PullProfileLockedException` |
 | **Missing pulls** | `Model/Pull/{PullOrigin, PullTimelineEntry}`, `Model/Pull/Manual/*` (`ManualPull` constants, `SWindow`, `FillerPlan`, `FillerSlot`, request DTOs `CreateManualPullRequest`/`DeclarePityRequest`), `Service/Pull/PullGapPlanner` (pure: merges, filler slots, window info), `Service/Pull/ManualPullGuard` (validation), `Exception/ManualPullViolationException`, `EventSubscriber/PullApiExceptionSubscriber` (422 `{detail, code}` / 409 `profile_locked` on `/api/`), `Model/Game/HasManualPullsInterface`. See [§4.1](#41-missing-pulls-manual-s-and-declared-pity) |
+| **Official S-rank history** | `Model/Game/HasSRankHistoryImportInterface`, `Model/Pull/SRankHistory/*` (readonly DTOs: `SRankHistory`, `SRankHistoryBanner`, `SRankHistoryRecord`, and the `SRankHistoryBannerPlan` / `SRankHistoryRowUpdate` of the reconciler), `Service/Pull/SRankHistoryReconciler` (pure: checks, alignment, simulation), `ManualPull::OFFICIAL_ID_PREFIX`. See [§4.2](#42-official-s-rank-history-import) |
 | **Pull item icons** | `Service/PullItemIcon*` (filler rows are skipped), `Command/PullIconResolversCommand`, Liip filter `games_pull_item_icon` (see [`PULL_ITEM_ICONS.md`](../../docs/PULL_ITEM_ICONS.md)) |
 | **Login helpers** | `Service/AuthSessionStore`, `Service/GeetestService` (script cache + iframe response), `Model/Auth/{LoginStepResult, SubmitCaptchaRequest}` |
 | **Account ownership** | `Security/GameAccountOwnerVoter` (`GAME_ACCOUNT_OWNER`, subject `GameAccountInterface`, compares user ids) |
@@ -97,6 +98,7 @@ export default {
     pullsExtraImporters: [               // optional: extra entries of the pulls Import menu
         { key, label, icon, isAvailable: (profile) => boolean, Modal },
     ],
+    officialPullLabel: "HoYoLAB",        // optional: tag of the official S rows (default "official")
     extraRoutes: [                       // optional: provider-only pages under /{key}/...
         { path: "accounts/:accountId/profiles/:gameProfileId/diary", element: <DiaryPage/> },
     ],
@@ -110,12 +112,12 @@ Optional fields understood by the shared pulls pages:
 | Field | Where | Effect |
 | :--- | :--- | :--- |
 | `multiple`, `max_files` | `available_backup_importers[]` (overview) | `BackupPullImportModal` accepts several files, sent as `files[]` in one request (otherwise a single `file`) |
-| `banners` | backup import operation | per-banner tags in `PullOperationProgressBanner` and in the import modal (`processed/total`, `imported`, `updated`) |
+| `banners` | backup import operation, S-rank history import | per-banner tags in `PullOperationProgressBanner` and in the import modal (`processed/total`, `imported`, `updated`); status `skipped` (banner left unchanged, reason in `error`) is a warning tag |
 | `updated` | backup import operation | records rewritten by the import (e.g. a newer exporter fixing older data) |
 | `pull_label`, `pull_singular_label` | banner summary | unit counted by that banner (e.g. NTE "Rolls" vs "Arcs"), falls back to `rarity_config.pull_label` |
 | `roll_label` | pull rows | extra "Roll" column in `PullsBannerDetail` (NTE: dice value, Points Gift, Slumberland) |
 | `pity` / `pull_number` = `null` | pull rows | shown as "—" (bonus rows, rewards that do not reset pity) |
-| `origin`, `declared_pity` | pull rows, `recent_s_pulls` | `filler` rows render as "?" (thumbnail, tag, "Unknown pull", estimated date); `manual` S get a tag and a dashed badge; a declared pity gets an indicator, and a warning when the computed pity differs. `official` S (nothing writes them yet) render like recorded ones for now: their correction actions end in `422 official_pull` |
+| `origin`, `declared_pity` | pull rows, `recent_s_pulls` | `filler` rows render as "?" (thumbnail, tag, "Unknown pull", estimated date); `manual` S get a tag and a dashed badge; a declared pity gets an indicator, and a warning when the computed pity differs. `official` S get the provider's `officialPullLabel` tag, an "official pity" indicator and no row actions; "Add missing S" is disabled when the oldest S is official |
 | `is_up` | pull rows, `recent_s_pulls` | not shown yet: whether an S was the rate-up item, `null` = unknown (no source said so), never a lost 50/50 |
 | `recorded_pity`, `insert_after`, `insert_before`, `suggested_at`, `has_room` | S rows | bounds and defaults of the "Correct pity" / "Add earlier S" modals; rows without `has_room` get no actions |
 | `unknown_count`, `open_window`, `oldest_s` | banner summary | number of filler rows; window used by "Add missing S" when the banner has no S; the chronologically first S (with its window fields and `icon_url`), anchor of "Add missing S" even when `recent_s_pulls` is capped (NTE: 50) |
@@ -156,7 +158,7 @@ Why things are the way they are (useful before changing them):
 
 ### 4.1 Missing pulls (manual S and declared pity)
 
-Histories start where the source starts (API window, first backup), so the first recorded S has an underestimated pity and older S are missing. Users can **declare the real pity** of an S (`declared_pity`) or **add an earlier S** (`origin = manual`). An official S-rank history can add S too (`origin = official`, with their pity as declared pity; nothing writes them yet). The missing pulls become **real rows** (`origin = filler`, rarity `0`, name `Unknown`), so every stats calculator counts them without special cases, except that they are not B (`unknown_count`), have no pity and reset the A-pity counter.
+Histories start where the source starts (API window, first backup), so the first recorded S has an underestimated pity and older S are missing. Users can **declare the real pity** of an S (`declared_pity`) or **add an earlier S** (`origin = manual`). An official S-rank history can add S too (`origin = official`, with their pity as declared pity and their pull number, see [§ 4.2](#42-official-s-rank-history-import)). The missing pulls become **real rows** (`origin = filler`, rarity `0`, name `Unknown`), so every stats calculator counts them without special cases, except that they are not B (`unknown_count`), have no pity and reset the A-pity counter.
 
 | Decision | Reason |
 | :--- | :--- |
@@ -189,6 +191,20 @@ Histories start where the source starts (API window, first backup), so the first
 - **Delete**: only a manual S (each provider's `ManualPullService::deleteManual()`, `400` for any other row, official ones included).
 - **Dates** are sent and stored as wall-clock `Y-m-d H:i:s` without offset (`ManualPull::DATE_FORMAT`), like the recorded rows of the provider.
 
+### 4.2 Official S-rank history import
+
+Some games publish the whole history of the S pulls of each banner, older than their pull logs, but only the S: pull number in the banner, pity, date, rate-up flag (Zenless Zone Zero: the HoYoLAB "Signal Search" statistics). A game service exposes it with `Model\Game\HasSRankHistoryImportInterface::getSRankHistory()`, as the readonly DTOs `SRankHistory` → `SRankHistoryBanner` (banner key, total pulls, S count, current pity) → `SRankHistoryRecord` (item id, name, item type, pull number, pity, server wall-clock date, `is_up`). `Service/Pull/SRankHistoryReconciler::reconcile()` compares one banner with its stored rows and returns an `SRankHistoryBannerPlan` (creates, updates, replaced user values, warnings, conflicts) without writing; the provider writes it (HoYoverse: `SRankHistoryImportService`).
+
+| Decision | Reason |
+| :--- | :--- |
+| Chain checks before anything else: unique pull numbers, pity = distance from the previous S, pity within the banner limit, dates in pull order, two S of one second at most 9 pulls apart, last pull number within the banner total | A history that does not add up is not used: the banner is skipped. The pulls of a 10-pull share its second, so two S of one second belong to one 10-pull. |
+| Stored S found by **ordered alignment**, not by date | Same item, and a date within `MERGE_WINDOW_SECONDS` for a recorded S, the same pull number for an official S, the item only for a manual S (its date is an estimate). The alignment keeps the most pairs, then the closest dates. Stored dates are never compared to the second: a real backup row was one hour off. |
+| A stored S the history does not list is a **conflict**, unless it is newer than the whole history | Nothing is written on that banner (additive only: a row is never deleted because the history lacks it). An S pulled after the history was read is fine. |
+| Official data wins | Missing records become official S (pity as declared pity, pull number, exact date, `is_up`); a matched manual S becomes official the same way; a matched recorded S keeps its date and item and takes `is_up`, and the official pity as declared pity only while pulls are missing before it (`null` otherwise). Every replaced user value (declared pity, date or pity of a manual S) is reported. |
+| A second never mixes numbered and unnumbered rows | The order of such a second would be unknown: conflict (e.g. a partially stored 10-pull without its S). |
+| In-memory simulation before writing | The stored rows with the new values, then `PullGapPlanner::plan()` applied: no planner warning allowed, and every record must land on its pull number. `findPositionMismatches()` checks the same again on the stored rows after writing. |
+| Totals that differ are warnings | Pulls made after the last sync legitimately differ from the official totals. |
+
 ### Not shared on purpose
 
 - **Message classes**: each one routes to its provider's Messenger transport through `#[AsMessage]`.
@@ -211,7 +227,7 @@ Histories start where the source starts (API window, first backup), so the first
 - `tests/GamesBundle/Routing/GamesRoutingTest` boots the kernel and matches real routes on the games host (provider APIs, GeeTest script/frames, SPA catch-all, legacy `/api/accounts` not routed, provider routes bound to the games host only).
 - `tests/GamesBundle/Security/GameAccountOwnerRoutesTest` boots the kernel, collects every provider route with `{account}` and runs Symfony's `IsGrantedAttributeListener` on each action: the owner passes, another user gets a 403. `GameAccountOwnerVoterTest` covers the voter for the three account entities.
 - `tests/GamesBundle/Doctrine/EncryptedCredentialMappingTest` boots the kernel and checks that exactly the five credential columns of the game accounts use the `encrypted_text` type and are found by `core:database:encrypt` (metadata only, no database connection). The type itself is tested in `CoreBundle` (see the [Encrypted Columns guide](../CoreBundle/src/Service/Encryption/README.md#6-testing)).
-- `PullGapPlannerTest` (with an `apply()` helper modelling a provider and a seeded random idempotency loop), `ManualPullGuardTest`, `PullApiExceptionSubscriberTest` and `ManualPullRequestTest` (real serializer/validator) cover the missing-pulls foundations.
+- `PullGapPlannerTest` (with an `apply()` helper modelling a provider and a seeded random idempotency loop), `ManualPullGuardTest`, `PullApiExceptionSubscriberTest` and `ManualPullRequestTest` (real serializer/validator) cover the missing-pulls foundations; `SRankHistoryReconcilerTest` the S-rank history import (chain checks, alignment, conflicts, simulation).
 - Unit tests cover `GameProviderAccess`, provider-namespaced Mercure topics, `GameTasksConfiguration`, `AbstractTaskScheduleProvider`, `GeetestService::createFrameResponse()` and the shared normalizer flags (`supports_pulls`, `supports_pull_sync`).
 - Security (games page protected by `ROLE_USER_GAMES`, provider APIs by their roles, public PowerShell script) is not covered by automated tests: a `WebTestCase` would need a test database for the session (`PdoSessionHandler`). Check it manually with a user holding a single provider role.
 - There is no JavaScript test setup: after frontend changes run `npm run build` and check both providers in the browser (tabs, accounts, settings drawer, login modal, pulls page with live Mercure progress, diary).

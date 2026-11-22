@@ -8,6 +8,7 @@ use App\HoyoverseBundle\Controller\ApiAccountsController;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Exception\HoyoverseAuthException;
 use App\HoyoverseBundle\Repository\HoyoverseAccountRepository;
+use App\HoyoverseBundle\Service\HoyoverseAuthService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\Container;
@@ -21,7 +22,8 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Serializer\SerializerInterface;
 
 /**
- * "Paste Cookie" on an existing account (account_id in the payload): the cookie must belong to the same HoYoverse account.
+ * "Paste Cookie": on an existing account (account_id in the payload) the cookie must belong to the same HoYoverse account,
+ * and every saved cookie downloads the game profiles like the credentials login does.
  */
 class HoyoverseAccountsControllerTest extends TestCase
 {
@@ -43,7 +45,7 @@ class HoyoverseAccountsControllerTest extends TestCase
         return $account;
     }
 
-    private function createController(HoyoverseAccount $account, User $currentUser, EntityManagerInterface $entityManager): ApiAccountsController
+    private function createController(?HoyoverseAccount $account, User $currentUser, EntityManagerInterface $entityManager): ApiAccountsController
     {
         $repository = $this->createStub(HoyoverseAccountRepository::class);
         $repository->method('find')->willReturn($account);
@@ -63,9 +65,22 @@ class HoyoverseAccountsControllerTest extends TestCase
         return $controller;
     }
 
-    private static function pasteCookie(string $cookie): Request
+    private function authServiceNeverSyncing(): HoyoverseAuthService
     {
-        return Request::create('/api/accounts', 'POST', [], [], [], ['CONTENT_TYPE' => 'application/json'], json_encode(['cookie' => $cookie, 'account_id' => 7]));
+        $authService = $this->createMock(HoyoverseAuthService::class);
+        $authService->expects($this->never())->method('syncGameProfilesAfterLogin');
+
+        return $authService;
+    }
+
+    private static function pasteCookie(string $cookie, ?int $accountId = 7): Request
+    {
+        $payload = ['cookie' => $cookie];
+        if ($accountId !== null) {
+            $payload['account_id'] = $accountId;
+        }
+
+        return Request::create('/api/accounts', 'POST', [], [], [], ['CONTENT_TYPE' => 'application/json'], json_encode($payload));
     }
 
     public function testCookieOfAnotherHoyoverseAccountIsRejectedAndNotSaved(): void
@@ -76,7 +91,7 @@ class HoyoverseAccountsControllerTest extends TestCase
         $entityManager->expects($this->never())->method('flush');
 
         try {
-            $this->createController($account, $user, $entityManager)->apiAccountsAdd(self::pasteCookie(self::COOKIE_OF_222), $user);
+            $this->createController($account, $user, $entityManager)->apiAccountsAdd(self::pasteCookie(self::COOKIE_OF_222), $user, $this->authServiceNeverSyncing());
             $this->fail('Expected an account mismatch.');
         } catch (HoyoverseAuthException $e) {
             $this->assertSame('The logged-in HoYoverse account (UID 222) does not match existing Account #7 (UID 111).', $e->getMessage());
@@ -87,18 +102,45 @@ class HoyoverseAccountsControllerTest extends TestCase
         $this->assertSame('ltoken_v2=v2_old; ltuid_v2=111', $account->getCookie());
     }
 
-    public function testCookieOfTheSameAccountUpdatesIt(): void
+    public function testCookieOfTheSameAccountUpdatesItAndDownloadsItsGameProfiles(): void
     {
         $user = self::createUser(1);
         $account = self::account($user, '222')->setCookieRefreshFailed(true);
         $entityManager = $this->createMock(EntityManagerInterface::class);
         $entityManager->expects($this->once())->method('flush');
+        $authService = $this->createMock(HoyoverseAuthService::class);
+        $authService->expects($this->once())->method('syncGameProfilesAfterLogin')
+            ->with($this->callback(static fn (HoyoverseAccount $synced): bool => $synced === $account && $synced->getCookie() === self::COOKIE_OF_222));
 
-        $response = $this->createController($account, $user, $entityManager)->apiAccountsAdd(self::pasteCookie(self::COOKIE_OF_222), $user);
+        $response = $this->createController($account, $user, $entityManager)->apiAccountsAdd(self::pasteCookie(self::COOKIE_OF_222), $user, $authService);
 
         $this->assertSame(Response::HTTP_OK, $response->getStatusCode());
         $this->assertSame(self::COOKIE_OF_222, $account->getCookie());
         $this->assertFalse($account->isCookieRefreshFailed());
+    }
+
+    public function testNewAccountFromCookieIsCreatedAndDownloadsItsGameProfiles(): void
+    {
+        $user = self::createUser(1);
+        $created = null;
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->expects($this->once())->method('persist')
+            ->willReturnCallback(static function (HoyoverseAccount $account) use (&$created): void {
+                $created = $account;
+            });
+        $entityManager->expects($this->once())->method('flush');
+        $authService = $this->createMock(HoyoverseAuthService::class);
+        // The profiles are downloaded for the saved account, so after it was persisted
+        $authService->expects($this->once())->method('syncGameProfilesAfterLogin')
+            ->with($this->callback(static function (HoyoverseAccount $synced) use (&$created): bool {
+                return $created !== null && $synced === $created;
+            }));
+
+        $response = $this->createController(null, $user, $entityManager)->apiAccountsAdd(self::pasteCookie(self::COOKIE_OF_222, null), $user, $authService);
+
+        $this->assertSame(Response::HTTP_CREATED, $response->getStatusCode());
+        $this->assertSame('222', $created->getAccountUid());
+        $this->assertSame($user, $created->getUser());
     }
 
     public function testAccountWithoutStoredUidTakesTheCookieUid(): void
@@ -106,7 +148,8 @@ class HoyoverseAccountsControllerTest extends TestCase
         $user = self::createUser(1);
         $account = self::account($user, null);
 
-        $this->createController($account, $user, $this->createStub(EntityManagerInterface::class))->apiAccountsAdd(self::pasteCookie(self::COOKIE_OF_222), $user);
+        $this->createController($account, $user, $this->createStub(EntityManagerInterface::class))
+            ->apiAccountsAdd(self::pasteCookie(self::COOKIE_OF_222), $user, $this->createStub(HoyoverseAuthService::class));
 
         $this->assertSame('222', $account->getAccountUid());
     }
@@ -118,6 +161,7 @@ class HoyoverseAccountsControllerTest extends TestCase
         $entityManager->expects($this->never())->method('flush');
 
         $this->expectException(AccessDeniedException::class);
-        $this->createController($account, self::createUser(1), $entityManager)->apiAccountsAdd(self::pasteCookie(self::COOKIE_OF_222), self::createUser(1));
+        $this->createController($account, self::createUser(1), $entityManager)
+            ->apiAccountsAdd(self::pasteCookie(self::COOKIE_OF_222), self::createUser(1), $this->authServiceNeverSyncing());
     }
 }

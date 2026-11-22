@@ -8,6 +8,7 @@ use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Exception\HoyoverseAuthException;
 use App\HoyoverseBundle\Repository\HoyoverseAccountRepository;
 use App\HoyoverseBundle\Service\HoyolabManagerService;
+use App\HoyoverseBundle\Service\HoyoverseAuthService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -38,8 +39,11 @@ class ApiAccountsController extends AbstractController
     }
 
     #[Route('', name: 'add', methods: ['POST'])]
-    public function apiAccountsAdd(Request $req, #[CurrentUser] User $user): Response
-    {
+    public function apiAccountsAdd(
+        Request $req,
+        #[CurrentUser] User $user,
+        HoyoverseAuthService $authService,
+    ): Response {
         $payload = $req->getPayload();
         if (!$payload->has('cookie')) {
             throw new BadRequestHttpException("Parameter 'cookie' not found.");
@@ -98,6 +102,9 @@ class ApiAccountsController extends AbstractController
         }
 
         $this->entityManager->flush();
+
+        // Same as the credentials login: download the game profiles now instead of waiting for a manual sync
+        $authService->syncGameProfilesAfterLogin($account);
 
         return $this->json($account, $statusCode, context: [
             AbstractNormalizer::IGNORED_ATTRIBUTES => ['gameProfiles'],

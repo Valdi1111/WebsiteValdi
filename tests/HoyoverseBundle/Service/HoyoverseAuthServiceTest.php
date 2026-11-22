@@ -16,6 +16,7 @@ use App\HoyoverseBundle\Service\HoyolabUtilsService;
 use App\HoyoverseBundle\Service\HoyoverseAuthService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -353,5 +354,32 @@ class HoyoverseAuthServiceTest extends TestCase
             $this->assertSame('HoYoverse could not be reached to complete the login. Please try again later.', $e->getMessage());
             $this->assertSame(502, $e->getStatusCode());
         }
+    }
+
+    public function testGameProfilesSyncFailureAfterLoginIsOnlyLogged(): void
+    {
+        $account = (new HoyoverseAccount())->setUser($this->createMockUser(1))->setCookie('ltoken_v2=v2_x; ltuid_v2=222');
+        $manager = $this->createMock(HoyolabManagerService::class);
+        $manager->expects($this->once())->method('updateCachedGameProfilesByGameRecords')->with($account)
+            ->willThrowException(new \RuntimeException('HoYoLAB is down'));
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())->method('warning')->with($this->stringContains('HoYoLAB is down'));
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->expects($this->never())->method('flush');
+
+        $service = new HoyoverseAuthService(
+            new MockHttpClient(),
+            new ArrayAdapter(),
+            $logger,
+            new AuthSessionStore('test-secret'),
+            new HoyolabUtilsService(),
+            $this->createStub(HoyolabCookieUtilsService::class),
+            $this->createStub(HoyoverseAccountRepository::class),
+            $em,
+            $manager,
+        );
+
+        // The account is already saved: the failure must not reach the caller
+        $service->syncGameProfilesAfterLogin($account);
     }
 }

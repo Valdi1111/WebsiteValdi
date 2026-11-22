@@ -487,7 +487,17 @@ PEM;
 
         $this->entityManager->flush();
 
-        // Non-blocking auto-discovery of game profiles
+        $this->syncGameProfilesAfterLogin($account);
+
+        return $account;
+    }
+
+    /**
+     * Downloads the game profiles of an account whose credentials were just saved (credentials login or pasted cookie).
+     * Non-blocking: the account is already saved, so a failure is only logged and the profiles can be synced later.
+     */
+    public function syncGameProfilesAfterLogin(HoyoverseAccount $account): void
+    {
         try {
             $this->hoyolabManagerService->updateCachedGameProfilesByGameRecords($account);
             $this->entityManager->flush();
@@ -497,8 +507,6 @@ PEM;
                 'exception' => $e,
             ]);
         }
-
-        return $account;
     }
 
     /**

@@ -82,6 +82,7 @@ As an alternative to credentials login, the **Paste Cookie** tab allows pasting 
   - `stoken_v2`: enables continuous automatic cookie refresh and automatic pulls sync for Genshin Impact and Zenless Zone Zero.
   - `cookie_token_v2` and `account_id_v2`: required for automatic promo code redemption when `stoken_v2` is not present.
 - **Account identity**: the account UID is read from `ltuid_v2`/`account_id_v2` (or the legacy `ltuid`/`account_id`). A new cookie is deduplicated by that UID; on re-login of an existing account (`account_id` in the payload) a cookie of another HoYoverse account is refused with the same `422 ... does not match existing Account ...` error as the credentials login, and nothing is saved.
+- **Game profiles**: once the cookie is saved, the game profiles are synced right away, like after a credentials login (`HoyoverseAuthService::syncGameProfilesAfterLogin()`). A failed sync is only logged: the cookie stays saved and the profiles can be synced later from the account card.
 
 ### 2.3 Automatic Cookie Refresh (`UpdateCookieMessage`)
 - **Schedule**: `0 */4 * * *` (every 4 hours).

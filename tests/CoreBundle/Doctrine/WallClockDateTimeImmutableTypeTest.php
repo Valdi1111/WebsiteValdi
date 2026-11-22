@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Tests\PerfectworldBundle\Doctrine;
+namespace App\Tests\CoreBundle\Doctrine;
 
-use App\PerfectworldBundle\Doctrine\WallClockDateTimeImmutableType;
+use App\CoreBundle\Doctrine\WallClockDateTimeImmutableType;
 use Doctrine\DBAL\Platforms\MySQL80Platform;
 use PHPUnit\Framework\TestCase;
 
@@ -50,5 +50,21 @@ class WallClockDateTimeImmutableTypeTest extends TestCase
     {
         $this->expectException(\InvalidArgumentException::class);
         WallClockDateTimeImmutableType::fromString('2026-13-40 25:00:00');
+    }
+
+    public function testNowKeepsTheLocalDigitsInUtc(): void
+    {
+        $now = WallClockDateTimeImmutableType::now(new \DateTimeImmutable('2026-07-01 10:15:30', new \DateTimeZone('Europe/Rome')));
+
+        $this->assertSame('2026-07-01 10:15:30', $now->format('Y-m-d H:i:s'));
+        $this->assertSame('UTC', $now->getTimezone()->getName());
+    }
+
+    public function testFromDateTimeRetagsTheDigitsAsUtc(): void
+    {
+        $value = WallClockDateTimeImmutableType::fromDateTime(new \DateTimeImmutable('2026-07-01 10:15:30.250000', new \DateTimeZone('Asia/Shanghai')));
+
+        $this->assertSame('2026-07-01 10:15:30.000000', $value->format('Y-m-d H:i:s.u'));
+        $this->assertSame('UTC', $value->getTimezone()->getName());
     }
 }

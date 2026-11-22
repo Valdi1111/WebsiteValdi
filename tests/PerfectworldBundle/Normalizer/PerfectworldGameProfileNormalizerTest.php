@@ -74,6 +74,7 @@ class PerfectworldGameProfileNormalizerTest extends TestCase
 
         $this->assertFalse($result['supports_pull_sync']);
         $this->assertTrue($result['supports_pulls']);
+        $this->assertTrue($result['supports_manual_pulls']);
         $this->assertSame('Etc/GMT-1', $result['timezone']);
     }
 

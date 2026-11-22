@@ -23,7 +23,8 @@ Design decisions are summarized in [§4](#4-design-notes).
 | **Task messages** | `Message/{TaskMessageInterface, RegionalTaskMessageInterface, ProfileTaskMessageInterface, FeatureFlagMessageInterface}` |
 | **Task configuration** | `DependencyInjection/GameTasksConfiguration` (`addTaskNode()`, `registerTaskParameters()`), `Scheduler/AbstractTaskScheduleProvider` |
 | **Pull tracking** | `Service/AbstractPullOperationTracker` (cache + private Mercure updates; backup imports may report per-banner progress in `banners`), `Model/Pull/{PullImportProgress, PullImportSummary}` (optional `updated` and `banners`), `Exception/PullProfileLockedException` |
-| **Pull item icons** | `Service/PullItemIcon*`, `Command/PullIconResolversCommand`, Liip filter `games_pull_item_icon` (see [`PULL_ITEM_ICONS.md`](../../docs/PULL_ITEM_ICONS.md)) |
+| **Missing pulls** | `Model/Pull/{PullOrigin, PullTimelineEntry}`, `Model/Pull/Manual/*` (`ManualPull` constants, `SWindow`, `FillerPlan`, `FillerSlot`, request DTOs `CreateManualPullRequest`/`DeclarePityRequest`), `Service/Pull/PullGapPlanner` (pure: merges, filler slots, window info), `Service/Pull/ManualPullGuard` (validation), `Exception/ManualPullViolationException`, `EventSubscriber/PullApiExceptionSubscriber` (422 `{detail, code}` / 409 `profile_locked` on `/api/`), `Model/Game/HasManualPullsInterface`. See [§4.1](#41-missing-pulls-manual-s-and-declared-pity) |
+| **Pull item icons** | `Service/PullItemIcon*` (filler rows are skipped), `Command/PullIconResolversCommand`, Liip filter `games_pull_item_icon` (see [`PULL_ITEM_ICONS.md`](../../docs/PULL_ITEM_ICONS.md)) |
 | **Login helpers** | `Service/AuthSessionStore`, `Service/GeetestService` (script cache + iframe response), `Model/Auth/{LoginStepResult, SubmitCaptchaRequest}` |
 | **Account ownership** | `Security/GameAccountOwnerVoter` (`GAME_ACCOUNT_OWNER`, subject `GameAccountInterface`, compares user ids) |
 | **Serialization** | `Normalizer/AbstractGameProfileNormalizer` |
@@ -102,7 +103,7 @@ export default {
 };
 ```
 
-Shared components are driven by the fields the backend exposes for each profile (`"field" in profile`) and by common capability flags: `supports_pulls` (pull tracker available), `supports_pull_sync` (server-side automatic sync).
+Shared components are driven by the fields the backend exposes for each profile (`"field" in profile`) and by common capability flags: `supports_pulls` (pull tracker available), `supports_pull_sync` (server-side automatic sync), `supports_manual_pulls` (missing pulls: correct pity / add earlier S).
 
 Optional fields understood by the shared pulls pages:
 
@@ -114,6 +115,10 @@ Optional fields understood by the shared pulls pages:
 | `pull_label`, `pull_singular_label` | banner summary | unit counted by that banner (e.g. NTE "Rolls" vs "Arcs"), falls back to `rarity_config.pull_label` |
 | `roll_label` | pull rows | extra "Roll" column in `PullsBannerDetail` (NTE: dice value, Points Gift, Slumberland) |
 | `pity` / `pull_number` = `null` | pull rows | shown as "—" (bonus rows, rewards that do not reset pity) |
+| `origin`, `declared_pity` | pull rows, `recent_s_pulls` | `filler` rows render as "?" (thumbnail, tag, "Unknown pull", estimated date); `manual` S get a tag and a dashed badge; a declared pity gets an indicator, and a warning when the computed pity differs |
+| `recorded_pity`, `insert_after`, `insert_before`, `suggested_at`, `has_room` | S rows | bounds and defaults of the "Correct pity" / "Add earlier S" modals; rows without `has_room` get no actions |
+| `unknown_count`, `open_window`, `oldest_s` | banner summary | number of filler rows; window used by "Add missing S" when the banner has no S; the chronologically first S (with its window fields and `icon_url`), anchor of "Add missing S" even when `recent_s_pulls` is capped (NTE: 50) |
+| rarity `0` | `rarities` filter of `GET .../pulls` | the "?" pill (filler rows), off by default like B |
 
 ---
 
@@ -148,6 +153,20 @@ Why things are the way they are (useful before changing them):
 | Re-login never changes the account identity | Credentials login and pasted token/cookie compare the provider UID (HoYoverse `account_id`, Gryphline `hgId`, Perfect World `uid`) with the stored one and refuse a different account (`422 ... does not match ...`) instead of overwriting it; the Gryphline background token refresh does the same and flags the account. New accounts are deduplicated by that UID. |
 | New shared fields are optional and new DTO parameters trailing | `PullImportSummary`/`PullImportProgress` are built positionally by existing providers and tests; providers that do not send `banners`, `multiple` or `roll_label` keep the previous UI. |
 
+### 4.1 Missing pulls (manual S and declared pity)
+
+Histories start where the source starts (API window, first backup), so the first recorded S has an underestimated pity and older S are missing. Users can **declare the real pity** of an S (`declared_pity`) or **add an earlier S** (`origin = manual`). The missing pulls become **real rows** (`origin = filler`, rarity `0`, name `Unknown`), so every stats calculator counts them without special cases, except that they are not B (`unknown_count`), have no pity and reset the A-pity counter.
+
+| Decision | Reason |
+| :--- | :--- |
+| Fillers are rows, the declaration is the source of truth | Counting stays standard. `declared_pity` is never read by the counting; it only drives how many fillers a window needs (`declared − recorded`). |
+| One idempotent realign step (`PullGapPlanner::plan()` applied by each provider's `ManualPullService::realign()`) | Runs inside the profile lock after manual edits, imports and the last sync page, so later real data shrinks the fillers instead of double counting. Its second run is always empty. |
+| A manual S merges only into a recorded S that arrived later (higher id) and has no declaration | Two copies of the same character minutes apart (constellations) stay separate, and a recorded S is never claimed twice. |
+| Fillers sit strictly between non-filler neighbours (largest time gap of the window, or 1 s before the history start) | Ordering never depends on each provider's tie-break (`pullId` string, `(int) seqId`, `group_position`). Their dates are estimates and move on realign. |
+| `isS` / `countsAsPull` come from each provider's stats calculator (`toTimelineEntries()`) | The realign step counts exactly like the pity shown in the UI (NTE boards count only rolls). |
+| Provider-specific rows and ids | HoYoverse/Gryphline use `filler_`/`manual_` ids; Perfect World uses negative `group_position` slots, so imports (identity on `pulled_at` + position) never collide. |
+| Pull dates on `wall_clock_datetime_immutable` (`App\CoreBundle\Doctrine\WallClockDateTimeImmutableType`) | The three pull tables store wall-clock times read back as UTC: with the default timezone (Europe/Rome) the hour skipped when DST starts would shift on read, and realign would move the fillers placed there on every run (`tests/GamesBundle/Doctrine/PullWallClockTest`). |
+
 ### Not shared on purpose
 
 - **Message classes**: each one routes to its provider's Messenger transport through `#[AsMessage]`.
@@ -159,7 +178,8 @@ Why things are the way they are (useful before changing them):
 ### Possible future unifications
 
 - `AbstractProfileTaskMessageHandler` and the reminder handlers (Dailies/Weeklies/Stamina/Check-in): their logic is identical but would need 4 extension points (game service lookup by `gameId`/`gameBiz`, runtime account data with cookie parsing, exception context, fallback icon).
-- Pull endpoints of `ApiGameProfilesController`, `PullBackupImportService`, sync/import handlers.
+- Pull endpoints of `ApiGameProfilesController`, `PullBackupImportService`, sync/import handlers, `ManualPullService`.
+- The three pity calculators (`HoyoversePullStatsCalculator`, `GryphlinePullStatsCalculator`, `PerfectworldPullStatsCalculator`): same contract (`compute()`, `filterAndPaginate()`, `isS()`, `countsAsPull()`, `toTimelineEntries()`), different rules (NTE counts only rolls on boards).
 - Check-in setting names (`hoyolab_check_in` / `skport_check_in` → `check_in`): requires renaming database columns.
 
 ---
@@ -169,6 +189,7 @@ Why things are the way they are (useful before changing them):
 - `tests/GamesBundle/Routing/GamesRoutingTest` boots the kernel and matches real routes on the games host (provider APIs, GeeTest script/frames, SPA catch-all, legacy `/api/accounts` not routed, provider routes bound to the games host only).
 - `tests/GamesBundle/Security/GameAccountOwnerRoutesTest` boots the kernel, collects every provider route with `{account}` and runs Symfony's `IsGrantedAttributeListener` on each action: the owner passes, another user gets a 403. `GameAccountOwnerVoterTest` covers the voter for the three account entities.
 - `tests/GamesBundle/Doctrine/EncryptedCredentialMappingTest` boots the kernel and checks that exactly the five credential columns of the game accounts use the `encrypted_text` type and are found by `core:database:encrypt` (metadata only, no database connection). The type itself is tested in `CoreBundle` (see the [Encrypted Columns guide](../CoreBundle/src/Service/Encryption/README.md#6-testing)).
+- `PullGapPlannerTest` (with an `apply()` helper modelling a provider and a seeded random idempotency loop), `ManualPullGuardTest`, `PullApiExceptionSubscriberTest` and `ManualPullRequestTest` (real serializer/validator) cover the missing-pulls foundations.
 - Unit tests cover `GameProviderAccess`, provider-namespaced Mercure topics, `GameTasksConfiguration`, `AbstractTaskScheduleProvider`, `GeetestService::createFrameResponse()` and the shared normalizer flags (`supports_pulls`, `supports_pull_sync`).
 - Security (games page protected by `ROLE_USER_GAMES`, provider APIs by their roles, public PowerShell script) is not covered by automated tests: a `WebTestCase` would need a test database for the session (`PdoSessionHandler`). Check it manually with a user holding a single provider role.
 - There is no JavaScript test setup: after frontend changes run `npm run build` and check both providers in the browser (tabs, accounts, settings drawer, login modal, pulls page with live Mercure progress, diary).

@@ -13,6 +13,7 @@ use App\GryphlineBundle\Service\EndfieldService;
 use App\GryphlineBundle\Service\SkportAuthService;
 use App\GryphlineBundle\Service\SkportSignerService;
 use App\GryphlineBundle\Service\SkportUtilsService;
+use App\GamesBundle\Model\Game\HasManualPullsInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\ObjectMapper\ObjectMapperInterface;
@@ -108,6 +109,19 @@ class EndfieldServiceTest extends TestCase
 
         $this->assertSame($newCreds, $result);
         $this->assertSame($newCreds, $runtime->getCredentials());
+    }
+
+    public function testPoolCategoryAndPoolTypeMappings(): void
+    {
+        $service = $this->createService();
+
+        $this->assertInstanceOf(HasManualPullsInterface::class, $service);
+        $this->assertSame('char', $service->getPoolCategoryForPoolType('E_CharacterGachaPoolType_Special'));
+        $this->assertSame('char', $service->getPoolCategoryForPoolType('E_CharacterGachaPoolType_Beginner'));
+        $this->assertSame('weapon', $service->getPoolCategoryForPoolType('E_WeaponGachaPoolType_Standard'));
+        $this->assertSame('E_CharacterGachaPoolType_Special', $service->getPoolTypeForCategory('char'));
+        $this->assertSame('E_WeaponGachaPoolType_Standard', $service->getPoolTypeForCategory('weapon'));
+        $this->assertSame('E_CharacterGachaPoolType_Standard', $service->getPoolTypeForCategory('E_CharacterGachaPoolType_Standard'));
     }
 
     public function testConstantsAndMetadata(): void

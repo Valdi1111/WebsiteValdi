@@ -85,8 +85,8 @@ Both providers use dedicated Symfony filesystem cache pools (`hoyoverse.item_ico
 ## 4. Backend & Frontend Integration
 
 ### Backend (Repositories & Controllers)
-- [`HoyoversePullRepository::computeBannerStats()`](../src/HoyoverseBundle/src/Repository/HoyoversePullRepository.php) and [`GryphlinePullRepository::computeBannerStats()`](../src/GryphlineBundle/src/Repository/GryphlinePullRepository.php) include `'item_id'` in each `recent_s_pulls` entry.
-- Both `ApiGameProfilesController` classes enrich `recent_s_pulls` (in `/pulls/overview`) and paginated `items` (in `/pulls`) via `PullItemIconUrlBuilder::enrichPullRows($gameService, ...)`, appending `'icon_url'`.
+- The pity calculators ([`HoyoversePullStatsCalculator`](../src/HoyoverseBundle/src/Service/Pull/HoyoversePullStatsCalculator.php), [`GryphlinePullStatsCalculator`](../src/GryphlineBundle/src/Service/Pull/GryphlinePullStatsCalculator.php), [`PerfectworldPullStatsCalculator`](../src/PerfectworldBundle/src/Service/Pull/PerfectworldPullStatsCalculator.php)) include `'item_id'` in each `recent_s_pulls` entry.
+- The `ApiGameProfilesController` classes enrich `recent_s_pulls` (in `/pulls/overview`) and paginated `items` (in `/pulls`) via `PullItemIconUrlBuilder::enrichPullRows($gameService, ...)`, appending `'icon_url'`. Filler rows (`origin = filler`, the "?" placeholders of missing pulls) get `icon_url = null` without a resolver lookup.
 
 ### Frontend (React / Ant Design)
 Both `HoyoverseBundle` and `GryphlineBundle` use identical circular icon components with lazy loading and silent monogram fallback on `onError`:

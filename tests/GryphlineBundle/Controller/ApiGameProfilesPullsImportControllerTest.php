@@ -4,15 +4,24 @@ namespace App\Tests\GryphlineBundle\Controller;
 
 use App\CoreBundle\Entity\User;
 use App\GamesBundle\Model\Pull\PullBackupValidationResult;
+use App\GamesBundle\Model\Pull\Manual\CreateManualPullRequest;
+use App\GamesBundle\Model\Pull\Manual\DeclarePityRequest;
+use App\GamesBundle\Model\Pull\PullOrigin;
+use App\GamesBundle\Service\Pull\ManualPullGuard;
+use App\GamesBundle\Service\Pull\PullGapPlanner;
 use App\GamesBundle\Service\PullItemIconUrlBuilder;
 use App\GryphlineBundle\Controller\ApiGameProfilesController;
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
+use App\GryphlineBundle\Entity\GryphlinePull;
 use App\GryphlineBundle\Message\Profile\ImportPullsBackupMessage;
 use App\GryphlineBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\GryphlineBundle\Model\Pull\PullBackupImporterInterface;
 use App\GryphlineBundle\Repository\GryphlinePullRepository;
+use App\GryphlineBundle\Service\Catalog\EndfieldCatalog;
 use App\GryphlineBundle\Service\EndfieldService;
+use App\GryphlineBundle\Service\Pull\GryphlinePullStatsCalculator;
+use App\GryphlineBundle\Service\Pull\ManualPullService;
 use App\GryphlineBundle\Service\Pull\PullBackupImporterManager;
 use App\GryphlineBundle\Service\Pull\PullOperationTracker;
 use App\GryphlineBundle\Service\SkportAuthService;
@@ -22,11 +31,14 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\DependencyInjection\Container;
 use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\Store\InMemoryStore;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -243,11 +255,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $controller = $this->createController();
 
         $pullRepo = $this->createStub(GryphlinePullRepository::class);
-        $pullRepo->method('buildOverview')->willReturn([
-            'total_pulls' => 0,
-            'banners' => [],
-            'monthly_timeline' => [],
-        ]);
+        $pullRepo->method('findProfileRows')->willReturn([]);
 
         $subscribedTopics = [];
         $tokenFactory = $this->createStub(TokenFactoryInterface::class);
@@ -273,6 +281,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
             $account,
             $profile,
             $pullRepo,
+            new GryphlinePullStatsCalculator(new PullGapPlanner()),
             $this->createStub(PullItemIconUrlBuilder::class),
             new PullBackupImporterManager([]),
             $tracker,
@@ -281,10 +290,307 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
 
         $this->assertSame(Response::HTTP_OK, $response->getStatusCode());
         $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(0, $payload['total_pulls']);
+        $this->assertCount(4, $payload['banners'], 'Configured banners are listed even without pulls');
+        $this->assertSame([], $payload['monthly_timeline']);
         $this->assertSame([], $payload['available_backup_importers']);
         $this->assertSame('https://games.test/gryphline/profiles/10/pulls/progress', $payload['mercure_topic']);
         $this->assertSame($activeOp['id'], $payload['active_operation']['id']);
         $this->assertNotEmpty($request->attributes->get('_mercure_authorization_cookies'));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function pullRow(int $id, string $poolType, string $pulledAt, int $rarity, string $name, ?string $poolName = 'Winter Hunt'): array
+    {
+        return [
+            'id' => $id,
+            'seqId' => (string) (100 + $id),
+            'poolType' => $poolType,
+            'poolCategory' => str_starts_with($poolType, 'E_Weapon') ? 'weapon' : 'char',
+            'poolId' => 'pool_1',
+            'poolName' => $poolName,
+            'itemId' => 'item_' . $id,
+            'name' => $name,
+            'rarity' => $rarity,
+            'pulledAt' => new \DateTimeImmutable($pulledAt),
+        ];
+    }
+
+    private function createIconUrlBuilder(): PullItemIconUrlBuilder
+    {
+        $iconUrlBuilder = $this->createStub(PullItemIconUrlBuilder::class);
+        $iconUrlBuilder->method('enrichPullRows')->willReturnCallback(
+            static fn (object $game, array $rows): array => array_map(static fn (array $row): array => $row + ['icon_url' => 'icon/' . $row['item_id']], $rows)
+        );
+
+        return $iconUrlBuilder;
+    }
+
+    public function testPullsOverviewComputesEachBannerAndMergesTheMonthlyTimeline(): void
+    {
+        $user = $this->createUser(1);
+        [$account, $profile] = $this->createAccountAndProfile($user, 10);
+        $controller = $this->createController();
+
+        $pullRepo = $this->createStub(GryphlinePullRepository::class);
+        $pullRepo->method('findProfileRows')->willReturn([
+            $this->pullRow(1, 'E_CharacterGachaPoolType_Special', '2026-05-10 10:00:00', 4, 'Item'),
+            $this->pullRow(2, 'E_CharacterGachaPoolType_Special', '2026-05-10 10:00:00', 6, 'Liino'),
+            $this->pullRow(3, 'E_WeaponGachaPoolType_Standard', '2026-06-01 10:00:00', 5, 'Aspirant', 'Deep Cold Issue'),
+            $this->pullRow(4, 'E_CharacterGachaPoolType_Collab', '2026-06-02 10:00:00', 6, 'Guest', 'Collab Hunt'),
+            $this->pullRow(5, 'E_CharacterGachaPoolType_Special', '2026-06-03 10:00:00', 4, 'Item'),
+        ]);
+
+        $hub = $this->createStub(HubInterface::class);
+        $hub->method('getPublicUrl')->willReturn('https://gryphline.test/.well-known/mercure');
+        $hub->method('getFactory')->willReturn($this->createStub(TokenFactoryInterface::class));
+
+        $response = $controller->apiGameProfilePullsOverview(
+            Request::create('https://gryphline.test/api/accounts/1/gameProfiles/10/pulls/overview', 'GET'),
+            $account,
+            $profile,
+            $pullRepo,
+            new GryphlinePullStatsCalculator(new PullGapPlanner()),
+            $this->createIconUrlBuilder(),
+            new PullBackupImporterManager([]),
+            new PullOperationTracker(new ArrayAdapter(), $hub, 'games.test'),
+            new Authorization(new HubRegistry($hub)),
+        );
+
+        $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(5, $payload['total_pulls']);
+        $this->assertSame([
+            'E_CharacterGachaPoolType_Special',
+            'E_CharacterGachaPoolType_Standard',
+            'E_WeaponGachaPoolType_Standard',
+            'E_CharacterGachaPoolType_Beginner',
+            'E_CharacterGachaPoolType_Collab',
+        ], array_column($payload['banners'], 'key'), 'Configured banners first, then unconfigured pool types');
+        $this->assertSame([3, 0, 1, 0, 1], array_column($payload['banners'], 'total_pulls'));
+        $this->assertSame('Collab Hunt', $payload['banners'][4]['name']);
+        $this->assertSame([80, 10], [$payload['banners'][4]['s_max_pity'], $payload['banners'][4]['a_max_pity']]);
+        $this->assertSame(1, $payload['banners'][0]['s_pity']);
+        $this->assertSame('icon/item_2', $payload['banners'][0]['recent_s_pulls'][0]['icon_url']);
+        $this->assertSame('icon/item_2', $payload['banners'][0]['oldest_s']['icon_url'], 'oldest_s is enriched like recent_s_pulls');
+        $this->assertNull($payload['banners'][1]['oldest_s']);
+        $this->assertSame([
+            ['month' => '2026-05', 'total' => 2, 's_count' => 1, 'a_count' => 0],
+            ['month' => '2026-06', 'total' => 3, 's_count' => 1, 'a_count' => 1],
+        ], $payload['monthly_timeline']);
+    }
+
+    public function testPullsListComputesTheBannerThenFiltersAndPaginates(): void
+    {
+        $user = $this->createUser(1);
+        [$account, $profile] = $this->createAccountAndProfile($user, 10);
+        $controller = $this->createController();
+
+        $rows = [];
+        for ($id = 1; $id <= 12; $id++) {
+            $rarity = match ($id) {
+                3, 11 => 6,
+                5, 8, 12 => 5,
+                default => 4,
+            };
+            $rows[] = $this->pullRow($id, 'E_WeaponGachaPoolType_Standard', sprintf('2026-06-01 10:%02d:00', $id), $rarity, 'Weapon ' . $id);
+        }
+
+        $pullRepo = $this->createMock(GryphlinePullRepository::class);
+        $pullRepo->expects($this->once())
+            ->method('findBannerRows')
+            ->with($profile, ['E_WeaponGachaPoolType_Standard'])
+            ->willReturn($rows);
+
+        $request = Request::create('/api/accounts/1/gameProfiles/10/pulls', 'GET', [
+            'banner' => 'E_WeaponGachaPoolType_Standard',
+            'rarities' => '5,4',
+            'page' => '2',
+            'limit' => '3',
+        ]);
+        $response = $controller->apiGameProfilePullsList($request, $account, $profile, $pullRepo, new GryphlinePullStatsCalculator(new PullGapPlanner()), $this->createIconUrlBuilder());
+
+        $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(10, $payload['total'], 'Every A and B headhunt');
+        $this->assertSame(2, $payload['page']);
+        $this->assertSame(5, $payload['limit'], 'The limit is at least 5');
+        $this->assertSame([6, 5, 4, 2, 1], array_column($payload['items'], 'id'), 'Newest first, second page');
+        $this->assertSame([1, 2, 1, 1, 1], array_column($payload['items'], 'pity'), 'Pity is computed on the whole banner, before filtering');
+        $this->assertSame('icon/item_6', $payload['items'][0]['icon_url']);
+
+        $banner = $payload['banner'];
+        $this->assertSame('Weapon Headhunting', $banner['name']);
+        $this->assertSame(12, $banner['total_pulls']);
+        $this->assertSame(6000, $banner['currency_spent']);
+        $this->assertSame([2, 3, 7], [$banner['s_count'], $banner['a_count'], $banner['b_count']]);
+        $this->assertSame([1, 0], [$banner['s_pity'], $banner['a_pity']], 'The last S reset the A pity, then an A');
+        $this->assertSame(['icon/item_11', 'icon/item_3'], array_column($banner['recent_s_pulls'], 'icon_url'));
+        $this->assertSame(3, $banner['oldest_s']['id']);
+        $this->assertSame('icon/item_3', $banner['oldest_s']['icon_url']);
+    }
+
+    public function testPullsListAcceptsRarityZeroForUnknownPulls(): void
+    {
+        $user = $this->createUser(1);
+        [$account, $profile] = $this->createAccountAndProfile($user, 10);
+        $controller = $this->createController();
+
+        $rows = [];
+        foreach ([[4, 'recorded'], [0, 'filler'], [0, 'filler'], [6, 'recorded'], [5, 'recorded']] as $i => [$rarity, $origin]) {
+            $row = $this->pullRow($i + 1, 'E_CharacterGachaPoolType_Special', sprintf('2026-06-01 10:%02d:00', $i), $rarity, $origin === 'filler' ? 'Unknown' : 'Item ' . $i);
+            $row['origin'] = PullOrigin::from($origin);
+            $rows[] = $row;
+        }
+        $pullRepo = $this->createStub(GryphlinePullRepository::class);
+        $pullRepo->method('findBannerRows')->willReturn($rows);
+
+        $request = Request::create('/api/accounts/1/gameProfiles/10/pulls', 'GET', [
+            'banner' => 'E_CharacterGachaPoolType_Special',
+            'rarities' => '0, abc,-1,,4',
+        ]);
+        $response = $controller->apiGameProfilePullsList($request, $account, $profile, $pullRepo, new GryphlinePullStatsCalculator(new PullGapPlanner()), $this->createIconUrlBuilder());
+
+        $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(3, $payload['total'], '0 (unknown) and 4 kept; "abc", "-1" and empty values skipped');
+        $this->assertSame([3, 2, 1], array_column($payload['items'], 'id'));
+        $this->assertSame(['filler', 'filler', 'recorded'], array_column($payload['items'], 'origin'));
+        $this->assertSame([null, null, 1], array_column($payload['items'], 'pity'));
+        $this->assertSame(2, $payload['banner']['unknown_count']);
+    }
+
+    private function createManualPullService(GryphlinePullRepository $pullRepo, ?EndfieldCatalog $catalog = null): ManualPullService
+    {
+        $planner = new PullGapPlanner();
+
+        return new ManualPullService(
+            $this->createStub(EntityManagerInterface::class),
+            $pullRepo,
+            new GryphlinePullStatsCalculator($planner),
+            $planner,
+            new ManualPullGuard($planner),
+            new LockFactory(new InMemoryStore()),
+            $catalog ?? new EndfieldCatalog(new ArrayAdapter()),
+            new MockClock('2026-11-22 12:00:00', 'UTC'),
+            new NullLogger(),
+        );
+    }
+
+    public function testManualSuggestionsListTheBannerSItemsWithIcons(): void
+    {
+        $user = $this->createUser(1);
+        [$account, $profile] = $this->createAccountAndProfile($user, 10);
+        $controller = $this->createController();
+
+        $catalog = new EndfieldCatalog(new ArrayAdapter());
+        $catalog->save(['version' => 'v1', 'built_at' => 'now', 'items' => [
+            'wpn_funnel_0011' => ['id' => 'wpn_funnel_0011', 'name' => 'Delivery Guaranteed', 'rarity' => 6, 'type' => 'weapon'],
+            'chr_0005_chen' => ['id' => 'chr_0005_chen', 'name' => 'Chen Qianyu', 'rarity' => 6, 'type' => 'char'],
+        ]]);
+        $pullRepo = $this->createStub(GryphlinePullRepository::class);
+        $pullRepo->method('findDistinctRecordedItems')->willReturn([]);
+
+        $request = Request::create('/api/accounts/1/gameProfiles/10/pulls/manual/suggestions', 'GET', ['banner' => 'E_WeaponGachaPoolType_Standard']);
+        $response = $controller->apiGameProfilePullsManualSuggestions($request, $account, $profile, $this->createManualPullService($pullRepo, $catalog), $this->createIconUrlBuilder());
+
+        $this->assertSame(Response::HTTP_OK, $response->getStatusCode());
+        $this->assertSame([
+            'items' => [[
+                'item_id' => 'wpn_funnel_0011',
+                'name' => 'Delivery Guaranteed',
+                'item_type' => 'weapon',
+                'item_type_label' => 'Weapon',
+                'rarity' => 6,
+                'icon_url' => 'icon/wpn_funnel_0011',
+            ]],
+            'allow_free_text' => true,
+            'item_types' => [],
+        ], json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR));
+    }
+
+    public function testManualEndpointsRejectAnUnknownBanner(): void
+    {
+        $user = $this->createUser(1);
+        [$account, $profile] = $this->createAccountAndProfile($user, 10);
+        $controller = $this->createController();
+        $service = $this->createManualPullService($this->createStub(GryphlinePullRepository::class));
+
+        try {
+            $controller->apiGameProfilePullsManualSuggestions(
+                Request::create('/', 'GET', ['banner' => 'E_Unknown']),
+                $account,
+                $profile,
+                $service,
+                $this->createIconUrlBuilder(),
+            );
+            $this->fail('Suggestions of an unknown banner');
+        } catch (BadRequestHttpException) {
+        }
+
+        $this->expectException(BadRequestHttpException::class);
+        $controller->apiGameProfilePullsManualCreate(
+            $account,
+            $profile,
+            new CreateManualPullRequest(banner: 'E_Unknown', name: 'Chen', pulledAt: '2026-06-01 10:00:00', pity: 10),
+            $service,
+        );
+    }
+
+    public function testManualCreateReturnsTheNewPullId(): void
+    {
+        $user = $this->createUser(1);
+        [$account, $profile] = $this->createAccountAndProfile($user, 10);
+        $controller = $this->createController();
+
+        $request = new CreateManualPullRequest(banner: 'E_CharacterGachaPoolType_Special', name: 'Chen', pulledAt: '2026-06-01 10:00:00', pity: 10);
+        $pull = new GryphlinePull();
+        (new \ReflectionProperty(GryphlinePull::class, 'id'))->setValue($pull, 321);
+        $service = $this->createMock(ManualPullService::class);
+        $service->expects($this->once())->method('createManualS')->with($profile, $this->isInstanceOf(EndfieldService::class), $request)->willReturn($pull);
+
+        $response = $controller->apiGameProfilePullsManualCreate($account, $profile, $request, $service);
+
+        $this->assertSame(Response::HTTP_CREATED, $response->getStatusCode());
+        $this->assertSame(['success' => true, 'pull_id' => 321], json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR));
+    }
+
+    public function testDeclaredPityAndDeleteReturn404ForAPullOfAnotherProfile(): void
+    {
+        $user = $this->createUser(1);
+        [$account, $profile] = $this->createAccountAndProfile($user, 10);
+        [, $otherProfile] = $this->createAccountAndProfile($user, 11);
+        $controller = $this->createController();
+
+        $pull = (new GryphlinePull())->setGameProfile($otherProfile)->setOrigin(PullOrigin::Manual);
+        $service = $this->createMock(ManualPullService::class);
+        $service->expects($this->never())->method($this->anything());
+
+        try {
+            $controller->apiGameProfilePullsDeclaredPity($account, $profile, $pull, new DeclarePityRequest(5), $service);
+            $this->fail('Declared pity on a pull of another profile');
+        } catch (NotFoundHttpException) {
+        }
+
+        $this->expectException(NotFoundHttpException::class);
+        $controller->apiGameProfilePullsManualDelete($account, $profile, $pull, $service);
+    }
+
+    public function testDeclaredPityAndDeleteDelegateToTheService(): void
+    {
+        $user = $this->createUser(1);
+        [$account, $profile] = $this->createAccountAndProfile($user, 10);
+        $controller = $this->createController();
+
+        $pull = (new GryphlinePull())->setGameProfile($profile)->setOrigin(PullOrigin::Manual);
+        $service = $this->createMock(ManualPullService::class);
+        $service->expects($this->once())->method('declarePity')->with($profile, $this->isInstanceOf(EndfieldService::class), $pull, null);
+        $service->expects($this->once())->method('deleteManual')->with($profile, $this->isInstanceOf(EndfieldService::class), $pull);
+
+        $declared = $controller->apiGameProfilePullsDeclaredPity($account, $profile, $pull, new DeclarePityRequest(null), $service);
+        $deleted = $controller->apiGameProfilePullsManualDelete($account, $profile, $pull, $service);
+
+        $this->assertSame('{"success":true}', $declared->getContent());
+        $this->assertSame('{"success":true}', $deleted->getContent());
     }
 
     public function testImportBackupAcceptsValidFileAndDispatchesMessage(): void

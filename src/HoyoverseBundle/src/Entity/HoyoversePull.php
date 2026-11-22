@@ -2,6 +2,8 @@
 
 namespace App\HoyoverseBundle\Entity;
 
+use App\CoreBundle\Doctrine\WallClockDateTimeImmutableType;
+use App\GamesBundle\Model\Pull\PullOrigin;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -45,11 +47,21 @@ class HoyoversePull
     #[ORM\Column(type: Types::SMALLINT)]
     private ?int $rarity = null;
 
-    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
+    /**
+     * Game server wall-clock time (e.g. "2024-03-31 02:30:00" on an Europe server), read back as UTC so DST gaps never shift it.
+     */
+    #[ORM\Column(type: WallClockDateTimeImmutableType::NAME)]
     private ?\DateTimeImmutable $pulledAt = null;
 
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $rawPayload = null;
+
+    #[ORM\Column(length: 16, enumType: PullOrigin::class, options: ['default' => 'recorded'])]
+    private PullOrigin $origin = PullOrigin::Recorded;
+
+    /** Real pity declared by the user on an S row (always set on manual rows); never read by the pity count */
+    #[ORM\Column(type: Types::SMALLINT, nullable: true)]
+    private ?int $declaredPity = null;
 
     public function getId(): ?int
     {
@@ -172,6 +184,30 @@ class HoyoversePull
     public function setRawPayload(?array $rawPayload): static
     {
         $this->rawPayload = $rawPayload;
+
+        return $this;
+    }
+
+    public function getOrigin(): PullOrigin
+    {
+        return $this->origin;
+    }
+
+    public function setOrigin(PullOrigin $origin): static
+    {
+        $this->origin = $origin;
+
+        return $this;
+    }
+
+    public function getDeclaredPity(): ?int
+    {
+        return $this->declaredPity;
+    }
+
+    public function setDeclaredPity(?int $declaredPity): static
+    {
+        $this->declaredPity = $declaredPity;
 
         return $this;
     }

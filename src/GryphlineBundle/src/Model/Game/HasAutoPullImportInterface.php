@@ -14,6 +14,16 @@ interface HasAutoPullImportInterface
     public function getRarityConfig(): RarityConfig;
 
     /**
+     * Pool type of a sync category: a banner key, or a legacy alias such as "char".
+     */
+    public function getPoolTypeForCategory(string $category): string;
+
+    /**
+     * Pool category (record endpoint, stored in gryphline_pull.pool_category) of a pool type.
+     */
+    public function getPoolCategoryForPoolType(string $poolType): string;
+
+    /**
      * Fetches a single page of pulls for a category and optional seq_id cursor.
      *
      * @return array<GryphlinePull>

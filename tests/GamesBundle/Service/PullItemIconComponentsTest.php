@@ -178,4 +178,43 @@ class PullItemIconComponentsTest extends TestCase
             $enriched[0]['icon_url']
         );
     }
+
+    public function testUrlBuilderSkipsFillerRows(): void
+    {
+        $resolver = new class implements PullItemIconResolverInterface {
+            public static function getSupportedGameServices(): array
+            {
+                return [HonkaiStarRailService::class => 100];
+            }
+
+            public function resolveUrl(string|object $gameService, PullItemIconQuery $query): ?string
+            {
+                return 'https://example.com/1001.png';
+            }
+        };
+
+        $cacheManager = $this->createMock(CacheManager::class);
+        $cacheManager->expects($this->once())
+            ->method('getBrowserPath')
+            ->with('hkrpg_global/id/character/1001.webp', PullItemIconUrlBuilder::FILTER_NAME)
+            ->willReturn('https://localhost/media/cache/games_pull_item_icon/hkrpg_global/id/character/1001.webp');
+
+        $builder = new PullItemIconUrlBuilder(
+            $cacheManager,
+            new PullItemIconPathCodec(),
+            new PullItemIconResolverManager([$resolver]),
+        );
+
+        $enriched = $builder->enrichPullRows(HonkaiStarRailService::class, [
+            ['item_id' => null, 'name' => 'Unknown', 'item_type' => 'Unknown', 'rarity' => 0, 'origin' => 'filler'],
+            ['item_id' => '1001', 'name' => 'March 7th', 'item_type' => 'Character', 'rarity' => 4, 'origin' => 'recorded'],
+        ]);
+
+        $this->assertArrayHasKey('icon_url', $enriched[0]);
+        $this->assertNull($enriched[0]['icon_url']);
+        $this->assertSame(
+            'https://localhost/media/cache/games_pull_item_icon/hkrpg_global/id/character/1001.webp',
+            $enriched[1]['icon_url']
+        );
+    }
 }

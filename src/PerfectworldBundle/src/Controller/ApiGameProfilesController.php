@@ -3,16 +3,21 @@
 namespace App\PerfectworldBundle\Controller;
 
 use App\CoreBundle\Entity\User;
+use App\GamesBundle\Model\Game\HasManualPullsInterface;
+use App\GamesBundle\Model\Pull\Manual\CreateManualPullRequest;
+use App\GamesBundle\Model\Pull\Manual\DeclarePityRequest;
 use App\GamesBundle\Security\GameAccountOwnerVoter;
 use App\GamesBundle\Service\PullItemIconUrlBuilder;
 use App\PerfectworldBundle\Entity\PerfectworldAccount;
 use App\PerfectworldBundle\Entity\PerfectworldGameProfile;
+use App\PerfectworldBundle\Entity\PerfectworldPull;
 use App\PerfectworldBundle\Message\Profile\ImportPullsBackupMessage;
 use App\PerfectworldBundle\Model\Game\GameInterface;
 use App\PerfectworldBundle\Model\Game\HasPullTrackerInterface;
 use App\PerfectworldBundle\Repository\PerfectworldPullRepository;
 use App\PerfectworldBundle\Service\Catalog\NteCatalog;
-use App\PerfectworldBundle\Service\Pull\NtePullStatsCalculator;
+use App\PerfectworldBundle\Service\Pull\ManualPullService;
+use App\PerfectworldBundle\Service\Pull\PerfectworldPullStatsCalculator;
 use App\PerfectworldBundle\Service\Pull\PullBackupImportService;
 use App\PerfectworldBundle\Service\Pull\PullBackupImporterManager;
 use App\PerfectworldBundle\Service\Pull\PullOperationTracker;
@@ -24,6 +29,8 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\MapQueryParameter;
+use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -224,7 +231,7 @@ class ApiGameProfilesController extends AbstractController
         #[MapEntity(message: 'Account not found.')] PerfectworldAccount $account,
         #[MapEntity(message: 'Game profile not found.')] PerfectworldGameProfile $gameProfile,
         PerfectworldPullRepository $pullRepository,
-        NtePullStatsCalculator $statsCalculator,
+        PerfectworldPullStatsCalculator $statsCalculator,
         PullItemIconUrlBuilder $iconUrlBuilder,
         PullBackupImporterManager $importerManager,
         PullOperationTracker $operationTracker,
@@ -248,8 +255,7 @@ class ApiGameProfilesController extends AbstractController
                 $catalog->findPoolName(...),
             );
 
-            $summary = $computed['summary'];
-            $summary['recent_s_pulls'] = $iconUrlBuilder->enrichPullRows($gameService, $summary['recent_s_pulls']);
+            $summary = $this->enrichSummaryIcons($iconUrlBuilder, $gameService, $computed['summary']);
             $banners[] = $summary;
             $totalPulls += $summary['total_pulls'];
 
@@ -280,7 +286,7 @@ class ApiGameProfilesController extends AbstractController
         #[MapEntity(message: 'Account not found.')] PerfectworldAccount $account,
         #[MapEntity(message: 'Game profile not found.')] PerfectworldGameProfile $gameProfile,
         PerfectworldPullRepository $pullRepository,
-        NtePullStatsCalculator $statsCalculator,
+        PerfectworldPullStatsCalculator $statsCalculator,
         PullItemIconUrlBuilder $iconUrlBuilder,
         NteCatalog $catalog,
     ): Response {
@@ -293,10 +299,12 @@ class ApiGameProfilesController extends AbstractController
             $bannerKey = (string) array_key_first($bannerGroups);
         }
 
+        // Non-negative integers only: 0 selects the filler rows (unknown pulls)
         $rarities = [];
         foreach (explode(',', $req->query->getString('rarities')) as $rarity) {
-            if ((int) trim($rarity) > 0) {
-                $rarities[] = (int) trim($rarity);
+            $rarity = trim($rarity);
+            if (ctype_digit($rarity)) {
+                $rarities[] = (int) $rarity;
             }
         }
         $page = max(1, $req->query->getInt('page', 1));
@@ -310,8 +318,7 @@ class ApiGameProfilesController extends AbstractController
         );
         $result = $statsCalculator->filterAndPaginate($computed['items'], $rarities, $req->query->getString('search') ?: null, $page, $limit);
 
-        $banner = $computed['summary'];
-        $banner['recent_s_pulls'] = $iconUrlBuilder->enrichPullRows($gameService, $banner['recent_s_pulls']);
+        $banner = $this->enrichSummaryIcons($iconUrlBuilder, $gameService, $computed['summary']);
 
         return $this->json([
             'banner' => $banner,
@@ -321,6 +328,91 @@ class ApiGameProfilesController extends AbstractController
             'page' => $page,
             'limit' => $limit,
         ]);
+    }
+
+    /**
+     * S items a manual S of the banner can be (catalog only: NTE manual pulls need a catalog id).
+     */
+    #[Route('/gameProfiles/{gameProfile}/pulls/manual/suggestions', name: 'pulls_manual_suggestions', requirements: ['gameProfile' => '\d+'], methods: ['GET'])]
+    public function apiGameProfilePullsManualSuggestions(
+        #[MapEntity(message: 'Account not found.')] PerfectworldAccount $account,
+        #[MapEntity(message: 'Game profile not found.')] PerfectworldGameProfile $gameProfile,
+        ManualPullService $manualPullService,
+        PullItemIconUrlBuilder $iconUrlBuilder,
+        #[MapQueryParameter] string $banner = '',
+    ): Response {
+        $this->assertProfileOfAccount($account, $gameProfile);
+        $gameService = $this->getManualPullsGame($gameProfile);
+
+        return $this->json([
+            'items' => $iconUrlBuilder->enrichPullRows($gameService, $manualPullService->getSuggestions($gameService, $banner)),
+            'allow_free_text' => false,
+            'item_types' => [],
+        ]);
+    }
+
+    #[Route('/gameProfiles/{gameProfile}/pulls/manual', name: 'pulls_manual_create', requirements: ['gameProfile' => '\d+'], methods: ['POST'])]
+    public function apiGameProfilePullsManualCreate(
+        #[MapEntity(message: 'Account not found.')] PerfectworldAccount $account,
+        #[MapEntity(message: 'Game profile not found.')] PerfectworldGameProfile $gameProfile,
+        #[MapRequestPayload] CreateManualPullRequest $payload,
+        ManualPullService $manualPullService,
+    ): Response {
+        $this->assertProfileOfAccount($account, $gameProfile);
+        $gameService = $this->getManualPullsGame($gameProfile);
+
+        $pull = $manualPullService->createManualS($gameProfile, $gameService, $payload);
+
+        return $this->json(['success' => true, 'pull_id' => $pull->getId()], Response::HTTP_CREATED);
+    }
+
+    #[Route('/gameProfiles/{gameProfile}/pulls/{pull}/declared-pity', name: 'pulls_declared_pity', requirements: ['gameProfile' => '\d+', 'pull' => '\d+'], methods: ['PATCH'])]
+    public function apiGameProfilePullsDeclaredPity(
+        #[MapEntity(message: 'Account not found.')] PerfectworldAccount $account,
+        #[MapEntity(message: 'Game profile not found.')] PerfectworldGameProfile $gameProfile,
+        #[MapEntity(message: 'Pull not found.')] PerfectworldPull $pull,
+        #[MapRequestPayload] DeclarePityRequest $payload,
+        ManualPullService $manualPullService,
+    ): Response {
+        $this->assertProfileOfAccount($account, $gameProfile);
+        $gameService = $this->getManualPullsGame($gameProfile);
+        $this->assertPullOfProfile($gameProfile, $pull);
+
+        $manualPullService->declarePity($gameProfile, $gameService, $pull, $payload->pity);
+
+        return $this->json(['success' => true]);
+    }
+
+    #[Route('/gameProfiles/{gameProfile}/pulls/{pull}', name: 'pulls_manual_delete', requirements: ['gameProfile' => '\d+', 'pull' => '\d+'], methods: ['DELETE'])]
+    public function apiGameProfilePullsManualDelete(
+        #[MapEntity(message: 'Account not found.')] PerfectworldAccount $account,
+        #[MapEntity(message: 'Game profile not found.')] PerfectworldGameProfile $gameProfile,
+        #[MapEntity(message: 'Pull not found.')] PerfectworldPull $pull,
+        ManualPullService $manualPullService,
+    ): Response {
+        $this->assertProfileOfAccount($account, $gameProfile);
+        $gameService = $this->getManualPullsGame($gameProfile);
+        $this->assertPullOfProfile($gameProfile, $pull);
+
+        $manualPullService->deleteManual($gameProfile, $gameService, $pull);
+
+        return $this->json(['success' => true]);
+    }
+
+    /**
+     * Icons of the S pulls of a banner summary (recent_s_pulls and oldest_s).
+     *
+     * @param array<string, mixed> $summary
+     * @return array<string, mixed>
+     */
+    private function enrichSummaryIcons(PullItemIconUrlBuilder $iconUrlBuilder, GameInterface $gameService, array $summary): array
+    {
+        $summary['recent_s_pulls'] = $iconUrlBuilder->enrichPullRows($gameService, $summary['recent_s_pulls']);
+        if (isset($summary['oldest_s'])) {
+            $summary['oldest_s'] = $iconUrlBuilder->enrichPullRows($gameService, [$summary['oldest_s']])[0];
+        }
+
+        return $summary;
     }
 
     private function assertProfileOfAccount(PerfectworldAccount $account, PerfectworldGameProfile $gameProfile): void
@@ -339,5 +431,22 @@ class ApiGameProfilesController extends AbstractController
         }
 
         return $gameService;
+    }
+
+    private function getManualPullsGame(PerfectworldGameProfile $gameProfile): GameInterface&HasPullTrackerInterface
+    {
+        $gameService = $this->getPullTrackerGame($gameProfile);
+        if (!$gameService instanceof HasManualPullsInterface) {
+            throw new BadRequestHttpException('This game does not support manual pulls.');
+        }
+
+        return $gameService;
+    }
+
+    private function assertPullOfProfile(PerfectworldGameProfile $gameProfile, PerfectworldPull $pull): void
+    {
+        if ($pull->getGameProfile() !== $gameProfile) {
+            throw new NotFoundHttpException('Pull not found.');
+        }
     }
 }

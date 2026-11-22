@@ -4,6 +4,7 @@ namespace App\Tests\GryphlineBundle\MessageHandler;
 
 use App\GamesBundle\Exception\PullProfileLockedException;
 use App\GamesBundle\Model\Pull\PullImportSummary;
+use App\GamesBundle\Model\Pull\Manual\FillerPlan;
 use App\GamesBundle\Model\Pull\PullOperationKind;
 use App\CoreBundle\Service\Notification\UnifiedNotificationService;
 use App\GryphlineBundle\Entity\GryphlineAccount;
@@ -18,6 +19,7 @@ use App\GryphlineBundle\Model\Pull\SyntheticPullReconcilerInterface;
 use App\GryphlineBundle\Repository\GryphlineGameProfileRepository;
 use App\GryphlineBundle\Repository\GryphlinePullRepository;
 use App\GryphlineBundle\Service\EndfieldService;
+use App\GryphlineBundle\Service\Pull\ManualPullService;
 use App\GryphlineBundle\Service\Pull\PullBackupImportService;
 use App\GryphlineBundle\Service\Pull\PullOperationTracker;
 use App\GryphlineBundle\Service\Pull\PullSyntheticReconcilerManager;
@@ -140,6 +142,13 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
         $bus = $this->createMock(MessageBusInterface::class);
         $bus->expects($this->never())->method('dispatch');
 
+        // Page 5001 already exists: last page of the banner, realigned after the flush ("char" is the Special banner)
+        $manualPullService = $this->createMock(ManualPullService::class);
+        $manualPullService->expects($this->once())
+            ->method('realign')
+            ->with($profile, $endfield, 'E_CharacterGachaPoolType_Special')
+            ->willReturn(new FillerPlan());
+
         $handler = new SyncPullsPageProfileHandler(
             $profileRepo,
             new ServiceLocator([EndfieldService::GAME_BIZ => static fn () => $endfield]),
@@ -152,6 +161,7 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
             new PullSyntheticReconcilerManager([$reconciler]),
             $tracker,
             new LockFactory(new InMemoryStore()),
+            $manualPullService,
         );
 
         $handler(new SyncPullsPageProfileMessage(10, 'char', null, 'u8-token-test', $operation['id']));
@@ -210,6 +220,7 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
                 new PullSyntheticReconcilerManager([]),
                 new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test'),
                 $lockFactory,
+                $this->createStub(ManualPullService::class),
             );
 
             $message = new SyncPullsPageProfileMessage(10, 'char', null, 'u8-token-test', 'op-123');
@@ -221,6 +232,62 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
         } finally {
             $heldLock->release();
         }
+    }
+
+    private function createSyncHandler(EndfieldService $endfield, GryphlineGameProfile $profile, MessageBusInterface $bus, ManualPullService $manualPullService): SyncPullsPageProfileHandler
+    {
+        $profileRepo = $this->createStub(GryphlineGameProfileRepository::class);
+        $profileRepo->method('find')->willReturn($profile);
+
+        return new SyncPullsPageProfileHandler(
+            $profileRepo,
+            new ServiceLocator([EndfieldService::GAME_BIZ => static fn () => $endfield]),
+            new NullLogger(),
+            $this->createStub(UnifiedNotificationService::class),
+            $this->createStub(SkportAuthService::class),
+            $this->createStub(GryphlinePullRepository::class),
+            $this->createStub(EntityManagerInterface::class),
+            $bus,
+            new PullSyntheticReconcilerManager([]),
+            new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test'),
+            new LockFactory(new InMemoryStore()),
+            $manualPullService,
+        );
+    }
+
+    public function testSyncPullsHandlerDoesNotRealignBeforeTheLastPage(): void
+    {
+        $profile = $this->createProfile(10);
+        $pull = (new GryphlinePull())->setSeqId('5003')->setPoolCategory('weapon')->setPoolType('E_WeaponGachaPoolType_Standard')->setName('JET')->setPulledAt(new \DateTimeImmutable());
+        $endfield = $this->createEndfieldMock([$pull], '5003');
+
+        $bus = $this->createMock(MessageBusInterface::class);
+        $bus->expects($this->once())->method('dispatch')->willReturnCallback(static fn (object $msg, array $stamps): Envelope => new Envelope($msg, $stamps));
+        $manualPullService = $this->createMock(ManualPullService::class);
+        $manualPullService->expects($this->never())->method('realign');
+
+        $this->createSyncHandler($endfield, $profile, $bus, $manualPullService)(
+            new SyncPullsPageProfileMessage(10, 'E_WeaponGachaPoolType_Standard', null, 'u8-token-test')
+        );
+    }
+
+    public function testSyncPullsHandlerRealignsOnAnEmptyLastPage(): void
+    {
+        $profile = $this->createProfile(10);
+        $endfield = $this->createEndfieldMock([], null);
+
+        $bus = $this->createMock(MessageBusInterface::class);
+        $bus->expects($this->never())->method('dispatch');
+        // Earlier pages (separate messages) may have stored pulls: the banner is realigned anyway
+        $manualPullService = $this->createMock(ManualPullService::class);
+        $manualPullService->expects($this->once())
+            ->method('realign')
+            ->with($profile, $endfield, 'E_WeaponGachaPoolType_Standard')
+            ->willReturn(new FillerPlan());
+
+        $this->createSyncHandler($endfield, $profile, $bus, $manualPullService)(
+            new SyncPullsPageProfileMessage(10, 'E_WeaponGachaPoolType_Standard', '4000', 'u8-token-test')
+        );
     }
 
     public function testImportPullsBackupHandlerCompletesAndDeletesTempFile(): void

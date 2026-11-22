@@ -3,6 +3,7 @@
 namespace App\GamesBundle\Service;
 
 use App\GamesBundle\Model\Game\PullItemIconQuery;
+use App\GamesBundle\Model\Pull\PullOrigin;
 use Liip\ImagineBundle\Imagine\Cache\CacheManager;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -51,6 +52,12 @@ class PullItemIconUrlBuilder
         }
 
         foreach ($rows as &$row) {
+            // Filler rows are unknown pulls: there is no item to resolve
+            if (($row['origin'] ?? null) === PullOrigin::Filler->value) {
+                $row['icon_url'] = null;
+                continue;
+            }
+
             $row['icon_url'] = $this->buildUrl($gameService, PullItemIconQuery::fromPullRow($row));
         }
         unset($row);

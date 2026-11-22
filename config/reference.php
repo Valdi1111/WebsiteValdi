@@ -324,6 +324,13 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null
  *         },
+ *         catalog_update?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: string|Param, // Default: "App\\GryphlineBundle\\Message\\Batch\\EndfieldCatalogUpdateMessage"
+ *             cron?: string|Param, // Default: null
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: null
+ *         },
  *         dailies_reminder?: array{
  *             enabled?: bool|Param, // Default: true
  *             message_class?: string|Param, // Default: "App\\GryphlineBundle\\Message\\Batch\\DailiesReminderBatchMessage"

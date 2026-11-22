@@ -10,6 +10,10 @@ use App\PerfectworldBundle\Service\Catalog\NteCatalogBackfiller;
 use App\PerfectworldBundle\Service\Catalog\NteCatalogBuilder;
 use App\PerfectworldBundle\Service\Catalog\NteCatalogUpdater;
 use Doctrine\ORM\EntityManagerInterface;
+use App\PerfectworldBundle\Service\Pull\ManualPullService;
+use Symfony\Component\DependencyInjection\ServiceLocator;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\Store\InMemoryStore;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
@@ -74,7 +78,7 @@ class NteCatalogUpdateCommandTest extends TestCase
         return new NteCatalogUpdateCommand(new NteCatalogUpdater(
             new NteCatalogBuilder($fixture->client(), $catalog, new NullLogger()),
             $catalog,
-            new NteCatalogBackfiller($catalog, $repository, $this->createStub(EntityManagerInterface::class)),
+            new NteCatalogBackfiller($catalog, $repository, $this->createStub(EntityManagerInterface::class), $this->createStub(ManualPullService::class), new LockFactory(new InMemoryStore()), new ServiceLocator([]), new NullLogger()),
             new NullLogger(),
         ));
     }

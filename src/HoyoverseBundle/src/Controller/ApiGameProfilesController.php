@@ -3,10 +3,14 @@
 namespace App\HoyoverseBundle\Controller;
 
 use App\CoreBundle\Entity\User;
+use App\GamesBundle\Model\Game\HasManualPullsInterface;
+use App\GamesBundle\Model\Pull\Manual\CreateManualPullRequest;
+use App\GamesBundle\Model\Pull\Manual\DeclarePityRequest;
 use App\GamesBundle\Security\GameAccountOwnerVoter;
 use App\GamesBundle\Service\PullItemIconUrlBuilder;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
+use App\HoyoverseBundle\Entity\HoyoversePull;
 use App\HoyoverseBundle\Message\Profile\ImportPullsBackupMessage;
 use App\HoyoverseBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\HoyoverseBundle\Model\Diary\GameDiaryCurrency;
@@ -18,6 +22,10 @@ use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
 use App\GamesBundle\Model\Pull\PullOperationKind;
 use App\HoyoverseBundle\Repository\HoyoverseDiaryEntryRepository;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
+use App\HoyoverseBundle\Service\Pull\HoyoversePullStatsCalculator;
+use App\HoyoverseBundle\Service\Pull\HoyoverseServerTimezoneResolver;
+use App\HoyoverseBundle\Service\Pull\ManualPullService;
+use App\HoyoverseBundle\Service\Pull\ManualPullSuggestionProvider;
 use App\HoyoverseBundle\Service\Pull\PullBackupImporterManager;
 use App\HoyoverseBundle\Service\Pull\PullOperationTracker;
 use Doctrine\ORM\EntityManagerInterface;
@@ -31,6 +39,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Mercure\Authorization;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -504,10 +513,12 @@ class ApiGameProfilesController extends AbstractController
         #[MapEntity(message: "Hoyoverse Account not found.")] HoyoverseAccount $account,
         #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
         HoyoversePullRepository $pullRepo,
+        HoyoversePullStatsCalculator $statsCalculator,
         PullItemIconUrlBuilder $iconUrlBuilder,
         PullBackupImporterManager $importerManager,
         PullOperationTracker $operationTracker,
         Authorization $mercureAuthorization,
+        HoyoverseServerTimezoneResolver $timezoneResolver,
     ): Response {
         $this->assertProfileOfAccount($account, $gameProfile);
 
@@ -523,23 +534,39 @@ class ApiGameProfilesController extends AbstractController
         $mercureTopic = $operationTracker->getProfileTopic((int) $gameProfile->getId());
         $mercureAuthorization->setCookie($req, [$mercureTopic]);
 
-        $bannerGroups = $gameService->getGachaConfig()->getBannerGroups();
         $rarityConfig = $gameService->getRarityConfig();
-        $overview = $pullRepo->buildOverview($gameProfile, $bannerGroups, $rarityConfig);
+        $now = $timezoneResolver->getServerWallClockNow($gameProfile);
+        // One query for the whole profile: gacha types missing from the config become dynamic groups
+        $groupedRows = $statsCalculator->groupRowsByBanner(
+            $pullRepo->findProfileRows($gameProfile),
+            $gameService->getGachaConfig()->getBannerGroups(),
+        );
 
-        foreach ($overview['banners'] as &$banner) {
-            if (!empty($banner['recent_s_pulls'])) {
-                $banner['recent_s_pulls'] = $iconUrlBuilder->enrichPullRows($gameService, $banner['recent_s_pulls']);
+        $banners = [];
+        $monthly = [];
+        $totalPulls = 0;
+        foreach ($groupedRows as ['group' => $bannerGroup, 'rows' => $rows]) {
+            $computed = $statsCalculator->compute($rows, $bannerGroup, $rarityConfig, $now);
+
+            $summary = self::enrichSummaryIcons($iconUrlBuilder, $gameService, $computed['summary']);
+            $banners[] = $summary;
+            $totalPulls += $summary['total_pulls'];
+
+            foreach ($computed['monthly'] as $month => $counts) {
+                $monthly[$month] ??= ['month' => $month, 'total' => 0, 's_count' => 0, 'a_count' => 0];
+                $monthly[$month]['total'] += $counts['total'];
+                $monthly[$month]['s_count'] += $counts['s_count'];
+                $monthly[$month]['a_count'] += $counts['a_count'];
             }
         }
-        unset($banner);
+        ksort($monthly);
 
         return $this->json([
             'profile' => $gameProfile,
             'rarity_config' => $rarityConfig,
-            'total_pulls' => $overview['total_pulls'],
-            'banners' => $overview['banners'],
-            'monthly_timeline' => $overview['monthly_timeline'],
+            'total_pulls' => $totalPulls,
+            'banners' => $banners,
+            'monthly_timeline' => array_values($monthly),
             'available_backup_importers' => $importerManager->getMetadataForGameService($gameService),
             'mercure_topic' => $mercureTopic,
             'active_operation' => $operationTracker->getActiveOperationForProfile((int) $gameProfile->getId()),
@@ -552,7 +579,9 @@ class ApiGameProfilesController extends AbstractController
         #[MapEntity(message: "Hoyoverse Account not found.")] HoyoverseAccount $account,
         #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
         HoyoversePullRepository $pullRepo,
-        PullItemIconUrlBuilder $iconUrlBuilder
+        HoyoversePullStatsCalculator $statsCalculator,
+        PullItemIconUrlBuilder $iconUrlBuilder,
+        HoyoverseServerTimezoneResolver $timezoneResolver,
     ): Response {
         $this->assertProfileOfAccount($account, $gameProfile);
 
@@ -582,37 +611,23 @@ class ApiGameProfilesController extends AbstractController
             $bannerGroup = $bannerGroups[$bannerKey];
         }
 
+        // Rarity 0 selects the unknown pulls (filler rows)
         $raritiesParam = $req->query->getString('rarities');
-        $rarities = [];
-        if ($raritiesParam !== '') {
-            foreach (explode(',', $raritiesParam) as $r) {
-                $rInt = (int) trim($r);
-                if ($rInt > 0) {
-                    $rarities[] = $rInt;
-                }
-            }
-        } elseif ($req->query->has('rarity') && $req->query->getInt('rarity') > 0) {
-            $rarities[] = $req->query->getInt('rarity');
-        }
+        $rarities = self::parseRarities($raritiesParam !== '' ? $raritiesParam : $req->query->getString('rarity'));
 
         $search = $req->query->getString('search');
         $page = max(1, $req->query->getInt('page', 1));
         $limit = min(100, max(5, $req->query->getInt('limit', 15)));
 
-        $result = $pullRepo->findBannerDetailWithPity(
-            $gameProfile,
+        $computed = $statsCalculator->compute(
+            $pullRepo->findBannerRows($gameProfile, $bannerGroup['gacha_types']),
             $bannerGroup,
             $rarityConfig,
-            $rarities,
-            $search ?: null,
-            $page,
-            $limit
+            $timezoneResolver->getServerWallClockNow($gameProfile),
         );
+        $result = $statsCalculator->filterAndPaginate($computed['items'], $rarities, $search ?: null, $page, $limit);
 
-        $banner = $result['banner'];
-        if (!empty($banner['recent_s_pulls'])) {
-            $banner['recent_s_pulls'] = $iconUrlBuilder->enrichPullRows($gameService, $banner['recent_s_pulls']);
-        }
+        $banner = self::enrichSummaryIcons($iconUrlBuilder, $gameService, $computed['summary']);
         $items = $iconUrlBuilder->enrichPullRows($gameService, $result['items']);
 
         return $this->json([
@@ -623,6 +638,146 @@ class ApiGameProfilesController extends AbstractController
             'page' => $page,
             'limit' => $limit,
         ]);
+    }
+
+    #[Route('/gameProfiles/{gameProfile}/pulls/manual/suggestions', name: 'pulls_manual_suggestions', requirements: ['gameProfile' => '\d+'], methods: ['GET'])]
+    public function apiGameProfilePullsManualSuggestions(
+        Request $req,
+        #[MapEntity(message: "Hoyoverse Account not found.")] HoyoverseAccount $account,
+        #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
+        ManualPullSuggestionProvider $suggestionProvider,
+        PullItemIconUrlBuilder $iconUrlBuilder,
+    ): Response {
+        $this->assertProfileOfAccount($account, $gameProfile);
+        $gameService = $this->getManualPullsGame($gameProfile);
+        $this->assertBannerOfGame($gameService, $req->query->getString('banner'));
+
+        $suggestions = $suggestionProvider->getSuggestions($gameService);
+
+        return $this->json([
+            'items' => $iconUrlBuilder->enrichPullRows($gameService, $suggestions['items']),
+            // Names typed by hand are kept as they are (without an icon when they match no catalog item)
+            'allow_free_text' => true,
+            'item_types' => $suggestions['item_types'],
+        ]);
+    }
+
+    #[Route('/gameProfiles/{gameProfile}/pulls/manual', name: 'pulls_manual_create', requirements: ['gameProfile' => '\d+'], methods: ['POST'])]
+    public function apiGameProfilePullsManualCreate(
+        #[MapEntity(message: "Hoyoverse Account not found.")] HoyoverseAccount $account,
+        #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
+        #[MapRequestPayload] CreateManualPullRequest $request,
+        ManualPullService $manualPullService,
+    ): Response {
+        $this->assertProfileOfAccount($account, $gameProfile);
+        $gameService = $this->getManualPullsGame($gameProfile);
+        $this->assertBannerOfGame($gameService, $request->banner);
+
+        $pull = $manualPullService->createManualS($gameProfile, $gameService, $request);
+
+        return $this->json(['success' => true, 'pull_id' => $pull->getId()], Response::HTTP_CREATED);
+    }
+
+    #[Route('/gameProfiles/{gameProfile}/pulls/{pull}/declared-pity', name: 'pulls_declared_pity', requirements: ['gameProfile' => '\d+', 'pull' => '\d+'], methods: ['PATCH'])]
+    public function apiGameProfilePullsDeclarePity(
+        #[MapEntity(message: "Hoyoverse Account not found.")] HoyoverseAccount $account,
+        #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
+        #[MapEntity(message: "Pull not found.")] HoyoversePull $pull,
+        #[MapRequestPayload] DeclarePityRequest $request,
+        ManualPullService $manualPullService,
+    ): Response {
+        $this->assertProfileOfAccount($account, $gameProfile);
+        $this->assertPullOfProfile($gameProfile, $pull);
+        $gameService = $this->getManualPullsGame($gameProfile);
+
+        $manualPullService->declarePity($gameProfile, $gameService, $pull, $request->pity);
+
+        return $this->json(['success' => true]);
+    }
+
+    #[Route('/gameProfiles/{gameProfile}/pulls/{pull}', name: 'pulls_manual_delete', requirements: ['gameProfile' => '\d+', 'pull' => '\d+'], methods: ['DELETE'])]
+    public function apiGameProfilePullsManualDelete(
+        #[MapEntity(message: "Hoyoverse Account not found.")] HoyoverseAccount $account,
+        #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
+        #[MapEntity(message: "Pull not found.")] HoyoversePull $pull,
+        ManualPullService $manualPullService,
+    ): Response {
+        $this->assertProfileOfAccount($account, $gameProfile);
+        $this->assertPullOfProfile($gameProfile, $pull);
+        $gameService = $this->getManualPullsGame($gameProfile);
+
+        $manualPullService->deleteManual($gameProfile, $gameService, $pull);
+
+        return $this->json(['success' => true]);
+    }
+
+    /**
+     * Icons of the S items of a banner summary (recent S pulls and the oldest S).
+     *
+     * @param array<string, mixed> $summary
+     *
+     * @return array<string, mixed>
+     */
+    private static function enrichSummaryIcons(PullItemIconUrlBuilder $iconUrlBuilder, GameInterface $gameService, array $summary): array
+    {
+        if (!empty($summary['recent_s_pulls'])) {
+            $summary['recent_s_pulls'] = $iconUrlBuilder->enrichPullRows($gameService, $summary['recent_s_pulls']);
+        }
+        if (isset($summary['oldest_s'])) {
+            $summary['oldest_s'] = $iconUrlBuilder->enrichPullRows($gameService, [$summary['oldest_s']])[0];
+        }
+
+        return $summary;
+    }
+
+    /**
+     * Rarities of a comma-separated filter. Rarity 0 is kept (unknown pulls); empty, negative and
+     * non-numeric values are skipped.
+     *
+     * @return list<int>
+     */
+    private static function parseRarities(string $param): array
+    {
+        $rarities = [];
+        foreach (explode(',', $param) as $value) {
+            $value = trim($value);
+            if ($value !== '' && ctype_digit($value)) {
+                $rarities[] = (int) $value;
+            }
+        }
+
+        return $rarities;
+    }
+
+    /**
+     * @return GameInterface&HasPullTrackerInterface
+     */
+    private function getManualPullsGame(HoyoverseGameProfile $gameProfile): GameInterface
+    {
+        if (!$this->locatorByGameId->has($gameProfile->getGameId())) {
+            throw new BadRequestHttpException("Unsupported game service.");
+        }
+
+        $gameService = $this->locatorByGameId->get($gameProfile->getGameId());
+        if (!$gameService instanceof HasPullTrackerInterface || !$gameService instanceof HasManualPullsInterface) {
+            throw new BadRequestHttpException("This game profile does not support manual pulls.");
+        }
+
+        return $gameService;
+    }
+
+    private function assertBannerOfGame(HasPullTrackerInterface $gameService, string $bannerKey): void
+    {
+        if ($bannerKey === '' || !isset($gameService->getGachaConfig()->getBannerGroups()[$bannerKey])) {
+            throw new BadRequestHttpException(sprintf('Unknown banner "%s".', $bannerKey));
+        }
+    }
+
+    private function assertPullOfProfile(HoyoverseGameProfile $gameProfile, HoyoversePull $pull): void
+    {
+        if ($pull->getGameProfile()?->getId() !== $gameProfile->getId()) {
+            throw new NotFoundHttpException("Pull not found.");
+        }
     }
 
     private function assertProfileOfAccount(HoyoverseAccount $account, HoyoverseGameProfile $gameProfile): void

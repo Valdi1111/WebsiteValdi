@@ -65,8 +65,9 @@ class ImportPullsBackupHandler
                 $summary->skipped,
             ));
         } catch (PullProfileLockedException) {
-            // No automatic sync competes for the lock: another import is already running
-            $this->operationTracker->failOperation($operationId, 'Another import is already running for this profile.');
+            // No automatic sync competes for the lock: another import, a manual edit or the
+            // realign after a catalog backfill holds it
+            $this->operationTracker->failOperation($operationId, 'Another pull operation (import or manual edit) is running for this profile.');
         } catch (\Throwable $e) {
             $this->operationTracker->failOperation($operationId, $e->getMessage());
             $this->logger->error('Pull import failed.', [

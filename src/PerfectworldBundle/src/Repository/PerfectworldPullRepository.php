@@ -20,12 +20,16 @@ class PerfectworldPullRepository extends ServiceEntityRepository
     /**
      * Chronologically sorted rows of one banner (oldest first), as plain arrays.
      *
+     * Rows sharing a second are ordered by position, highest first (position 0 is the most recent
+     * record); manual and filler rows have negative positions and never share a second with a
+     * recorded row once realigned. "origin" is hydrated as a PullOrigin case.
+     *
      * @return list<array<string, mixed>>
      */
     public function findBannerRows(PerfectworldGameProfile $profile, string $bannerKey): array
     {
         return $this->createQueryBuilder('p')
-            ->select('p.id, p.bannerKey, p.poolId, p.pulledAt, p.groupPosition, p.kind, p.rollResult, p.rewardType, p.rewardId, p.name, p.rarity, p.quantity')
+            ->select('p.id, p.bannerKey, p.poolId, p.pulledAt, p.groupPosition, p.kind, p.rollResult, p.rewardType, p.rewardId, p.name, p.rarity, p.quantity, p.origin, p.declaredPity')
             ->where('p.gameProfile = :profile')
             ->andWhere('p.bannerKey = :bannerKey')
             ->setParameter('profile', $profile)

@@ -2,7 +2,8 @@
 
 namespace App\PerfectworldBundle\Entity;
 
-use App\PerfectworldBundle\Doctrine\WallClockDateTimeImmutableType;
+use App\GamesBundle\Model\Pull\PullOrigin;
+use App\CoreBundle\Doctrine\WallClockDateTimeImmutableType;
 use App\PerfectworldBundle\Repository\PerfectworldPullRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -12,6 +13,9 @@ use Doctrine\ORM\Mapping as ORM;
  *
  * Identity: (profile, banner, pulledAt, groupPosition). The exporter uid changes between exporter
  * versions, so it is kept only as a reference.
+ *
+ * Rows created by the missing pulls feature (manual S and filler rows) always use a negative
+ * groupPosition: imported records are always >= 0, so an import never meets them on its identity.
  */
 #[ORM\UniqueConstraint(name: 'IDX_perfectworld_pull_identity', columns: ['perfectworld_game_profile_id', 'banner_key', 'pulled_at', 'group_position'])]
 #[ORM\Index(name: 'FK_perfectworld_pull_game_profile', columns: ['perfectworld_game_profile_id'])]
@@ -82,6 +86,16 @@ class PerfectworldPull
 
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $rawPayload = null;
+
+    #[ORM\Column(length: 16, enumType: PullOrigin::class, options: ['default' => 'recorded'])]
+    private PullOrigin $origin = PullOrigin::Recorded;
+
+    /**
+     * Real pity declared by the user (S rows only, always set on manual rows). Never read by the
+     * pity statistics: it only tells the realign step how many filler rows the window needs.
+     */
+    #[ORM\Column(type: Types::SMALLINT, nullable: true)]
+    private ?int $declaredPity = null;
 
     public function getId(): ?int
     {
@@ -264,6 +278,30 @@ class PerfectworldPull
     public function setRawPayload(?array $rawPayload): static
     {
         $this->rawPayload = $rawPayload;
+
+        return $this;
+    }
+
+    public function getOrigin(): PullOrigin
+    {
+        return $this->origin;
+    }
+
+    public function setOrigin(PullOrigin $origin): static
+    {
+        $this->origin = $origin;
+
+        return $this;
+    }
+
+    public function getDeclaredPity(): ?int
+    {
+        return $this->declaredPity;
+    }
+
+    public function setDeclaredPity(?int $declaredPity): static
+    {
+        $this->declaredPity = $declaredPity;
 
         return $this;
     }

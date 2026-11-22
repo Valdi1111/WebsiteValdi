@@ -3,12 +3,14 @@
 namespace App\HoyoverseBundle\MessageHandler\Profile;
 
 use App\GamesBundle\Message\ProfileTaskMessageInterface;
+use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasPullTrackerInterface;
 use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
+use App\HoyoverseBundle\Service\Pull\ManualPullService;
 use App\HoyoverseBundle\Service\Pull\PullBackupImportService;
 use App\HoyoverseBundle\Service\Pull\PullOperationTracker;
 use App\HoyoverseBundle\Service\Pull\PullSyntheticReconcilerManager;
@@ -44,6 +46,7 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
     private PullSyntheticReconcilerManager $syntheticReconcilerManager;
     private PullOperationTracker $operationTracker;
     private LockFactory $lockFactory;
+    private ManualPullService $manualPullService;
 
     #[Required]
     public function setEntityManager(EntityManagerInterface $entityManager): void
@@ -79,6 +82,12 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
     public function setLockFactory(LockFactory $lockFactory): void
     {
         $this->lockFactory = $lockFactory;
+    }
+
+    #[Required]
+    public function setManualPullService(ManualPullService $manualPullService): void
+    {
+        $this->manualPullService = $manualPullService;
     }
 
     public function __invoke(SyncPullsPageProfileMessage $message): void
@@ -153,6 +162,7 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
             }
 
             if (empty($pulls)) {
+                $this->realignBanner($profile, $gameService, $gachaType);
                 if ($operationId !== null) {
                     $this->operationTracker->recordSyncBannerPage($operationId, $gachaType, 0, 0, true, $bannerName);
                 }
@@ -194,6 +204,9 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
             }
 
             $hasMorePages = !$pageHasExistingPull && count($pulls) >= self::PAGE_SIZE;
+            if (!$hasMorePages) {
+                $this->realignBanner($profile, $gameService, $gachaType);
+            }
 
             if ($operationId !== null) {
                 $this->operationTracker->recordSyncBannerPage(
@@ -226,6 +239,18 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
             }
         } finally {
             $lock->release();
+        }
+    }
+
+    /**
+     * Last page of a banner: the synced pulls may complete or move the windows of declared pities.
+     * Runs under the profile lock held by processProfile().
+     */
+    private function realignBanner(HoyoverseGameProfile $profile, GameInterface&HasPullTrackerInterface $gameService, string $gachaType): void
+    {
+        // The message carries the banner key (realign() also accepts a member gacha type)
+        if (!$this->manualPullService->realign($profile, $gameService, $gachaType)->isEmpty()) {
+            $this->entityManager->flush();
         }
     }
 }

@@ -4,6 +4,7 @@ namespace App\PerfectworldBundle\Service;
 
 use App\GamesBundle\Model\Game\GachaBannerConfig;
 use App\GamesBundle\Model\Game\GachaConfig;
+use App\GamesBundle\Model\Game\HasManualPullsInterface;
 use App\GamesBundle\Model\Game\RarityConfig;
 use App\GamesBundle\Model\Game\RarityTierConfig;
 use App\PerfectworldBundle\Model\Game\GameInterface;
@@ -14,7 +15,7 @@ use Symfony\Component\DependencyInjection\Attribute\Target;
 
 #[AutoconfigureTag(name: 'perfectworld.game.biz', attributes: ['key' => self::GAME_BIZ])]
 #[AutoconfigureTag(name: 'perfectworld.game.id', attributes: ['key' => self::GAME_ID])]
-class NevernessToEvernessService implements GameInterface, HasPullTrackerInterface
+class NevernessToEvernessService implements GameInterface, HasPullTrackerInterface, HasManualPullsInterface
 {
     public const int GAME_ID = 1;
     public const string GAME_BIZ = 'nte';

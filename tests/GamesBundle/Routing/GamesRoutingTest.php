@@ -4,6 +4,7 @@ namespace App\Tests\GamesBundle\Routing;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Routing\Exception\MethodNotAllowedException;
 use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 use Symfony\Component\Routing\RouterInterface;
 
@@ -57,6 +58,42 @@ class GamesRoutingTest extends KernelTestCase
         $match = $this->router->match($path);
 
         $this->assertSame($expectedRoute, $match['_route']);
+    }
+
+    /**
+     * Missing-pulls endpoints: same paths for every provider, told apart by HTTP method.
+     *
+     * @return iterable<string, array{string, string, string}>
+     */
+    public static function manualPullRoutesProvider(): iterable
+    {
+        foreach (['hoyoverse', 'gryphline', 'perfectworld'] as $provider) {
+            $base = sprintf('/api/%s/accounts/1/gameProfiles/2/pulls', $provider);
+            $name = sprintf('%1$s_api_%1$s_game_profiles_', $provider);
+
+            yield $provider . ' suggestions' => ['GET', $base . '/manual/suggestions', $name . 'pulls_manual_suggestions'];
+            yield $provider . ' create manual S' => ['POST', $base . '/manual', $name . 'pulls_manual_create'];
+            yield $provider . ' declare pity' => ['PATCH', $base . '/3/declared-pity', $name . 'pulls_declared_pity'];
+            yield $provider . ' delete manual S' => ['DELETE', $base . '/3', $name . 'pulls_manual_delete'];
+            yield $provider . ' list keeps GET' => ['GET', $base, $name . 'pulls_list'];
+        }
+    }
+
+    #[DataProvider('manualPullRoutesProvider')]
+    public function testManualPullRoutes(string $method, string $path, string $expectedRoute): void
+    {
+        $this->router->getContext()->setMethod($method);
+
+        $this->assertSame($expectedRoute, $this->router->match($path)['_route']);
+    }
+
+    public function testManualPullDeleteRequiresANumericPullId(): void
+    {
+        $this->router->getContext()->setMethod('DELETE');
+
+        // "/pulls/manual" exists only for POST: DELETE never reaches the delete action (405)
+        $this->expectException(MethodNotAllowedException::class);
+        $this->router->match('/api/hoyoverse/accounts/1/gameProfiles/2/pulls/manual');
     }
 
     public function testLegacyUnprefixedApiPathIsNotRouted(): void

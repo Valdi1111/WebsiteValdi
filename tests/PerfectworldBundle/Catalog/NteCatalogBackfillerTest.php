@@ -2,13 +2,22 @@
 
 namespace App\Tests\PerfectworldBundle\Catalog;
 
+use App\PerfectworldBundle\Entity\PerfectworldGameProfile;
 use App\PerfectworldBundle\Entity\PerfectworldPull;
 use App\PerfectworldBundle\Repository\PerfectworldPullRepository;
 use App\PerfectworldBundle\Service\Catalog\NteCatalog;
 use App\PerfectworldBundle\Service\Catalog\NteCatalogBackfiller;
+use App\PerfectworldBundle\Service\NevernessToEvernessService;
+use App\PerfectworldBundle\Service\Pull\ManualPullService;
+use App\PerfectworldBundle\Service\Pull\PullBackupImportService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\DependencyInjection\ServiceLocator;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\Store\InMemoryStore;
 
 class NteCatalogBackfillerTest extends TestCase
 {
@@ -44,7 +53,7 @@ class NteCatalogBackfillerTest extends TestCase
         $entityManager->expects($this->once())->method('flush');
         $entityManager->expects($this->once())->method('clear');
 
-        $changed = new NteCatalogBackfiller($this->createCatalog(self::CATALOG), $repository, $entityManager)->backfill();
+        $changed = $this->createBackfiller($this->createCatalog(self::CATALOG), $repository, $entityManager)->backfill();
 
         $this->assertSame(3, $changed);
 
@@ -78,7 +87,7 @@ class NteCatalogBackfillerTest extends TestCase
         $entityManager->expects($this->once())->method('flush');
         $entityManager->expects($this->exactly(2))->method('clear');
 
-        $changed = new NteCatalogBackfiller($this->createCatalog(self::CATALOG), $repository, $entityManager)->backfill();
+        $changed = $this->createBackfiller($this->createCatalog(self::CATALOG), $repository, $entityManager)->backfill();
 
         $this->assertSame(1, $changed);
         $this->assertSame(['Blackbird', 5, 'character'], $this->values($lastPage[0]));
@@ -92,9 +101,95 @@ class NteCatalogBackfillerTest extends TestCase
         $entityManager = $this->createMock(EntityManagerInterface::class);
         $entityManager->expects($this->never())->method('flush');
 
-        $backfiller = new NteCatalogBackfiller(new NteCatalog(new ArrayAdapter()), $repository, $entityManager);
+        $backfiller = $this->createBackfiller(new NteCatalog(new ArrayAdapter()), $repository, $entityManager);
 
         $this->assertSame(0, $backfiller->backfill());
+    }
+
+    public function testProfilesWithChangedRowsAreRealignedUnderTheirLock(): void
+    {
+        $changedProfile = self::profile(3);
+        $untouchedProfile = self::profile(4);
+        $lockedProfile = self::profile(5);
+        $pulls = [
+            $this->createPull(1, 'character', '1042', '', null, $changedProfile),
+            $this->createPull(2, 'arc', 'fork_twinbirds', 'Unknown #fork_twinbirds', null, $changedProfile),
+            $this->createPull(3, 'character', '1042', 'Blackbird', 5, $untouchedProfile),
+            $this->createPull(4, 'character', '1042', '', null, $lockedProfile),
+        ];
+
+        $repository = $this->createStub(PerfectworldPullRepository::class);
+        $repository->method('findBy')->willReturn($pulls);
+
+        $profiles = [3 => $changedProfile, 4 => $untouchedProfile, 5 => $lockedProfile];
+        $entityManager = $this->createStub(EntityManagerInterface::class);
+        $entityManager->method('find')->willReturnCallback(static fn (string $class, int $id): ?PerfectworldGameProfile => $profiles[$id] ?? null);
+
+        $lockFactory = new LockFactory(new InMemoryStore());
+        $heldByAnImport = $lockFactory->createLock(PullBackupImportService::getProfileLockKey(5));
+        $heldByAnImport->acquire();
+
+        $realigned = [];
+        $manualPullService = $this->createMock(ManualPullService::class);
+        $manualPullService->expects($this->once())->method('realignAll')->willReturnCallback(
+            function (PerfectworldGameProfile $profile, object $game) use (&$realigned, $lockFactory): void {
+                $this->assertInstanceOf(NevernessToEvernessService::class, $game);
+                $this->assertFalse($lockFactory->createLock(PullBackupImportService::getProfileLockKey((int) $profile->getId()))->acquire(), 'Realigned under the profile lock');
+                $realigned[] = $profile->getId();
+            },
+        );
+
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())->method('info')->with($this->stringContains('profile #5 not realigned'));
+
+        $changed = $this->createBackfiller($this->createCatalog(self::CATALOG), $repository, $entityManager, $manualPullService, $lockFactory, $logger)->backfill();
+
+        $this->assertSame(3, $changed);
+        $this->assertSame([3], $realigned, 'Only profiles with a changed row; the locked one is skipped');
+        $this->assertTrue($lockFactory->createLock(PullBackupImportService::getProfileLockKey(3))->acquire(), 'Lock released after the realign');
+        $this->assertSame(['Blackbird', 5, 'character'], $this->values($pulls[3]), 'The locked profile is still backfilled');
+    }
+
+    public function testNothingIsRealignedWhenNoRowChanges(): void
+    {
+        $repository = $this->createStub(PerfectworldPullRepository::class);
+        $repository->method('findBy')->willReturn([$this->createPull(1, 'character', '1042', 'Blackbird', 5, self::profile(3))]);
+
+        $manualPullService = $this->createMock(ManualPullService::class);
+        $manualPullService->expects($this->never())->method('realignAll');
+
+        $changed = $this->createBackfiller($this->createCatalog(self::CATALOG), $repository, $this->createStub(EntityManagerInterface::class), $manualPullService)->backfill();
+
+        $this->assertSame(0, $changed);
+    }
+
+    private function createBackfiller(
+        NteCatalog $catalog,
+        PerfectworldPullRepository $repository,
+        EntityManagerInterface $entityManager,
+        ?ManualPullService $manualPullService = null,
+        ?LockFactory $lockFactory = null,
+        ?LoggerInterface $logger = null,
+    ): NteCatalogBackfiller {
+        $game = new NevernessToEvernessService(new NullLogger());
+
+        return new NteCatalogBackfiller(
+            $catalog,
+            $repository,
+            $entityManager,
+            $manualPullService ?? $this->createStub(ManualPullService::class),
+            $lockFactory ?? new LockFactory(new InMemoryStore()),
+            new ServiceLocator([(string) NevernessToEvernessService::GAME_ID => static fn () => $game]),
+            $logger ?? new NullLogger(),
+        );
+    }
+
+    private static function profile(int $id): PerfectworldGameProfile
+    {
+        $profile = (new PerfectworldGameProfile())->setGameId(NevernessToEvernessService::GAME_ID)->setGameUid('10000000000' . $id);
+        (new \ReflectionProperty(PerfectworldGameProfile::class, 'id'))->setValue($profile, $id);
+
+        return $profile;
     }
 
     /**
@@ -108,9 +203,10 @@ class NteCatalogBackfillerTest extends TestCase
         return $catalog;
     }
 
-    private function createPull(int $id, string $rewardType, string $rewardId, string $name, ?int $rarity): PerfectworldPull
+    private function createPull(int $id, string $rewardType, string $rewardId, string $name, ?int $rarity, ?PerfectworldGameProfile $profile = null): PerfectworldPull
     {
         $pull = (new PerfectworldPull())
+            ->setGameProfile($profile)
             ->setBannerKey('Lottery_LimitedCharacter')
             ->setPulledAt(new \DateTimeImmutable('2026-06-03 07:20:23', new \DateTimeZone('UTC')))
             ->setGroupPosition(0)

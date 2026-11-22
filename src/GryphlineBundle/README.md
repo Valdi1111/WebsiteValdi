@@ -123,6 +123,7 @@ Using `u8_token`, the async worker `SyncPullsPageProfileHandler` (on the dedicat
 - **Basic Headhunting** (`E_CharacterGachaPoolType_Standard`) — Hard Pity: `80` (`6★`), `10` (`5★`).
 - **Weapon Headhunting** (`E_WeaponGachaPoolType_Standard`) — Hard Pity: `40` (`6★`), `10` (`5★`).
 - **Beginner Headhunting** (`E_CharacterGachaPoolType_Beginner`) — Hard Pity: `50` (`6★`), `10` (`5★`).
+- **Pity & stats (`Service/Pull/GryphlinePullStatsCalculator`)**: a pure service; `GryphlinePullRepository` only queries the rows (`findProfileRows()`, `findBannerRows()`). `ApiGameProfilesController` composes the overview (`groupRowsByBanner()`, then `compute()` per banner, merging the `monthly` counts) and the list (`compute()`, then `filterAndPaginate()`). Every row counts as a headhunt (`500` currency each), ordered by `pulled_at` then numeric `seq_id`; a `6★` resets both pities. Pool types missing from the config get their own banner card (`80`/`10`).
 
 Key behaviors:
 - **Idempotency & Database Constraints (`gryphline_pull`)**: unique constraint `IDX_gryphline_game_profile_id_pool_category_seq_id` on `(gryphline_game_profile_id, pool_category, seq_id)`. Reverse pagination stops immediately upon encountering a `seq_id` already present in the database.
@@ -174,6 +175,14 @@ The bundle already includes the same backup import pipeline as `HoyoverseBundle`
     php bin/console gryphline:import-pulls <profileId> <importerKey> /path/to/file --async
     ```
 
+### 5.6 Missing pulls (manual S and declared pity)
+The API window only covers the last months, so the oldest S pulls are missing and the first recorded one has a low pity. Following [the shared plan](../../docs/PULLS_MISSING_HISTORY_PLAN.md), `Service/Pull/ManualPullService` lets the user declare the real pity of an S or add an older S (`EndfieldService` implements `HasManualPullsInterface`; the profile exposes `supports_manual_pulls`):
+- **Rows**: `gryphline_pull.origin` (`recorded` / `manual` / `filler`) and `declared_pity`; `item_id` is nullable. Manual rows use `seq_id = manual_<uuid v7>` and filler ("unknown") rows `filler_<uuid v7>`, with `pool_type` = banner key, `pool_category` from `getPoolCategoryForPoolType()` and `pool_name` = banner name. A filler has `name = Unknown`, `rarity = 0` and no item.
+- **Counting** (`GryphlinePullStatsCalculator`): a filler is a headhunt (S pity, `#`, `currency_spent`, monthly chart) but not a B (`unknown_count`), has no pity and resets the 5★ pity. S rows and `recent_s_pulls` also carry `origin`, `declared_pity`, `recorded_pity`, `insert_after`, `insert_before`, `suggested_at` and `has_room`; each banner carries `open_window` and `oldest_s` (its first S, the anchor of "Add missing S").
+- **Realign**: the shared `PullGapPlanner` merges manual S pulls into the recorded ones imported later and creates, moves or deletes the fillers. It runs after each manual operation, at the end of a backup import (not on dry runs) and on the last page of each banner sync, always inside the `gryphline_profile_pulls_{id}` lock. The logical dedup of imports and the synthetic reconciliation ignore manual and filler rows.
+- **Dates**: `pulled_at` is the UTC wall time of `gachaTs`. Manual dates, "now" and the filler dates use that convention (UTC), so no tolerance is applied to the "not in the future" rule. The column uses the shared `wall_clock_datetime_immutable` type (`App\CoreBundle\Doctrine\WallClockDateTimeImmutableType`), read back as UTC, so the PHP default timezone (and its DST gap) never shifts stored times.
+- **Suggestions**: the 6★ operators (character banners) or weapons (weapon banner) of the Endfield catalog, merged with the 6★ already recorded; only the recorded ones until the catalog is built. Free text is accepted (no icon).
+
 ---
 
 ## 6. Bundle API Endpoint Summary
@@ -187,7 +196,11 @@ The bundle already includes the same backup import pipeline as `HoyoverseBundle`
 | `GET` | `/api/gryphline/accounts` / `POST /api/gryphline/accounts` | Lists accounts or adds/updates an account via manual `ACCOUNT_TOKEN` |
 | `POST` | `/api/gryphline/accounts/{id}/sync` | Syncs game profiles (`GryphlineGameProfile`) via SKPort |
 | `GET` | `/api/gryphline/accounts/{account}/gameProfiles/{gameProfile}/pulls/overview` | Pity/banner overview; sets Mercure cookie and returns `available_backup_importers`, `mercure_topic`, and `active_operation` |
-| `GET` | `/api/gryphline/accounts/{account}/gameProfiles/{gameProfile}/pulls` | Paginated pulls for a banner with pity calculation and item icons |
+| `GET` | `/api/gryphline/accounts/{account}/gameProfiles/{gameProfile}/pulls` | Paginated pulls for a banner with pity calculation and item icons (`rarities=0` lists the unknown pulls) |
+| `GET` | `/api/gryphline/accounts/{account}/gameProfiles/{gameProfile}/pulls/manual/suggestions?banner=` | 6★ items a manual S of the banner can be (Endfield catalog + recorded pulls), with icons |
+| `POST` | `/api/gryphline/accounts/{account}/gameProfiles/{gameProfile}/pulls/manual` | Adds a manual S (`201 {success, pull_id}`; `409` while the profile is locked, `422` on a rule violation) |
+| `PATCH` | `/api/gryphline/accounts/{account}/gameProfiles/{gameProfile}/pulls/{pull}/declared-pity` | Declares (or clears, with `null`) the real pity of an S |
+| `DELETE` | `/api/gryphline/accounts/{account}/gameProfiles/{gameProfile}/pulls/{pull}` | Deletes a manual S (`400` for any other pull) |
 | `POST` | `/api/gryphline/accounts/{account}/gameProfiles/{gameProfile}/pulls/sync` | Queues automatic pull sync via `u8_token` (returns `operation`) |
 | `POST` | `/api/gryphline/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-backup` | Validates a backup file via a registered importer and queues import on `gryphline_pulls` (`202` / `400` / `409`) |
 | `GET` | `/api/gryphline/accounts/{account}/gameProfiles/{gameProfile}/pulls/operations/{operationId}` | Returns the latest snapshot of a pull operation (fallback polling when Mercure is unavailable) |

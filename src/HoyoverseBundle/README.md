@@ -185,6 +185,8 @@ The **Diary** feature archives and displays the detailed history of in-game curr
 
 The **Pulls Tracker** stores full Gacha banner history in the `hoyoverse_pull` table (`HoyoversePull`), calculates pity statistics (`5★`/`S-Rank` and `4★`/`A-Rank`), renders monthly distribution charts (`PullsMonthlyChart`), and provides per-banner breakdowns (`PullsBannerCard` / `PullsBannerDetail`).
 
+Pity and banner statistics come from `Service/Pull/HoyoversePullStatsCalculator`, a pure service (same contract as `PerfectworldPullStatsCalculator`): `HoyoversePullRepository` only runs the queries, and the overview/list actions compose `groupRowsByBanner()` (gacha types missing from the config become dynamic 90/10 groups), `compute()` and `filterAndPaginate()`.
+
 ### 7.1 Architecture, DTOs, Async Queue (`hoyoverse_pulls`) & Locking
 - **Interfaces & Traits**:
   - `HasPullTrackerInterface` + `HoyoversePullTrait`: handle requests to `getGachaLog` / `getLdGachaLog`, denormalization into `HoyoversePullItem` DTOs, and mapping onto `HoyoversePull` via `Symfony\Component\ObjectMapper`.
@@ -278,6 +280,14 @@ All asynchronous pull operations — **Backup Import**, **PowerShell Import**, *
   - If Mercure is unreachable, it automatically falls back to **1-second HTTP polling** against `GET .../pulls/operations/{operationId}` while the operation is active.
   - Upon transitioning to `completed`, the page automatically refreshes the overview and selected banner view.
 
+### 7.7 Missing Pulls (Manual S Pulls, Declared Pity, Filler Rows)
+- **Rows**: `hoyoverse_pull.origin` (`PullOrigin`: `recorded` / `manual` / `filler`) and `declared_pity` (real pity declared on an S). A manual S has `pull_id = manual_<uuid>`; a filler (unknown pull) has `pull_id = filler_<uuid>`, rarity `0`, name `Unknown`, type `Unknown`. Both use the group's first gacha type (`301` for the Character Event Wish).
+- **Counting** (`HoyoversePullStatsCalculator`): fillers count as pulls (pity S, `pull_number`, totals, currency, monthly) but go to `unknown_count` instead of `b_count`, show `pity: null`, and reset the A pity. Rows expose `origin` and `declared_pity`; S rows also `recorded_pity`, `insert_after`, `insert_before`, `suggested_at`, `has_room`; summaries `unknown_count` and `open_window`. The list accepts rarity `0`.
+- **Writes** (`ManualPullService`, profile lock taken non-blocking, `409` when busy): add an S (`createManualS`), declare a pity (`declarePity`, stored as `null` when equal to the recorded pity on a recorded S), delete a manual S. Each write runs `realign()` for its banner (`PullGapPlanner`: merges a manual S into the recorded S that arrives later, then creates, moves or deletes fillers).
+- **Automatic realign**: at the end of a backup import (`realignAll()`, not on dry runs) and on the last page of each banner sync. `findExistingLogicalPullCounts()` ignores non-recorded rows.
+- **Dates**: server wall-clock time tagged as UTC (`HoyoverseServerTimezoneResolver`); "now" is the profile's server time (`getServerWallClockNow()`). `pulled_at` uses the shared `wall_clock_datetime_immutable` type (`App\CoreBundle\Doctrine\WallClockDateTimeImmutableType`), read back as UTC, so times in the hour skipped when DST starts in Europe/Rome are never shifted.
+- **Suggestions** (`ManualPullSuggestionProvider`): S items of the Nanoka catalog plus the recorded S pulls of the game; free text allowed (with a required item type).
+
 ---
 
 ## 8. Bundle API Endpoint Summary
@@ -301,4 +311,8 @@ All asynchronous pull operations — **Backup Import**, **PowerShell Import**, *
 | `POST` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-powershell` | Validates a PowerShell-extracted Gacha URL and queues import on `hoyoverse_pulls` (returns `operation`) |
 | `POST` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-backup` | Validates a backup file (`paimon_moe`, `star_rail_station_csv`, `zzz_rng_moe`) and queues import on `hoyoverse_pulls` (`202` / `400` / `409`) |
 | `GET` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/operations/{operationId}` | Returns the latest snapshot of a pull operation (fallback polling when Mercure is unavailable) |
+| `GET` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/manual/suggestions?banner=` | S items for the manual S form (`items`, `allow_free_text`, `item_types`) |
+| `POST` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/manual` | Adds a missing S pull (`201`; `422` with a `code` on a rule violation, `409` when the profile is busy) |
+| `PATCH` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/{pull}/declared-pity` | Declares (or clears with `null`) the real pity of an S pull |
+| `DELETE` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/{pull}` | Deletes a manual S pull (`400` for other rows) |
 | `GET` | `/api/hoyoverse/pulls/script/powershell` | Returns the `.ps1` PowerShell script to extract the Gacha URL from local cache |

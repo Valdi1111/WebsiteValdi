@@ -7,6 +7,7 @@ use App\GamesBundle\Model\Game\RarityTierConfig;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Normalizer\HoyoverseGameProfileNormalizer;
 use App\HoyoverseBundle\Service\GenshinImpactService;
+use App\HoyoverseBundle\Service\HonkaiImpact3rdService;
 use App\HoyoverseBundle\Service\HonkaiStarRailService;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
@@ -80,6 +81,7 @@ class HoyoverseGameProfileNormalizerTest extends TestCase
         $result = $this->normalizeFor(GenshinImpactService::GAME_ID, $gameService);
 
         $this->assertTrue($result['supports_pulls']);
+        $this->assertTrue($result['supports_manual_pulls']);
         $this->assertTrue($result['supports_pull_sync']);
         $this->assertTrue($result['supports_powershell_pulls']);
         $this->assertSame('Wishes', $result['pull_label']);
@@ -92,5 +94,14 @@ class HoyoverseGameProfileNormalizerTest extends TestCase
 
         $this->assertFalse($result['supports_pull_sync']);
         $this->assertTrue($result['supports_powershell_pulls']);
+        $this->assertTrue($result['supports_manual_pulls']);
+    }
+
+    public function testGameWithoutPullTrackerHasNoManualPulls(): void
+    {
+        $result = $this->normalizeFor(HonkaiImpact3rdService::GAME_ID, $this->createStub(HonkaiImpact3rdService::class));
+
+        $this->assertFalse($result['supports_pulls']);
+        $this->assertFalse($result['supports_manual_pulls']);
     }
 }

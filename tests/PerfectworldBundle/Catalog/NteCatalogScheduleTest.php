@@ -11,6 +11,10 @@ use App\PerfectworldBundle\Service\Catalog\NteCatalogBuilder;
 use App\PerfectworldBundle\Service\Catalog\NteCatalogUpdater;
 use App\PerfectworldBundle\Repository\PerfectworldPullRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use App\PerfectworldBundle\Service\Pull\ManualPullService;
+use Symfony\Component\DependencyInjection\ServiceLocator;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\Store\InMemoryStore;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
@@ -50,7 +54,7 @@ class NteCatalogScheduleTest extends TestCase
         $updater = new NteCatalogUpdater(
             new NteCatalogBuilder((new NteAssetsFixture())->client(), $catalog, new NullLogger()),
             $catalog,
-            new NteCatalogBackfiller($catalog, $repository, $this->createStub(EntityManagerInterface::class)),
+            new NteCatalogBackfiller($catalog, $repository, $this->createStub(EntityManagerInterface::class), $this->createStub(ManualPullService::class), new LockFactory(new InMemoryStore()), new ServiceLocator([]), new NullLogger()),
             new NullLogger(),
         );
 
@@ -65,7 +69,7 @@ class NteCatalogScheduleTest extends TestCase
         $updater = new NteCatalogUpdater(
             new NteCatalogBuilder((new NteAssetsFixture(['README.md' => "> Version: 1.6.0 (CN)\n"]))->client(), $catalog, new NullLogger()),
             $catalog,
-            new NteCatalogBackfiller($catalog, $this->createStub(PerfectworldPullRepository::class), $this->createStub(EntityManagerInterface::class)),
+            new NteCatalogBackfiller($catalog, $this->createStub(PerfectworldPullRepository::class), $this->createStub(EntityManagerInterface::class), $this->createStub(ManualPullService::class), new LockFactory(new InMemoryStore()), new ServiceLocator([]), new NullLogger()),
             new NullLogger(),
         );
 

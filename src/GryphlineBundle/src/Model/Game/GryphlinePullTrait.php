@@ -47,6 +47,26 @@ trait GryphlinePullTrait
     }
 
     /**
+     * Pool type of a sync category: a banner key, or the legacy "char" / "weapon" aliases.
+     */
+    public function getPoolTypeForCategory(string $category): string
+    {
+        return match ($category) {
+            'char' => 'E_CharacterGachaPoolType_Special',
+            'weapon' => 'E_WeaponGachaPoolType_Standard',
+            default => $category,
+        };
+    }
+
+    /**
+     * Pool category ("char" or "weapon", the record endpoint) of a pool type.
+     */
+    public function getPoolCategoryForPoolType(string $poolType): string
+    {
+        return str_starts_with($poolType, 'E_Weapon') || $poolType === 'weapon' ? 'weapon' : 'char';
+    }
+
+    /**
      * @return array<GryphlinePull>
      */
     public function fetchPullsPage(
@@ -58,13 +78,8 @@ trait GryphlinePullTrait
     ): array {
         $nextSeqId = null;
         $serverId = $profile->getServerId() ?? '3';
-        $isWeapon = str_starts_with($category, 'E_Weapon') || $category === 'weapon';
-        $endpointType = $isWeapon ? 'weapon' : 'char';
-        $poolType = match ($category) {
-            'char' => 'E_CharacterGachaPoolType_Special',
-            'weapon' => 'E_WeaponGachaPoolType_Standard',
-            default => $category,
-        };
+        $endpointType = $this->getPoolCategoryForPoolType($category);
+        $poolType = $this->getPoolTypeForCategory($category);
 
         $query = [
             'server_id' => $serverId,

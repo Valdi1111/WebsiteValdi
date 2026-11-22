@@ -33,6 +33,9 @@ function getInitials(name) {
 export function PullsRecentBadge({ pull, maxPity = 90, pullSingularLabel = "Pull" }) {
     const colorScheme = getPityColor(pull.pity, maxPity);
     const [imgError, setImgError] = useState(false);
+    // Manual S (added by the user) and S with a declared (corrected) pity
+    const isManual = pull.origin === "manual";
+    const hasDeclaredPity = pull.declared_pity !== null && pull.declared_pity !== undefined;
 
     useEffect(() => {
         setImgError(false);
@@ -46,6 +49,8 @@ export function PullsRecentBadge({ pull, maxPity = 90, pullSingularLabel = "Pull
                 <div style={{ fontSize: 12 }}>
                     <div style={{ fontWeight: 600 }}>{pull.name}</div>
                     <div>Pity: {pull.pity} ({pullSingularLabel} #{pull.pull_number})</div>
+                    {hasDeclaredPity && <div>Declared pity: {pull.declared_pity}</div>}
+                    {isManual && <div>Added manually</div>}
                     <div style={{ opacity: 0.8 }}>{pull.pulled_at}</div>
                 </div>
             }
@@ -65,7 +70,7 @@ export function PullsRecentBadge({ pull, maxPity = 90, pullSingularLabel = "Pull
                         width: 52,
                         height: 52,
                         borderRadius: "50%",
-                        border: `2.5px solid ${colorScheme.border}`,
+                        border: `2.5px ${isManual ? "dashed" : "solid"} ${colorScheme.border}`,
                         background: colorScheme.bg,
                         display: "flex",
                         alignItems: "center",
@@ -120,6 +125,7 @@ export function PullsRecentBadge({ pull, maxPity = 90, pullSingularLabel = "Pull
                         }}
                     >
                         {pull.pity}
+                        {hasDeclaredPity && "*"}
                     </span>
                 </div>
                 <Text

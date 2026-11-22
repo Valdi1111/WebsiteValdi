@@ -10,6 +10,7 @@ use App\GryphlineBundle\Model\Game\CheckInTrait;
 use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Model\Game\HasCheckInInterface;
 use App\GamesBundle\Model\Game\HasDailiesInterface;
+use App\GamesBundle\Model\Game\HasManualPullsInterface;
 use App\GamesBundle\Model\Game\HasNotesInterface;
 use App\GamesBundle\Model\Game\HasStaminaInterface;
 use App\GamesBundle\Model\Game\HasWeekliesInterface;
@@ -33,7 +34,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 #[AutoconfigureTag(name: 'gryphline.game.biz', attributes: ['key' => self::GAME_BIZ])]
 #[AutoconfigureTag(name: 'gryphline.game.id', attributes: ['key' => self::GAME_ID])]
-class EndfieldService implements GameInterface, HasCheckInInterface, HasNotesInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasAutoPullImportInterface
+class EndfieldService implements GameInterface, HasCheckInInterface, HasNotesInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasAutoPullImportInterface, HasManualPullsInterface
 {
     use CheckInTrait;
     use NotesTrait;

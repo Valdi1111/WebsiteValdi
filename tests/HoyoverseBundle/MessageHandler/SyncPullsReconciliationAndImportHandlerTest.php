@@ -7,6 +7,8 @@ use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Entity\HoyoversePull;
 use App\GamesBundle\Exception\PullProfileLockedException;
+use App\GamesBundle\Model\Pull\Manual\FillerPlan;
+use App\GamesBundle\Model\Pull\Manual\FillerSlot;
 use App\HoyoverseBundle\Message\Profile\ImportPullsBackupMessage;
 use App\HoyoverseBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\HoyoverseBundle\Model\Game\GameInterface;
@@ -17,6 +19,7 @@ use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
 use App\HoyoverseBundle\Service\GenshinImpactService;
 use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
+use App\HoyoverseBundle\Service\Pull\ManualPullService;
 use App\HoyoverseBundle\Service\Pull\PullBackupImportService;
 use App\HoyoverseBundle\Service\Pull\PullOperationTracker;
 use App\HoyoverseBundle\Service\Pull\PullSyntheticReconcilerManager;
@@ -113,6 +116,10 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
         $handler->setSyntheticReconcilerManager(new PullSyntheticReconcilerManager([$reconciler]));
         $handler->setOperationTracker($tracker);
         $handler->setLockFactory(new LockFactory(new InMemoryStore()));
+        // Last page (stopped on an existing pull): the banner is realigned, nothing to change
+        $manualPullService = $this->createMock(ManualPullService::class);
+        $manualPullService->expects($this->once())->method('realign')->with($profile, $giService, '301')->willReturn(new FillerPlan());
+        $handler->setManualPullService($manualPullService);
 
         $handler(new SyncPullsPageProfileMessage(10, '301', '0', 'test-authkey', [], $operation['id']));
 
@@ -125,6 +132,96 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
         $this->assertSame('completed', $finalOp['status']);
         $this->assertSame(1, $finalOp['imported']);
         $this->assertSame(1, $finalOp['promoted']);
+    }
+
+    public function testSyncPullsHandlerRealignsOnAnEmptyLastPageUnderTheLock(): void
+    {
+        [$profile, $giService] = $this->createSyncProfileAndGame([]);
+        $lockFactory = new LockFactory(new InMemoryStore());
+
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->expects($this->once())->method('flush'); // The realign changes only
+        $manualPullService = $this->createMock(ManualPullService::class);
+        $manualPullService->expects($this->once())->method('realign')->with($profile, $giService, '301')
+            ->willReturnCallback(function () use ($lockFactory): FillerPlan {
+                $this->assertFalse($lockFactory->createLock(PullBackupImportService::getProfileLockKey(10))->acquire(false), 'Realign runs under the profile lock');
+
+                return new FillerPlan(fillerCreates: [new FillerSlot(new \DateTimeImmutable('2026-01-01 00:00:00'), 1)]);
+            });
+
+        $handler = $this->createSyncHandler($profile, $giService, $em, $this->createStub(MessageBusInterface::class), $manualPullService, $lockFactory);
+        $handler(new SyncPullsPageProfileMessage(10, '301', '0', 'test-authkey', [], null));
+    }
+
+    public function testSyncPullsHandlerDoesNotRealignWhenMorePagesFollow(): void
+    {
+        $ts = new \DateTimeImmutable('2026-10-04 12:00:00', new \DateTimeZone('UTC'));
+        $page = [];
+        for ($i = 0; $i < 20; ++$i) {
+            $page[] = (new HoyoversePull())->setPullId((string) (1790000000000000100 - $i))->setGachaType('301')->setName('Cool Steel')->setPulledAt($ts);
+        }
+        [$profile, $giService] = $this->createSyncProfileAndGame($page);
+
+        $manualPullService = $this->createMock(ManualPullService::class);
+        $manualPullService->expects($this->never())->method('realign');
+        $bus = $this->createMock(MessageBusInterface::class);
+        $bus->expects($this->once())->method('dispatch')->willReturnCallback(static fn (object $msg, array $stamps): Envelope => new Envelope($msg, $stamps));
+
+        $handler = $this->createSyncHandler($profile, $giService, $this->createStub(EntityManagerInterface::class), $bus, $manualPullService, new LockFactory(new InMemoryStore()));
+        $handler(new SyncPullsPageProfileMessage(10, '301', '0', 'test-authkey', [], null));
+    }
+
+    /**
+     * @param list<HoyoversePull> $page
+     *
+     * @return array{0: HoyoverseGameProfile, 1: GenshinImpactService}
+     */
+    private function createSyncProfileAndGame(array $page): array
+    {
+        $account = (new HoyoverseAccount())->setCookie('ltoken_v2=abc; ltuid_v2=123');
+        $profile = (new HoyoverseGameProfile())
+            ->setAccount($account)
+            ->setGameId(GenshinImpactService::GAME_ID)
+            ->setGameBiz(GenshinImpactService::GAME_BIZ)
+            ->setNickname('Traveler');
+        (new \ReflectionProperty(HoyoverseGameProfile::class, 'id'))->setValue($profile, 10);
+
+        $giService = $this->getMockBuilder(GenshinImpactService::class)
+            ->setConstructorArgs([new NullLogger()])
+            ->onlyMethods(['fetchPullsPage'])
+            ->getMock();
+        $giService->expects($this->once())->method('fetchPullsPage')->willReturn($page);
+
+        return [$profile, $giService];
+    }
+
+    private function createSyncHandler(
+        HoyoverseGameProfile $profile,
+        GenshinImpactService $giService,
+        EntityManagerInterface $em,
+        MessageBusInterface $bus,
+        ManualPullService $manualPullService,
+        LockFactory $lockFactory,
+    ): SyncPullsPageProfileHandler {
+        $profileRepo = $this->createStub(HoyoverseGameProfileRepository::class);
+        $profileRepo->method('find')->willReturn($profile);
+
+        $handler = new SyncPullsPageProfileHandler(
+            $profileRepo,
+            $this->createStub(HoyolabCookieUtilsService::class),
+            new ServiceLocator([GenshinImpactService::GAME_ID => static fn () => $giService]),
+            new NullLogger(),
+            $this->createStub(UnifiedNotificationService::class),
+        );
+        $handler->setEntityManager($em);
+        $handler->setPullRepository($this->createStub(HoyoversePullRepository::class));
+        $handler->setBus($bus);
+        $handler->setSyntheticReconcilerManager(new PullSyntheticReconcilerManager([]));
+        $handler->setOperationTracker(new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test'));
+        $handler->setLockFactory($lockFactory);
+        $handler->setManualPullService($manualPullService);
+
+        return $handler;
     }
 
     public function testImportPullsBackupHandlerCompletesAndDeletesTempFile(): void

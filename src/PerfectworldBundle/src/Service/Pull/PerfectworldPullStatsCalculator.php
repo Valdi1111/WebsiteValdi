@@ -2,7 +2,12 @@
 
 namespace App\PerfectworldBundle\Service\Pull;
 
+use App\GamesBundle\Model\Pull\PullOrigin;
+use App\GamesBundle\Model\Pull\PullTimelineEntry;
+use App\GamesBundle\Service\Pull\PullGapPlanner;
+use App\CoreBundle\Doctrine\WallClockDateTimeImmutableType;
 use App\PerfectworldBundle\Entity\PerfectworldPull;
+use App\PerfectworldBundle\Service\Catalog\NteCatalog;
 use App\PerfectworldBundle\Service\NevernessToEvernessService;
 
 /**
@@ -12,8 +17,14 @@ use App\PerfectworldBundle\Service\NevernessToEvernessService;
  * Board banners: only rolls count; S pity resets only on an S character (S items do not);
  * A pity is the number of rolls since the last Points Gift (a guaranteed A every 10 rolls).
  * Arc banner: every Arc counts; S pity resets on any S Arc; A pity resets on an A or S Arc.
+ *
+ * Filler rows (unknown pulls created by the realign step) count like any other pull for the S pity,
+ * the pull numbers and the monthly totals, but are never B ("unknown_count"), carry no pity and
+ * restart the A pity (the gap held As that are not known).
+ *
+ * Pure: the window info of the missing pulls feature comes from PullGapPlanner::describe().
  */
-class NtePullStatsCalculator
+class PerfectworldPullStatsCalculator
 {
     private const int RECENT_S_PULLS = 50;
 
@@ -24,31 +35,106 @@ class NtePullStatsCalculator
         'cosmetic' => 'Cosmetic',
     ];
 
+    public function __construct(
+        private readonly PullGapPlanner $planner,
+    ) {
+    }
+
+    /**
+     * Whether a row counts as one pull for the S pity: only rolls on boards (Points Gifts and
+     * Slumberland chases are not rolls), every Arc on the Arc banner.
+     *
+     * @param array<string, mixed> $row
+     * @param array{key: string}   $bannerGroup
+     */
+    public function countsAsPull(array $row, array $bannerGroup): bool
+    {
+        return !NevernessToEvernessService::isBoardBanner($bannerGroup['key'])
+            || (string) ($row['kind'] ?? '') === PerfectworldPull::KIND_ROLL;
+    }
+
+    /**
+     * Whether a row resets the S pity: a rolled S character on boards (S items and S rewards of
+     * gifts or chases do not), any S Arc on the Arc banner.
+     *
+     * @param array<string, mixed> $row
+     * @param array{key: string}   $bannerGroup
+     */
+    public function isS(array $row, array $bannerGroup): bool
+    {
+        $rarity = isset($row['rarity']) ? (int) $row['rarity'] : null;
+        if ($rarity !== NevernessToEvernessService::RARITY_S) {
+            return false;
+        }
+        if (!NevernessToEvernessService::isBoardBanner($bannerGroup['key'])) {
+            return true;
+        }
+
+        return $this->countsAsPull($row, $bannerGroup)
+            && (string) ($row['rewardType'] ?? '') === NteCatalog::TYPE_CHARACTER;
+    }
+
+    /**
+     * Rows of one banner as entries of the shared missing pulls logic, with the same predicates as
+     * compute(). Every row is kept (Points Gifts and chases bound the windows without counting).
+     *
+     * @param list<array<string, mixed>> $rows        Chronologically sorted rows of one banner (oldest first)
+     * @param array{key: string}         $bannerGroup
+     * @return list<PullTimelineEntry>
+     */
+    public function toTimelineEntries(array $rows, array $bannerGroup): array
+    {
+        $entries = [];
+        foreach ($rows as $row) {
+            $rewardId = isset($row['rewardId']) ? trim((string) $row['rewardId']) : '';
+            $entries[] = new PullTimelineEntry(
+                id: (int) $row['id'],
+                pulledAt: self::toWallClock($row['pulledAt']),
+                origin: self::getOrigin($row),
+                isS: $this->isS($row, $bannerGroup),
+                countsAsPull: $this->countsAsPull($row, $bannerGroup),
+                declaredPity: isset($row['declaredPity']) ? (int) $row['declaredPity'] : null,
+                // Exports and the catalog spell some ids with a different case
+                itemId: $rewardId !== '' ? NteCatalog::normalizeId($rewardId) : null,
+                name: isset($row['name']) ? (string) $row['name'] : null,
+            );
+        }
+
+        return $entries;
+    }
+
     /**
      * @param list<array<string, mixed>> $rows Chronologically sorted rows of one banner (oldest first)
      * @param array{key: string, name: string, categories: array<string>, s_max_pity: int, a_max_pity: int} $bannerGroup
      * @param array{plural: string, singular: string} $pullLabels Unit counted by the banner
      * @param (callable(?string): ?string)|null $poolNameResolver Display name of a rotation (pool id)
+     * @param \DateTimeImmutable|null $now Upper limit of the suggested dates (wall clock); null = current server time
      * @return array{
      *     summary: array<string, mixed>,
      *     items: list<array<string, mixed>>,
      *     monthly: array<string, array{month: string, total: int, s_count: int, a_count: int}>
      * }
      */
-    public function compute(array $rows, array $bannerGroup, array $pullLabels, ?callable $poolNameResolver = null): array
+    public function compute(array $rows, array $bannerGroup, array $pullLabels, ?callable $poolNameResolver = null, ?\DateTimeImmutable $now = null): array
     {
         $isBoard = NevernessToEvernessService::isBoardBanner($bannerGroup['key']);
+        $description = $this->planner->describe(
+            $this->toTimelineEntries($rows, $bannerGroup),
+            $now ?? WallClockDateTimeImmutableType::now(),
+        );
 
         $unitNumber = 0;
+        $fillerUnits = 0;
         $sPity = 0;
         $aPity = 0;
         $sCount = 0;
         $aCount = 0;
         $bCount = 0;
+        $unknownCount = 0;
         $sPitySum = 0;
         $aPitySum = 0;
         $aPityCount = 0;
-        $recentSPulls = [];
+        $sPulls = [];
         $items = [];
         $monthly = [];
 
@@ -56,8 +142,8 @@ class NtePullStatsCalculator
             $kind = (string) $row['kind'];
             $rarity = isset($row['rarity']) ? (int) $row['rarity'] : null;
             $rewardType = (string) $row['rewardType'];
-            $isCountedUnit = $isBoard ? $kind === PerfectworldPull::KIND_ROLL : true;
-            $isS = $rarity === NevernessToEvernessService::RARITY_S;
+            $isCountedUnit = $this->countsAsPull($row, $bannerGroup);
+            $isS = $this->isS($row, $bannerGroup);
             $isA = $rarity === NevernessToEvernessService::RARITY_A;
             $isUnit = in_array($rewardType, ['character', 'arc'], true);
 
@@ -73,11 +159,16 @@ class NtePullStatsCalculator
                 $aPity++;
             }
 
-            if ($isBoard) {
+            if (self::getOrigin($row) === PullOrigin::Filler) {
+                // Unknown pull: never a B, no pity, and the As of the gap are unknown
+                $unknownCount++;
+                $fillerUnits += $isCountedUnit ? 1 : 0;
+                $aPity = 0;
+            } elseif ($isBoard) {
                 if ($kind === PerfectworldPull::KIND_POINTS_GIFT) {
                     $aPity = 0;
                 }
-                if ($isCountedUnit && $isS && $rewardType === 'character') {
+                if ($isS) {
                     $pity = $sPity;
                     $countsAsS = true;
                     $sPity = 0;
@@ -106,12 +197,19 @@ class NtePullStatsCalculator
                 : (string) $row['pulledAt'];
 
             $item = $this->mapItem($row, $bannerGroup, $isBoard, $pullNumber, $pity, $pulledAt, $poolNameResolver);
+            if ($countsAsS) {
+                // Limits of the manual pull forms (the S item already carries declared_pity)
+                $window = $description['windows'][(int) $row['id']] ?? null;
+                if ($window !== null) {
+                    $item += $window->toArray();
+                }
+            }
             $items[] = $item;
 
             if ($countsAsS) {
                 $sCount++;
                 $sPitySum += (int) $pity;
-                $recentSPulls[] = $item;
+                $sPulls[] = $item;
             }
             if ($countsAsA) {
                 $aCount++;
@@ -126,8 +224,9 @@ class NtePullStatsCalculator
             }
         }
 
+        // Boards: rolls per A obtained, without the unknown rolls (their As are unknown too)
         $avgAPity = $isBoard
-            ? ($aCount > 0 ? round($unitNumber / $aCount, 2) : 0.0)
+            ? ($aCount > 0 ? round(($unitNumber - $fillerUnits) / $aCount, 2) : 0.0)
             : ($aPityCount > 0 ? round($aPitySum / $aPityCount, 2) : 0.0);
 
         return [
@@ -147,7 +246,11 @@ class NtePullStatsCalculator
                 'a_max_pity' => $bannerGroup['a_max_pity'],
                 'avg_s_pity' => $sCount > 0 ? round($sPitySum / $sCount, 2) : 0.0,
                 'avg_a_pity' => $avgAPity,
-                'recent_s_pulls' => array_slice(array_reverse($recentSPulls), 0, self::RECENT_S_PULLS),
+                'recent_s_pulls' => array_slice(array_reverse($sPulls), 0, self::RECENT_S_PULLS),
+                'unknown_count' => $unknownCount,
+                'open_window' => $description['open']->toArray(),
+                // recent_s_pulls is capped: the anchor of "add a missing S" is the oldest S of all
+                'oldest_s' => $sPulls[0] ?? null,
             ],
             'items' => $items,
             'monthly' => $monthly,
@@ -155,7 +258,8 @@ class NtePullStatsCalculator
     }
 
     /**
-     * Newest-first rows filtered by rarity (unknown rarity counts as B) and name, then paginated.
+     * Newest-first rows filtered by rarity (unknown rarity counts as B, fillers are rarity 0) and
+     * name, then paginated.
      *
      * @param list<array<string, mixed>> $items Items as returned by compute() (oldest first)
      * @param list<int> $rarities
@@ -184,6 +288,38 @@ class NtePullStatsCalculator
         ];
     }
 
+    public static function getItemTypeLabel(string $rewardType): string
+    {
+        return self::ITEM_TYPE_LABELS[$rewardType] ?? ucfirst($rewardType);
+    }
+
+    /**
+     * Origin of a row: a PullOrigin case when hydrated by Doctrine, its string value, or missing (recorded).
+     *
+     * @param array<string, mixed> $row
+     */
+    public static function getOrigin(array $row): PullOrigin
+    {
+        $origin = $row['origin'] ?? null;
+        if ($origin instanceof PullOrigin) {
+            return $origin;
+        }
+
+        return is_string($origin) ? (PullOrigin::tryFrom($origin) ?? PullOrigin::Recorded) : PullOrigin::Recorded;
+    }
+
+    private static function toWallClock(mixed $pulledAt): \DateTimeImmutable
+    {
+        if ($pulledAt instanceof \DateTimeImmutable) {
+            return $pulledAt;
+        }
+        if ($pulledAt instanceof \DateTimeInterface) {
+            return \DateTimeImmutable::createFromInterface($pulledAt);
+        }
+
+        return WallClockDateTimeImmutableType::fromString((string) $pulledAt);
+    }
+
     /**
      * @param array<string, mixed> $row
      * @param array{key: string, name: string} $bannerGroup
@@ -206,7 +342,7 @@ class NtePullStatsCalculator
             // Raw reward data: item_id and item_type are also read by the pull item icon resolver
             'item_id' => $row['rewardId'],
             'item_type' => $rewardType,
-            'item_type_label' => self::ITEM_TYPE_LABELS[$rewardType] ?? ucfirst($rewardType),
+            'item_type_label' => self::getItemTypeLabel($rewardType),
             'name' => $quantity > 1 ? sprintf('%s ×%d', $row['name'], $quantity) : $row['name'],
             'quantity' => $quantity,
             'rarity' => isset($row['rarity']) ? (int) $row['rarity'] : null,
@@ -221,6 +357,9 @@ class NtePullStatsCalculator
                 default => isset($row['rollResult']) ? (string) $row['rollResult'] : '?',
             };
         }
+
+        $item['origin'] = self::getOrigin($row)->value;
+        $item['declared_pity'] = isset($row['declaredPity']) ? (int) $row['declaredPity'] : null;
 
         return $item;
     }

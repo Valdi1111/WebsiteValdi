@@ -21,6 +21,10 @@ import axios from "axios";
  * @property {(accountId: string|number, gameProfileId: string|number) => Promise<axios.AxiosResponse<any>>} getDiaryMeta
  * @property {(accountId: string|number, gameProfileId: string|number, params: { period: string, currency: string }) => Promise<axios.AxiosResponse<any>>} getDiarySummary
  * @property {(accountId: string|number, gameProfileId: string|number, params: { period: string, currency: string, page?: number, limit?: number, filter?: string, date?: string }) => Promise<axios.AxiosResponse<any>>} getDiaryEntries
+ * @property {(accountId: string|number, gameProfileId: string|number, bannerKey: string) => Promise<axios.AxiosResponse<any>>} getManualPullSuggestions
+ * @property {(accountId: string|number, gameProfileId: string|number, data: { banner: string, anchor_id: number|null, name: string, item_id: string|number|null, item_type: string|null, pulled_at: string, pity: number, allow_duplicate: boolean }) => Promise<axios.AxiosResponse<any>>} createManualPull
+ * @property {(accountId: string|number, gameProfileId: string|number, pullId: string|number, pity: number|null) => Promise<axios.AxiosResponse<any>>} declarePullPity
+ * @property {(accountId: string|number, gameProfileId: string|number, pullId: string|number) => Promise<axios.AxiosResponse<any>>} deleteManualPull
  */
 
 /**
@@ -99,6 +103,19 @@ export default function (apiUrl, { message }) {
         axiosInstance.get(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls/overview`);
     api._gameProfiles.getPulls = async (accountId, gameProfileId, params) =>
         axiosInstance.get(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls`, { params });
+
+    // Manual pulls (missing history): add an earlier S, declare the real pity of an S, delete a manual S
+    api._gameProfiles.getManualPullSuggestions = async (accountId, gameProfileId, bannerKey) =>
+        axiosInstance.get(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls/manual/suggestions`, {
+            params: { banner: bannerKey },
+        });
+    api._gameProfiles.createManualPull = async (accountId, gameProfileId, data) =>
+        axiosInstance.post(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls/manual`, data);
+    // pity = null removes the correction
+    api._gameProfiles.declarePullPity = async (accountId, gameProfileId, pullId, pity) =>
+        axiosInstance.patch(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls/${pullId}/declared-pity`, { pity });
+    api._gameProfiles.deleteManualPull = async (accountId, gameProfileId, pullId) =>
+        axiosInstance.delete(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls/${pullId}`);
 
     return {
         ...api,

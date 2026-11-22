@@ -15,12 +15,13 @@ It supports Perfect World Games account login (email + one-time code, or a token
 | **Account deduplication & safe re-login** | ✅ | Keyed by the Perfect World account `uid`; re-login (email or token) must return the same account |
 | **Profile sync** | ✅ | Role list: UID, nickname, level, server/region, avatar |
 | **Pull tracker (manual import)** | ✅ | Up to 3 nte-exporter files at once (one per banner) with live per-banner Mercure progress |
+| **Missing pulls** | ✅ | Add an S missing from the history or declare the real pity of an S; unknown "filler" pulls make the pity add up |
 | **Item catalog & icons** | ✅ | Names, ranks, types and icons from the [Waifus-Grace/NTE_Assets](https://github.com/Waifus-Grace/NTE_Assets) datamine, refreshed weekly |
 | Check-in, stamina, codes, pull sync | — | No global web API exists for NTE |
 
 ### Game service
 
-`NevernessToEvernessService` implements the bundle `Model/Game/GameInterface` (static `getGameBiz()`/`getGameId()`, region and timezone of SDK servers) and `Model/Game/HasPullTrackerInterface` (`getGachaConfig()`, `getRarityConfig()`, `getBannerPullLabels()`). It is located through the `perfectworld.game.id` / `perfectworld.game.biz` tags, like the game services of the other providers: the bundle is meant to host every Perfect World game, even though NTE is the only one today.
+`NevernessToEvernessService` implements the bundle `Model/Game/GameInterface` (static `getGameBiz()`/`getGameId()`, region and timezone of SDK servers), `Model/Game/HasPullTrackerInterface` (`getGachaConfig()`, `getRarityConfig()`, `getBannerPullLabels()`) and the shared `HasManualPullsInterface` marker (`supports_manual_pulls` in the profile JSON). It is located through the `perfectworld.game.id` / `perfectworld.game.biz` tags, like the game services of the other providers: the bundle is meant to host every Perfect World game, even though NTE is the only one today.
 
 | SDK server id | Region | Display timezone (fixed offset, no DST) |
 | :--- | :--- | :--- |
@@ -80,9 +81,10 @@ Game rules behind the table:
 - **Arc Research Program** (Miracle Box): Arcs are bought in "Limited Issues" of 10; an S is guaranteed every 60 Arcs (the featured S every 80) and an A or better every 10. Pity is shared by all issues.
 
 Implementation:
-- `Service/Pull/NtePullStatsCalculator` produces the same JSON as the other providers' pull repositories, plus `pull_label`/`pull_singular_label` per banner and `roll_label` per row (see the shared fields in the [GamesBundle guide](../GamesBundle/README.md#2-frontend-assets)).
+- `Service/Pull/PerfectworldPullStatsCalculator` produces the same JSON as the other providers' pull repositories, plus `pull_label`/`pull_singular_label` per banner and `roll_label` per row (see the shared fields in the [GamesBundle guide](../GamesBundle/README.md#2-frontend-assets)).
 - On boards only S characters carry a pity value (on the Arc banner S and A Arcs do); other rows show "—". Points Gifts and Slumberland rows have no pull number.
-- Board summaries: `s_count` = S characters, `a_count` = A characters/Arcs obtained (gifts included), `avg_a_pity` = rolls per A obtained.
+- Board summaries: `s_count` = S characters, `a_count` = A characters/Arcs obtained (gifts included), `avg_a_pity` = rolls per A obtained (unknown rolls excluded).
+- The predicates are public (`countsAsPull()`, `isS()`, taking the banner group) and also build the entries of the shared missing pulls logic (`toTimelineEntries()`).
 
 ### Export format (`nte-history-export` v1)
 
@@ -108,16 +110,34 @@ Produced by [nte-exporter](https://github.com/RishiMenon2004/nte-exporter), whic
 - Format `nte-history-export` v1, one file per banner, up to 3 files per upload (25 MB each). The banner is read from the file header and `user_uid` must match the profile UID.
 - The scan must start at page 1 without gaps or skipped records, otherwise positions inside a second would shift.
 - **Identity**: `(profile, banner, display time, position in the second)`, position 0 being the most recent record of that second. The exporter `uid` changes between exporter versions (regrouped page splits) and is stored only as a reference; `timestamp_group_ordinal` is never used.
-- **Times** are stored exactly as exported (game display time, likely the server time) in a `wall_clock_datetime_immutable` column, read back in UTC so DST gaps never shift them.
+- **Times** are stored exactly as exported (game display time, likely the server time) in a `wall_clock_datetime_immutable` column (`App\CoreBundle\Doctrine\WallClockDateTimeImmutableType`, shared with the HoYoverse and Gryphline pulls), read back in UTC so DST gaps never shift them.
 - **Group check**: once Slumberland records are removed, each second holds 1 roll, a roll + its gift, or a 10-roll (10 rolls + gift); any other size rejects the file. Only the **oldest second** may be incomplete (scan stopped before the end of the history, or the game's ~6-month window): fixed exports import it as is (positions stay stable), old exports label it from the phase of the following seconds or leave it out with a warning when that is ambiguous.
 - **Exporters older than 0.3.1** label many rolls as Points Gifts. Labels are rebuilt from the game rule (the gift comes with every tenth cumulative roll): the 10 possible starting phases are tried and only those placing every gift on a record the file labels `points_gift` with an A character/Arc reward are kept; all valid phases must agree, else the file is rejected. Relabelled rolls have no dice value (`roll_label` "?").
 - **Upsert**: new identities are inserted; an existing record is rewritten only by a newer exporter version (`version_compare`); a different `reward_id` on the same identity aborts that banner before any write.
-- After each board banner the stored history is checked: two consecutive Points Gifts must be 10 rolls apart, otherwise a "possible gap" warning is reported (the game keeps about 6 months of history).
+- After each banner, inside the profile lock, the banner is realigned (see [Missing pulls](#missing-pulls)); then board histories are checked: two consecutive Points Gifts must be 10 recorded rolls apart (filler and manual rows are ignored), otherwise a "possible gap" warning is reported (the game keeps about 6 months of history).
 - Imports run on the `perfectworld_pulls` Messenger transport (`ImportPullsBackupMessage`) with per-banner progress published through `Service/Pull/PullOperationTracker` (Mercure topic `https://games.<domain>/perfectworld/profiles/{id}/pulls/progress`).
+
+### Missing pulls
+
+Shared feature (plan in [`docs/PULLS_MISSING_HISTORY_PLAN.md`](../../docs/PULLS_MISSING_HISTORY_PLAN.md), rules in `GamesBundle` `ManualPullGuard`/`PullGapPlanner`), implemented by `Service/Pull/ManualPullService`:
+
+| Endpoint | Route name suffix | Notes |
+| :--- | :--- | :--- |
+| `GET …/pulls/manual/suggestions?banner=` | `pulls_manual_suggestions` | S characters (boards) or S Arcs (Arc banner) from `NteCatalog`; no free text |
+| `POST …/pulls/manual` | `pulls_manual_create` | Manual S: a catalog `item_id` is required (`invalid_item` otherwise) |
+| `PATCH …/pulls/{pull}/declared-pity` | `pulls_declared_pity` | Real pity of an S; the recorded value is stored as `null` on a recorded S |
+| `DELETE …/pulls/{pull}` | `pulls_manual_delete` | Manual rows only |
+
+- Rows have an `origin` (`recorded`, `manual`, `filler`) and a `declared_pity`. Fillers are unknown pulls created by the realign step so that each declared pity adds up; they count as pulls (S pity, pull numbers, totals, monthly chart) but go to `unknown_count` instead of B, carry no pity and restart the A pity.
+- **System rows never take a real slot**: manual and filler rows get a negative `group_position` (one less than the lowest position used at their second); imported records are always ≥ 0, so a later import never meets them on its identity. A filler that moves takes a fresh slot the same way, so a realign is a single flush that cannot hit the unique key, whatever the statement order.
+- Filler rows: `kind` `roll` (boards) or `draw` (Arc), `reward_type` `unknown`, `reward_id` `__filler__` (never a catalog id: `NteCatalogBackfiller` leaves them alone), name `Unknown`, rarity 0, `exporter_version` `manual`. Manual S rows: the catalog id, name and type (`character` on boards, `arc` on the Arc banner), rarity 5.
+- Dates use the stored wall-clock convention (`WallClockDateTimeImmutableType::fromString()`). As the game timezone is still unknown, "not in the future" accepts up to 24 hours ahead of the server clock; the suggested dates (`suggested_at`) are capped at the server clock without tolerance.
+- Writes take the profile lock without waiting (409 `profile_locked` when an import runs) and realign the banner; imports realign each banner after its last flush. A manual S is merged into the recorded S of the same item that a later import brings within 24 hours.
+- Banner summaries add `unknown_count`, `open_window` and `oldest_s` (the oldest S, as `recent_s_pulls` is capped at 50); S items add `recorded_pity`, `insert_after`, `insert_before`, `suggested_at`, `has_room`. The list endpoint accepts rarity `0` (fillers).
 
 ### Catalog and icons (`Service/Catalog/*`, `Service/PullIcon/NteAssetsIconResolver`)
 
-- `NteCatalogUpdater` builds a compact catalog (`id → name, rank, type, icon path`, plus profile avatars and rotation pool names) from the NTE_Assets tables at a pinned commit, aborts if the README is not a Global version or a required table is missing, merges over the previous catalog and re-resolves the stored pulls (`NteCatalogBackfiller`).
+- `NteCatalogUpdater` builds a compact catalog (`id → name, rank, type, icon path`, plus profile avatars and rotation pool names) from the NTE_Assets tables at a pinned commit, aborts if the README is not a Global version or a required table is missing, merges over the previous catalog and re-resolves the stored pulls (`NteCatalogBackfiller`). A changed rarity or type can change which rows are S, so every profile with a changed row is then realigned under its profile lock, taken without waiting; a profile whose lock is held is skipped (logged at info level), as the import or manual edit holding it, or the next one, realigns it.
 - It runs weekly as the `catalog_update` task of the `perfectworld` schedule (cron in `config/packages/perfectworld.yaml`, default Monday 06:00): `NteCatalogUpdateMessage` on the `perfectworld` transport, like the other providers' tasks. An aborted build throws, so the transport retries it; the previous catalog stays in use.
 - `perfectworld:nte-catalog:update [--ref=<sha>]` runs the same update by hand (first deploy, or right after a game patch).
 - Sources (at the pinned commit): `DataTable/Character/DT_Character` (characters), `DataTable/Fork/DT_ForkItemData` (Arcs), `DataTable/Inventory/DT_ItemConfig` (items, cosmetics) and optional appearance/vehicle/avatar/pool tables, plus `Localization/en/game.json` for names (looked up by `ItemName.Key`; the name embedded in the tables is stale).
@@ -159,7 +179,7 @@ Produced by [nte-exporter](https://github.com/RishiMenon2004/nte-exporter), whic
 | Newer exporter versions rewrite stored records | A 0.5 export over 0.3.0 data fixes the mislabelled rolls without duplicates; re-importing the same file skips everything. |
 | Old exports supported and repaired | The game keeps ~6 months of history: the first 0.3.0 exports are the only copy of the oldest pulls. The repair matched the 0.5 labels on all 806 board records exported by both versions, and on every page cut of the 0.3.0 histories it accepted (only cuts of a few pages are rejected as ambiguous). |
 | Catalog first, file values as fallback | Exporter name tables lag behind game patches; without a rank a new S character would not reset pity. |
-| Dedicated stats calculator | The rules differ from `computeBannerStats` (only rolls count, reset only on S characters); the JSON shape is the same, so the shared pages work unchanged. |
+| Dedicated stats calculator | The rules differ from `HoyoversePullStatsCalculator`/`GryphlinePullStatsCalculator` (only rolls count, reset only on S characters); the contract and JSON shape are the same, so the shared pages work unchanged. |
 | Wall-clock column read in UTC | Stores the exported time unchanged and keeps it stable in the hour skipped when DST starts (Europe/Rome), with ORM queries only. |
 | Own schedule and transports (`perfectworld`, `perfectworld_pulls`) | Same layout as the HoYoverse and Gryphline bundles. |
 | Inline SDK HTTP client without logger | Email, code and token are in the query string and Symfony logs full request URLs. In development Doctrine still logs SQL parameters (token included) to `dev.log`, as for the other providers; production logs exclude the `doctrine` channel. |
@@ -186,4 +206,4 @@ Produced by [nte-exporter](https://github.com/RishiMenon2004/nte-exporter), whic
 
 ## 6. Testing
 
-`tests/PerfectworldBundle/`: SDK client (`MockHttpClient`), auth flows, profile sync, wall-clock type, importer (fixed exports, old-export repair, truncated histories and cut oldest seconds, header checks), import service (upsert, versions, conflicts, gap warnings), import endpoint (validation of every file, one file per banner, temporary file cleanup, 409), stats calculator, catalog builder/backfill/resolver. Shared tracker behaviour is covered in `tests/GamesBundle/Service/PullOperationTrackerBackupBannersTest.php`, routes in `tests/GamesBundle/Routing/GamesRoutingTest.php` and account ownership in `tests/GamesBundle/Security/`.
+`tests/PerfectworldBundle/`: SDK client (`MockHttpClient`), auth flows, profile sync, importer (fixed exports, old-export repair, truncated histories and cut oldest seconds, header checks), import service (upsert, versions, conflicts with manual/filler rows present, gap warnings, realign hook), import endpoint (validation of every file, one file per banner, temporary file cleanup, 409), stats calculator (fillers, declared pities after plan and apply, window fields), manual pull service (against an in-memory table enforcing the unique identity in Doctrine's flush order) and endpoints, catalog builder/backfill/resolver. Shared tracker behaviour is covered in `tests/GamesBundle/Service/PullOperationTrackerBackupBannersTest.php`, routes in `tests/GamesBundle/Routing/GamesRoutingTest.php` and account ownership in `tests/GamesBundle/Security/`.

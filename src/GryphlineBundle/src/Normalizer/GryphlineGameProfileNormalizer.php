@@ -3,6 +3,7 @@
 namespace App\GryphlineBundle\Normalizer;
 
 use App\GamesBundle\Model\Game\HasDailiesInterface;
+use App\GamesBundle\Model\Game\HasManualPullsInterface;
 use App\GamesBundle\Model\Game\HasStaminaInterface;
 use App\GamesBundle\Model\Game\HasWeekliesInterface;
 use App\GamesBundle\Normalizer\AbstractGameProfileNormalizer;
@@ -66,6 +67,8 @@ class GryphlineGameProfileNormalizer extends AbstractGameProfileNormalizer
                 $gameService = $this->locatorByGameId->get($gameId);
                 // Every Gryphline pull tracker is synced automatically through the account token
                 $result['supports_pulls'] = $gameService instanceof HasAutoPullImportInterface;
+                // Manual S pulls and declared pities (missing history)
+                $result['supports_manual_pulls'] = $gameService instanceof HasManualPullsInterface;
                 $result['supports_pull_sync'] = $gameService instanceof HasAutoPullImportInterface;
                 // Game-specific name of pulls (e.g. "Headhunts"), used for UI labels
                 $result['pull_label'] = $gameService instanceof HasAutoPullImportInterface

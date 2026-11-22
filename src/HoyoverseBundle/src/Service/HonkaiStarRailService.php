@@ -2,6 +2,7 @@
 
 namespace App\HoyoverseBundle\Service;
 
+use App\GamesBundle\Model\Game\HasManualPullsInterface;
 use App\HoyoverseBundle\Model\Diary\GameDiaryCurrency;
 use App\HoyoverseBundle\Model\Diary\HonkaiStarRailDiaryInfo;
 use App\HoyoverseBundle\Model\Diary\HonkaiStarRailDiaryItem;
@@ -46,7 +47,7 @@ use Symfony\Component\DependencyInjection\Attribute\Target;
 #[AsAlias(GameInterface::class, target: self::TYPE)]
 #[AutoconfigureTag(name: 'hoyoverse.game.id', attributes: ['key' => self::GAME_ID])]
 #[AutoconfigureTag(name: 'hoyoverse.game.biz', attributes: ['key' => self::GAME_BIZ])]
-class HonkaiStarRailService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasExpeditionsInterface, HasPowershellPullImportInterface
+class HonkaiStarRailService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasExpeditionsInterface, HasPowershellPullImportInterface, HasManualPullsInterface
 {
     use NotesTrait;
     use DiaryTrait;

@@ -12,6 +12,7 @@ use App\GamesBundle\Model\Pull\PullImportProgress;
 use App\GamesBundle\Model\Pull\PullOperationKind;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
 use App\HoyoverseBundle\Service\GenshinImpactService;
+use App\HoyoverseBundle\Service\Pull\ManualPullService;
 use App\HoyoverseBundle\Service\Pull\PullBackupImporterManager;
 use App\HoyoverseBundle\Service\Pull\PullBackupImportService;
 use App\HoyoverseBundle\Service\Pull\PullOperationTracker;
@@ -62,7 +63,8 @@ class PullBackupImportServiceAndTrackerTest extends TestCase
         $em->method('persist')->willReturnCallback(static function (object $entity) use (&$persisted): void {
             $persisted[] = $entity;
         });
-        $em->expects($this->once())->method('flush');
+        // Last batch, then the realign changes
+        $em->expects($this->exactly(2))->method('flush');
         $em->expects($this->once())->method('clear');
 
         $pullRepo = $this->createStub(HoyoversePullRepository::class);
@@ -79,12 +81,19 @@ class PullBackupImportServiceAndTrackerTest extends TestCase
         ]);
 
         $lockFactory = new LockFactory(new InMemoryStore());
+        $manualPullService = $this->createMock(ManualPullService::class);
+        $manualPullService->expects($this->once())->method('realignAll')
+            ->with($profile, $giService)
+            ->willReturnCallback(function () use ($lockFactory): void {
+                $this->assertFalse($lockFactory->createLock(PullBackupImportService::getProfileLockKey(1))->acquire(false), 'Realign runs under the profile lock');
+            });
         $service = new PullBackupImportService(
             $em,
             $pullRepo,
             new PullBackupImporterManager([$importer]),
             $lockFactory,
             $locator,
+            $manualPullService,
         );
 
         $phases = [];
@@ -106,6 +115,46 @@ class PullBackupImportServiceAndTrackerTest extends TestCase
         $this->assertSame('Character Event Wish', $persisted[0]->getGachaName());
         $this->assertContains('parsing', $phases);
         $this->assertContains('importing', $phases);
+    }
+
+    public function testImportServiceDoesNotRealignOnDryRunOrWithoutImportedPulls(): void
+    {
+        $ts = new \DateTimeImmutable('2026-01-14 08:02:12', new \DateTimeZone('UTC'));
+        $records = [new ImportedPullRecord('paimon_301_20260114080212_000', '301', 'Weapon', '', 'Cool Steel', 3, $ts, null, true)];
+        $importer = new class($records) implements PullBackupImporterInterface {
+            /** @param list<ImportedPullRecord> $records */
+            public function __construct(private readonly array $records) {}
+            public static function getKey(): string { return 'fake_gi'; }
+            public function getLabel(): string { return 'Fake GI'; }
+            public function getDescription(): string { return 'desc'; }
+            public function getAcceptedExtensions(): array { return ['.json']; }
+            public static function getSupportedGameServices(): array { return [GenshinImpactService::class]; }
+            public function validate(string $filePath): PullBackupValidationResult { return PullBackupValidationResult::ok(count($this->records)); }
+            public function parse(HoyoverseGameProfile $profile, string $filePath): array { return $this->records; }
+        };
+
+        $profile = $this->createProfileWithId(1, GenshinImpactService::GAME_ID);
+        $giService = new GenshinImpactService(new NullLogger());
+        $manualPullService = $this->createMock(ManualPullService::class);
+        $manualPullService->expects($this->never())->method('realignAll');
+
+        foreach ([[[], true], [['paimon_301_20260114080212_000' => true], false]] as [$existing, $dryRun]) {
+            $em = $this->createMock(EntityManagerInterface::class);
+            $em->expects($this->never())->method('flush');
+            $pullRepo = $this->createStub(HoyoversePullRepository::class);
+            $pullRepo->method('findExistingPullIdSet')->willReturn($existing);
+            $service = new PullBackupImportService(
+                $em,
+                $pullRepo,
+                new PullBackupImporterManager([$importer]),
+                new LockFactory(new InMemoryStore()),
+                new ServiceLocator([GenshinImpactService::GAME_ID => static fn () => $giService]),
+                $manualPullService,
+            );
+
+            $summary = $service->import($profile, 'fake_gi', '/dummy.json', dryRun: $dryRun);
+            $this->assertSame($dryRun ? 1 : 0, $summary->imported);
+        }
     }
 
     public function testImportServiceThrowsWhenProfileLockIsHeld(): void
@@ -135,6 +184,7 @@ class PullBackupImportServiceAndTrackerTest extends TestCase
             new PullBackupImporterManager([$importer]),
             $lockFactory,
             new ServiceLocator([GenshinImpactService::GAME_ID => static fn () => $giService]),
+            $this->createStub(ManualPullService::class),
         );
 
         $this->expectException(PullProfileLockedException::class);

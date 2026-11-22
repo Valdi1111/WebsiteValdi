@@ -3,13 +3,16 @@
 namespace App\GryphlineBundle\MessageHandler\Profile;
 
 use App\GamesBundle\Message\ProfileTaskMessageInterface;
+use App\GamesBundle\Model\Game\HasManualPullsInterface;
 use App\CoreBundle\Service\Notification\UnifiedNotificationService;
+use App\GryphlineBundle\Entity\GryphlineGameProfile;
 use App\GryphlineBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Model\Game\HasAutoPullImportInterface;
 use App\GryphlineBundle\Model\RuntimeAccountData;
 use App\GryphlineBundle\Repository\GryphlineGameProfileRepository;
 use App\GryphlineBundle\Repository\GryphlinePullRepository;
+use App\GryphlineBundle\Service\Pull\ManualPullService;
 use App\GryphlineBundle\Service\Pull\PullBackupImportService;
 use App\GryphlineBundle\Service\Pull\PullOperationTracker;
 use App\GryphlineBundle\Service\Pull\PullSyntheticReconcilerManager;
@@ -51,6 +54,7 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
         private readonly PullSyntheticReconcilerManager $syntheticReconcilerManager,
         private readonly PullOperationTracker $operationTracker,
         private readonly LockFactory $lockFactory,
+        private readonly ManualPullService $manualPullService,
     ) {
         parent::__construct(
             $gameProfileRepository,
@@ -113,6 +117,9 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
             );
 
             if (empty($pulls) && ($nextSeqId === null || $nextSeqId === '')) {
+                // Last page of the banner: earlier pages (separate messages) may have stored new pulls
+                $this->realignBanner($profile, $gameService, $category);
+
                 if ($operationId !== null) {
                     $this->operationTracker->recordSyncBannerPage($operationId, $category, 0, 0, true, $bannerName);
                 }
@@ -158,6 +165,10 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
             // 4. Continue pagination if no existing record was hit and the upstream API indicates more records exist
             $hasMorePages = !$pageHasExistingPull && $nextSeqId !== null && $nextSeqId !== '';
 
+            if (!$hasMorePages) {
+                $this->realignBanner($profile, $gameService, $category);
+            }
+
             if ($operationId !== null) {
                 $this->operationTracker->recordSyncBannerPage(
                     $operationId,
@@ -192,5 +203,22 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
         } finally {
             $lock->release();
         }
+    }
+
+    /**
+     * Realigns the manual pulls and fillers of the synced banner (the profile lock is held by the caller).
+     */
+    private function realignBanner(GryphlineGameProfile $profile, HasAutoPullImportInterface $gameService, string $category): void
+    {
+        if (!$gameService instanceof HasManualPullsInterface) {
+            return;
+        }
+
+        $bannerKey = $gameService->getPoolTypeForCategory($category);
+        if (!isset($gameService->getGachaConfig()->getBannerGroups('categories')[$bannerKey])) {
+            return;
+        }
+
+        $this->manualPullService->realign($profile, $gameService, $bannerKey);
     }
 }

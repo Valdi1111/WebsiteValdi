@@ -2,7 +2,9 @@
 
 namespace App\HoyoverseBundle\Service\Pull;
 
+use App\CoreBundle\Doctrine\WallClockDateTimeImmutableType;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
+use Psr\Clock\ClockInterface;
 
 /**
  * Resolves HoYoverse fixed server UTC offsets (no DST) so imported UTC timestamps
@@ -10,6 +12,14 @@ use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
  */
 class HoyoverseServerTimezoneResolver
 {
+    /** Without a known region, "now" is shifted by this much: no server is ahead of UTC by more */
+    private const string UNKNOWN_REGION_TOLERANCE = '+24 hours';
+
+    public function __construct(
+        private readonly ?ClockInterface $clock = null,
+    ) {
+    }
+
     public function getServerTimezoneForProfile(HoyoverseGameProfile $profile): \DateTimeZone
     {
         return $this->getServerTimezoneForRegion((string) $profile->getRegion());
@@ -35,16 +45,11 @@ class HoyoverseServerTimezoneResolver
 
     /**
      * Converts a UTC DateTimeImmutable into a server-local wall-clock DateTimeImmutable
-     * tagged as UTC (matching HoyoversePullItem storage convention).
+     * tagged as UTC (storage convention of the pulled_at wall-clock column).
      */
     public function utcToServerWallClock(\DateTimeImmutable $utcDateTime, HoyoverseGameProfile $profile): \DateTimeImmutable
     {
-        $serverTz = $this->getServerTimezoneForProfile($profile);
-        $wallClock = $utcDateTime->setTimezone($serverTz)->format('Y-m-d H:i:s');
-
-        $converted = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $wallClock, new \DateTimeZone('UTC'));
-
-        return $converted ?: $utcDateTime;
+        return WallClockDateTimeImmutableType::fromDateTime($utcDateTime->setTimezone($this->getServerTimezoneForProfile($profile)));
     }
 
     /**
@@ -56,5 +61,23 @@ class HoyoverseServerTimezoneResolver
         $dt = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', trim($wallClockString), new \DateTimeZone('UTC'));
 
         return $dt ?: null;
+    }
+
+    /**
+     * Current server wall-clock time of the profile, tagged as UTC like the stored pulls (the upper
+     * limit of manual pull dates). Without a region the server offset is unknown, so the current UTC
+     * time plus a 24 h tolerance is returned instead.
+     */
+    public function getServerWallClockNow(HoyoverseGameProfile $profile): \DateTimeImmutable
+    {
+        $utcNow = ($this->clock?->now() ?? new \DateTimeImmutable())->setTimezone(new \DateTimeZone('UTC'));
+        if (trim((string) $profile->getRegion()) === '') {
+            $utcNow = $utcNow->modify(self::UNKNOWN_REGION_TOLERANCE);
+        } else {
+            $utcNow = $utcNow->setTimezone($this->getServerTimezoneForProfile($profile));
+        }
+
+        // Same digits tagged as UTC, without microseconds
+        return WallClockDateTimeImmutableType::fromDateTime($utcNow);
     }
 }

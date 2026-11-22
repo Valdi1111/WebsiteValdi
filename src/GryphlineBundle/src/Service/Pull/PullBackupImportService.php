@@ -31,6 +31,7 @@ class PullBackupImportService
         private readonly LockFactory $lockFactory,
         #[AutowireLocator(services: 'gryphline.game.biz', indexAttribute: 'key')]
         private readonly ServiceCollectionInterface $locatorByGameBiz,
+        private readonly ManualPullService $manualPullService,
     ) {
     }
 
@@ -184,6 +185,14 @@ class PullBackupImportService
             if (!$dryRun && $pendingInBatch > 0) {
                 $this->entityManager->flush();
                 $this->entityManager->clear();
+            }
+
+            // Imported pulls may fill the windows of declared pities or replace manual S pulls (lock still held)
+            if (!$dryRun && $imported > 0) {
+                $lock->refresh(self::LOCK_TTL_SECONDS);
+                /** @var GryphlineGameProfile $profileRef */
+                $profileRef = $this->entityManager->getReference(GryphlineGameProfile::class, $profileId);
+                $this->manualPullService->realignAll($profileRef, $gameService);
             }
 
             return new PullImportSummary(

@@ -2,6 +2,7 @@
 
 namespace App\PerfectworldBundle\Normalizer;
 
+use App\GamesBundle\Model\Game\HasManualPullsInterface;
 use App\GamesBundle\Normalizer\AbstractGameProfileNormalizer;
 use App\PerfectworldBundle\Entity\PerfectworldGameProfile;
 use App\PerfectworldBundle\Model\Game\GameInterface;
@@ -53,6 +54,7 @@ class PerfectworldGameProfileNormalizer extends AbstractGameProfileNormalizer
             $gameId = (int) $data->getGameId();
             $gameService = $this->locatorByGameId->has($gameId) ? $this->locatorByGameId->get($gameId) : null;
             $result['supports_pulls'] = $gameService instanceof HasPullTrackerInterface;
+            $result['supports_manual_pulls'] = $gameService instanceof HasManualPullsInterface;
             $result['supports_pull_sync'] = false;
         }
 

@@ -11,6 +11,7 @@ use App\PerfectworldBundle\Repository\PerfectworldPullRepository;
 use App\PerfectworldBundle\Service\Catalog\NteCatalog;
 use App\PerfectworldBundle\Service\NevernessToEvernessService;
 use App\PerfectworldBundle\Service\Pull\Importer\NteHistoryExportImporter;
+use App\PerfectworldBundle\Service\Pull\ManualPullService;
 use App\PerfectworldBundle\Service\Pull\PullBackupImporterManager;
 use App\PerfectworldBundle\Service\Pull\PullBackupImportService;
 use App\PerfectworldBundle\Service\Pull\PullOperationTracker;
@@ -139,6 +140,8 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
             $this->createStub(PerfectworldPullRepository::class),
             $manager,
             new LockFactory(new InMemoryStore()),
+            $this->createStub(ManualPullService::class),
+            new ServiceLocator([]),
         );
 
         $bus = $this->createStub(MessageBusInterface::class);

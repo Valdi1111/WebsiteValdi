@@ -167,6 +167,12 @@ export default function PullsPage() {
 
     handleRefreshRef.current = handleRefresh;
 
+    // Manual pull mutations are not tracked operations (onOperationCompleted never fires for them):
+    // refresh through the ref so the latest page and filters are reloaded
+    const handlePullsChanged = useCallback(() => {
+        handleRefreshRef.current?.();
+    }, []);
+
     const handleSelectBanner = (bannerKey) => {
         const defaultRarities = overview?.rarity_config
             ? [overview.rarity_config.s.rarity, overview.rarity_config.a.rarity]
@@ -240,6 +246,12 @@ export default function PullsPage() {
     }
 
     const profile = overview?.profile;
+    const supportsManualPulls = Boolean(profile?.supports_manual_pulls);
+    // activeOperation stays set after completion until dismissed: only queued/running block mutations
+    const operationActive =
+        syncingPulls ||
+        activeOperation?.status === "queued" ||
+        activeOperation?.status === "running";
     const rarityConfig = overview?.rarity_config;
     const banners = overview?.banners || [];
     const availableBackupImporters = overview?.available_backup_importers || [];
@@ -426,6 +438,11 @@ export default function PullsPage() {
                         onSearchChange={setSearch}
                         onSearchSubmit={handleSearchSubmit}
                         onResetFilters={handleResetFilters}
+                        accountId={accountId}
+                        gameProfileId={gameProfileId}
+                        supportsManualPulls={supportsManualPulls}
+                        operationActive={operationActive}
+                        onPullsChanged={handlePullsChanged}
                         onTableChange={(pagination) => {
                             const nextPage =
                                 pagination.pageSize !== pageSize ? 1 : pagination.current;

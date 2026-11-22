@@ -2,6 +2,8 @@
 
 namespace App\GryphlineBundle\Entity;
 
+use App\CoreBundle\Doctrine\WallClockDateTimeImmutableType;
+use App\GamesBundle\Model\Pull\PullOrigin;
 use App\GryphlineBundle\Repository\GryphlinePullRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
@@ -39,7 +41,8 @@ class GryphlinePull
     #[ORM\Column(length: 128, nullable: true)]
     private ?string $poolName = null;
 
-    #[ORM\Column(length: 64)]
+    /** Null for filler rows and for manual S pulls typed as free text */
+    #[ORM\Column(length: 64, nullable: true)]
     private ?string $itemId = null;
 
     #[ORM\Column(length: 128)]
@@ -48,7 +51,10 @@ class GryphlinePull
     #[ORM\Column(type: Types::SMALLINT)]
     private ?int $rarity = null;
 
-    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
+    /**
+     * UTC wall-clock time of gachaTs, read back as UTC so DST gaps of the default timezone never shift it.
+     */
+    #[ORM\Column(type: WallClockDateTimeImmutableType::NAME)]
     private ?\DateTimeImmutable $pulledAt = null;
 
     #[ORM\Column(type: Types::BIGINT, nullable: true)]
@@ -56,6 +62,13 @@ class GryphlinePull
 
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $rawPayload = null;
+
+    #[ORM\Column(length: 16, enumType: PullOrigin::class, options: ['default' => 'recorded'])]
+    private PullOrigin $origin = PullOrigin::Recorded;
+
+    /** Real pity declared by the user (S rows only); read only by the realign step, never by the pity count */
+    #[ORM\Column(type: Types::SMALLINT, nullable: true)]
+    private ?int $declaredPity = null;
 
     public function getId(): ?int
     {
@@ -139,7 +152,7 @@ class GryphlinePull
         return $this->itemId;
     }
 
-    public function setItemId(string $itemId): static
+    public function setItemId(?string $itemId): static
     {
         $this->itemId = $itemId;
 
@@ -202,6 +215,30 @@ class GryphlinePull
     public function setRawPayload(?array $rawPayload): static
     {
         $this->rawPayload = $rawPayload;
+
+        return $this;
+    }
+
+    public function getOrigin(): PullOrigin
+    {
+        return $this->origin;
+    }
+
+    public function setOrigin(PullOrigin $origin): static
+    {
+        $this->origin = $origin;
+
+        return $this;
+    }
+
+    public function getDeclaredPity(): ?int
+    {
+        return $this->declaredPity;
+    }
+
+    public function setDeclaredPity(?int $declaredPity): static
+    {
+        $this->declaredPity = $declaredPity;
 
         return $this;
     }

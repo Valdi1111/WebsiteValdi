@@ -3,6 +3,7 @@
 namespace App\HoyoverseBundle\Normalizer;
 
 use App\GamesBundle\Model\Game\HasDailiesInterface;
+use App\GamesBundle\Model\Game\HasManualPullsInterface;
 use App\GamesBundle\Model\Game\HasStaminaInterface;
 use App\GamesBundle\Model\Game\HasWeekliesInterface;
 use App\GamesBundle\Normalizer\AbstractGameProfileNormalizer;
@@ -81,6 +82,8 @@ class HoyoverseGameProfileNormalizer extends AbstractGameProfileNormalizer
             if ($this->locatorByGameId->has($gameId)) {
                 $gameService = $this->locatorByGameId->get($gameId);
                 $result['supports_pulls'] = $gameService instanceof HasPullTrackerInterface;
+                // Missing pulls (manual S pulls, declared pities) can be added to the pull tracker
+                $result['supports_manual_pulls'] = $gameService instanceof HasManualPullsInterface;
                 // Server-side automatic sync (SToken); shared flag name across providers
                 $result['supports_pull_sync'] = $gameService instanceof HasStokenPullImportInterface;
                 $result['supports_powershell_pulls'] = $gameService instanceof HasPowershellPullImportInterface;

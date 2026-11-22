@@ -5,9 +5,12 @@ namespace App\PerfectworldBundle\Service\Pull;
 use App\GamesBundle\Exception\PullProfileLockedException;
 use App\GamesBundle\Model\Pull\PullImportProgress;
 use App\GamesBundle\Model\Pull\PullImportSummary;
-use App\PerfectworldBundle\Doctrine\WallClockDateTimeImmutableType;
+use App\GamesBundle\Model\Pull\PullOrigin;
+use App\CoreBundle\Doctrine\WallClockDateTimeImmutableType;
 use App\PerfectworldBundle\Entity\PerfectworldGameProfile;
 use App\PerfectworldBundle\Entity\PerfectworldPull;
+use App\PerfectworldBundle\Model\Game\GameInterface;
+use App\PerfectworldBundle\Model\Game\HasPullTrackerInterface;
 use App\PerfectworldBundle\Model\Pull\ImportedPullRecord;
 use App\PerfectworldBundle\Model\Pull\PullBackupImporterInterface;
 use App\PerfectworldBundle\Repository\PerfectworldPullRepository;
@@ -15,14 +18,20 @@ use App\PerfectworldBundle\Service\NevernessToEvernessService;
 use Doctrine\DBAL\Exception as DbalException;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Exception\ORMException;
+use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\SharedLockInterface;
+use Symfony\Contracts\Service\ServiceCollectionInterface;
 
 /**
  * Upserts the records of one or more export files into a game profile.
  *
  * Identity is (banner, display time, position in the second). A record already stored is rewritten
- * only by a newer exporter version (e.g. a 0.5 export fixing the labels of a 0.3.0 one).
+ * only by a newer exporter version (e.g. a 0.5 export fixing the labels of a 0.3.0 one). Manual and
+ * filler rows have negative positions, so a record (always >= 0) never meets them on its identity.
+ *
+ * Each imported banner is realigned right after its last flush, inside the profile lock: a recorded
+ * S replacing a manual one inherits its declared pity, and the fillers follow the new records.
  */
 class PullBackupImportService
 {
@@ -31,11 +40,17 @@ class PullBackupImportService
     private const int MAX_WARNINGS = 50;
     private const int MAX_GAP_WARNINGS = 5;
 
+    /**
+     * @param ServiceCollectionInterface<GameInterface> $locatorByGameId
+     */
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly PerfectworldPullRepository $pullRepository,
         private readonly PullBackupImporterManager $importerManager,
         private readonly LockFactory $lockFactory,
+        private readonly ManualPullService $manualPullService,
+        #[AutowireLocator(services: 'perfectworld.game.id', indexAttribute: 'key')]
+        private readonly ServiceCollectionInterface $locatorByGameId,
     ) {
     }
 
@@ -87,7 +102,7 @@ class PullBackupImportService
 
         $lock = $this->lockFactory->createLock(self::getProfileLockKey($profileId), self::LOCK_TTL_SECONDS);
         if (!$lock->acquire()) {
-            throw new PullProfileLockedException(sprintf('Another pull import is currently running for profile #%d.', $profileId));
+            throw new PullProfileLockedException(sprintf('Another pull operation (import or manual edit) is running for profile #%d.', $profileId));
         }
 
         try {
@@ -108,6 +123,7 @@ class PullBackupImportService
         ?callable $onProgress,
     ): PullImportSummary {
         $profileId = (int) $profile->getId();
+        $gameService = $this->getPullTrackerGame($profile);
         $banners = $this->buildBannerProgress($importer, $filePaths);
         $state = ['total' => array_sum(array_column($banners, 'total')), 'processed' => 0, 'imported' => 0, 'updated' => 0, 'skipped' => 0, 'warnings' => []];
         $databaseFailure = null;
@@ -148,6 +164,7 @@ class PullBackupImportService
 
                 try {
                     $this->importBanner($profile, $profileId, $bannerKey, $bannerRecords, $banners, $state, $lock, $report);
+                    $this->realignBanner($profile, $profileId, $gameService, $bannerKey, $state, $lock);
                     $banners[$bannerKey]['status'] = 'completed';
                     $this->addGapWarnings($profile, $profileId, $bannerKey, $state);
                 } catch (\UnexpectedValueException $e) {
@@ -266,8 +283,36 @@ class PullBackupImportService
     }
 
     /**
+     * Brings the banner to its expected state once its records are stored (the EntityManager has just
+     * been cleared, hence the profile reference). Skipped for a game without a pull tracker.
+     *
+     * @param array<string, mixed> $state
+     */
+    private function realignBanner(
+        PerfectworldGameProfile $profile,
+        int $profileId,
+        (GameInterface&HasPullTrackerInterface)|null $gameService,
+        string $bannerKey,
+        array &$state,
+        SharedLockInterface $lock,
+    ): void {
+        if ($gameService === null) {
+            return;
+        }
+
+        $plan = $this->manualPullService->realign($this->getProfileReference($profile, $profileId), $gameService, $bannerKey);
+        foreach ($plan->warnings as $warning) {
+            if (count($state['warnings']) < self::MAX_WARNINGS) {
+                $state['warnings'][] = $warning;
+            }
+        }
+        $lock->refresh(self::LOCK_TTL_SECONDS);
+    }
+
+    /**
      * Board histories have exactly 10 rolls between two consecutive Points Gifts: anything else means
      * missing records (e.g. an export older than the game's ~6-month history window was never taken).
+     * Only recorded rows are checked: fillers and manual S rows are rolls the export does not hold.
      *
      * @param array<string, mixed> $state
      */
@@ -281,6 +326,10 @@ class PullBackupImportService
         $lastGiftAt = null;
         $gaps = 0;
         foreach ($this->pullRepository->findBannerRows($this->getProfileReference($profile, $profileId), $bannerKey) as $row) {
+            if (PerfectworldPullStatsCalculator::getOrigin($row) !== PullOrigin::Recorded) {
+                continue;
+            }
+
             $pulledAt = $row['pulledAt']->format('Y-m-d H:i:s');
             if ($row['kind'] === PerfectworldPull::KIND_ROLL && $rollsSinceGift !== null) {
                 $rollsSinceGift++;
@@ -327,6 +376,14 @@ class PullBackupImportService
     {
         $this->entityManager->flush();
         $this->entityManager->clear();
+    }
+
+    private function getPullTrackerGame(PerfectworldGameProfile $profile): (GameInterface&HasPullTrackerInterface)|null
+    {
+        $gameId = (int) $profile->getGameId();
+        $gameService = $this->locatorByGameId->has($gameId) ? $this->locatorByGameId->get($gameId) : null;
+
+        return $gameService instanceof GameInterface && $gameService instanceof HasPullTrackerInterface ? $gameService : null;
     }
 
     /**

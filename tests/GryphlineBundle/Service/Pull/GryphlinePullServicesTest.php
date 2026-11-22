@@ -14,6 +14,7 @@ use App\GryphlineBundle\Model\Pull\PullBackupImporterInterface;
 use App\GryphlineBundle\Repository\GryphlinePullRepository;
 use App\GryphlineBundle\Service\EndfieldService;
 use App\GryphlineBundle\Service\Pull\PullBackupImporterManager;
+use App\GryphlineBundle\Service\Pull\ManualPullService;
 use App\GryphlineBundle\Service\Pull\PullBackupImportService;
 use App\GryphlineBundle\Service\Pull\PullOperationTracker;
 use App\GryphlineBundle\Service\SkportAuthService;
@@ -221,6 +222,11 @@ class GryphlinePullServicesTest extends TestCase
         });
         $em->expects($this->once())->method('flush');
         $em->expects($this->once())->method('clear');
+        $em->method('getReference')->willReturn($profile);
+
+        // The imported pulls may fill declared pities: every banner is realigned once, inside the lock
+        $manualPullService = $this->createMock(ManualPullService::class);
+        $manualPullService->expects($this->once())->method('realignAll')->with($profile, $endfield);
 
         $service = new PullBackupImportService(
             $em,
@@ -228,6 +234,7 @@ class GryphlinePullServicesTest extends TestCase
             $manager,
             new LockFactory(new InMemoryStore()),
             new ServiceLocator([EndfieldService::GAME_BIZ => static fn () => $endfield]),
+            $manualPullService,
         );
 
         $progressEvents = [];
@@ -251,6 +258,43 @@ class GryphlinePullServicesTest extends TestCase
         $this->assertNotEmpty($progressEvents);
     }
 
+    public function testBackupImportServiceSkipsTheRealignOnDryRunAndWhenNothingIsImported(): void
+    {
+        $profile = $this->createProfile(12);
+        $endfield = $this->createEndfieldService();
+        $ts = new \DateTimeImmutable('2026-06-01 12:00:00');
+        $records = [
+            new ImportedPullRecord('1001', 'E_CharacterGachaPoolType_Special', 'char', 'pool_1', 'Chartered', 'chr_1', 'Laevatain', 6, $ts),
+        ];
+
+        $manualPullService = $this->createMock(ManualPullService::class);
+        $manualPullService->expects($this->never())->method('realignAll');
+
+        $emptyRepo = $this->createStub(GryphlinePullRepository::class);
+        $emptyRepo->method('findExistingSeqKeySet')->willReturn([]);
+        $dryRun = new PullBackupImportService(
+            $this->createStub(EntityManagerInterface::class),
+            $emptyRepo,
+            new PullBackupImporterManager([$this->createDummyImporter($records)]),
+            new LockFactory(new InMemoryStore()),
+            new ServiceLocator([EndfieldService::GAME_BIZ => static fn () => $endfield]),
+            $manualPullService,
+        );
+        $this->assertSame(1, $dryRun->import($profile, 'endfield_test_export', '/tmp/unused.json', dryRun: true)->imported);
+
+        $knownRepo = $this->createStub(GryphlinePullRepository::class);
+        $knownRepo->method('findExistingSeqKeySet')->willReturn([GryphlinePullRepository::buildSeqKey('char', '1001') => true]);
+        $nothingNew = new PullBackupImportService(
+            $this->createStub(EntityManagerInterface::class),
+            $knownRepo,
+            new PullBackupImporterManager([$this->createDummyImporter($records)]),
+            new LockFactory(new InMemoryStore()),
+            new ServiceLocator([EndfieldService::GAME_BIZ => static fn () => $endfield]),
+            $manualPullService,
+        );
+        $this->assertSame(0, $nothingNew->import($profile, 'endfield_test_export', '/tmp/unused.json')->imported);
+    }
+
     public function testBackupImportServiceThrowsWhenProfileLockIsHeld(): void
     {
         $profile = $this->createProfile(12);
@@ -266,6 +310,7 @@ class GryphlinePullServicesTest extends TestCase
                 new PullBackupImporterManager([$this->createDummyImporter([])]),
                 $lockFactory,
                 new ServiceLocator([EndfieldService::GAME_BIZ => static fn () => $endfield]),
+                $this->createStub(ManualPullService::class),
             );
 
             $this->expectException(PullProfileLockedException::class);

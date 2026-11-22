@@ -3,16 +3,22 @@
 namespace App\GryphlineBundle\Controller;
 
 use App\CoreBundle\Entity\User;
+use App\GamesBundle\Model\Game\HasManualPullsInterface;
+use App\GamesBundle\Model\Pull\Manual\CreateManualPullRequest;
+use App\GamesBundle\Model\Pull\Manual\DeclarePityRequest;
 use App\GamesBundle\Model\Pull\PullOperationKind;
 use App\GamesBundle\Security\GameAccountOwnerVoter;
 use App\GamesBundle\Service\PullItemIconUrlBuilder;
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
+use App\GryphlineBundle\Entity\GryphlinePull;
 use App\GryphlineBundle\Message\Profile\ImportPullsBackupMessage;
 use App\GryphlineBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Model\Game\HasAutoPullImportInterface;
 use App\GryphlineBundle\Repository\GryphlinePullRepository;
+use App\GryphlineBundle\Service\Pull\GryphlinePullStatsCalculator;
+use App\GryphlineBundle\Service\Pull\ManualPullService;
 use App\GryphlineBundle\Service\Pull\PullBackupImporterManager;
 use App\GryphlineBundle\Service\Pull\PullOperationTracker;
 use Doctrine\ORM\EntityManagerInterface;
@@ -26,6 +32,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Mercure\Authorization;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -262,6 +269,7 @@ class ApiGameProfilesController extends AbstractController
         #[MapEntity(message: "Gryphline Account not found.")] GryphlineAccount $account,
         #[MapEntity(message: "Game profile not found.")] GryphlineGameProfile $gameProfile,
         GryphlinePullRepository $pullRepo,
+        GryphlinePullStatsCalculator $statsCalculator,
         PullItemIconUrlBuilder $iconUrlBuilder,
         PullBackupImporterManager $importerManager,
         PullOperationTracker $operationTracker,
@@ -281,23 +289,37 @@ class ApiGameProfilesController extends AbstractController
         $mercureTopic = $operationTracker->getProfileTopic((int) $gameProfile->getId());
         $mercureAuthorization->setCookie($req, [$mercureTopic]);
 
-        $bannerGroups = $gameService->getGachaConfig()->getBannerGroups('categories');
         $rarityConfig = $gameService->getRarityConfig();
-        $overview = $pullRepo->buildOverview($gameProfile, $bannerGroups, $rarityConfig);
+        $groupedRows = $statsCalculator->groupRowsByBanner(
+            $pullRepo->findProfileRows($gameProfile),
+            $gameService->getGachaConfig()->getBannerGroups('categories'),
+        );
 
-        foreach ($overview['banners'] as &$banner) {
-            if (!empty($banner['recent_s_pulls'])) {
-                $banner['recent_s_pulls'] = $iconUrlBuilder->enrichPullRows($gameService, $banner['recent_s_pulls']);
+        $banners = [];
+        $monthly = [];
+        $totalPulls = 0;
+        foreach ($groupedRows as ['group' => $bannerGroup, 'rows' => $rows]) {
+            $computed = $statsCalculator->compute($rows, $bannerGroup, $rarityConfig);
+
+            $summary = $this->enrichBannerIcons($iconUrlBuilder, $gameService, $computed['summary']);
+            $banners[] = $summary;
+            $totalPulls += $summary['total_pulls'];
+
+            foreach ($computed['monthly'] as $month => $counts) {
+                $monthly[$month] ??= ['month' => $month, 'total' => 0, 's_count' => 0, 'a_count' => 0];
+                $monthly[$month]['total'] += $counts['total'];
+                $monthly[$month]['s_count'] += $counts['s_count'];
+                $monthly[$month]['a_count'] += $counts['a_count'];
             }
         }
-        unset($banner);
+        ksort($monthly);
 
         return $this->json([
             'profile' => $gameProfile,
             'rarity_config' => $rarityConfig,
-            'total_pulls' => $overview['total_pulls'],
-            'banners' => $overview['banners'],
-            'monthly_timeline' => $overview['monthly_timeline'],
+            'total_pulls' => $totalPulls,
+            'banners' => $banners,
+            'monthly_timeline' => array_values($monthly),
             'available_backup_importers' => $importerManager->getMetadataForGameService($gameService),
             'mercure_topic' => $mercureTopic,
             'active_operation' => $operationTracker->getActiveOperationForProfile((int) $gameProfile->getId()),
@@ -310,6 +332,7 @@ class ApiGameProfilesController extends AbstractController
         #[MapEntity(message: "Gryphline Account not found.")] GryphlineAccount $account,
         #[MapEntity(message: "Game profile not found.")] GryphlineGameProfile $gameProfile,
         GryphlinePullRepository $pullRepo,
+        GryphlinePullStatsCalculator $statsCalculator,
         PullItemIconUrlBuilder $iconUrlBuilder
     ): Response {
         $this->assertProfileOfAccount($account, $gameProfile);
@@ -344,9 +367,10 @@ class ApiGameProfilesController extends AbstractController
         $rarities = [];
         if ($raritiesParam !== '') {
             foreach (explode(',', $raritiesParam) as $r) {
-                $rInt = (int) trim($r);
-                if ($rInt > 0) {
-                    $rarities[] = $rInt;
+                $r = trim($r);
+                // Digits only: 0 selects the unknown (filler) pulls; empty, negative and other values are skipped
+                if ($r !== '' && ctype_digit($r)) {
+                    $rarities[] = (int) $r;
                 }
             }
         } elseif ($req->query->has('rarity') && $req->query->getInt('rarity') > 0) {
@@ -357,20 +381,14 @@ class ApiGameProfilesController extends AbstractController
         $page = max(1, $req->query->getInt('page', 1));
         $limit = min(100, max(5, $req->query->getInt('limit', 15)));
 
-        $result = $pullRepo->findBannerDetailWithPity(
-            $gameProfile,
+        $computed = $statsCalculator->compute(
+            $pullRepo->findBannerRows($gameProfile, $bannerGroup['categories']),
             $bannerGroup,
             $rarityConfig,
-            $rarities,
-            $search ?: null,
-            $page,
-            $limit
         );
+        $result = $statsCalculator->filterAndPaginate($computed['items'], $rarities, $search ?: null, $page, $limit);
 
-        $banner = $result['banner'];
-        if (!empty($banner['recent_s_pulls'])) {
-            $banner['recent_s_pulls'] = $iconUrlBuilder->enrichPullRows($gameService, $banner['recent_s_pulls']);
-        }
+        $banner = $this->enrichBannerIcons($iconUrlBuilder, $gameService, $computed['summary']);
         $items = $iconUrlBuilder->enrichPullRows($gameService, $result['items']);
 
         return $this->json([
@@ -381,6 +399,117 @@ class ApiGameProfilesController extends AbstractController
             'page' => $page,
             'limit' => $limit,
         ]);
+    }
+
+    #[Route('/gameProfiles/{gameProfile}/pulls/manual/suggestions', name: 'pulls_manual_suggestions', requirements: ['gameProfile' => '\d+'], methods: ['GET'])]
+    public function apiGameProfilePullsManualSuggestions(
+        Request $req,
+        #[MapEntity(message: "Gryphline Account not found.")] GryphlineAccount $account,
+        #[MapEntity(message: "Game profile not found.")] GryphlineGameProfile $gameProfile,
+        ManualPullService $manualPullService,
+        PullItemIconUrlBuilder $iconUrlBuilder,
+    ): Response {
+        $this->assertProfileOfAccount($account, $gameProfile);
+        $gameService = $this->getManualPullsGame($gameProfile);
+
+        $items = $manualPullService->getSuggestions($gameService, $req->query->getString('banner'));
+
+        return $this->json([
+            'items' => $iconUrlBuilder->enrichPullRows($gameService, $items),
+            // The item type is implied by the banner (operators or weapons), so free text needs no type
+            'allow_free_text' => true,
+            'item_types' => [],
+        ]);
+    }
+
+    #[Route('/gameProfiles/{gameProfile}/pulls/manual', name: 'pulls_manual_create', requirements: ['gameProfile' => '\d+'], methods: ['POST'])]
+    public function apiGameProfilePullsManualCreate(
+        #[MapEntity(message: "Gryphline Account not found.")] GryphlineAccount $account,
+        #[MapEntity(message: "Game profile not found.")] GryphlineGameProfile $gameProfile,
+        #[MapRequestPayload] CreateManualPullRequest $request,
+        ManualPullService $manualPullService,
+    ): Response {
+        $this->assertProfileOfAccount($account, $gameProfile);
+        $gameService = $this->getManualPullsGame($gameProfile);
+
+        $pull = $manualPullService->createManualS($gameProfile, $gameService, $request);
+
+        return $this->json(['success' => true, 'pull_id' => $pull->getId()], Response::HTTP_CREATED);
+    }
+
+    #[Route('/gameProfiles/{gameProfile}/pulls/{pull}/declared-pity', name: 'pulls_declared_pity', requirements: ['gameProfile' => '\d+', 'pull' => '\d+'], methods: ['PATCH'])]
+    public function apiGameProfilePullsDeclaredPity(
+        #[MapEntity(message: "Gryphline Account not found.")] GryphlineAccount $account,
+        #[MapEntity(message: "Game profile not found.")] GryphlineGameProfile $gameProfile,
+        #[MapEntity(message: "Pull not found.")] GryphlinePull $pull,
+        #[MapRequestPayload] DeclarePityRequest $request,
+        ManualPullService $manualPullService,
+    ): Response {
+        $this->assertProfileOfAccount($account, $gameProfile);
+        $this->assertPullOfProfile($gameProfile, $pull);
+        $gameService = $this->getManualPullsGame($gameProfile);
+
+        $manualPullService->declarePity($gameProfile, $gameService, $pull, $request->pity);
+
+        return $this->json(['success' => true]);
+    }
+
+    #[Route('/gameProfiles/{gameProfile}/pulls/{pull}', name: 'pulls_manual_delete', requirements: ['gameProfile' => '\d+', 'pull' => '\d+'], methods: ['DELETE'])]
+    public function apiGameProfilePullsManualDelete(
+        #[MapEntity(message: "Gryphline Account not found.")] GryphlineAccount $account,
+        #[MapEntity(message: "Game profile not found.")] GryphlineGameProfile $gameProfile,
+        #[MapEntity(message: "Pull not found.")] GryphlinePull $pull,
+        ManualPullService $manualPullService,
+    ): Response {
+        $this->assertProfileOfAccount($account, $gameProfile);
+        $this->assertPullOfProfile($gameProfile, $pull);
+        $gameService = $this->getManualPullsGame($gameProfile);
+
+        $manualPullService->deleteManual($gameProfile, $gameService, $pull);
+
+        return $this->json(['success' => true]);
+    }
+
+    /**
+     * Adds icon_url to the S items of a banner summary (recent_s_pulls and oldest_s).
+     *
+     * @param array<string, mixed> $summary
+     * @return array<string, mixed>
+     */
+    private function enrichBannerIcons(PullItemIconUrlBuilder $iconUrlBuilder, object $gameService, array $summary): array
+    {
+        if (!empty($summary['recent_s_pulls'])) {
+            $summary['recent_s_pulls'] = $iconUrlBuilder->enrichPullRows($gameService, $summary['recent_s_pulls']);
+        }
+        if (isset($summary['oldest_s'])) {
+            $summary['oldest_s'] = $iconUrlBuilder->enrichPullRows($gameService, [$summary['oldest_s']])[0];
+        }
+
+        return $summary;
+    }
+
+    /**
+     * Game service of a profile whose pull tracker accepts manual pulls (400 otherwise).
+     */
+    private function getManualPullsGame(GryphlineGameProfile $gameProfile): HasAutoPullImportInterface
+    {
+        if (!$this->locatorByGameBiz->has((string) $gameProfile->getGameBiz())) {
+            throw new BadRequestHttpException("Unsupported game service.");
+        }
+
+        $gameService = $this->locatorByGameBiz->get((string) $gameProfile->getGameBiz());
+        if (!$gameService instanceof HasAutoPullImportInterface || !$gameService instanceof HasManualPullsInterface) {
+            throw new BadRequestHttpException("This game profile does not support manual pulls.");
+        }
+
+        return $gameService;
+    }
+
+    private function assertPullOfProfile(GryphlineGameProfile $gameProfile, GryphlinePull $pull): void
+    {
+        if ($pull->getGameProfile()?->getId() !== $gameProfile->getId()) {
+            throw new NotFoundHttpException("Pull not found.");
+        }
     }
 
     private function assertProfileOfAccount(GryphlineAccount $account, GryphlineGameProfile $gameProfile): void

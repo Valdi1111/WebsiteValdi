@@ -36,6 +36,7 @@ class PullBackupImportService
         private readonly LockFactory $lockFactory,
         #[AutowireLocator(services: 'hoyoverse.game.id', indexAttribute: 'key')]
         private readonly ServiceCollectionInterface $locatorByGameId,
+        private readonly ManualPullService $manualPullService,
         private readonly ?LoggerInterface $logger = null,
     ) {
     }
@@ -211,6 +212,14 @@ class PullBackupImportService
             if (!$dryRun && $pendingInBatch > 0) {
                 $this->entityManager->flush();
                 $this->entityManager->clear();
+            }
+
+            // Imported pulls change the windows of declared pities: realign every banner, still under the lock
+            if (!$dryRun && $imported > 0) {
+                /** @var HoyoverseGameProfile $profileRef */
+                $profileRef = $this->entityManager->getReference(HoyoverseGameProfile::class, $profileId);
+                $this->manualPullService->realignAll($profileRef, $gameService);
+                $this->entityManager->flush();
             }
 
             $warnings = array_keys($warningSet);

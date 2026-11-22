@@ -2,6 +2,7 @@ doctrine:
     dbal:
         types:
             encrypted_text: App\CoreBundle\Doctrine\EncryptedTextType
+            wall_clock_datetime_immutable: App\CoreBundle\Doctrine\WallClockDateTimeImmutableType
     orm:
         mappings:
             App\CoreBundle:

@@ -3,7 +3,9 @@
 namespace App\Tests\PerfectworldBundle\Service;
 
 use App\GamesBundle\Exception\PullProfileLockedException;
+use App\GamesBundle\Model\Pull\Manual\FillerPlan;
 use App\GamesBundle\Model\Pull\PullImportProgress;
+use App\GamesBundle\Model\Pull\PullOrigin;
 use App\PerfectworldBundle\Entity\PerfectworldGameProfile;
 use App\PerfectworldBundle\Entity\PerfectworldPull;
 use App\PerfectworldBundle\Model\Pull\ImportedPullRecord;
@@ -11,12 +13,15 @@ use App\PerfectworldBundle\Model\Pull\PullBackupImporterInterface;
 use App\PerfectworldBundle\Model\Pull\PullFileInspection;
 use App\PerfectworldBundle\Repository\PerfectworldPullRepository;
 use App\PerfectworldBundle\Service\NevernessToEvernessService;
+use App\PerfectworldBundle\Service\Pull\ManualPullService;
 use App\PerfectworldBundle\Service\Pull\PullBackupImporterManager;
 use App\PerfectworldBundle\Service\Pull\PullBackupImportService;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
+use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\Store\InMemoryStore;
 
@@ -28,8 +33,12 @@ class PullBackupImportServiceTest extends TestCase
     private EntityManagerInterface&MockObject $entityManager;
     private PerfectworldPullRepository&MockObject $repository;
     private LockFactory $lockFactory;
+    private ManualPullService&MockObject $manualPullService;
     /** @var list<PerfectworldPull> */
     private array $persisted = [];
+    /** @var list<string> Banners realigned, with whether the profile lock was held at that point */
+    private array $realigned = [];
+    private FillerPlan $realignPlan;
 
     protected function setUp(): void
     {
@@ -41,19 +50,28 @@ class PullBackupImportServiceTest extends TestCase
         $this->repository = $this->createMock(PerfectworldPullRepository::class);
         $this->repository->method('findBannerRows')->willReturn([]);
         $this->lockFactory = new LockFactory(new InMemoryStore());
+        $this->manualPullService = $this->createMock(ManualPullService::class);
+        $this->manualPullService->method('realign')->willReturnCallback(function (PerfectworldGameProfile $profile, object $gameService, string $bannerKey): FillerPlan {
+            $probe = $this->lockFactory->createLock(PullBackupImportService::getProfileLockKey(3));
+            $locked = !$probe->acquire();
+            $this->realigned[] = $bannerKey . ($locked ? ' (locked)' : ' (UNLOCKED)');
+
+            return $this->realignPlan;
+        });
+        $this->realignPlan = new FillerPlan();
     }
 
     private static function profile(): PerfectworldGameProfile
     {
-        $profile = (new PerfectworldGameProfile())->setGameUid('100000000001');
+        $profile = (new PerfectworldGameProfile())->setGameId(NevernessToEvernessService::GAME_ID)->setGameUid('100000000001');
         (new \ReflectionProperty(PerfectworldGameProfile::class, 'id'))->setValue($profile, 3);
 
         return $profile;
     }
 
-    private static function record(string $pulledAt, int $position, string $rewardId = 'fork_vine', string $version = '0.5.0', string $kind = PerfectworldPull::KIND_ROLL): ImportedPullRecord
+    private static function record(string $pulledAt, int $position, string $rewardId = 'fork_vine', string $version = '0.5.0', string $kind = PerfectworldPull::KIND_ROLL, string $banner = self::BANNER): ImportedPullRecord
     {
-        return new ImportedPullRecord(self::BANNER, null, $pulledAt, $position, $kind, 3, 'arc', $rewardId, 'Be Happy', 3, 1, null, $version);
+        return new ImportedPullRecord($banner, null, $pulledAt, $position, $kind, 3, 'arc', $rewardId, 'Be Happy', 3, 1, null, $version);
     }
 
     /**
@@ -115,7 +133,16 @@ class PullBackupImportServiceTest extends TestCase
             }
         };
 
-        return new PullBackupImportService($this->entityManager, $this->repository, new PullBackupImporterManager([$importer]), $this->lockFactory);
+        $game = new NevernessToEvernessService(new NullLogger());
+
+        return new PullBackupImportService(
+            $this->entityManager,
+            $this->repository,
+            new PullBackupImporterManager([$importer]),
+            $this->lockFactory,
+            $this->manualPullService,
+            new ServiceLocator([NevernessToEvernessService::GAME_ID => static fn () => $game]),
+        );
     }
 
     public function testNewRecordsAreInsertedWithTheirWallClockTime(): void
@@ -227,6 +254,96 @@ class PullBackupImportServiceTest extends TestCase
 
         $this->assertStringContainsString('Possible gap', implode(' ', $summary->warnings));
         $this->assertStringContainsString('7 rolls between two Points Gifts', implode(' ', $summary->warnings));
+    }
+
+    public function testEachImportedBannerIsRealignedInsideTheLock(): void
+    {
+        $this->repository->method('findIdentityMap')->willReturn([]);
+
+        $summary = $this->createService([
+            'limited.json' => [self::record('2026-06-01 10:00:00', 0)],
+            'bad.json' => new \InvalidArgumentException('Broken file'),
+            'arc.json' => [self::record('2026-06-01 10:00:00', 0, kind: PerfectworldPull::KIND_DRAW, banner: NevernessToEvernessService::BANNER_ARC)],
+        ])->import(self::profile(), 'fake', ['limited.json', 'bad.json', 'arc.json']);
+
+        $this->assertSame('failed', $summary->banners['bad.json']['status']);
+        $this->assertSame([
+            NevernessToEvernessService::BANNER_LIMITED . ' (locked)',
+            NevernessToEvernessService::BANNER_ARC . ' (locked)',
+        ], $this->realigned, 'Only completed banners, while the import holds the profile lock');
+    }
+
+    public function testAConflictingBannerIsNotRealigned(): void
+    {
+        $this->repository->method('findIdentityMap')->willReturn([
+            '2026-06-01 10:00:00|0' => ['id' => 11, 'rewardId' => 'fork_nonos', 'exporterVersion' => '0.5.0'],
+        ]);
+
+        try {
+            $this->createService(['a.json' => [self::record('2026-06-01 10:00:00', 0, 'fork_vine')]])->import(self::profile(), 'fake', ['a.json']);
+            $this->fail('The conflicting banner must fail.');
+        } catch (\RuntimeException) {
+        }
+
+        $this->assertSame([], $this->realigned);
+    }
+
+    public function testRealignWarningsAreReported(): void
+    {
+        $this->repository->method('findIdentityMap')->willReturn([]);
+        $this->realignPlan = new FillerPlan(warnings: ['No room for 3 unknown pull(s) before S #7: its neighbours are less than 2 seconds apart.']);
+
+        $summary = $this->createService(['a.json' => [self::record('2026-06-01 10:00:00', 0)]])->import(self::profile(), 'fake', ['a.json']);
+
+        $this->assertContains('No room for 3 unknown pull(s) before S #7: its neighbours are less than 2 seconds apart.', $summary->warnings);
+    }
+
+    public function testAnOlderExportImportsAroundManualAndFillerRows(): void
+    {
+        // Fillers and a manual S sit at the seconds the older export now fills: negative positions
+        $this->repository->method('findIdentityMap')->willReturn([
+            '2026-06-01 09:59:59|-1' => ['id' => 21, 'rewardId' => ManualPullService::FILLER_REWARD_ID, 'exporterVersion' => ManualPullService::EXPORTER_VERSION],
+            '2026-06-01 09:59:59|-2' => ['id' => 22, 'rewardId' => ManualPullService::FILLER_REWARD_ID, 'exporterVersion' => ManualPullService::EXPORTER_VERSION],
+            '2026-06-01 09:00:00|-1' => ['id' => 23, 'rewardId' => '1042', 'exporterVersion' => ManualPullService::EXPORTER_VERSION],
+            '2026-06-01 10:00:00|0' => ['id' => 11, 'rewardId' => 'fork_vine', 'exporterVersion' => '0.5.0'],
+        ]);
+
+        $summary = $this->createService(['a.json' => [
+            self::record('2026-06-01 09:00:00', 0, 'fork_nonos'),
+            self::record('2026-06-01 09:59:59', 1, 'fork_nonos'),
+            self::record('2026-06-01 09:59:59', 0, 'fork_vine'),
+            self::record('2026-06-01 10:00:00', 0, 'fork_vine'),
+        ]])->import(self::profile(), 'fake', ['a.json']);
+
+        $this->assertSame('completed', $summary->banners[self::BANNER]['status']);
+        $this->assertSame(3, $summary->imported);
+        $this->assertSame(1, $summary->skipped);
+        $this->assertSame([0, 1, 0], array_map(static fn (PerfectworldPull $pull): ?int => $pull->getGroupPosition(), $this->persisted));
+        $this->assertSame([self::BANNER . ' (locked)'], $this->realigned);
+    }
+
+    public function testGapWarningsIgnoreFillerAndManualRows(): void
+    {
+        $this->repository->method('findIdentityMap')->willReturn([]);
+        $at = static fn (int $minute): \DateTimeImmutable => new \DateTimeImmutable(sprintf('2026-06-01 10:%02d:00', $minute), new \DateTimeZone('UTC'));
+        $rows = [['kind' => PerfectworldPull::KIND_POINTS_GIFT, 'pulledAt' => $at(0), 'origin' => PullOrigin::Recorded]];
+        for ($i = 1; $i <= 4; $i++) {
+            $rows[] = ['kind' => PerfectworldPull::KIND_ROLL, 'pulledAt' => $at($i), 'origin' => PullOrigin::Filler];
+        }
+        $rows[] = ['kind' => PerfectworldPull::KIND_ROLL, 'pulledAt' => $at(5), 'origin' => PullOrigin::Manual];
+        for ($i = 6; $i <= 15; $i++) {
+            $rows[] = ['kind' => PerfectworldPull::KIND_ROLL, 'pulledAt' => $at($i), 'origin' => PullOrigin::Recorded];
+        }
+        $rows[] = ['kind' => PerfectworldPull::KIND_POINTS_GIFT, 'pulledAt' => $at(16), 'origin' => PullOrigin::Recorded];
+
+        $repository = $this->createMock(PerfectworldPullRepository::class);
+        $repository->method('findIdentityMap')->willReturn([]);
+        $repository->method('findBannerRows')->willReturn($rows);
+        $this->repository = $repository;
+
+        $summary = $this->createService(['a.json' => [self::record('2026-06-01 11:00:00', 0)]])->import(self::profile(), 'fake', ['a.json']);
+
+        $this->assertStringNotContainsString('Possible gap', implode(' ', $summary->warnings), '10 recorded rolls between the gifts');
     }
 
     public function testConcurrentImportIsRejected(): void

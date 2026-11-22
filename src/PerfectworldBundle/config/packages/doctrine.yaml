@@ -1,7 +1,4 @@
 doctrine:
-    dbal:
-        types:
-            wall_clock_datetime_immutable: App\PerfectworldBundle\Doctrine\WallClockDateTimeImmutableType
     orm:
         mappings:
             App\PerfectworldBundle:

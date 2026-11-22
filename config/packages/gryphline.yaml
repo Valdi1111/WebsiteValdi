@@ -15,3 +15,6 @@ gryphline:
             cron: '0 21 * * 0'
         sync_pulls:
             cron: '0 1 * * *'
+        # Weekly rebuild of the Endfield operator and weapon catalog from AkeData (new items after game patches)
+        catalog_update:
+            cron: '0 6 * * 1'

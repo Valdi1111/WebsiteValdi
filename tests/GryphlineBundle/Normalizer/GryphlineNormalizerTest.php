@@ -106,6 +106,7 @@ class GryphlineNormalizerTest extends TestCase
         // Capability flags shared with other providers by the games SPA
         $this->assertTrue($result['supports_pulls']);
         $this->assertTrue($result['supports_pull_sync']);
+        $this->assertTrue($result['supports_manual_pulls']);
         $this->assertSame('Headhunts', $result['pull_label']);
     }
 

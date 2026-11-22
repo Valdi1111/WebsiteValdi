@@ -53,6 +53,10 @@ class SRankHistoryImportServiceTest extends TestCase
     private const string COOKIE = 'ltoken_v2=v2_test; ltuid_v2=100000001; ltmid_v2=mid_test';
 
     private HoyoverseGameProfile $profile;
+    /** The profile instance the entity manager manages (getReference()); clear() detaches it, like Doctrine */
+    private HoyoverseGameProfile $managedProfile;
+    /** @var list<HoyoverseGameProfile> */
+    private array $detachedProfiles = [];
     private ZenlessZoneZeroService $game;
     private LockFactory $lockFactory;
     private SRankHistory $history;
@@ -76,6 +80,7 @@ class SRankHistoryImportServiceTest extends TestCase
         $account = (new HoyoverseAccount())->setCookie(self::COOKIE);
         $this->profile = (new HoyoverseGameProfile())->setAccount($account)->setGameId(ZenlessZoneZeroService::GAME_ID)->setRegion('prod_gf_eu');
         (new \ReflectionProperty(HoyoverseGameProfile::class, 'id'))->setValue($this->profile, 10);
+        $this->managedProfile = $this->profile;
         $this->lockFactory = new LockFactory(new InMemoryStore());
         $this->history = new SRankHistory([]);
 
@@ -111,6 +116,10 @@ class SRankHistoryImportServiceTest extends TestCase
         $em = $this->createStub(EntityManagerInterface::class);
         $em->method('persist')->willReturnCallback(function (object $pull): void {
             \assert($pull instanceof HoyoversePull);
+            // Doctrine refuses a new row whose profile is detached (after clear()): the code must use getReference()
+            if (\in_array($pull->getGameProfile(), $this->detachedProfiles, true)) {
+                throw new \LogicException('A new pull was persisted with a detached profile.');
+            }
             if ($pull->getId() === null) {
                 (new \ReflectionProperty(HoyoversePull::class, 'id'))->setValue($pull, $this->nextId++);
             }
@@ -126,7 +135,7 @@ class SRankHistoryImportServiceTest extends TestCase
         $em->method('flush')->willReturnCallback(function (): void {
             ++$this->flushes;
         });
-        $em->method('getReference')->willReturn($this->profile);
+        $em->method('getReference')->willReturnCallback(fn (): HoyoverseGameProfile => $this->managedProfile);
         $em->method('beginTransaction')->willReturnCallback(function (): void {
             ++$this->transactions;
             $this->snapshot = [array_map(static fn (HoyoversePull $pull): HoyoversePull => clone $pull, $this->pulls), $this->nextId];
@@ -143,6 +152,9 @@ class SRankHistoryImportServiceTest extends TestCase
         });
         $em->method('clear')->willReturnCallback(function (): void {
             ++$this->clears;
+            // Every managed instance is detached: the next reference is a new object with the same id
+            $this->detachedProfiles[] = $this->managedProfile;
+            $this->managedProfile = clone $this->managedProfile;
         });
 
         $repository = $this->createStub(HoyoversePullRepository::class);
@@ -201,7 +213,8 @@ class SRankHistoryImportServiceTest extends TestCase
     {
         $rows = [];
         foreach ($this->pulls as $pull) {
-            if ($pull->getGameProfile() !== $profile || ($gachaTypes !== [] && !\in_array($pull->getGachaType(), $gachaTypes, true))) {
+            // By id, like the query: the profile object may be a reference created after a clear()
+            if ($pull->getGameProfile()?->getId() !== $profile->getId() || ($gachaTypes !== [] && !\in_array($pull->getGachaType(), $gachaTypes, true))) {
                 continue;
             }
             $rows[] = [
@@ -455,7 +468,11 @@ class SRankHistoryImportServiceTest extends TestCase
     public function testABannerOutOfPlaceAfterWritingIsRolledBack(): void
     {
         $gamma = $this->seedRecentExclusiveChannel();
-        $this->history = new SRankHistory([self::exclusiveHistory()]);
+        // The Standard Channel comes after the Exclusive Channel: it is imported once the entity manager has been cleared
+        $this->history = new SRankHistory([
+            self::exclusiveHistory(),
+            new SRankHistoryBanner('1', [self::record(5, 5, '2025-04-01 09:00:00', '1201', 'Standard S', false)], 5, 1),
+        ]);
         // Another writer slips an S in once the official rows are written: it splits the window of Gamma, which would no
         // longer be pull 130 (an extra B would not do: the declared pity of the window would absorb it)
         $this->onPersist = function (HoyoversePull $pull): void {
@@ -469,13 +486,21 @@ class SRankHistoryImportServiceTest extends TestCase
 
         $this->assertSame('failed', $summary->banners['2']['status']);
         $this->assertStringStartsWith('rolled back: Pull #', $summary->banners['2']['error']);
-        $this->assertSame([0, 0, 1], [$summary->imported, $summary->updated, $summary->skipped]);
-        $this->assertSame([1, 0, 1, 1], [$this->transactions, $this->commits, $this->rollbacks, $this->clears]);
-        $this->assertCount($before, $this->pulls, 'Back to the stored rows');
-        $this->assertSame([], $this->rowsOf(PullOrigin::Official));
-        $this->assertSame([], $this->rowsOf(PullOrigin::Filler));
+        $this->assertSame([1, 0, 1], [$summary->imported, $summary->updated, $summary->skipped]);
+        $this->assertSame([2, 1, 1, 1], [$this->transactions, $this->commits, $this->rollbacks, $this->clears]);
+        $exclusive = array_filter($this->pulls, static fn (HoyoversePull $pull): bool => $pull->getGachaType() === '2');
+        $this->assertCount($before, $exclusive, 'Back to the stored rows');
+        $this->assertSame([], array_filter($exclusive, static fn (HoyoversePull $pull): bool => $pull->getOrigin() !== PullOrigin::Recorded));
         $this->assertNull($this->pulls[$gamma->getId()]->getDeclaredPity());
         $this->assertNull($this->pulls[$gamma->getId()]->isUp());
+
+        // The next banner is written on a managed profile reference, not on the instance detached by the rollback
+        $this->assertSame('completed', $summary->banners['1']['status']);
+        $official = $this->rowsOf(PullOrigin::Official);
+        $this->assertCount(1, $official);
+        $this->assertSame([5, '1'], [$official[0]->getPullNumber(), $official[0]->getGachaType()]);
+        $this->assertSame($this->managedProfile, $official[0]->getGameProfile());
+        $this->assertCount(4, $this->rowsOf(PullOrigin::Filler));
     }
 
     public function testRefusesWithoutLockCookieOrSupportedGame(): void
@@ -502,9 +527,96 @@ class SRankHistoryImportServiceTest extends TestCase
             $this->assertStringNotContainsString('secret_value', $e->getMessage(), 'The cookie never reaches the message');
         }
 
-        $genshin = (new HoyoverseGameProfile())->setAccount($this->profile->getAccount())->setGameId(GenshinImpactService::GAME_ID);
+        // A Genshin profile with a usable cookie: refused for its game, not for its cookie
+        $genshin = (new HoyoverseGameProfile())->setAccount((new HoyoverseAccount())->setCookie(self::COOKIE))->setGameId(GenshinImpactService::GAME_ID);
         $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('This game profile cannot import an official S-rank history.');
         $service->import($genshin);
+    }
+
+    public function testReplacedUserValuesAreListedFirstAndNeverCut(): void
+    {
+        $this->seedRecentExclusiveChannel();
+        $this->addPull('2024-11-02 08:00:00', 4, 'Beta', '1002', origin: PullOrigin::Manual, declaredPity: 60);
+        // More warnings than the limit before the first banner is even read
+        $noise = array_map(static fn (int $k): string => \sprintf('Unknown banner type "GACHA_TYPE_%d": ignored.', $k), range(1, 60));
+        $this->history = new SRankHistory([self::exclusiveHistory()], $noise);
+        $overwrite = 'Exclusive Channel: Manual S "Beta" (2024-11-02 08:00:00, pity 60) replaced by the official one (2024-11-01 12:00:00, pity 55).';
+
+        foreach ([true, false] as $dryRun) {
+            $summary = $this->createService()->import($this->profile, dryRun: $dryRun);
+
+            $this->assertSame($overwrite, $summary->warnings[0], $dryRun ? 'In the preview too' : 'In the import');
+            $this->assertCount(1 + 50 + 1, $summary->warnings);
+            $this->assertSame('10 more warning(s) not shown.', $summary->warnings[51]);
+        }
+    }
+
+    public function testFillersOutOfLineAreRealignedWithoutAnySChange(): void
+    {
+        // Standard Channel aligned with the history, except an unknown pull no declared pity asks for
+        $this->addPull('2025-03-31 09:00:00', 0, ManualPull::FILLER_NAME, '', '1', PullOrigin::Filler);
+        $this->addBPulls(9, '2025-04-01 10:00:00', '1');
+        $this->addPull('2025-04-01 10:09:00', 4, 'Standard S', '1201', '1')->setIsUp(false);
+        $this->history = new SRankHistory([new SRankHistoryBanner('1', [self::record(10, 10, '2025-04-01 10:09:00', '1201', 'Standard S', false)], 10, 1)]);
+
+        $summary = $this->createService()->import($this->profile);
+
+        $this->assertSame([0, 0, 0], [$summary->imported, $summary->updated, $summary->skipped]);
+        $this->assertSame(['Standard Channel: The unknown pulls are out of line with the stored S: the import realigns them.'], $summary->warnings);
+        $this->assertSame([1, 1], [$this->transactions, $this->commits]);
+        $this->assertSame([], $this->rowsOf(PullOrigin::Filler));
+        $this->assertSame(['Standard S' => 10], $this->sPullNumbers('1'));
+
+        // Aligned now: nothing is written
+        $again = $this->createService()->import($this->profile);
+        $this->assertSame([], $again->warnings);
+        $this->assertSame(1, $this->transactions);
+    }
+
+    public function testAManualSDatedAfterTheLastOfficialSSkipsTheBanner(): void
+    {
+        // Standard Channel: only the six pulls after the last official S are stored, and a manual S the history does not know
+        // is dated after them (the first reproduction of the review, with made-up data)
+        $this->addBPulls(6, '2025-01-06 10:00:00', '1');
+        $this->addPull('2025-01-06 12:00:00', 4, 'Rena', '', '1', PullOrigin::Manual, 7);
+        $this->history = new SRankHistory([new SRankHistoryBanner('1', [
+            self::record(10, 10, '2025-01-01 10:00:00', '1201', 'Alpha'),
+            self::record(30, 20, '2025-01-05 10:00:00', '1202', 'Beta'),
+        ], 36, 2)]);
+        $count = \count($this->pulls);
+
+        $summary = $this->createService()->import($this->profile);
+
+        $this->assertSame('skipped', $summary->banners['1']['status']);
+        $this->assertSame('The manual S "Rena" of 2025-01-06 12:00:00 is not in the official history: delete it, or add it again with the right item, then import again.', $summary->banners['1']['error']);
+        $this->assertCount($count, $this->pulls, 'Nothing written');
+        $this->assertSame(0, $this->transactions);
+    }
+
+    public function testStoredPullsPushedAfterAnSSkipTheBanner(): void
+    {
+        // Exclusive Channel: ten pulls before Beta are stored one hour late, after it (the second reproduction of the review)
+        $this->addBPulls(9, '2025-01-01 10:00:00');
+        $this->addPull('2025-01-01 10:09:00', 4, 'Alpha', '1001');
+        $this->addBPulls(9, '2025-01-02 06:00:00');
+        $this->addPull('2025-01-02 07:00:00', 4, 'Beta', '1002');
+        for ($k = 0; $k < 10; ++$k) {
+            $this->addPull('2025-01-02 07:30:00', 2);
+        }
+        $this->addBPulls(2, '2025-01-02 08:00:00');
+        $this->history = new SRankHistory([new SRankHistoryBanner('2', [
+            self::record(10, 10, '2025-01-01 10:09:00', '1001', 'Alpha'),
+            self::record(30, 20, '2025-01-02 07:00:00', '1002', 'Beta'),
+        ], 32, 2)]);
+        $count = \count($this->pulls);
+
+        $summary = $this->createService()->import($this->profile);
+
+        $this->assertSame('skipped', $summary->banners['2']['status']);
+        $this->assertStringStartsWith('42 pulls after the import, more than the 32 stored and the 32 of the official history', $summary->banners['2']['error']);
+        $this->assertCount($count, $this->pulls, 'No made-up pull committed');
+        $this->assertSame(0, $this->transactions);
     }
 
     public function testAHistoryThatCannotBeReadWritesNothingAndReleasesTheLock(): void

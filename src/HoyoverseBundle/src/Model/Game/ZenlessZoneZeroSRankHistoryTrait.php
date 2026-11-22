@@ -91,13 +91,18 @@ trait ZenlessZoneZeroSRankHistoryTrait
         $requests = 0;
 
         $data = $this->requestSRankHistory('index', $baseQuery, $account, $requests);
-        $currentVersion = (string) ($data['cur_ver'] ?? '');
         if (!\is_array($data['type_stats'] ?? null)) {
             throw new RetrieveSRankHistoryException('The Signal Search statistics have no banner list ("type_stats").');
+        }
+        // Without it the current version would be requested from hist_pool_stat (retcode -400005) or read twice
+        $currentVersion = \is_scalar($data['cur_ver'] ?? null) ? trim((string) $data['cur_ver']) : '';
+        if ($currentVersion === '') {
+            throw new RetrieveSRankHistoryException('The Signal Search statistics have no current version ("cur_ver").');
         }
 
         $banners = [];
         $warnings = [];
+        $seenTypes = [];
         foreach ($data['type_stats'] as $stats) {
             $type = \is_array($stats) ? (string) ($stats['gacha_type'] ?? '') : '';
             if (!isset(self::S_RANK_HISTORY_BANNERS[$type])) {
@@ -105,6 +110,11 @@ trait ZenlessZoneZeroSRankHistoryTrait
                 continue;
             }
             [$requestType, $bannerKey] = self::S_RANK_HISTORY_BANNERS[$type];
+            // Two entries of one banner cannot both be right: nothing is guessed, nothing is imported
+            if (isset($seenTypes[$type])) {
+                throw new RetrieveSRankHistoryException(\sprintf('Banner type "%s" is listed twice in the Signal Search statistics.', $type));
+            }
+            $seenTypes[$type] = true;
 
             $versions = array_values(array_unique(array_map(
                 'strval',

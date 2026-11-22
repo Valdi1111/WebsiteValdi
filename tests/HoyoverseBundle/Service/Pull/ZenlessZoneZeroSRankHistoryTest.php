@@ -248,4 +248,38 @@ class ZenlessZoneZeroSRankHistoryTest extends TestCase
         $this->expectException(RetrieveSRankHistoryException::class);
         $service->getSRankHistory($this->createAccount());
     }
+
+    public function testAnIndexWithoutCurrentVersionFailsBeforeAnyOtherRequest(): void
+    {
+        $service = $this->createService(static function (string $endpoint, array $query): array {
+            $body = self::respond($endpoint, $query);
+            unset($body['data']['cur_ver']);
+
+            return $body;
+        });
+
+        try {
+            $service->getSRankHistory($this->createAccount());
+            $this->fail('Expected a missing current version');
+        } catch (RetrieveSRankHistoryException $e) {
+            $this->assertSame('The Signal Search statistics have no current version ("cur_ver").', $e->getMessage());
+        }
+        $this->assertSame(['index'], array_column($this->requests, 'endpoint'));
+    }
+
+    public function testABannerTypeListedTwiceFails(): void
+    {
+        $service = $this->createService(static function (string $endpoint, array $query): array {
+            $body = self::respond($endpoint, $query);
+            if ($endpoint === 'index') {
+                $body['data']['type_stats'][] = $body['data']['type_stats'][2];
+            }
+
+            return $body;
+        });
+
+        $this->expectException(RetrieveSRankHistoryException::class);
+        $this->expectExceptionMessage('Banner type "GACHA_TYPE_BANGBOO" is listed twice in the Signal Search statistics.');
+        $service->getSRankHistory($this->createAccount());
+    }
 }

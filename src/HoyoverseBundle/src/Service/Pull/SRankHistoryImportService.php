@@ -18,6 +18,7 @@ use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Entity\HoyoversePull;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasPullTrackerInterface;
+use App\HoyoverseBundle\Model\ParsedCookie;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
 use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
@@ -45,7 +46,7 @@ use Symfony\Contracts\Service\ServiceCollectionInterface;
  *
  * A dry run stops after step 2 and reports what would be written. Banner totals that differ from the official ones are
  * warnings only (pulls made since the last sync). Every value entered by the user that the official history replaces is
- * reported in the warnings, prefixed with the banner name.
+ * reported first in the warnings, prefixed with the banner name and never cut by the MAX_WARNINGS limit of the others.
  */
 class SRankHistoryImportService
 {
@@ -102,6 +103,14 @@ class SRankHistoryImportService
     }
 
     /**
+     * Whether the HoYoLAB cookie of the account can be parsed (ltoken_v2, ltuid_v2, ltmid_v2): the history is read with it.
+     */
+    public function hasUsableCookie(HoyoverseGameProfile $profile): bool
+    {
+        return $this->parseCookie($profile) !== null;
+    }
+
+    /**
      * @param (callable(PullImportProgress): void)|null $onProgress
      *
      * @throws \InvalidArgumentException   when the game cannot import an S-rank history or the account has no usable cookie
@@ -111,9 +120,8 @@ class SRankHistoryImportService
     public function import(HoyoverseGameProfile $profile, ?callable $onProgress = null, bool $dryRun = false, bool $blockingLock = true): PullImportSummary
     {
         $gameService = $this->getSupportedGame($profile)
-            ?? throw new \InvalidArgumentException(\sprintf('Game "%s" cannot import an official S-rank history.', (string) $profile->getGameName()));
-        // tryParseCookie(): the exception of parseCookie() contains the cookie, which must never reach the tracker
-        $parsedCookie = $this->cookieUtils->tryParseCookie($profile->getAccount()?->getCookie())
+            ?? throw new \InvalidArgumentException('This game profile cannot import an official S-rank history.');
+        $parsedCookie = $this->parseCookie($profile)
             ?? throw new \InvalidArgumentException('The HoYoLAB cookie of the account (ltoken_v2, ltuid_v2, ltmid_v2) is missing or incomplete: log in again.');
 
         $profileId = (int) $profile->getId();
@@ -128,6 +136,8 @@ class SRankHistoryImportService
             foreach ($bannerGroups as $bannerKey => $group) {
                 $banners[(string) $bannerKey] = ['gacha_type' => (string) $bannerKey, 'name' => $group['name'], 'status' => 'queued', 'imported' => 0, 'updated' => 0, 'matched' => 0, 'error' => null];
             }
+            // Replaced user values: always listed in full and first (the dry run is the preview the user relies on)
+            $overwrites = [];
             $warnings = [];
             $droppedWarnings = 0;
             $addWarning = static function (string $warning) use (&$warnings, &$droppedWarnings): void {
@@ -141,9 +151,9 @@ class SRankHistoryImportService
             $created = 0;
             $updated = 0;
             $skipped = 0;
-            $report = static function (string $phase) use ($onProgress, &$banners, &$warnings, &$processed, &$created, &$updated, &$skipped): void {
+            $report = static function (string $phase) use ($onProgress, &$banners, &$overwrites, &$warnings, &$processed, &$created, &$updated, &$skipped): void {
                 if ($onProgress !== null) {
-                    $onProgress(new PullImportProgress($phase, \count($banners), $processed, $created, $skipped, $warnings, $updated, $banners));
+                    $onProgress(new PullImportProgress($phase, \count($banners), $processed, $created, $skipped, [...$overwrites, ...$warnings], $updated, $banners));
                 }
             };
 
@@ -167,9 +177,12 @@ class SRankHistoryImportService
 
                 $historyBanner = $history->getBanner($bannerKey);
                 $result = $historyBanner === null || $historyBanner->records === []
-                    ? ['status' => 'completed', 'created' => 0, 'updated' => 0, 'matched' => 0, 'error' => null, 'warnings' => []]
+                    ? ['status' => 'completed', 'created' => 0, 'updated' => 0, 'matched' => 0, 'error' => null, 'warnings' => [], 'overwrites' => []]
                     : $this->importBanner($profileId, $gameService, $rarityConfig, $bannerKey, $group, $historyBanner, $dryRun);
 
+                foreach ($result['overwrites'] as $overwrite) {
+                    $overwrites[] = \sprintf('%s: %s', $group['name'], $overwrite);
+                }
                 foreach ($result['warnings'] as $warning) {
                     $addWarning(\sprintf('%s: %s', $group['name'], $warning));
                 }
@@ -210,7 +223,7 @@ class SRankHistoryImportService
                 total: \count($banners),
                 imported: $created,
                 skipped: $skipped,
-                warnings: $warnings,
+                warnings: [...$overwrites, ...$warnings],
                 dryRun: $dryRun,
                 updated: $updated,
                 banners: $banners,
@@ -223,7 +236,7 @@ class SRankHistoryImportService
     /**
      * @param array{key: string, name: string, gacha_types: list<string>, s_max_pity: int} $group
      *
-     * @return array{status: string, created: int, updated: int, matched: int, error: ?string, warnings: list<string>}
+     * @return array{status: string, created: int, updated: int, matched: int, error: ?string, warnings: list<string>, overwrites: list<string>}
      *               "matched": stored S found in the history (changed or not)
      */
     private function importBanner(
@@ -249,6 +262,7 @@ class SRankHistoryImportService
                 'matched' => 0,
                 'error' => self::firstOf($plan->conflicts),
                 'warnings' => [...$plan->warnings, ...array_map(static fn (string $conflict): string => 'not imported: '.$conflict, $plan->conflicts)],
+                'overwrites' => [],
             ];
         }
 
@@ -266,9 +280,14 @@ class SRankHistoryImportService
             'updated' => \count($changes),
             'matched' => \count($plan->updates),
             'error' => null,
-            'warnings' => [...$plan->warnings, ...$plan->overwrites],
+            'warnings' => $plan->warnings,
+            'overwrites' => $plan->overwrites,
         ];
-        if ($dryRun || ($plan->creates === [] && $changes === [])) {
+        // Fillers out of line with the stored S (e.g. a sync that stopped before its last page): realign and check anyway
+        if ($plan->creates === [] && $changes === [] && $plan->realignNeeded) {
+            $result['warnings'][] = 'The unknown pulls are out of line with the stored S: the import realigns them.';
+        }
+        if ($dryRun || ($plan->creates === [] && $changes === [] && !$plan->realignNeeded)) {
             return $result;
         }
 
@@ -310,6 +329,7 @@ class SRankHistoryImportService
             'matched' => 0,
             'error' => 'rolled back: '.self::firstOf($mismatches),
             'warnings' => [...$plan->warnings, ...array_map(static fn (string $mismatch): string => 'rolled back: '.$mismatch, $mismatches)],
+            'overwrites' => [],
         ];
     }
 
@@ -378,6 +398,14 @@ class SRankHistoryImportService
             ->setPullNumber($record->pullNumber)
             ->setIsUp($record->isUp)
             ->setRawPayload(['source' => PullOrigin::Official->value]);
+    }
+
+    /**
+     * tryParseCookie(): the exception of parseCookie() contains the cookie, which must never reach the tracker.
+     */
+    private function parseCookie(HoyoverseGameProfile $profile): ?ParsedCookie
+    {
+        return $this->cookieUtils->tryParseCookie($profile->getAccount()?->getCookie());
     }
 
     private static function itemIdOf(SRankHistoryRecord $record): ?string

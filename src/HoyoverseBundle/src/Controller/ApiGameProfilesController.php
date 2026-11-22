@@ -18,7 +18,6 @@ use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasDiaryInterface;
 use App\HoyoverseBundle\Model\Game\HasPowershellPullImportInterface;
 use App\HoyoverseBundle\Model\Game\HasPullTrackerInterface;
-use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
 use App\GamesBundle\Model\Pull\PullOperationKind;
 use App\HoyoverseBundle\Repository\HoyoverseDiaryEntryRepository;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
@@ -28,6 +27,7 @@ use App\HoyoverseBundle\Service\Pull\ManualPullService;
 use App\HoyoverseBundle\Service\Pull\ManualPullSuggestionProvider;
 use App\HoyoverseBundle\Service\Pull\PullBackupImporterManager;
 use App\HoyoverseBundle\Service\Pull\PullOperationTracker;
+use App\HoyoverseBundle\Service\Pull\PullSyncSourceResolver;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -267,6 +267,7 @@ class ApiGameProfilesController extends AbstractController
         #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
         MessageBusInterface $bus,
         PullOperationTracker $operationTracker,
+        PullSyncSourceResolver $pullSyncSourceResolver,
     ): Response {
         $this->assertProfileOfAccount($account, $gameProfile);
 
@@ -274,9 +275,10 @@ class ApiGameProfilesController extends AbstractController
             throw new BadRequestHttpException("Unsupported game service.");
         }
 
+        // stoken_v2 (authkey + getGachaLog) or, where the game supports it, the HoYoLAB cookies (battle chronicle)
         $gameService = $this->locatorByGameId->get($gameProfile->getGameId());
-        if (!$gameService instanceof HasStokenPullImportInterface) {
-            throw new BadRequestHttpException("This game profile does not support automated SToken pull synchronization.");
+        if (!$gameService instanceof HasPullTrackerInterface || $pullSyncSourceResolver->resolveForProfile($gameService, $gameProfile) === null) {
+            throw new BadRequestHttpException("This game profile does not support automated pull synchronization with the current account cookie.");
         }
 
         $bannerTypes = $gameService->getGachaConfig()->getBannerTypes();

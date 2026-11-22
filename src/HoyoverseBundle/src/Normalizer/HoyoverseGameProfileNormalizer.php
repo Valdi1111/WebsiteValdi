@@ -21,6 +21,7 @@ use App\HoyoverseBundle\Model\Game\HasPullTrackerInterface;
 use App\HoyoverseBundle\Model\Game\HasRealmCurrencyInterface;
 use App\HoyoverseBundle\Model\Game\HasShopStatusInterface;
 use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
+use App\HoyoverseBundle\Service\Pull\PullSyncSourceResolver;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
@@ -54,6 +55,9 @@ class HoyoverseGameProfileNormalizer extends AbstractGameProfileNormalizer
         NormalizerInterface&DenormalizerInterface $objectNormalizer,
         #[AutowireLocator(services: 'hoyoverse.game.id', indexAttribute: 'key')]
         ServiceCollectionInterface $locatorByGameId,
+        // Lazy: the resolver parses cookies through the serializer, which owns this normalizer
+        #[Autowire(lazy: true)]
+        private readonly PullSyncSourceResolver $pullSyncSourceResolver,
         #[Autowire(param: 'hoyoverse.timezones')]
         private readonly array $timezones = [],
     ) {
@@ -86,8 +90,11 @@ class HoyoverseGameProfileNormalizer extends AbstractGameProfileNormalizer
                 $result['supports_pulls'] = $gameService instanceof HasPullTrackerInterface;
                 // Missing pulls (manual S pulls, declared pities) can be added to the pull tracker
                 $result['supports_manual_pulls'] = $gameService instanceof HasManualPullsInterface;
-                // Server-side automatic sync (SToken); shared flag name across providers
-                $result['supports_pull_sync'] = $gameService instanceof HasStokenPullImportInterface;
+                // Server-side automatic sync, depending on the game and the account cookie: stoken_v2 or, where the
+                // game supports it, the HoYoLAB cookies (battle chronicle); shared flag name across providers
+                $pullSyncSource = $this->pullSyncSourceResolver->resolveForProfile($gameService, $data);
+                $result['supports_pull_sync'] = $pullSyncSource !== null;
+                $result['pull_sync_source'] = $pullSyncSource?->value;
                 $result['supports_powershell_pulls'] = $gameService instanceof HasPowershellPullImportInterface;
                 // Game-specific name of pulls (e.g. "Wishes", "Signals"), used for UI labels
                 $result['pull_label'] = $gameService instanceof HasPullTrackerInterface

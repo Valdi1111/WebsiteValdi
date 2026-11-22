@@ -58,6 +58,7 @@ All SDK calls are GET requests to `https://i.pwsdk.com` with NTE constants (`app
 3. `POST /accounts/login/resend-email {login_session_id}` sends a new code (same device id).
 4. `POST /accounts {websdk}` adds an account from a pasted token; `POST /accounts/{id}/token {websdk}` re-logs an existing one.
 5. `POST /accounts/{id}/sync` refreshes the profiles from the role list.
+6. `bin/console perfectworld:fetch-game-profiles [<accountId>]` does the same from the CLI, for one account or, without an id, for every account (shared flow: [`AbstractFetchGameProfilesCommand`](../GamesBundle/README.md#1-backend)).
 
 Account ownership is checked by the shared `GamesBundle\Security\GameAccountOwnerVoter` (`GAME_ACCOUNT_OWNER`, see the [GamesBundle design notes](../GamesBundle/README.md#4-design-notes)); profile routes also check that the profile belongs to the account.
 

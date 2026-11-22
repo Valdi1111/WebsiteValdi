@@ -64,6 +64,8 @@ From the **Paste Token** tab in the Add/Re-login modal, users can manually paste
 - The token is identified first with `SkportAuthService::fetchAccountInfo()` (OAuth step 1): an invalid or expired token is rejected (`422`) before anything is saved, and a token without `hgId` is refused.
 - The account is then finalized like a credentials login: deduplicated by `hgId` (`200` when it updates an existing account, `201` when it creates one), and a re-login (`account_id`) with a token of another Gryphline account returns `422 ... does not match existing Account ...`.
 
+**Game profiles from the CLI**: `php bin/console gryphline:fetch-game-profiles [<accountId>]` syncs them again from the SKPort bindings, for one account or, without an id, for every account (shared flow: [`AbstractFetchGameProfilesCommand`](../GamesBundle/README.md#1-backend)).
+
 ### 2.3 3-Step OAuth Flow & `SkportSignerService` Cryptographic Signing
 To interact with `zonai.skport.com` APIs, the long-lived `accountToken` is exchanged by `SkportAuthService::performOAuthFlow()` in 3 steps:
 1. **User Info Verification** (`fetchAccountInfo()`): `GET https://as.gryphline.com/user/info/v1/basic?token=...` → returns `hgId` and `nickname` (`SkportAccountInfo`). `getOrRefreshCredentials()` stores the `hgId` in an empty `account_uid` and refuses a different one.

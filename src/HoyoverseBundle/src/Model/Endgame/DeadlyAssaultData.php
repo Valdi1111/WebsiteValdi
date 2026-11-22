@@ -196,7 +196,7 @@ class DeadlyAssaultData
     }
 
     /**
-     * Played = at least one attempt with a score.
+     * Played = at least one attempt with a score or stars (so a mode at the maximum is never "not played").
      */
     public function isPlayed(): bool
     {
@@ -204,7 +204,7 @@ class DeadlyAssaultData
             return false;
         }
 
-        return ($this->getTotalScore() ?? 0) > 0 || self::anyPlayed($this->getChallenges());
+        return ($this->getTotalScore() ?? 0) > 0 || $this->getStars() > 0 || self::anyPlayed($this->getChallenges());
     }
 
     /**

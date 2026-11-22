@@ -79,6 +79,39 @@ class ZenlessZoneZeroEndgameRulesTest extends TestCase
         $this->assertTrue(new ShiyuDefenseData()->setScore(1200)->isPlayed());
     }
 
+    public function testShiyuDefenseStagesWithRatingAreAlwaysPlayed(): void
+    {
+        // Rated stages with no score in the response: at the maximum, so not "not played"
+        $data = new ShiyuDefenseData()->setStages([self::stage(0, 'S'), self::stage(0, 'S'), self::stage(0, 'S')]);
+        $this->assertTrue($data->isFullyCleared());
+        $this->assertTrue($data->isPlayed());
+
+        $this->assertTrue(new ShiyuDefenseData()->setStages([self::stage(0, 'B')])->isPlayed());
+        $this->assertFalse(new ShiyuDefenseData()->setStages([self::stage(0, null), self::stage(0, '')])->isPlayed());
+    }
+
+    public function testDeadlyAssaultWithStarsIsAlwaysPlayed(): void
+    {
+        $data = new DeadlyAssaultData()->setChallenges(self::challenges([[0, 3], [0, 3], [0, 3]]));
+        $this->assertTrue($data->isFullyCleared());
+        $this->assertTrue($data->isPlayed());
+
+        $this->assertTrue(new DeadlyAssaultData()->setTotalStar(4)->isPlayed());
+        $this->assertFalse(new DeadlyAssaultData()->setChallenges(self::challenges([[0, 0], [0, 0], [0, 0]]))->isPlayed());
+        $this->assertFalse(new DeadlyAssaultData()->setHasData(false)->setTotalStar(9)->isPlayed());
+    }
+
+    public function testDeadlyAssaultHardWithStarsIsPlayed(): void
+    {
+        $data = new DeadlyAssaultData()
+            ->setChallenges(self::challenges([[1, 3], [1, 3], [1, 3]]))
+            ->setHardChallenges(self::challenges([[0, 2]]));
+
+        $this->assertTrue($data->isHardUnlocked());
+        $this->assertTrue($data->isHardPlayed());
+        $this->assertFalse(new DeadlyAssaultData()->setHardChallenges(self::challenges([[0, 0]]))->isHardPlayed());
+    }
+
     public function testShiyuDefenseVersions(): void
     {
         $this->assertTrue(new ShiyuDefenseData()->setVersion('v2')->isSupportedVersion());

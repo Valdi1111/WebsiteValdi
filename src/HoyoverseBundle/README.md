@@ -167,12 +167,12 @@ Reminders are split into **Global Tasks** (run at fixed intervals regardless of 
 
   | Mode | Played | At the maximum |
   | :--- | :--- | :--- |
-  | Shiyu Defense | an attempt with a score (total or stage score above 0) | the three fifth-frontier stages at S rank (rating `S`, or at least `S_RANK_SCORE` = 25,000 of 50,000 points) |
-  | Deadly Assault | an attempt with a score | 9★ (3★ on each of the three bosses, as reported by HoYoLAB) |
-  | Deadly Assault (Hard) | reminded only once unlocked, i.e. with 9★ in normal mode; then an attempt with a score | 3★ (one boss) |
+  | Shiyu Defense | an attempt with a score or a rating (total or stage score above 0, or a stage rated) | the three fifth-frontier stages at S rank (rating `S`, or at least `S_RANK_SCORE` = 25,000 of 50,000 points) |
+  | Deadly Assault | an attempt with a score or stars | 9★ (3★ on each of the three bosses, as reported by HoYoLAB) |
+  | Deadly Assault (Hard) | reminded only once unlocked, i.e. with 9★ in normal mode; then an attempt with a score or stars | 3★ (one boss) |
 - **Notification**: one per profile, one field per mode: `Not played yet`, or the progress (`2/3 stages at S rank`, `8/9 ★`) followed by the stages or bosses below the maximum with their scores; last line `Ends in … (end in server time)`.
 - **Dates**: Shiyu Defense uses its epoch `end_time`. Deadly Assault only has `{year, month, day, …}` objects, which are server wall-clock times: `HoyoverseServerTimezoneResolver::serverWallClockToInstant()` reads them in the fixed offset of the profile's server (§7.5).
-- **Unexpected responses**: missing or `null` fields, empty lists and `has_data: false` count as not played; a mode without an end date gets no reminder (`info` log); a Shiyu Defense response whose `hadal_ver` is not `v2` is left out with a `warning` in the `hoyoverse.zzz` log. No response for a period that was not played has been observed yet: these shapes are assumptions.
+- **Unexpected responses**: missing or `null` fields, empty lists and `has_data: false` count as not played; a mode without an end date gets no reminder (`info` log); empty date objects (all `null`, zeros) count as no date; a Shiyu Defense response whose `hadal_ver` is not `v2` is left out with a `warning` in the `hoyoverse.zzz` log. Each mode is read on its own: one whose request or shape fails is left out with a `warning` (exception class and retcode only) and the other is still reminded; when neither can be read the first error is thrown, so an expired cookie fails the task like in the other reminders. No response for a period that was not played has been observed yet: these shapes are assumptions.
 - **Other games**: `GenshinImpactEndgamesTrait` (requests only) and `HonkaiStarRailEndgamesTrait` (empty) do not implement `HasEndgamesInterface` yet. A game gets the reminder by implementing `getEndgamesData()`.
 
 ---

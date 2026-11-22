@@ -65,9 +65,12 @@ class DeadlyAssaultChallenge
         return ($this->getBosses()[0] ?? null)?->getName();
     }
 
+    /**
+     * Played = a score or stars (a boss with stars has been fought, whatever its score says).
+     */
     public function isPlayed(): bool
     {
-        return ($this->getScore() ?? 0) > 0;
+        return ($this->getScore() ?? 0) > 0 || ($this->getStar() ?? 0) > 0;
     }
 
     public function isFullyCleared(): bool

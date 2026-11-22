@@ -200,7 +200,7 @@ class ShiyuDefenseData
     }
 
     /**
-     * Played = at least one attempt with a score.
+     * Played = at least one attempt with a score or a rating (so a mode at the maximum is never "not played").
      */
     public function isPlayed(): bool
     {

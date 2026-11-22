@@ -65,9 +65,12 @@ class ShiyuDefenseStage
         return $this;
     }
 
+    /**
+     * Played = a score or a rating (a stage at S rank has been played, whatever its score says).
+     */
     public function isPlayed(): bool
     {
-        return ($this->getScore() ?? 0) > 0;
+        return ($this->getScore() ?? 0) > 0 || in_array($this->getRating(), ['S', 'A', 'B'], true);
     }
 
     /**

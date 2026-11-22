@@ -8,6 +8,8 @@ use App\CoreBundle\Service\Notification\UnifiedNotificationService;
 use App\GamesBundle\Model\Endgame\GameEndgame;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
+use App\HoyoverseBundle\Exception\RetrieveDeadlyAssaultDataException;
+use App\HoyoverseBundle\Exception\RetrieveShiyuDefenseDataException;
 use App\HoyoverseBundle\Message\Profile\EndgamesReminderProfileMessage;
 use App\HoyoverseBundle\MessageHandler\Profile\EndgamesReminderProfileHandler;
 use App\HoyoverseBundle\Model\Endgame\DeadlyAssaultChallenge;
@@ -445,6 +447,94 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
         $service = $this->createService($shiyu, ZenlessEndgameFixture::deadlyAssault(), $logger);
 
         $this->assertSame(['Deadly Assault', 'Deadly Assault (Hard)'], array_keys($this->endgamesByName($service)));
+    }
+
+    /**
+     * @return array<string, mixed> HoYoLAB body of an error answer (e.g. the game record is private)
+     */
+    private static function errorBody(): array
+    {
+        return ['retcode' => 10102, 'message' => 'Data is not public for the user', 'data' => null];
+    }
+
+    public function testUnreadableShiyuDefenseDoesNotHideDeadlyAssault(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())
+            ->method('warning')
+            ->with(
+                $this->logicalAnd(
+                    $this->stringContains('Shiyu Defense'),
+                    $this->stringContains(RetrieveShiyuDefenseDataException::class),
+                    $this->stringContains('10102'),
+                    $this->logicalNot($this->stringContains('Data is not public'))
+                )
+            );
+        $service = $this->createService(self::errorBody(), ZenlessEndgameFixture::deadlyAssault(), $logger);
+
+        $this->assertSame(['Deadly Assault', 'Deadly Assault (Hard)'], array_keys($this->endgamesByName($service)));
+    }
+
+    public function testUnreadableDeadlyAssaultDoesNotHideShiyuDefense(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())
+            ->method('warning')
+            ->with($this->logicalAnd(
+                $this->stringContains('Deadly Assault'),
+                $this->stringContains(RetrieveDeadlyAssaultDataException::class)
+            ));
+        $service = $this->createService(ZenlessEndgameFixture::shiyuDefense(), self::errorBody(), $logger);
+
+        $this->assertSame(['Shiyu Defense'], array_keys($this->endgamesByName($service)));
+    }
+
+    public function testUnreadableDeadlyAssaultShapeDoesNotHideShiyuDefense(): void
+    {
+        $assault = ZenlessEndgameFixture::deadlyAssault();
+        // Not a date object nor null: the denormalization throws
+        $assault['data']['end_time'] = 'not a date';
+        $service = $this->createService(ZenlessEndgameFixture::shiyuDefense(), $assault);
+
+        $this->assertSame(['Shiyu Defense'], array_keys($this->endgamesByName($service)));
+    }
+
+    public function testWhenEveryModeFailsTheFirstErrorIsThrown(): void
+    {
+        $service = $this->createService(self::errorBody(), self::errorBody());
+
+        $this->expectException(RetrieveShiyuDefenseDataException::class);
+        $service->getEndgamesData($this->createAccount());
+    }
+
+    /**
+     * @return iterable<string, array{0: mixed}>
+     */
+    public static function emptyDateProvider(): iterable
+    {
+        yield 'all null' => [['year' => null, 'month' => null, 'day' => null, 'hour' => null, 'minute' => null, 'second' => null]];
+        yield 'all zero' => [['year' => 0, 'month' => 0, 'day' => 0, 'hour' => 0, 'minute' => 0, 'second' => 0]];
+        yield 'missing parts' => [['year' => 2026]];
+        yield 'empty array' => [[]];
+    }
+
+    #[DataProvider('emptyDateProvider')]
+    public function testEmptyDateObjectsAreAnAbsentEnd(array $emptyDate): void
+    {
+        $shiyu = ZenlessEndgameFixture::shiyuDefense();
+        unset($shiyu['data']['hadal_info_v2']['end_time']);
+        $shiyu['data']['hadal_info_v2']['hadal_begin_time'] = $emptyDate;
+        $shiyu['data']['hadal_info_v2']['hadal_end_time'] = $emptyDate;
+        $assault = ZenlessEndgameFixture::deadlyAssault();
+        $assault['data']['start_time'] = $emptyDate;
+        $assault['data']['end_time'] = $emptyDate;
+
+        $endgames = $this->endgamesByName($this->createService($shiyu, $assault));
+
+        $this->assertSame(['Shiyu Defense', 'Deadly Assault', 'Deadly Assault (Hard)'], array_keys($endgames));
+        foreach ($endgames as $name => $endgame) {
+            $this->assertNull($endgame->getEndTime(), $name);
+        }
     }
 
     public function testShiyuDefenseEndFallsBackToTheWallClockWithoutTimestamp(): void

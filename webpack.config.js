@@ -31,6 +31,7 @@ Encore
         {from: path.resolve(import.meta.dirname, 'src/AnimeBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
         {from: path.resolve(import.meta.dirname, 'src/BooksBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
         {from: path.resolve(import.meta.dirname, 'src/CoreBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
+        {from: path.resolve(import.meta.dirname, 'src/GamesBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
         {from: path.resolve(import.meta.dirname, 'src/HoyoverseBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
         {from: path.resolve(import.meta.dirname, 'src/GryphlineBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},
         {from: path.resolve(import.meta.dirname, 'src/VideosBundle/assets/images/'), to: 'images/[path][name].[hash:8].[ext]', pattern: /\.(png|jpg|jpeg|svg|ico)$/},

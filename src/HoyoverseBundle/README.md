@@ -2,7 +2,7 @@
 
 The **`HoyoverseBundle`** manages full integration with the **HoYoLAB / HoYoverse** ecosystem for **Genshin Impact**, **Honkai: Star Rail**, **Zenless Zone Zero**, **Honkai Impact 3rd**, and **Tears of Themis**.
 
-It supports direct credentials or cookie-based authentication, automatic session refresh, daily check-ins, automated promo code redemption, real-time monitoring of in-game resources (Resin/Trailblaze Power/Battery, expeditions, Realm Currency, shops, endgames), **Diary** synchronization (monthly premium currency income), and a **Pulls Tracker** (automatic sync via `stoken_v2` or, for Zenless Zone Zero, the HoYoLAB cookies alone, PowerShell script import, third-party backup file import, and real-time Mercure progress tracking).
+It supports direct credentials or cookie-based authentication, automatic session refresh, daily check-ins, automated promo code redemption, real-time monitoring of in-game resources (Resin/Trailblaze Power/Battery, expeditions, Realm Currency, shops, endgames), **Diary** synchronization (monthly premium currency income), and a **Pulls Tracker** (automatic sync via `stoken_v2`, PowerShell script import, third-party backup file import, and real-time Mercure progress tracking).
 
 ---
 
@@ -49,8 +49,7 @@ Supported features for each game are declared through **Capability Interfaces**:
 | `HasShopStatusInterface` | `NotesTrait` | `shopStatusCheck` | The game includes Video Store / VHS management status in Real-Time Notes (*ZZZ*), enabling **Shop Status Reminder**. |
 | `HasDiaryInterface` | `DiaryTrait` | `syncDiary` | The game exposes monthly `month_info` and `month_detail` endpoints (*GI*, *HSR*, *ZZZ*), enabling the **Diary** page and monthly currency sync. |
 | `HasPullTrackerInterface` | `HoyoversePullTrait` | `supports_pulls: true` | The game supports Gacha banner tracking (`getGachaConfig()`, `getRarityConfig()`, `fetchPullsPage()`), enabling the **Pulls Tracker** page. |
-| `HasStokenPullImportInterface` | `HoyoversePullTrait` | `syncPulls`; `supports_pull_sync: true`, `pull_sync_source: "stoken"` when the account cookie has `stoken_v2` | Extends `HasPullTrackerInterface`: the game can generate a gacha `authkey` directly from `stoken_v2` via Takumi API (*GI*, *ZZZ*), enabling the **Auto Sync Pulls** toggle and 1-click **Sync Pulls** button. |
-| `HasChroniclePullImportInterface` | `ChroniclePullTrait` | `supports_pull_sync: true`, `pull_sync_source: "chronicle"` when the account cookie has no `stoken_v2` | Extends `HasPullTrackerInterface`: the game lists the single pulls in the HoYoLAB battle chronicle, readable with the HoYoLAB web cookies only (*ZZZ*), so the same toggle and button work without `stoken_v2` (see §7.2). |
+| `HasStokenPullImportInterface` | `HoyoversePullTrait` | `syncPulls`, `supports_pull_sync: true` | Extends `HasPullTrackerInterface`: the game can generate a gacha `authkey` directly from `stoken_v2` via Takumi API (*GI*, *ZZZ*), enabling the **Auto Sync Pulls** toggle and 1-click **Sync Pulls** button. |
 | `HasPowershellPullImportInterface` | `HoyoversePullTrait` | `supports_powershell_pulls: true` | Extends `HasPullTrackerInterface`: the game defines a `PowershellPullConfig` (*GI*, *HSR*, *ZZZ*), enabling **Import via PowerShell** to extract the Gacha URL from the local Windows webview cache. |
 | `HasMimoInterface` | `MimoTrait` | `mimoCheck`, `mimoRedeem`, `mimoRedeemDraw`, `mimoLottery`, `mimoReservePoints` | Scaffolding for automating *Traveling Mimo* web events on HoYoLAB. |
 | `HasHilichurlInterface` | — | `hilichurlCheck`, `hilichurlRedeem` | Scaffolding for automating *Hilichurl's Treasure Trove* web events. |
@@ -75,13 +74,12 @@ The direct login flow (`HoyoverseAuthService`) mirrors the official HoYoLAB mobi
    - Once the 6-digit OTP is verified, the `device_id` becomes *trusted* and subsequent re-logins on the same account reuse that `device_id` without prompting for OTP again.
 5. **Token Exchange & Profile Synchronization**:
    - After obtaining `stoken_v2`, the service calls `getLTokenBySToken` and `getCookieAccountInfoBySToken` to generate `ltoken_v2` and `cookie_token_v2`, persists the full cookie string, and immediately syncs game profiles (`HoyoverseGameProfile`).
-6. **Accounts without a HoYoverse password**: accounts created on a console or with a third-party login (Google, Apple, ...) are regular HoYoverse accounts. The **Add Account** dialog tells their owners to link an email and set a password in the HoYoverse Account Center (or the in-game User Center) to use this login, or to fall back to **Paste Cookie** (§2.2).
 
 ### 2.2 Login / Update via Cookie String ("Paste Cookie")
 As an alternative to credentials login, the **Paste Cookie** tab allows pasting a HoYoLAB cookie string manually:
-- **Minimum requirements**: `ltoken_v2`, `ltuid_v2`, `ltmid_v2`. They are enough for check-in, notes and reminders, and for the automatic pulls sync of Zenless Zone Zero (HoYoLAB battle chronicle, §7.2.1), until the cookie expires.
+- **Minimum requirements**: `ltoken_v2`, `ltuid_v2`, `ltmid_v2`.
 - **Optional but recommended tokens**:
-  - `stoken_v2`: enables continuous automatic cookie refresh and the automatic pulls sync of Genshin Impact (Zenless Zone Zero then syncs through `getGachaLog`, as before).
+  - `stoken_v2`: enables continuous automatic cookie refresh and automatic pulls sync for Genshin Impact and Zenless Zone Zero.
   - `cookie_token_v2` and `account_id_v2`: required for automatic promo code redemption when `stoken_v2` is not present.
 - **Account identity**: the account UID is read from `ltuid_v2`/`account_id_v2` (or the legacy `ltuid`/`account_id`). A new cookie is deduplicated by that UID; on re-login of an existing account (`account_id` in the payload) a cookie of another HoYoverse account is refused with the same `422 ... does not match existing Account ...` error as the credentials login, and nothing is saved.
 
@@ -205,7 +203,6 @@ Pity and banner statistics come from `Service/Pull/HoyoversePullStatsCalculator`
 - **Interfaces & Traits**:
   - `HasPullTrackerInterface` + `HoyoversePullTrait`: handle requests to `getGachaLog` / `getLdGachaLog`, denormalization into `HoyoversePullItem` DTOs, and mapping onto `HoyoversePull` via `Symfony\Component\ObjectMapper`.
   - `HasStokenPullImportInterface`: implemented by **Genshin Impact** and **Zenless Zone Zero** for automatic server-side syncing.
-  - `HasChroniclePullImportInterface` + `ChroniclePullTrait`: implemented by **Zenless Zone Zero** for automatic server-side syncing without `stoken_v2` (HoYoLAB battle chronicle).
   - `HasPowershellPullImportInterface`: implemented by **Genshin Impact**, **Honkai: Star Rail**, and **Zenless Zone Zero** for PowerShell-extracted URL imports.
 - **Idempotency & Database Constraints (`hoyoverse_pull`)**:
   - Unique constraint `IDX_hoyoverse_game_profile_id_pull_id` on `(hoyoverse_game_profile_id, pull_id)` (HoYoverse's 19-digit sequential ID, or synthetic `paimon_*` IDs for legacy backups lacking official IDs).
@@ -218,15 +215,8 @@ Pity and banner statistics come from `Service/Pull/HoyoversePullStatsCalculator`
   - All pull write operations for a given profile (Automatic Sync, Manual Sync, PowerShell Import, and Backup Import) share the `hoyoverse_profile_pulls_{profileId}` lock configured in `config/packages/lock.yaml`.
   - On lock contention, `ImportPullsBackupHandler` and `SyncPullsPageProfileHandler` re-queue the message with a `DelayStamp` without dropping data or prematurely deleting temporary backup files.
 
-### 7.2 Automatic Sync via `stoken_v2` or HoYoLAB Cookies (Genshin Impact & Zenless Zone Zero)
-`Service/Pull/PullSyncSourceResolver` decides from the game **and** the account cookie whether a profile can sync automatically, and where the pages come from (`Model/Pull/PullSyncSource`). The **Sync Pulls** endpoint, `SyncPullsBatchHandler`, `SyncPullsPageProfileHandler` and the `supports_pull_sync` / `pull_sync_source` normalizer fields all ask it:
-- **`stoken_v2` present** and the game implements `HasStokenPullImportInterface` (**Genshin Impact**, **Zenless Zone Zero**): authkey + `getGachaLog` (steps below).
-- **No `stoken_v2`** and the game implements `HasChroniclePullImportInterface` (**Zenless Zone Zero**): HoYoLAB battle chronicle (§7.2.1).
-- **Otherwise** (Genshin Impact without `stoken_v2`, Honkai: Star Rail): no automatic sync. **Sync Pulls** answers `400`, the nightly batch skips the profile and the settings drawer explains why; PowerShell and backup imports stay available.
-
-A message that already carries an authkey (PowerShell import) always uses `getGachaLog`.
-
-With `stoken_v2` (obtained automatically via Email/Password login):
+### 7.2 Automatic Sync via `stoken_v2` (Genshin Impact & Zenless Zone Zero)
+For games implementing `HasStokenPullImportInterface` (**Genshin Impact** and **Zenless Zone Zero**), when the account has `stoken_v2` (obtained automatically via Email/Password login):
 1. `HoyolabCookieUtilsService::generateAuthKey()` generates a temporary `webview_gacha` `authkey` on the fly signed with `DS` LK2 (`salt=ulInCDohgEs557j0VsPDYnQaaz6KJcv5`) via `https://api-account-os.hoyoverse.com/binding/api/genAuthKey`.
 2. **Configured Banners**:
    - **Genshin Impact**: *Character Event Wish* (`301` + `400`, pity 90/10), *Weapon Event Wish* (`302`, pity 80/10), *Standard Wish* (`200`, pity 90/10), *Beginners' Wish* (`100`, pity 20/10), *Chronicled Wish* (`500`, pity 90/10).
@@ -234,14 +224,6 @@ With `stoken_v2` (obtained automatically via Email/Password login):
 3. **Execution Modes**:
    - **Nightly Auto Sync (`SyncPullsBatchMessage`)**: runs daily at `01:00` (`0 1 * * *`) for all profiles with `syncPulls = true` enabled in `GameProfileSettingsDrawer`.
    - **1-Click Manual UI Sync**: click **Sync Pulls** on `PullsPage`.
-
-#### 7.2.1 Without `stoken_v2`: HoYoLAB Battle Chronicle (Zenless Zone Zero)
-An account whose cookie has no `stoken_v2` (**Paste Cookie** without it, typically when the owner has no HoYoverse password, §2.1) cannot get an authkey. For Zenless Zone Zero, `SyncPullsPageProfileHandler` then reads each page with `ChroniclePullTrait::fetchChroniclePullsPage()`; everything else is the flow above (same execution modes, page size 20, newest first, stop on the first known `pull_id`, re-dispatch with `end_id` and jitter, operation tracker, final realign):
-- **Request**: `GET https://sg-act-public-api.hoyolab.com/event/game_record_zzz/api/zzz/gacha_record` with `uid`, `region`, `gacha_type` and `end_id` (`0` for the first page, then the `id` of the last record), sent through `requestHoyolab()` with the stored HoYoLAB web cookies (`ltoken_v2`, `ltuid_v2`, `ltmid_v2`): no authkey, no `DS` header.
-- **Banner types** (`getChronicleGachaTypes()`): `1` → `GACHA_TYPE_PERMANENT`, `2` → `GACHA_TYPE_CHARACTER_UP`, `3` → `GACHA_TYPE_WEAPON_UP`, `5` → `GACHA_TYPE_BANGBOO`, `12` → `GACHA_TYPE_CHARACTER_RETURN`, `13` → `GACHA_TYPE_WEAPON_RETURN`.
-- **Same rows as `getGachaLog`**: the record `id` is the `pull_id` returned by `getGachaLog`, so both sources share the deduplication and can follow each other. The banner key becomes `gacha_type`, `item_name` the name, `item_id` the item id; `ITEM_TYPE_AVATAR` / `ITEM_TYPE_WEAPON` / `ITEM_TYPE_BANGBOO` become `Agents` / `W-Engines` / `Bangboo` (`getChronicleItemTypes()`, unknown types are kept as received); rarity `S` / `A` / `B` becomes the rarity of the game tiers (`4` / `3` / `2`); `date` (`{year, month, day, hour, minute, second}`) is the same server wall-clock time as the `time` of `getGachaLog` and is tagged as UTC without conversion. Only `raw_payload` differs: it keeps the chronicle record.
-- **Errors**: a refusal from HoYoLAB (e.g. expired cookie) throws `RetrievePullsDataException` with the retcode, marks the banner as failed in the operation tracker and lets Messenger retry the page, like a `getGachaLog` error. Unexpected records (no `id`, unknown rarity, invalid date) fail the same way.
-- **Limits**: the battle chronicle only returns recent pulls (an older `end_id` gives an empty list; the window looks like the one of `getGachaLog`, older history comes from backup imports). Without `stoken_v2` the cookies are never refreshed: the sync works until they expire, then a new cookie must be pasted (or the account logged in with email and password).
 
 ### 7.3 PowerShell Script / Gacha URL Import (All Games Including HSR)
 Because **Honkai: Star Rail** (`hkrpg_global`) does not allow generating a gacha `authkey` via `stoken_v2` (returns `retcode -106`), and as a fallback for accounts without `stoken_v2`, assisted PowerShell importing (`PowershellPullImportModal`) is available from the **`Import ▾`** dropdown on `PullsPage`:
@@ -337,7 +319,7 @@ All asynchronous pull operations — **Backup Import**, **PowerShell Import**, *
 | `GET` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/diary/entries` | Paginated list of Diary entries |
 | `GET` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/overview` | Pity/banner overview; sets Mercure cookie and returns `available_backup_importers`, `mercure_topic`, and `active_operation` |
 | `GET` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls` | Paginated pulls for a banner with pity calculation and item icons |
-| `POST` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/sync` | Queues automatic pull sync via `stoken_v2`, or the HoYoLAB cookies for Zenless Zone Zero (returns `operation`; `400` when the profile cannot sync) |
+| `POST` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/sync` | Queues automatic pull sync via `stoken_v2` (returns `operation`) |
 | `POST` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-powershell` | Validates a PowerShell-extracted Gacha URL and queues import on `hoyoverse_pulls` (returns `operation`) |
 | `POST` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/import-backup` | Validates a backup file (`paimon_moe`, `star_rail_station_csv`, `zzz_rng_moe`) and queues import on `hoyoverse_pulls` (`202` / `400` / `409`) |
 | `GET` | `/api/hoyoverse/accounts/{account}/gameProfiles/{gameProfile}/pulls/operations/{operationId}` | Returns the latest snapshot of a pull operation (fallback polling when Mercure is unavailable) |

@@ -79,17 +79,7 @@ export default function ProfileSettingsSections({ supports, hasAny, isProfileAct
                 </Divider>
                 <SettingRow
                     label="Auto Pulls Synchronization"
-                    description={
-                        profile?.pull_sync_source === "chronicle" ? (
-                            "Periodically download and synchronize new gacha pulls from the HoYoLAB Battle Chronicle"
-                        ) : profile?.pull_sync_source === "stoken" ? (
-                            "Periodically download and synchronize new gacha pulls using SToken"
-                        ) : (
-                            <span style={{ color: "#faad14" }}>
-                                Automatic synchronization unavailable with the current account cookie: log in again with email and password to enable it.
-                            </span>
-                        )
-                    }
+                    description="Periodically download and synchronize new gacha pulls using SToken"
                 >
                     <Form.Item name="sync_pulls" valuePropName="checked" noStyle>
                         <Switch disabled={!isProfileActive} />

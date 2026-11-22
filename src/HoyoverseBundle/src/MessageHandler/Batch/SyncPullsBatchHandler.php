@@ -5,10 +5,9 @@ namespace App\HoyoverseBundle\MessageHandler\Batch;
 use App\HoyoverseBundle\Message\Batch\SyncPullsBatchMessage;
 use App\HoyoverseBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\HoyoverseBundle\Model\Game\GameInterface;
-use App\HoyoverseBundle\Model\Game\HasPullTrackerInterface;
+use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
 use App\GamesBundle\Model\Pull\PullOperationKind;
 use App\HoyoverseBundle\Service\Pull\PullOperationTracker;
-use App\HoyoverseBundle\Service\Pull\PullSyncSourceResolver;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 use Symfony\Component\Messenger\Envelope;
@@ -44,8 +43,6 @@ class SyncPullsBatchHandler extends AbstractBatchTaskMessageHandler
 
     private ?PullOperationTracker $operationTracker = null;
 
-    private ?PullSyncSourceResolver $pullSyncSourceResolver = null;
-
     #[Required]
     public function setLocatorByGameId(
         #[AutowireLocator(services: 'hoyoverse.game.id', indexAttribute: 'key')]
@@ -58,12 +55,6 @@ class SyncPullsBatchHandler extends AbstractBatchTaskMessageHandler
     public function setOperationTracker(PullOperationTracker $operationTracker): void
     {
         $this->operationTracker = $operationTracker;
-    }
-
-    #[Required]
-    public function setPullSyncSourceResolver(PullSyncSourceResolver $pullSyncSourceResolver): void
-    {
-        $this->pullSyncSourceResolver = $pullSyncSourceResolver;
     }
 
     public function __invoke(SyncPullsBatchMessage $message): void
@@ -88,13 +79,8 @@ class SyncPullsBatchHandler extends AbstractBatchTaskMessageHandler
         }
 
         $gameService = $this->locatorByGameId->get($gameId);
-        if (!$gameService instanceof HasPullTrackerInterface) {
-            return;
-        }
-
-        // Only profiles that can sync unattended: stoken_v2 (authkey) or, where the game supports it, the HoYoLAB cookies (battle chronicle)
-        $gameProfile = $this->gameProfileRepository->find($gameProfileId);
-        if ($gameProfile === null || $this->pullSyncSourceResolver?->resolveForProfile($gameService, $gameProfile) === null) {
+        // Only profiles whose game service supports automated server-side SToken pull import can run unattended
+        if (!$gameService instanceof HasStokenPullImportInterface) {
             return;
         }
 

@@ -20,8 +20,6 @@ use App\HoyoverseBundle\Model\Game\DiaryTrait;
 use App\HoyoverseBundle\Model\Game\HasPowershellPullImportInterface;
 use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
 use App\HoyoverseBundle\Model\Game\HoyoversePullTrait;
-use App\HoyoverseBundle\Model\Game\HasChroniclePullImportInterface;
-use App\HoyoverseBundle\Model\Game\ChroniclePullTrait;
 use App\HoyoverseBundle\Model\Game\PowershellPullConfig;
 use App\HoyoverseBundle\Model\Game\HasShopStatusInterface;
 use App\GamesBundle\Model\Game\HasWeekliesInterface;
@@ -53,14 +51,13 @@ use Symfony\Component\DependencyInjection\Attribute\Target;
 #[AsAlias(GameInterface::class, target: self::TYPE)]
 #[AutoconfigureTag(name: 'hoyoverse.game.id', attributes: ['key' => self::GAME_ID])]
 #[AutoconfigureTag(name: 'hoyoverse.game.biz', attributes: ['key' => self::GAME_BIZ])]
-class ZenlessZoneZeroService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasShopStatusInterface, HasEndgamesInterface, HasStokenPullImportInterface, HasChroniclePullImportInterface, HasPowershellPullImportInterface, HasManualPullsInterface
+class ZenlessZoneZeroService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasShopStatusInterface, HasEndgamesInterface, HasStokenPullImportInterface, HasPowershellPullImportInterface, HasManualPullsInterface
 {
     use NotesTrait;
     use DiaryTrait;
     use AutoCodeRedemptionTrait;
     use ZenlessZoneZeroEndgamesTrait;
     use HoyoversePullTrait;
-    use ChroniclePullTrait;
 
     public const string TYPE = "zenless-zone-zero";
     public const string GAME_BIZ = "nap_global";
@@ -308,31 +305,5 @@ class ZenlessZoneZeroService extends GameService implements HasNotesInterface, H
             pullSingularLabel: 'Signal',
             sResetsAPity: true,
         );
-    }
-
-    public function getUrlChroniclePulls(): string
-    {
-        return "https://sg-act-public-api.hoyolab.com/event/game_record_zzz/api/zzz/gacha_record";
-    }
-
-    public function getChronicleGachaTypes(): array
-    {
-        return [
-            '2' => 'GACHA_TYPE_CHARACTER_UP',
-            '3' => 'GACHA_TYPE_WEAPON_UP',
-            '12' => 'GACHA_TYPE_CHARACTER_RETURN',
-            '13' => 'GACHA_TYPE_WEAPON_RETURN',
-            '1' => 'GACHA_TYPE_PERMANENT',
-            '5' => 'GACHA_TYPE_BANGBOO',
-        ];
-    }
-
-    public function getChronicleItemTypes(): array
-    {
-        return [
-            'ITEM_TYPE_AVATAR' => 'Agents',
-            'ITEM_TYPE_WEAPON' => 'W-Engines',
-            'ITEM_TYPE_BANGBOO' => 'Bangboo',
-        ];
     }
 }

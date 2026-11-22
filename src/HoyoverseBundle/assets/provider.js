@@ -39,6 +39,9 @@ export default {
             hilichurl_redeem: false,
             dailies_check: false,
             weeklies_check: false,
+            endgames_check: false,
+            // Resolved by the backend for every mode (EndgameSettings); empty only for games without endgames
+            endgames_settings: {},
         },
         Sections: ProfileSettingsSections,
     },

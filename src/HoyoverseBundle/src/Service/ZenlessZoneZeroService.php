@@ -2,6 +2,7 @@
 
 namespace App\HoyoverseBundle\Service;
 
+use App\GamesBundle\Model\Game\HasEndgamesInterface;
 use App\GamesBundle\Model\Game\HasManualPullsInterface;
 use App\HoyoverseBundle\Model\Diary\GameDiaryCurrency;
 use App\HoyoverseBundle\Model\Diary\ZenlessZoneZeroDiaryInfo;
@@ -50,7 +51,7 @@ use Symfony\Component\DependencyInjection\Attribute\Target;
 #[AsAlias(GameInterface::class, target: self::TYPE)]
 #[AutoconfigureTag(name: 'hoyoverse.game.id', attributes: ['key' => self::GAME_ID])]
 #[AutoconfigureTag(name: 'hoyoverse.game.biz', attributes: ['key' => self::GAME_BIZ])]
-class ZenlessZoneZeroService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasShopStatusInterface, HasStokenPullImportInterface, HasPowershellPullImportInterface, HasManualPullsInterface
+class ZenlessZoneZeroService extends GameService implements HasNotesInterface, HasDiaryInterface, HasAutoCodeRedemptionInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasShopStatusInterface, HasEndgamesInterface, HasStokenPullImportInterface, HasPowershellPullImportInterface, HasManualPullsInterface
 {
     use NotesTrait;
     use DiaryTrait;

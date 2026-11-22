@@ -2,7 +2,11 @@
 
 namespace App\HoyoverseBundle\Normalizer;
 
+use App\GamesBundle\Model\Endgame\EndgameDefinition;
+use App\GamesBundle\Model\Endgame\EndgameSettings;
+use App\GamesBundle\Model\Endgame\EndgameVariant;
 use App\GamesBundle\Model\Game\HasDailiesInterface;
+use App\GamesBundle\Model\Game\HasEndgamesInterface;
 use App\GamesBundle\Model\Game\HasManualPullsInterface;
 use App\GamesBundle\Model\Game\HasStaminaInterface;
 use App\GamesBundle\Model\Game\HasWeekliesInterface;
@@ -22,12 +26,16 @@ use App\HoyoverseBundle\Model\Game\HasShopStatusInterface;
 use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
+use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
 use Symfony\Contracts\Service\ServiceCollectionInterface;
 
 class HoyoverseGameProfileNormalizer extends AbstractGameProfileNormalizer
 {
+    /** Serialized name of HoyoverseGameProfile::$endgamesSettings (the property name is accepted as well) */
+    public const string ENDGAMES_SETTINGS_FIELD = 'endgames_settings';
+
     public const array CONDITIONAL_SETTINGS = [
         HasHoyolabCheckInInterface::class => ['hoyolabCheckIn', 'hoyolabMissedCheckIn'],
         HasCodeRedemptionInterface::class => ['codeRedeem'],
@@ -39,6 +47,7 @@ class HoyoverseGameProfileNormalizer extends AbstractGameProfileNormalizer
         HasHilichurlInterface::class => ['hilichurlCheck', 'hilichurlRedeem'],
         HasDailiesInterface::class => ['dailiesCheck'],
         HasWeekliesInterface::class => ['weekliesCheck'],
+        HasEndgamesInterface::class => ['endgamesCheck', 'endgamesSettings'],
         HasDiaryInterface::class => ['syncDiary'],
         HasStokenPullImportInterface::class => ['syncPulls'],
     ];
@@ -91,9 +100,76 @@ class HoyoverseGameProfileNormalizer extends AbstractGameProfileNormalizer
                 $result['pull_label'] = $gameService instanceof HasPullTrackerInterface
                     ? $gameService->getRarityConfig()->getPullLabel()
                     : null;
+
+                if ($gameService instanceof HasEndgamesInterface) {
+                    // Every mode and variant with its effective value, and the modes to build the settings form from
+                    $definitions = $gameService::getEndgameDefinitions();
+                    $result[self::ENDGAMES_SETTINGS_FIELD] = EndgameSettings::normalize($definitions, $data->getEndgamesSettings());
+                    $result['endgames'] = array_map(static fn (EndgameDefinition $definition) => [
+                        'key' => $definition->key,
+                        'name' => $definition->name,
+                        'variants' => array_map(static fn (EndgameVariant $variant) => [
+                            'key' => $variant->key,
+                            'name' => $variant->name,
+                            'default' => $variant->defaultReminder->value,
+                        ], $definition->variants),
+                    ], $definitions);
+                }
             }
         }
 
         return $result;
+    }
+
+    public function denormalize(mixed $data, string $type, ?string $format = null, array $context = []): mixed
+    {
+        if (is_array($data)) {
+            $data = $this->sanitizeEndgamesSettings($data, $context);
+        }
+
+        return parent::denormalize($data, $type, $format, $context);
+    }
+
+    /**
+     * The settings JSON is written as a whole: only the modes, variants and values declared by the game are kept,
+     * merged over the stored ones (a partial update changes only what it sends). Dropped for games without endgames.
+     *
+     * @param array<string, mixed> $data
+     * @param array<string, mixed> $context
+     * @return array<string, mixed>
+     */
+    private function sanitizeEndgamesSettings(array $data, array $context): array
+    {
+        $fields = array_values(array_filter(
+            [self::ENDGAMES_SETTINGS_FIELD, 'endgamesSettings'],
+            static fn (string $field) => array_key_exists($field, $data)
+        ));
+        if ($fields === []) {
+            return $data;
+        }
+
+        $submitted = $data[$fields[0]];
+        foreach ($fields as $field) {
+            unset($data[$field]);
+        }
+
+        $target = $context[AbstractNormalizer::OBJECT_TO_POPULATE] ?? null;
+        $gameId = $target instanceof HoyoverseGameProfile ? $target->getGameId() : ($data['game_id'] ?? null);
+        if (!is_numeric($gameId) || !$this->locatorByGameId->has((int) $gameId)) {
+            return $data;
+        }
+
+        $gameService = $this->locatorByGameId->get((int) $gameId);
+        if (!$gameService instanceof HasEndgamesInterface) {
+            return $data;
+        }
+
+        $stored = $target instanceof HoyoverseGameProfile ? ($target->getEndgamesSettings() ?? []) : [];
+        $data[self::ENDGAMES_SETTINGS_FIELD] = EndgameSettings::normalize(
+            $gameService::getEndgameDefinitions(),
+            is_array($submitted) ? array_replace_recursive($stored, $submitted) : $stored
+        );
+
+        return $data;
     }
 }

@@ -126,6 +126,13 @@ class HoyoverseGameProfile implements GameProfileInterface
     #[ORM\Column(options: ["default" => "0"])]
     private ?bool $endgamesCheck = false;
 
+    /**
+     * Endgames Reminder per mode and variant, e.g. {"deadly_assault": {"reminder": "full_clear", "hard_reminder": "off"}}
+     * (EndgameReminder values, see EndgameSettings); null or missing entries take the defaults declared by the game.
+     */
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $endgamesSettings = null;
+
     #[ORM\Column(options: ["default" => "0"])]
     private ?bool $syncDiary = false;
 
@@ -555,6 +562,17 @@ class HoyoverseGameProfile implements GameProfileInterface
     public function setEndgamesCheck(?bool $endgamesCheck): static
     {
         $this->endgamesCheck = $endgamesCheck;
+        return $this;
+    }
+
+    public function getEndgamesSettings(): ?array
+    {
+        return $this->endgamesSettings;
+    }
+
+    public function setEndgamesSettings(?array $endgamesSettings): static
+    {
+        $this->endgamesSettings = $endgamesSettings;
         return $this;
     }
 

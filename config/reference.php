@@ -182,6 +182,16 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         EU?: string|Param, // Default: "Europe/Paris"
  *         NA?: string|Param, // Default: "America/New_York"
  *     },
+ *     endgames_reminder?: array{ // Endgames Reminder window, per game and endgame mode.
+ *         zzz?: array{
+ *             shiyu_defense?: array{ // Shiyu Defense
+ *                 days_before_end?: int|Param, // Daily reminder while the period ends within this many days (24 h each). // Default: 7
+ *             },
+ *             deadly_assault?: array{ // Deadly Assault
+ *                 days_before_end?: int|Param, // Daily reminder while the period ends within this many days (24 h each). // Default: 7
+ *             },
+ *         },
+ *     },
  *     tasks?: array{
  *         hoyolab_check_in?: array{
  *             enabled?: bool|Param, // Default: true

@@ -53,6 +53,16 @@ class HoyoverseServerTimezoneResolver
     }
 
     /**
+     * Reads the date and time digits of a server wall-clock value (e.g. the {year, month, day, ...} objects of
+     * the HoYoLAB game records, whatever timezone they were parsed in) as the server time of the region, giving
+     * the real instant.
+     */
+    public function serverWallClockToInstant(\DateTimeInterface $wallClock, string $region): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable($wallClock->format('Y-m-d H:i:s'), $this->getServerTimezoneForRegion($region));
+    }
+
+    /**
      * Parses a wall-clock string already in server time (e.g. paimon.moe) using the
      * same storage convention as HoyoversePullItem.
      */

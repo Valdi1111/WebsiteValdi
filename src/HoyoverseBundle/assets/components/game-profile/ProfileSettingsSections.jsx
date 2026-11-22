@@ -1,7 +1,14 @@
 import SettingRow from "@GamesBundle/components/SettingRow";
 import ThresholdInput from "@GamesBundle/components/ThresholdInput";
-import { Divider, Form, Switch } from "antd";
+import { Divider, Form, Select, Switch } from "antd";
 import React from "react";
+
+// Values of EndgameReminder (GamesBundle\Model\Endgame)
+const ENDGAME_REMINDER_OPTIONS = [
+    { label: "Off", value: "off" },
+    { label: "Not Played", value: "not_played" },
+    { label: "Full Clear", value: "full_clear" },
+];
 
 /**
  * HoYoverse setting sections rendered inside the shared GameProfileSettingsDrawer form.
@@ -191,6 +198,41 @@ export default function ProfileSettingsSections({ supports, hasAny, isProfileAct
                             <Switch disabled={!isProfileActive} />
                         </Form.Item>
                     </SettingRow>
+                )}
+            </>
+        )}
+
+        {/* Endgames */}
+        {hasAny("endgames_check", "endgames_settings") && (
+            <>
+                <Divider titlePlacement="start">
+                    <strong>Endgames</strong>
+                </Divider>
+                {supports("endgames_check") && (
+                    <SettingRow
+                        label="Endgames Reminder"
+                        description="Daily alert in the last days of an endgame period. For each mode: Not Played reminds it until you play it, Full Clear until the maximum (S rank, all stars)"
+                    >
+                        <Form.Item name="endgames_check" valuePropName="checked" noStyle>
+                            <Switch disabled={!isProfileActive} />
+                        </Form.Item>
+                    </SettingRow>
+                )}
+                {supports("endgames_settings") && (profile?.endgames ?? []).flatMap((endgame) =>
+                    endgame.variants.map((variant) => (
+                        <SettingRow
+                            key={`${endgame.key}.${variant.key}`}
+                            label={variant.name}
+                        >
+                            <Form.Item name={["endgames_settings", endgame.key, variant.key]} noStyle>
+                                <Select
+                                    style={{ width: 130 }}
+                                    disabled={!isProfileActive}
+                                    options={ENDGAME_REMINDER_OPTIONS}
+                                />
+                            </Form.Item>
+                        </SettingRow>
+                    ))
                 )}
             </>
         )}

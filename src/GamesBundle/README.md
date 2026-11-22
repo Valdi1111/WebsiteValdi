@@ -19,7 +19,7 @@ Design decisions are summarized in [§4](#4-design-notes).
 
 | Area | Classes |
 | :--- | :--- |
-| **Game model** | `Model/Game/*` (capability interfaces such as `HasStaminaInterface`, `HasDailiesInterface`, `GachaConfig`, `RarityConfig`, `GameAccountInterface`, `GameProfileInterface`), `Model/GameNotes/*`, `Model/Pull/*` |
+| **Game model** | `Model/Game/*` (capability interfaces such as `HasStaminaInterface`, `HasDailiesInterface`, `GachaConfig`, `RarityConfig`, `GameAccountInterface`, `GameProfileInterface`), `Model/GameNotes/*`, `Model/Endgame/*` (`EndgameDefinition`, `EndgameVariant`, `EndgameReminder`, `EndgameSettings`, and the `GameEndgame` progress returned by `HasEndgamesInterface`), `Model/Pull/*` |
 | **Task messages** | `Message/{TaskMessageInterface, RegionalTaskMessageInterface, ProfileTaskMessageInterface, FeatureFlagMessageInterface}` |
 | **Task configuration** | `DependencyInjection/GameTasksConfiguration` (`addTaskNode()`, `registerTaskParameters()`), `Scheduler/AbstractTaskScheduleProvider` |
 | **Pull tracking** | `Service/AbstractPullOperationTracker` (cache + private Mercure updates; backup imports may report per-banner progress in `banners`), `Model/Pull/{PullImportProgress, PullImportSummary}` (optional `updated` and `banners`), `Exception/PullProfileLockedException` |

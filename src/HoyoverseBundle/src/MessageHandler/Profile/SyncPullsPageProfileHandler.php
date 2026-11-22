@@ -197,36 +197,12 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
                 $newCount++;
             }
 
-            $this->entityManager->flush();
-
-            if ($newCount > 0 || $promotedCount > 0) {
-                $this->logger->info(sprintf(
-                    'Processed pulls for %s (Banner %s, end_id %s): %d new, %d promoted.',
-                    $profile->getNickname(),
-                    $gachaType,
-                    $message->getEndId(),
-                    $newCount,
-                    $promotedCount
-                ));
-            }
-
+            // 4. Continue pagination if no existing real record was hit and the current page reached full capacity.
+            // The next page is queued before this one is committed: a retry of a committed page stops on its own
+            // (already stored) pulls, so a failure after the flush must not be able to drop the continuation.
+            // If the flush fails instead, the retry queues the next page again and that duplicate stops on its first pull.
             $hasMorePages = !$pageHasExistingPull && count($pulls) >= self::PAGE_SIZE;
-            if (!$hasMorePages) {
-                $this->realignBanner($profile, $gameService, $gachaType);
-            }
 
-            if ($operationId !== null) {
-                $this->operationTracker->recordSyncBannerPage(
-                    $operationId,
-                    $gachaType,
-                    $newCount,
-                    $promotedCount,
-                    !$hasMorePages,
-                    $bannerName
-                );
-            }
-
-            // 4. Continue pagination if no existing real record was hit and the current page reached full capacity
             if ($hasMorePages) {
                 $lastPull = end($pulls);
                 $nextEndId = (string) $lastPull->getPullId();
@@ -242,6 +218,35 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
                         $operationId
                     ),
                     [new DelayStamp($nextPageDelayMs)]
+                );
+            }
+
+            // 5. Commit the page, then realign the banner on its last page
+            $this->entityManager->flush();
+
+            if ($newCount > 0 || $promotedCount > 0) {
+                $this->logger->info(sprintf(
+                    'Processed pulls for %s (Banner %s, end_id %s): %d new, %d promoted.',
+                    $profile->getNickname(),
+                    $gachaType,
+                    $message->getEndId(),
+                    $newCount,
+                    $promotedCount
+                ));
+            }
+
+            if (!$hasMorePages) {
+                $this->realignBanner($profile, $gameService, $gachaType);
+            }
+
+            if ($operationId !== null) {
+                $this->operationTracker->recordSyncBannerPage(
+                    $operationId,
+                    $gachaType,
+                    $newCount,
+                    $promotedCount,
+                    !$hasMorePages,
+                    $bannerName
                 );
             }
         } finally {

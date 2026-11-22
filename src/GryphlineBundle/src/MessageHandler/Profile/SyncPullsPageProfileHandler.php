@@ -149,36 +149,11 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
                 $newCount++;
             }
 
-            if ($newCount > 0 || $promotedCount > 0) {
-                $this->entityManager->flush();
-
-                $this->logger->info(sprintf(
-                    'Recorded %d new and promoted %d synthetic pull(s) for %s (Category %s, seq_id %s).',
-                    $newCount,
-                    $promotedCount,
-                    $profile->getNickname(),
-                    $category,
-                    $message->getSeqId() ?? 'initial'
-                ));
-            }
-
-            // 4. Continue pagination if no existing record was hit and the upstream API indicates more records exist
+            // 4. Continue pagination if no existing record was hit and the upstream API indicates more records exist.
+            // The next page is queued before this one is committed: a retry of a committed page stops on its own
+            // (already stored) pulls, so a failure after the flush must not be able to drop the continuation.
+            // If the flush fails instead, the retry queues the next page again and that duplicate stops on its first pull.
             $hasMorePages = !$pageHasExistingPull && $nextSeqId !== null && $nextSeqId !== '';
-
-            if (!$hasMorePages) {
-                $this->realignBanner($profile, $gameService, $category);
-            }
-
-            if ($operationId !== null) {
-                $this->operationTracker->recordSyncBannerPage(
-                    $operationId,
-                    $category,
-                    $newCount,
-                    $promotedCount,
-                    !$hasMorePages,
-                    $bannerName
-                );
-            }
 
             if ($hasMorePages) {
                 $nextPageDelayMs = random_int(self::DELAY_MIN_MS, self::DELAY_MAX_MS);
@@ -192,6 +167,35 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
                         $operationId
                     ),
                     [new DelayStamp($nextPageDelayMs)]
+                );
+            }
+
+            // 5. Commit the page, then realign the banner on its last page
+            if ($newCount > 0 || $promotedCount > 0) {
+                $this->entityManager->flush();
+
+                $this->logger->info(sprintf(
+                    'Recorded %d new and promoted %d synthetic pull(s) for %s (Category %s, seq_id %s).',
+                    $newCount,
+                    $promotedCount,
+                    $profile->getNickname(),
+                    $category,
+                    $message->getSeqId() ?? 'initial'
+                ));
+            }
+
+            if (!$hasMorePages) {
+                $this->realignBanner($profile, $gameService, $category);
+            }
+
+            if ($operationId !== null) {
+                $this->operationTracker->recordSyncBannerPage(
+                    $operationId,
+                    $category,
+                    $newCount,
+                    $promotedCount,
+                    !$hasMorePages,
+                    $bannerName
                 );
             }
         } catch (\Throwable $e) {

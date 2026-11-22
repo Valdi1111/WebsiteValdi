@@ -53,4 +53,22 @@ class PullOperationTrackerSyncRetryTest extends TestCase
         $this->assertSame([], $recovered['warnings']);
         $this->assertNull($recovered['banners']['a']['error']);
     }
+
+    public function testRetryThatFinishesTheBannerClearsTheOperationError(): void
+    {
+        $tracker = $this->createTracker();
+        $id = $tracker->startSyncOperation(1, 1, PullOperationKind::STOKEN_SYNC, ['a' => 'Banner A'])['id'];
+
+        $failed = $tracker->failSyncBanner($id, 'a', 'timeout');
+        $this->assertSame('failed', $failed['status']);
+        $this->assertNotNull($failed['error']);
+
+        // Incremental sync: the retried page is usually the last one, so the operation goes from failed to completed
+        $recovered = $tracker->recordSyncBannerPage($id, 'a', 1, 0, true);
+
+        $this->assertSame('completed', $recovered['status']);
+        $this->assertNull($recovered['error']);
+        $this->assertSame([], $recovered['warnings']);
+        $this->assertNotNull($recovered['finished_at']);
+    }
 }

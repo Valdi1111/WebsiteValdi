@@ -29,13 +29,16 @@ abstract class GameUtilsService
         return $result;
     }
 
-    public function formatTime(float $seconds = 0): string
+    /**
+     * E.g. "2 days, 3 hr, 15 min, 0 sec". With $maxUnits only the largest units are kept: "2 days, 3 hr" for 2.
+     */
+    public function formatTime(float $seconds = 0, ?int $maxUnits = null): string
     {
         $array = [];
 
         if ($seconds >= self::TIME_UNITS['d']['s']) {
             $days = (int) floor($seconds / self::TIME_UNITS['d']['s']);
-            $array[] = "{$days} days";
+            $array[] = $days === 1 ? '1 day' : "{$days} days";
             $seconds -= ($days * self::TIME_UNITS['d']['s']);
         }
         if ($seconds >= self::TIME_UNITS['h']['s']) {
@@ -50,6 +53,10 @@ abstract class GameUtilsService
         }
         if ($seconds >= 0 || empty($array)) {
             $array[] = $this->round($seconds, 3) . ' sec';
+        }
+
+        if ($maxUnits !== null) {
+            $array = array_slice($array, 0, max(1, $maxUnits));
         }
 
         return implode(', ', $array);

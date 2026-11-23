@@ -236,9 +236,10 @@ class HonkaiStarRailService extends GameService implements HasNotesInterface, Ha
     {
         $notes = $this->getNotes($account);
         $expeditions = new GameNotesExpeditions();
-        foreach ($notes->getExpeditions() as $expedition) {
+        foreach ($notes->getExpeditions() ?? [] as $expedition) {
             $expeditions->addExpedition(
-                $expedition->getAvatars(),
+                // An assignment has up to two characters: the first one stands for it
+                $expedition->getAvatars()[0] ?? null,
                 strtolower($expedition->getStatus() ?? ""),
                 $expedition->getRemainingTime()
             );

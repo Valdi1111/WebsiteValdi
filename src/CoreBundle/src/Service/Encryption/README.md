@@ -1,6 +1,6 @@
 # Encrypted Columns (`encrypted_text`)
 
-`CoreBundle` provides a Doctrine column type that stores secrets (cookies, tokens) encrypted at rest, and a console command that converts the existing values. Any bundle can use it by mapping a field with the type. Today it holds the game account credentials (list in the [GamesBundle guide](../../../../GamesBundle/README.md#credentials-encryption-at-rest)).
+`CoreBundle` provides a Doctrine column type that stores secrets (cookies, tokens) encrypted at rest, and a console command that converts the existing values. Any bundle can use it by mapping a field with the type. Today it holds the game account credentials (list in the [GamesBundle guide](../../../../GamesBundle/README.md#credentials-encryption-at-rest)) and the values of the API tokens (`CoreBundle` `Token.accessToken`, found by the plain SHA-256 in `token_hash`: see §1).
 
 Without `DATABASE_ENCRYPTION_KEY` (the default, also in the `test` environment) values are stored and read in plain text as with `Types::TEXT`, with one difference: a value starting with `enc:v1:` is refused on write (`DatabaseEncryptionException`), since it would be read back as an encrypted value. Enabling, converting and going back on a server: [`SERVER_SETUP_AND_DEPLOY.md` §3.4](../../../../../docs/SERVER_SETUP_AND_DEPLOY.md#34-database-encryption-optional).
 
@@ -29,6 +29,7 @@ private ?string $apiToken = null;
 - The entity always sees the plain value; nothing else changes in the code.
 - The same value encrypts differently each time: an encrypted column cannot be used in `WHERE`, indexes, unique constraints or deduplication. Keep a plain identifier next to it for lookups.
 - `core:database:encrypt` finds the new column by itself from the Doctrine metadata.
+- A secret that is looked up by value keeps a hash next to it: `Token` stores the SHA-256 of its value in `token_hash` (unique), which `AccessTokenHandler` searches, and reads the encrypted `access_token` only to show it on the profile page. The login and the other token operations select plain columns only, so a missing or wrong key breaks only showing a value.
 
 ---
 
@@ -78,7 +79,6 @@ php bin/console core:database:encrypt --decrypt   # way back: decrypts them (bef
 - There is no key rotation: go back with the old key, then enable the new one.
 
 **Not covered** (stored in plain text, or protected by other means):
-- `CoreBundle` `Token.accessToken` (unique and looked up by value: it would need a hash, not encryption);
 - `authkey` (HoYoverse) and `u8Token` (Gryphline) in the payload of `SyncPullsPageProfileMessage`, stored in the Messenger table while queued;
 - the multi-step login cache (`GamesBundle` `AuthSessionStore`: the temporary password is encrypted with a key derived from `kernel.secret`, the rest of the session data is not);
 - identifiers and device ids (e.g. `account_uid`, `pw_uid`, `device_id`, `ndid`, `email` of the game accounts);
@@ -100,4 +100,4 @@ php bin/console core:database:encrypt --decrypt   # way back: decrypts them (bef
 ## 6. Testing
 
 - No database needed: `tests/CoreBundle/Service/Encryption/DatabaseCipherTest`, `tests/CoreBundle/Doctrine/EncryptedTextTypeTest` (every key state, `null`, empty string, `enc:v1:` plain values, no resolver, resolver lifecycle) and `tests/CoreBundle/Command/DatabaseEncryptCommandTest` (dry run, encrypt, decrypt, second run, row changed meanwhile, values kept encrypted by `--decrypt`, missing/malformed/wrong key, no value printed, on an in-memory table).
-- Kernel, without a connection (the platform comes from the `serverVersion` of `DATABASE_URL`): `EncryptedTextTypeRegistrationTest` (boots without a key, type registered) and `EncryptedTextKeyWiringTest` (sets `DATABASE_ENCRYPTION_KEY` before booting and checks that the registered type encrypts with it). `tests/GamesBundle/Doctrine/EncryptedCredentialMappingTest` checks the game account columns.
+- Kernel, without a connection (the platform comes from the `serverVersion` of `DATABASE_URL`): `EncryptedTextTypeRegistrationTest` (boots without a key, type registered) and `EncryptedTextKeyWiringTest` (sets `DATABASE_ENCRYPTION_KEY` before booting and checks that the registered type encrypts with it). `tests/GamesBundle/Doctrine/EncryptedCredentialMappingTest` checks the game account columns. `tests/CoreBundle/Doctrine/TokenMappingTest` checks the API token value (encrypted, found by the command) and its plain unique hash.

@@ -72,7 +72,7 @@ Create `.env.local` at the project root based on [`.env`](../.env) and configure
 - External API credentials (MyAnimeList, AniList, AnimeWorld) and notification transports (`TELEGRAM_DSN`, `DISCORD_DSN`)
 - Node microservice port: `NODE_SERVICES_PORT=3003` (and `node-services/.env.local` if overriding its default port `3000`)
 
-`DATABASE_ENCRYPTION_KEY` *(optional)* encrypts the `encrypted_text` columns, today the game account credentials. It belongs in the secrets vault, with `.env.local` as the alternative: see [§3.4](#34-database-encryption-optional), also for an installation that already has data in those columns.
+`DATABASE_ENCRYPTION_KEY` *(optional)* encrypts the `encrypted_text` columns, today the game account credentials and the API token values. It belongs in the secrets vault, with `.env.local` as the alternative: see [§3.4](#34-database-encryption-optional), also for an installation that already has data in those columns.
 
 ### 2.5 Setup Shared Folder
 Configure the shared folder used for anime downloads, videos, and book libraries (see [Section 4](#4-shared-folder-media--file-managers)):
@@ -217,7 +217,7 @@ nano /var/www/website-valdi-deploy/website-deploy.env   # APP_DIR, BACKUP_SCRIPT
   - `Strict-Transport-Security` has no `includeSubDomains`, because the apex domain shares the site block and other sub-domains of the domain (such as the mail provider's `mail.<domain>`) may only answer over HTTP.
 
 ### 3.4 Database Encryption (optional)
-Columns mapped with the `CoreBundle` type `encrypted_text` are stored in plain text unless `DATABASE_ENCRYPTION_KEY` is set. Today these are the game account credentials (HoYoverse cookies, Gryphline account token and SKPort session, Perfect World token, listed in the [GamesBundle guide](../src/GamesBundle/README.md#credentials-encryption-at-rest)); format, behaviour and what is not encrypted are in the [Encrypted Columns guide](../src/CoreBundle/src/Service/Encryption/README.md). Existing values are converted by a command, not by a migration.
+Columns mapped with the `CoreBundle` type `encrypted_text` are stored in plain text unless `DATABASE_ENCRYPTION_KEY` is set. Today these are the game account credentials (HoYoverse cookies, Gryphline account token and SKPort session, Perfect World token, listed in the [GamesBundle guide](../src/GamesBundle/README.md#credentials-encryption-at-rest)) and the values of the API tokens of the profile page (`token.access_token`, migration `Version20261123180127`); format, behaviour and what is not encrypted are in the [Encrypted Columns guide](../src/CoreBundle/src/Service/Encryption/README.md). Existing values are converted by a command, not by a migration.
 
 **Deploying the release** that introduces encryption changes no stored data while the key is not set. One transient effect, shared by any mapping change with this deploy script: until `messenger:stop-workers` restarts them, workers still running the previous code may load the new Doctrine metadata (rebuilt by the cache warmup) and fail on messages touching the encrypted columns (the game accounts), because they do not know the `encrypted_text` type. Those messages are retried with the transport's retry strategy, and dropped if the worker is restarted only after the last attempt (no failure transport is configured); no data is changed.
 
@@ -268,6 +268,7 @@ The command prints counts only, never values, and can be run again at any time. 
 
 - **Changing the key**: go back with the old key, then enable the new one (there is no key rotation).
 - **Reverting migration `Version20261121183000`** (Gryphline session columns back to `VARCHAR(255)`): decrypt first, encrypted values do not fit.
+- **API tokens already in the database** when `Version20261123180127` is deployed: the migration computes their `token_hash`, so they keep logging in; their values stay in plain text until `core:database:encrypt` runs (with a key already set, run it after that deploy). Reverting that migration refuses to run while some token value is encrypted: decrypt first.
 
 ---
 

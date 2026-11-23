@@ -97,14 +97,27 @@ class ProfileControllersTest extends WebTestCase
         $this->assertSame(403, self::jsonResponse($client)['status'] ?? null);
     }
 
-    #[DataProvider('hostParameters')]
-    public function testProfilePageIsServedOnEverySubdomain(string $hostParameter): void
+    /**
+     * @return iterable<string, array{string, string}> the host parameters of the subdomains and the main domain, and
+     *                                                 the profile page with its tabs
+     */
+    public static function profilePages(): iterable
+    {
+        foreach (self::hostParameters() as $host => [$hostParameter]) {
+            foreach (['/profile', '/profile/tokens'] as $path) {
+                yield $host.' '.$path => [$hostParameter, $path];
+            }
+        }
+    }
+
+    #[DataProvider('profilePages')]
+    public function testProfilePageIsServedOnEverySubdomain(string $hostParameter, string $path): void
     {
         $client = $this->createClientWithoutDatabase();
         $this->logIn($client, $this->createUser(['ROLE_USER']));
 
-        // Not the "/{path}" catch-all of the bundle app of that subdomain
-        $client->request('GET', self::url($hostParameter, '/profile'));
+        // Not the "/{path}" catch-all of the bundle app of that subdomain; the tabs are routes of the React app
+        $client->request('GET', self::url($hostParameter, $path));
 
         $this->assertResponseIsSuccessful();
         $this->assertSame('core_profile', $client->getRequest()->attributes->get('_route'));

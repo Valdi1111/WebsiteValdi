@@ -2,6 +2,7 @@
 
 namespace App\CoreBundle\Security;
 
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -12,7 +13,10 @@ use Symfony\Component\Security\Http\EntryPoint\AuthenticationEntryPointInterface
 
 readonly class AuthenticationEntryPoint implements AuthenticationEntryPointInterface
 {
-    public function __construct(private UrlGeneratorInterface $urlGenerator)
+    public function __construct(
+        private UrlGeneratorInterface $urlGenerator,
+        private Security $security,
+    )
     {
     }
 
@@ -21,7 +25,8 @@ readonly class AuthenticationEntryPoint implements AuthenticationEntryPointInter
      */
     public function start(Request $request, ?AuthenticationException $authException = null): Response
     {
-        if ($request->getRequestFormat() === 'json') {
+        // JSON also without a session (the stateless "api_token" firewall): the redirect below needs one for its flash
+        if ($request->getRequestFormat() === 'json' || $this->security->getFirewallConfig($request)?->isStateless()) {
             return new JsonResponse([
                 'type' => 'https://datatracker.ietf.org/doc/html/rfc2616#section-10',
                 'title' => 'Authentication error',

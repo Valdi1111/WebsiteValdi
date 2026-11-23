@@ -15,6 +15,17 @@ security:
             # Ensure dev tools and static assets are always allowed
             pattern: ^/(_profiler|_wdt|assets|build)/
             security: false
+        # Requests carrying an API token ("Authorization: Bearer <token>"): logged in by the token at every request and
+        # never kept in the session, so that a disabled or deleted token stops at once and the session of a browser
+        # is left alone. The login is marked as made with an API token (ApiTokenAuthenticationListener).
+        api_token:
+            request_matcher: App\CoreBundle\Security\BearerTokenRequestMatcher
+            stateless: true
+            provider: app_user_provider
+            access_token:
+                token_handler: App\CoreBundle\Security\AccessTokenHandler
+            entry_point: App\CoreBundle\Security\AuthenticationEntryPoint
+            access_denied_handler: App\CoreBundle\Security\AccessDeniedHandler
         main:
             lazy: true
             provider: app_user_provider
@@ -27,8 +38,6 @@ security:
                 path: core_logout
             entry_point: App\CoreBundle\Security\AuthenticationEntryPoint
             access_denied_handler: App\CoreBundle\Security\AccessDeniedHandler
-            access_token:
-                token_handler: App\CoreBundle\Security\AccessTokenHandler
             remember_me:
                 secret: '%kernel.secret%' # required
                 lifetime: 604800 # 1 week in seconds

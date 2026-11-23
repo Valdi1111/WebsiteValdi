@@ -13,11 +13,26 @@ import axios from "axios";
  */
 
 /**
+ * An API token of the logged-in user (GET /api/me/tokens).
+ *
+ * @typedef {Object} ApiToken
+ * @property {number} id
+ * @property {string|null} description null for the tokens made before descriptions existed
+ * @property {boolean} valid false when disabled
+ * @property {string|null} token the value: only from getToken() and createToken()
+ */
+
+/**
  * @typedef {Object} ProfileAPI
  * @property {() => Promise<axios.AxiosResponse<ProfileRole[]>>} getRoles
  * @property {(file: File) => Promise<axios.AxiosResponse<import("../user/CurrentUserContext").CurrentUser>>} uploadAvatar
  * @property {() => Promise<axios.AxiosResponse<import("../user/CurrentUserContext").CurrentUser>>} removeAvatar
  * @property {(currentPassword: string, newPassword: string) => Promise<axios.AxiosResponse<void>>} changePassword
+ * @property {() => Promise<axios.AxiosResponse<ApiToken[]>>} getTokens
+ * @property {(id: number) => Promise<axios.AxiosResponse<ApiToken>>} getToken
+ * @property {(description: string) => Promise<axios.AxiosResponse<ApiToken>>} createToken
+ * @property {(id: number, changes: { description?: string, valid?: boolean }) => Promise<axios.AxiosResponse<ApiToken>>} updateToken
+ * @property {(id: number) => Promise<axios.AxiosResponse<void>>} deleteToken
  * @property {() => ProfileAPI} withErrorHandling
  * @property {(messageData: any) => ProfileAPI} withLoadingMessage
  */
@@ -47,6 +62,12 @@ export default function createProfileApi({ message }) {
         current_password: currentPassword,
         new_password: newPassword,
     });
+    // API tokens: the list has no values, getToken() gives one
+    api.getTokens = async () => axiosInstance.get('/tokens');
+    api.getToken = async (id) => axiosInstance.get(`/tokens/${id}`);
+    api.createToken = async (description) => axiosInstance.post('/tokens', { description });
+    api.updateToken = async (id, changes) => axiosInstance.patch(`/tokens/${id}`, changes);
+    api.deleteToken = async (id) => axiosInstance.delete(`/tokens/${id}`);
 
     return {
         ...api,

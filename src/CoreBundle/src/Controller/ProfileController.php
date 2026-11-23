@@ -10,11 +10,12 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 /**
  * Profile page of the logged-in user, the same on every subdomain (no host on core routes).
  * It wins over the "/{path}" catch-all of the bundle apps, which have a lower priority.
+ * Its tabs (e.g. /profile/tokens) are routes of the React app (ProfileApp).
  */
 #[IsGranted('ROLE_USER', null, 'Access Denied.')]
 class ProfileController extends AbstractController
 {
-    #[Route('/profile', name: 'profile', methods: ['GET'])]
+    #[Route('/profile/{path}', name: 'profile', requirements: ['path' => '.*'], defaults: ['path' => ''], methods: ['GET'])]
     public function index(): Response
     {
         return $this->render('@Core/profile/index.html.twig');

@@ -102,9 +102,10 @@ Two scheduled tasks ensure no HoYoLAB daily check-in is missed:
 
 1. **Auto Check-In (`HoyolabCheckInBatchMessage`)** — Schedule: `0 20 * * *`
    - Queries the `info` endpoint to check whether today's check-in has already been claimed for each profile with `hoyolabCheckIn = true`.
-   - If unclaimed, sends the `sign` request, fetches today's reward from `home` (e.g. *Primogems x20*), and sends a notification with the reward icon/quantity, monthly check-in total, and any missed days.
-2. **Missed Check-In Reminder (`HoyolabMissedCheckInBatchMessage`)** — Schedule: `0 14 * * *`
-   - For profiles with `hoyolabMissedCheckIn = true` (when auto check-in is disabled or failed), checks midday whether today's check-in is still pending and sends a reminder with today's claimable reward.
+   - If unclaimed, sends the `sign` request and fetches today's reward from `home` (e.g. *Primogems x20*).
+   - Always notifies the result (reward and monthly check-in total), also when the reward was already claimed.
+2. **Missed Check-In (`HoyolabMissedCheckInBatchMessage`)** — Schedule: `0 14 * * *`
+   - For profiles with `hoyolabMissedCheckIn = true`, runs the same check-in at midday: a reward still unclaimed (auto check-in disabled or failed) is **claimed** and notified; an already claimed one sends nothing. It is not a reminder: nothing is left for the player to do.
 
 **Run a task now**: `php bin/console hoyoverse:task [<task>]` runs any scheduled task by hand (check-in, codes, reminders, diary and pulls sync, cookie renewal), as the scheduler does for every eligible profile or, with `--profile-id`, for given profiles whatever their settings. `--list` shows the tasks, `--region` limits a regional task, `--sync` handles the messages in the console instead of queuing them (shared flow: [`AbstractTaskCommand`](../GamesBundle/README.md#1-backend)).
 
@@ -142,7 +143,7 @@ Reminders are split into **Global Tasks** (run at fixed intervals regardless of 
 ### 5.1 Stamina Reminder (`StaminaCheckBatchMessage`)
 - **Schedule**: `*/30 * * * *` (every 30 minutes).
 - **Per-Profile Configuration**: `staminaCheck` toggle and customizable `staminaThreshold` (`-1` alerts only when reaching max cap: `200` on GI, `300` on HSR and ZZZ).
-- **Cache Anti-Spam**: once a threshold notification is sent, the notified amount is cached until the estimated full recovery timestamp; if the player spends stamina in-game and drops below that value, the lock resets automatically.
+- **No anti-spam**: every run notifies while the stamina is at or above the threshold (or full, with `-1`), so the reminder repeats every 30 minutes until the stamina is spent. The 5-minute notes cache only saves HoYoLAB calls.
 
 ### 5.2 Expeditions Reminder (`ExpeditionsCheckBatchMessage`)
 - **Schedule**: `*/30 * * * *` (every 30 minutes) — *Genshin Impact, Honkai: Star Rail*.

@@ -63,7 +63,7 @@ Digital book library manager with a built-in web reader:
 Automation and tracking suite for **Genshin Impact**, **Honkai: Star Rail**, **Zenless Zone Zero**, **Honkai Impact 3rd**, and **Tears of Themis** ([full guide](src/HoyoverseBundle/README.md)):
 - **Authentication & Accounts:** direct email/password login (with GeeTest Aigis captcha and Email OTP) or cookie import, `account_uid` deduplication, and automatic session/cookie refresh.
 - **Scheduled Automations (`Messenger` + `Scheduler`):**
-  - **Auto Check-In** on HoYoLAB with missed check-in reminders.
+  - **Auto Check-In** on HoYoLAB, with a midday missed check-in that claims a reward still unclaimed.
   - **Code Redemption:** automatic API redemption for *GI*, *HSR*, and *ZZZ* (plus manual notifications for *HI3* / *ToT*).
   - **Real-Time Reminders:** Stamina (Resin / Trailblaze Power / Battery), Dailies, Weeklies, Expeditions/Assignments, Serenitea Pot, Video Store (*ZZZ*), and Endgame cycle alerts.
 - **Diary & Pulls Tracker:** monthly currency income sync (`HoyoverseDiaryEntry`) and full Gacha pull history tracking (1-click / scheduled via `stoken_v2` for *GI*/*ZZZ*, or via PowerShell script import for *GI*/*HSR*/*ZZZ*).

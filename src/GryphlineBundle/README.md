@@ -13,7 +13,7 @@ It supports direct login with Gryphline credentials (including GeeTest v4 captch
 | **Credentials Login (Email + Password)** | ✅ | Direct authentication on `as.gryphline.com` with GeeTest v4 support and immediate OAuth setup |
 | **`ACCOUNT_TOKEN` Login** | ✅ | Manual token entry (e.g. extracted from the SKPort `ACCOUNT_TOKEN` cookie) |
 | **Account Deduplication & Safe Re-login** | ✅ | Keyed by `account_uid` (`hgId`), updates existing accounts and prevents account mismatches on re-login |
-| **SKPort Auto Check-In & Missed Check-In** | ✅ | Automated daily SKPort reward claim and afternoon missed check-in reminder |
+| **SKPort Auto Check-In & Missed Check-In** | ✅ | Automated daily SKPort reward claim, and an afternoon missed check-in that claims a reward still unclaimed |
 | **Stamina Reminder** | ✅ | Continuous monitoring (every 30 min) with customizable threshold (max cap: `360`) |
 | **Dailies Reminder** | ✅ | Daily check at 21:00 (server local time) for *Daily Activation* (`100/100`) |
 | **Weeklies Reminder** | ✅ | Weekly check every Sunday at 21:00 (server local time) for *Weekly Mission* |
@@ -84,8 +84,9 @@ Two scheduled tasks handle daily check-in for *Arknights: Endfield* (`/web/v1/ga
    - For each active profile with `skportCheckIn = true`, checks via `GET /web/v1/game/endfield/attendance` whether today's check-in has already been claimed (`hasToday`).
    - If unclaimed, sends a signed `POST /web/v1/game/endfield/attendance` request with header `sk-game-role: 3_{gameUid}_{serverId}`.
    - Resolves claimed rewards (`awardIds` → `resourceInfoMap`) and notifies the user with each reward's name, quantity, and icon.
-2. **Missed Check-In Reminder (`SkportMissedCheckInBatchMessage`)** — Schedule: `0 14 * * *`
-   - For profiles with `skportMissedCheckIn = true`, checks at 14:00 whether daily check-in is still pending and sends a reminder notification.
+   - Always notifies the result, also when the reward was already claimed ("You have already checked in today!").
+2. **Missed Check-In (`SkportMissedCheckInBatchMessage`)** — Schedule: `0 14 * * *`
+   - For profiles with `skportMissedCheckIn = true`, runs the same check-in at 14:00: a reward still unclaimed is **claimed** and notified; an already claimed one sends nothing. It is not a reminder: nothing is left for the player to do.
 
 **Run a task now**: `php bin/console gryphline:task [<task>]` runs any scheduled task by hand (check-in, stamina, reminders, pulls sync, catalog), as the scheduler does for every eligible profile or, with `--profile-id`, for given profiles whatever their settings. `--list` shows the tasks, `--region` limits a regional task, `--sync` handles the messages in the console instead of queuing them (shared flow: [`AbstractTaskCommand`](../GamesBundle/README.md#1-backend)).
 
@@ -102,7 +103,7 @@ Via the signed endpoint `GET /api/v1/game/endfield/card/detail`, `EndfieldServic
 - **Parameters**:
   - Max stamina cap: `360` (regeneration rate: 1 point every 360 seconds / 6 minutes).
   - Configurable per profile via the `staminaCheck` toggle and `staminaThreshold` (`-1` = notify only at full cap `360/360`).
-- **Anti-Spam Logic**: caches the last notified amount until `staminaRecoveryTime`, resetting the lock as soon as the player spends stamina in-game.
+- **No anti-spam**: every run notifies while the stamina is at or above the threshold (or full, with `-1`), so the reminder repeats every 30 minutes until the stamina is spent. The 5-minute notes cache only saves SKPort calls.
 
 ### 4.2 Dailies & Weeklies Reminders (`DailiesReminderBatchMessage` / `WeekliesReminderBatchMessage`)
 Regional tasks run according to the profile's server timezone (`US_EU` → `Europe/Paris`, `SEA` → `Asia/Shanghai`):

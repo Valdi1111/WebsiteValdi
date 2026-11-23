@@ -7,6 +7,7 @@ import React from "react";
  * @property {number} id
  * @property {string} email
  * @property {string[]} roles assigned roles and those inherited through the role hierarchy, as the backend checks them
+ * @property {string|null} avatar_url resized profile image, null for the default one (UserAvatar)
  */
 
 /**
@@ -16,6 +17,7 @@ import React from "react";
  * @property {boolean} loading
  * @property {any} error the last failed request, null after a successful one
  * @property {() => Promise<void>} reload loads the user again, e.g. after it was changed
+ * @property {(user: CurrentUser) => void} setUser sets the user returned by a request that changed it
  */
 
 /** @type {React.Context<CurrentUserState>} */
@@ -24,6 +26,7 @@ export const CurrentUserContext = React.createContext({
     loading: false,
     error: null,
     reload: async () => {},
+    setUser: () => {},
 });
 CurrentUserContext.displayName = 'CurrentUserContext';
 

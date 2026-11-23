@@ -1,0 +1,17 @@
+liip_imagine:
+    filter_sets:
+        # Profile image: square centre crop of the image stored in the database (UserAvatarLoader), which is already
+        # normalized on upload (EXIF orientation applied, no metadata, webp: UserAvatarManager).
+        # The names are random, so the public URL cannot be guessed.
+        core_avatar:
+            data_loader: core_avatar
+            format: webp
+            quality: 85
+            filters:
+                # Thumbnail never enlarges: a side under 256 px (a wide or a small image) is first scaled up,
+                # then the square is cropped from the centre
+                upscale:
+                    min: [256, 256]
+                thumbnail:
+                    size: [256, 256]
+                    mode: outbound

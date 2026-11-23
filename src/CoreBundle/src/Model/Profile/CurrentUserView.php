@@ -13,20 +13,22 @@ use App\CoreBundle\Entity\User;
 final readonly class CurrentUserView
 {
     /**
-     * @param list<string> $roles assigned and inherited roles (UserRoleResolver::getReachableRoleNames())
+     * @param list<string> $roles     assigned and inherited roles (UserRoleResolver::getReachableRoleNames())
+     * @param string|null  $avatarUrl resized profile image (UserAvatarManager::getUrl()), null for the default one
      */
     public function __construct(
         public int $id,
         public string $email,
         public array $roles,
+        public ?string $avatarUrl,
     ) {
     }
 
     /**
      * @param list<string> $roles
      */
-    public static function fromUser(User $user, array $roles): self
+    public static function fromUser(User $user, array $roles, ?string $avatarUrl): self
     {
-        return new self((int) $user->getId(), (string) $user->getEmail(), $roles);
+        return new self((int) $user->getId(), (string) $user->getEmail(), $roles, $avatarUrl);
     }
 }

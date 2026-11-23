@@ -7,7 +7,9 @@ use App\HoyoverseBundle\Message\Profile\RealmCurrencyCheckProfileMessage;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasRealmCurrencyInterface;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
+use App\HoyoverseBundle\Presenter\RealmCurrencyPresenter;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Contracts\Service\Attribute\Required;
 
 /**
  * @implements AbstractProfileTaskMessageHandler<RealmCurrencyCheckProfileMessage>
@@ -15,6 +17,14 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 #[AsMessageHandler]
 class RealmCurrencyCheckProfileHandler extends AbstractProfileTaskMessageHandler
 {
+    private RealmCurrencyPresenter $realmCurrencyPresenter;
+
+    #[Required]
+    public function setRealmCurrencyPresenter(RealmCurrencyPresenter $realmCurrencyPresenter): void
+    {
+        $this->realmCurrencyPresenter = $realmCurrencyPresenter;
+    }
+
     public function __invoke(RealmCurrencyCheckProfileMessage $message): void
     {
         $this->handleProfile($message);
@@ -35,10 +45,12 @@ class RealmCurrencyCheckProfileHandler extends AbstractProfileTaskMessageHandler
             return;
         }
 
-        $notification = $this->createNotificationWithAccountData($accountData, "Realm Currency Reminder")
-            ->setDescription($realm->isFull() ? "Your realm currency is full!" : "Your realm currency is within the set threshold!")
-            ->addField("Realm Currency", "{$realm->getCurrentCoin()}/{$realm->getMaxCoin()}", icon: "💰", inline: true)
-            ->addField("Recovery Time", $gameService->getHoyolabUtils()->formatTime($realm->getCoinRecoveryTime()), icon: "🕒", inline: true);
+        $notification = $this->realmCurrencyPresenter->present(
+            $accountData->getGameProfile(),
+            $realm,
+            "Realm Currency Reminder",
+            $realm->isFull() ? "Your realm currency is full!" : "Your realm currency is within the set threshold!"
+        );
 
         $this->sendNotificationToAccountData($accountData, $notification);
     }

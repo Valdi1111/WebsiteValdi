@@ -7,7 +7,9 @@ use App\HoyoverseBundle\Message\Profile\ShopStatusCheckProfileMessage;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasShopStatusInterface;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
+use App\HoyoverseBundle\Presenter\ShopStatusPresenter;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Contracts\Service\Attribute\Required;
 
 /**
  * @implements AbstractProfileTaskMessageHandler<ShopStatusCHeckProfileMessage>
@@ -15,6 +17,14 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 #[AsMessageHandler]
 class ShopStatusCheckProfileHandler extends AbstractProfileTaskMessageHandler
 {
+    private ShopStatusPresenter $shopStatusPresenter;
+
+    #[Required]
+    public function setShopStatusPresenter(ShopStatusPresenter $shopStatusPresenter): void
+    {
+        $this->shopStatusPresenter = $shopStatusPresenter;
+    }
+
     public function __invoke(ShopStatusCHeckProfileMessage $message): void
     {
         $this->handleProfile($message);
@@ -35,8 +45,12 @@ class ShopStatusCheckProfileHandler extends AbstractProfileTaskMessageHandler
             return;
         }
 
-        $notification = $this->createNotificationWithAccountData($accountData, "Shop Status Reminder")
-            ->setDescription("Your shop has finished selling videos!");
+        $notification = $this->shopStatusPresenter->present(
+            $accountData->getGameProfile(),
+            $shopStatus,
+            "Shop Status Reminder",
+            "Your shop has finished selling videos!"
+        );
 
         $this->sendNotificationToAccountData($accountData, $notification);
     }

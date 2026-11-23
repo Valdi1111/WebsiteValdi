@@ -2,14 +2,14 @@
 
 namespace App\HoyoverseBundle\MessageHandler\Profile;
 
-use App\CoreBundle\Model\Notification\EmbedField;
-use App\CoreBundle\Model\Notification\UniversalEmbed;
 use App\GamesBundle\Message\ProfileTaskMessageInterface;
 use App\GamesBundle\Model\Endgame\EndgameDefinition;
+use App\GamesBundle\Model\Endgame\EndgameModeStatus;
 use App\GamesBundle\Model\Endgame\EndgameReminder;
 use App\GamesBundle\Model\Endgame\EndgameSettings;
 use App\GamesBundle\Model\Endgame\GameEndgame;
 use App\GamesBundle\Model\Game\HasEndgamesInterface;
+use App\GamesBundle\Presenter\EndgamesPresenter;
 use App\HoyoverseBundle\Exception\HoyolabException;
 use App\HoyoverseBundle\Message\Profile\EndgamesReminderProfileMessage;
 use App\HoyoverseBundle\Model\Game\GameInterface;
@@ -29,10 +29,9 @@ use Symfony\Contracts\Service\Attribute\Required;
 #[AsMessageHandler]
 class EndgamesReminderProfileHandler extends AbstractProfileTaskMessageHandler
 {
-    /** Empty field completing a notification row on Discord (Telegram skips it) */
-    public const string FILLER = "\u{200b}";
-
     private ?ClockInterface $clock = null;
+
+    private EndgamesPresenter $endgamesPresenter;
 
     /**
      * @var array<string, array<string, array{days_before_end: int}>>
@@ -43,6 +42,12 @@ class EndgamesReminderProfileHandler extends AbstractProfileTaskMessageHandler
     public function setClock(ClockInterface $clock): void
     {
         $this->clock = $clock;
+    }
+
+    #[Required]
+    public function setEndgamesPresenter(EndgamesPresenter $endgamesPresenter): void
+    {
+        $this->endgamesPresenter = $endgamesPresenter;
     }
 
     /**
@@ -89,7 +94,7 @@ class EndgamesReminderProfileHandler extends AbstractProfileTaskMessageHandler
         $definitions = $gameService::getEndgameDefinitions();
         $settings = EndgameSettings::resolve($definitions, $accountData->getGameProfile()->getEndgamesSettings());
 
-        $rows = [];
+        $modes = [];
         $errors = [];
         $requested = 0;
         foreach ($definitions as $definition) {
@@ -107,9 +112,9 @@ class EndgamesReminderProfileHandler extends AbstractProfileTaskMessageHandler
                 continue;
             }
 
-            $row = $this->createRow($gameService, $definition, $endgames, $modeSettings, $accountData, $now);
-            if ($row !== null) {
-                $rows[] = $row;
+            $mode = $this->createModeToRemind($gameService, $definition, $endgames, $modeSettings, $accountData, $now);
+            if ($mode !== null) {
+                $modes[] = $mode;
             }
         }
 
@@ -117,37 +122,36 @@ class EndgamesReminderProfileHandler extends AbstractProfileTaskMessageHandler
             throw $errors[0];
         }
 
-        if ($rows === []) {
+        if ($modes === []) {
             return;
         }
 
-        $notification = $this->createNotificationWithAccountData($accountData, "Endgames Reminder")
-            ->setDescription("Don't Forget to Do Your Endgames!");
-        foreach ($rows as $row) {
-            foreach ($row as $field) {
-                $notification->addEmbedField($field);
-            }
-        }
+        $notification = $this->endgamesPresenter->present(
+            $accountData->getGameProfile(),
+            $modes,
+            $now,
+            "Endgames Reminder",
+            "Don't Forget to Do Your Endgames!"
+        );
 
         $this->sendNotificationToAccountData($accountData, $notification);
     }
 
     /**
-     * One row of the notification: each variant of the mode (or an empty field when it is off or locked), then
-     * "Ends in". Null when no variant needs a reminder within the window.
+     * The mode as a row of the notification, its variants turned off left empty. Null when no variant needs a
+     * reminder within the window.
      *
      * @param list<GameEndgame>              $endgames
      * @param array<string, EndgameReminder> $modeSettings variant key => reminder
-     * @return list<EmbedField>|null
      */
-    private function createRow(
+    private function createModeToRemind(
         GameInterface&HasEndgamesInterface $gameService,
         EndgameDefinition $definition,
         array $endgames,
         array $modeSettings,
         RuntimeAccountData $accountData,
         \DateTimeImmutable $now,
-    ): ?array
+    ): ?EndgameModeStatus
     {
         $byVariant = [];
         foreach ($endgames as $endgame) {
@@ -184,43 +188,12 @@ class EndgamesReminderProfileHandler extends AbstractProfileTaskMessageHandler
             return null;
         }
 
-        $fields = [];
-        foreach ($definition->variants as $variant) {
-            $endgame = $byVariant[$variant->key] ?? null;
-            $fields[] = $endgame === null || !$endgame->isUnlocked() || $modeSettings[$variant->key] === EndgameReminder::Off
-                ? self::createFiller()
-                : self::createVariantField($variant->name, $endgame);
-        }
-        while (count($fields) < EndgameDefinition::MAX_VARIANTS) {
-            $fields[] = self::createFiller();
-        }
-
-        $fields[] = new EmbedField()
-            ->setName('Ends in')
-            ->setValue($gameService->getHoyolabUtils()->formatTime(max(0, $endTime->getTimestamp() - $now->getTimestamp()), 2))
-            ->setIcon('🕒')
-            ->setInline(true);
-
-        return $fields;
-    }
-
-    private static function createVariantField(string $name, GameEndgame $endgame): EmbedField
-    {
-        if (!$endgame->isPlayed()) {
-            return new EmbedField()->setName($name)->setValue('Not played yet')->setIcon('⚔️')->setInline(true);
-        }
-
-        return new EmbedField()
-            ->setName($name)
-            ->setValue(implode("\n", $endgame->getProgressLines()) ?: 'Played')
-            // Lines with their own icons (e.g. one per floor) are not prefixed by another one
-            ->setIcon($endgame->hasProgressIcons() ? null : ($endgame->isMaxed() ? '✅' : '⚔️'))
-            ->setInline(true);
-    }
-
-    private static function createFiller(): EmbedField
-    {
-        return new EmbedField()->setName(self::FILLER)->setValue(self::FILLER)->setInline(true);
+        return new EndgameModeStatus(
+            $definition,
+            $endgames,
+            $endTime,
+            array_keys(array_filter($modeSettings, static fn (EndgameReminder $reminder) => $reminder === EndgameReminder::Off)),
+        );
     }
 
     private function logUnreadableMode(EndgameDefinition $definition, RuntimeAccountData $accountData, \Throwable $e): void

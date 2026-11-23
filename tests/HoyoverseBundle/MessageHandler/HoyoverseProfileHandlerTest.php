@@ -9,6 +9,11 @@ use App\GamesBundle\Model\GameNotes\GameNotesDailies;
 use App\GamesBundle\Model\GameNotes\GameNotesProgressMetric;
 use App\GamesBundle\Model\GameNotes\GameNotesStamina;
 use App\GamesBundle\Model\GameNotes\GameNotesWeeklies;
+use App\GamesBundle\Presenter\DailiesPresenter;
+use App\GamesBundle\Presenter\GameProfileEmbedFactory;
+use App\GamesBundle\Presenter\StaminaPresenter;
+use App\GamesBundle\Presenter\WeekliesPresenter;
+use App\GamesBundle\Service\DurationFormatter;
 use App\CoreBundle\Model\Notification\UniversalEmbed;
 use App\CoreBundle\Service\Notification\UnifiedNotificationService;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
@@ -25,13 +30,18 @@ use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use App\HoyoverseBundle\Service\HonkaiStarRailService;
 use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
-use App\HoyoverseBundle\Service\HoyolabUtilsService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Contracts\Service\ServiceCollectionInterface;
 
 class HoyoverseProfileHandlerTest extends TestCase
 {
+    private static function embedFactory(): GameProfileEmbedFactory
+    {
+        return new GameProfileEmbedFactory(new MockClock());
+    }
+
     private function createProfileWithUser(int $id = 1, int $gameId = 1): HoyoverseGameProfile
     {
         $user = new User();
@@ -63,12 +73,8 @@ class HoyoverseProfileHandlerTest extends TestCase
             ->setMaxStamina(300)
             ->setStaminaRecoverTime(3600);
 
-        $hoyolabUtils = $this->createStub(HoyolabUtilsService::class);
-        $hoyolabUtils->method('formatTime')->willReturn('1h 0m');
-
         $hsrService = $this->createStub(HonkaiStarRailService::class);
         $hsrService->method('getStaminaData')->willReturn($staminaData);
-        $hsrService->method('getHoyolabUtils')->willReturn($hoyolabUtils);
 
         $locator = $this->createStub(ServiceCollectionInterface::class);
         $locator->method('has')->willReturn(true);
@@ -89,6 +95,7 @@ class HoyoverseProfileHandlerTest extends TestCase
         $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
 
         $handler = new StaminaCheckProfileHandler($repo, $cookieUtils, $locator, new NullLogger(), $notificationService);
+        $handler->setStaminaPresenter(new StaminaPresenter(self::embedFactory(), new DurationFormatter()));
         $handler(new StaminaCheckProfileMessage(1));
     }
 
@@ -117,6 +124,7 @@ class HoyoverseProfileHandlerTest extends TestCase
         $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
 
         $handler = new StaminaCheckProfileHandler($repo, $cookieUtils, $locator, new NullLogger(), $notificationService);
+        $handler->setStaminaPresenter(new StaminaPresenter(self::embedFactory(), new DurationFormatter()));
         $handler(new StaminaCheckProfileMessage(1));
     }
 
@@ -138,6 +146,7 @@ class HoyoverseProfileHandlerTest extends TestCase
         $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
 
         $handler = new StaminaCheckProfileHandler($repo, $cookieUtils, $locator, new NullLogger(), $notificationService);
+        $handler->setStaminaPresenter(new StaminaPresenter(self::embedFactory(), new DurationFormatter()));
         $handler(new StaminaCheckProfileMessage(1));
     }
 
@@ -177,6 +186,7 @@ class HoyoverseProfileHandlerTest extends TestCase
         $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
 
         $handler = new DailiesReminderProfileHandler($repo, $cookieUtils, $locator, new NullLogger(), $notificationService);
+        $handler->setDailiesPresenter(new DailiesPresenter(self::embedFactory()));
         $handler(new DailiesReminderProfileMessage(1));
     }
 
@@ -207,6 +217,7 @@ class HoyoverseProfileHandlerTest extends TestCase
         $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
 
         $handler = new DailiesReminderProfileHandler($repo, $cookieUtils, $locator, new NullLogger(), $notificationService);
+        $handler->setDailiesPresenter(new DailiesPresenter(self::embedFactory()));
         $handler(new DailiesReminderProfileMessage(1));
     }
 
@@ -246,6 +257,7 @@ class HoyoverseProfileHandlerTest extends TestCase
         $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
 
         $handler = new WeekliesReminderProfileHandler($repo, $cookieUtils, $locator, new NullLogger(), $notificationService);
+        $handler->setWeekliesPresenter(new WeekliesPresenter(self::embedFactory()));
         $handler(new WeekliesReminderProfileMessage(1));
     }
 
@@ -287,6 +299,7 @@ class HoyoverseProfileHandlerTest extends TestCase
         $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
 
         $handler = new HoyolabCheckInProfileHandler($repo, $cookieUtils, $locator, new NullLogger(), $notificationService);
+        $handler->setEmbedFactory(self::embedFactory());
         $handler(new HoyolabCheckInProfileMessage(1));
     }
 }

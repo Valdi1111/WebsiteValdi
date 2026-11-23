@@ -18,6 +18,11 @@ interface GameProfileInterface
 
     public function getIconUrl(): ?string;
 
+    /**
+     * Icon of the game provider (HoYoLAB, SKPort...), shown in place of the game icon when the profile has none.
+     */
+    public function getProviderIconUrl(): ?string;
+
     public function getParsedRegion(): ?string;
 
     public function getParsedTimezone(): ?string;

@@ -285,6 +285,12 @@ class PerfectworldGameProfile implements GameProfileInterface
         return $this;
     }
 
+    #[Ignore]
+    public function getProviderIconUrl(): ?string
+    {
+        return null;
+    }
+
     public function getFirstLoginAt(): ?\DateTimeImmutable
     {
         return $this->firstLoginAt;

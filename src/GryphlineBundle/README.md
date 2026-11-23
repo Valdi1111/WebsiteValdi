@@ -96,6 +96,8 @@ Two scheduled tasks handle daily check-in for *Arknights: Endfield* (`/web/v1/ga
 
 Via the signed endpoint `GET /api/v1/game/endfield/card/detail`, `EndfieldService` retrieves real-time profile metrics (`EndfieldNotes`) to drive automated reminders.
 
+**Embeds**: each handler checks whether to notify (threshold, all done) and passes the data to `GamesBundle`'s `StaminaPresenter`, `DailiesPresenter` or `WeekliesPresenter`, which builds the embed without any check (see the [GamesBundle design notes](../GamesBundle/README.md#4-design-notes)).
+
 **Notes cache**: `NotesTrait::getNotes()` keeps the raw `detail` payload of each game profile in `gryphline.notes.cache` for 5 minutes, so the stamina, dailies and weeklies checks of one profile share one SKPort call (see the [GamesBundle design notes](../GamesBundle/README.md#4-design-notes)). Failed requests are not cached (the 401 retry with a renewed session is cached once it succeeds); `getNotes($account, fresh: true)` bypasses the cache and stores the new answer.
 
 ### 4.1 Stamina Reminder (`StaminaCheckBatchMessage`)

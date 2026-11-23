@@ -8,6 +8,9 @@ use App\CoreBundle\Model\Notification\UniversalEmbed;
 use App\CoreBundle\Service\Notification\UnifiedNotificationService;
 use App\GamesBundle\Model\Endgame\EndgameReminder;
 use App\GamesBundle\Model\Endgame\GameEndgame;
+use App\GamesBundle\Presenter\EndgamesPresenter;
+use App\GamesBundle\Presenter\GameProfileEmbedFactory;
+use App\GamesBundle\Service\DurationFormatter;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Exception\RetrieveDeadlyAssaultDataException;
@@ -132,7 +135,9 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
 
         $handler = new EndgamesReminderProfileHandler($repo, $cookieUtils, $locator, $logger ?? new NullLogger(), $notificationService);
         $handler->setEndgamesConfig(static::getContainer()->getParameter('hoyoverse.endgames_reminder'));
-        $handler->setClock(new MockClock($now, 'Europe/Paris'));
+        $clock = new MockClock($now, 'Europe/Paris');
+        $handler->setClock($clock);
+        $handler->setEndgamesPresenter(new EndgamesPresenter(new GameProfileEmbedFactory($clock), new DurationFormatter()));
 
         return $handler;
     }
@@ -269,10 +274,10 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
         $this->assertSame([
             // One line per floor with its own icon
             ['Shiyu Defense', "⚔️\u{00A0}\u{00A0}Floor 4: A\n⚔️\u{00A0}\u{00A0}Floor 5: 2/3 S\n↳ Stage 1: A (24,999)", null],
-            [EndgamesReminderProfileHandler::FILLER, EndgamesReminderProfileHandler::FILLER, null],
+            [EndgamesPresenter::FILLER, EndgamesPresenter::FILLER, null],
             ['Ends in', '12 hr, 59 min', '🕒'],
             ['Deadly Assault', '8/9 ★', '⚔️'],
-            [EndgamesReminderProfileHandler::FILLER, EndgamesReminderProfileHandler::FILLER, null],
+            [EndgamesPresenter::FILLER, EndgamesPresenter::FILLER, null],
             ['Ends in', '5 days, 12 hr', '🕒'],
         ], self::endgameFields($sent[0]));
         foreach (array_slice($sent[0]->getFields(), 3) as $field) {

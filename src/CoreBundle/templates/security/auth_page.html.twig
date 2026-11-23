@@ -1,0 +1,22 @@
+{#
+    Public pages around the login (login, forgot password, reset password): login.js renders the React component of
+    "page" with "props". The child templates set both; the forms post as plain HTML forms, handled by Symfony.
+#}
+{% extends 'base.html.twig' %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    {{ encore_entry_link_tags('login') }}
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    {{ encore_entry_script_tags('login') }}
+{% endblock %}
+
+{% block body %}
+    <div id="react-login-app"
+         data-page="{{ page }}"
+         data-props="{{ props|merge({imageUrl: asset('build/images/core-login.svg')})|json_encode|e('html_attr') }}">
+    </div>
+{% endblock %}

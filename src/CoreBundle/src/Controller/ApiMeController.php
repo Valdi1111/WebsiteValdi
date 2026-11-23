@@ -4,12 +4,17 @@ namespace App\CoreBundle\Controller;
 
 use App\CoreBundle\Entity\User;
 use App\CoreBundle\Exception\InvalidAvatarException;
+use App\CoreBundle\Exception\InvalidCurrentPasswordException;
+use App\CoreBundle\Model\Profile\ChangePasswordPayload;
 use App\CoreBundle\Model\Profile\CurrentUserView;
+use App\CoreBundle\Service\Password\UserPasswordManager;
 use App\CoreBundle\Service\UserAvatarManager;
 use App\CoreBundle\Service\UserRoleResolver;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Attribute\MapUploadedFile;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Symfony\Component\Routing\Attribute\Route;
@@ -31,6 +36,7 @@ class ApiMeController extends AbstractController
     public function __construct(
         private readonly UserRoleResolver $roleResolver,
         private readonly UserAvatarManager $avatarManager,
+        private readonly UserPasswordManager $passwordManager,
     ) {
     }
 
@@ -98,11 +104,33 @@ class ApiMeController extends AbstractController
     }
 
     /**
-     * A 422 with the same shape as the MapUploadedFile violations, so that "detail" is readable also in production.
+     * Changes the password with the current one; the other sessions and remember-me logins of the user end.
+     * Too many wrong current passwords answer 429 (TooManyPasswordAttemptsException).
      */
+    #[Route('/password', name: 'password', methods: ['POST'])]
+    public function apiMePassword(#[CurrentUser] User $user, #[MapRequestPayload] ChangePasswordPayload $payload): Response
+    {
+        try {
+            $this->passwordManager->change($user, $payload->currentPassword, $payload->newPassword);
+        } catch (InvalidCurrentPasswordException $e) {
+            throw self::violation('currentPassword', $e->getMessage(), $e);
+        }
+
+        return new Response(null, Response::HTTP_NO_CONTENT);
+    }
+
     private static function invalidAvatar(string $message, ?\Throwable $previous = null): UnprocessableEntityHttpException
     {
-        $violation = new ConstraintViolation($message, null, [], null, 'avatar', null, cause: $previous);
+        return self::violation('avatar', $message, $previous);
+    }
+
+    /**
+     * A 422 with the same shape as the MapUploadedFile / MapRequestPayload violations, so that "detail" is readable
+     * also in production and the frontend can show the message next to the field.
+     */
+    private static function violation(string $propertyPath, string $message, ?\Throwable $previous = null): UnprocessableEntityHttpException
+    {
+        $violation = new ConstraintViolation($message, null, [], null, $propertyPath, null, cause: $previous);
 
         return new UnprocessableEntityHttpException($message, new ValidationFailedException(null, new ConstraintViolationList([$violation])));
     }

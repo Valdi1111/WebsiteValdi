@@ -1,25 +1,15 @@
-{% extends 'base.html.twig' %}
+{% extends '@Core/security/auth_page.html.twig' %}
 
 {% block title %}Login{% endblock %}
 
-{% block stylesheets %}
-    {{ parent() }}
-    {{ encore_entry_link_tags('login') }}
-{% endblock %}
-
-{% block javascripts %}
-    {{ parent() }}
-    {{ encore_entry_script_tags('login') }}
-{% endblock %}
-
-{% block body %}
-    <div id="react-login-app"
-         data-props="{{ {
-             csrfToken: csrf_token('authenticate'),
-             lastUsername: last_username,
-             error: error ? error.messageKey|trans(error.messageData, 'security') : null,
-             checkPath: path('core_login'),
-             imageUrl: asset('build/images/core-login.svg')
-         }|json_encode|e('html_attr') }}">
-    </div>
-{% endblock %}
+{# notice: e.g. after a password reset. Read once: "?:" would call app.flashes() twice, and the second call finds the flash consumed #}
+{% set notice = app.flashes(constant('App\\CoreBundle\\Controller\\ResetPasswordController::FLASH_LOGIN_NOTICE'))|first %}
+{% set page = 'login' %}
+{% set props = {
+    csrfToken: csrf_token('authenticate'),
+    lastUsername: last_username,
+    error: error ? error.messageKey|trans(error.messageData, 'security') : null,
+    checkPath: path('core_login'),
+    forgotPasswordPath: path('core_forgot_password_request'),
+    notice: notice ?: null,
+} %}

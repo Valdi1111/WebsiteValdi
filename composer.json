@@ -16,6 +16,7 @@
         "elephantio/elephant.io": "^5.3",
         "erusev/parsedown": "^1.8",
         "kiwilan/php-ebook": "^3.0",
+        "league/html-to-markdown": "^5.2",
         "liip/imagine-bundle": "^2.18",
         "norkunas/youtube-dl-php": "2.*",
         "oneup/flysystem-bundle": "^4.14",
@@ -65,6 +66,8 @@
         "symfony/webhook": "8.1.*",
         "symfony/webpack-encore-bundle": "^2.4",
         "symfony/yaml": "8.1.*",
+        "symfonycasts/reset-password-bundle": "^1.26",
+        "twig/cssinliner-extra": "^3.26",
         "twig/extra-bundle": "^3.0",
         "twig/twig": "^3.0"
     },

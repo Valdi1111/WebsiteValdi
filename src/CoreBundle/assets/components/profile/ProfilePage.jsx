@@ -1,5 +1,6 @@
 import SpinComponent from "@CoreBundle/components/SpinComponent";
 import AvatarEditor from "@CoreBundle/components/profile/AvatarEditor";
+import ChangePasswordCard from "@CoreBundle/components/profile/ChangePasswordCard";
 import RolesCard from "@CoreBundle/components/profile/RolesCard";
 import { useCurrentUser } from "@CoreBundle/components/user/CurrentUserContext";
 import { Button, Card, Descriptions, Divider, Flex, Result, Typography } from "antd";
@@ -39,6 +40,7 @@ export default function ProfilePage() {
                 ]}
             />
         </Card>
+        <ChangePasswordCard/>
         <RolesCard/>
     </Flex>;
 }

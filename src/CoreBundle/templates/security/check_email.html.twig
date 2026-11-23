@@ -1,0 +1,10 @@
+{% extends '@Core/security/auth_page.html.twig' %}
+
+{% block title %}Check your email{% endblock %}
+
+{% set page = 'check-email' %}
+{% set props = {
+    expiresIn: expires_in,
+    forgotPasswordPath: path('core_forgot_password_request'),
+    loginPath: path('core_login'),
+} %}

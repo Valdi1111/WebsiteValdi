@@ -40,6 +40,7 @@ framework:
 #        # Available in version 1.2
 #        cache: true
 
-#when@test:
-#    webpack_encore:
-#        strict_mode: false
+# The tests render pages without a webpack build (the CI phpunit job has none)
+when@test:
+    webpack_encore:
+        strict_mode: false

@@ -1,6 +1,7 @@
-/*
- * Welcome to your app's main JavaScript file!
- *
- * We recommend including the built version of this JavaScript file
- * (and its CSS file) in your base layout (base.html.twig).
- */
+import AppRoot from "@CoreBundle/components/layout/AppRoot";
+import ProfileApp from "@CoreBundle/components/profile/ProfileApp";
+import { createRoot } from "react-dom/client";
+import React from "react";
+
+// Profile page (CoreBundle ProfileController), served on every subdomain
+createRoot(document.getElementById('root')).render(<AppRoot><ProfileApp/></AppRoot>);

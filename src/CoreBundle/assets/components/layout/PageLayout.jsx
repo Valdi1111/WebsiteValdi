@@ -1,13 +1,18 @@
-import { LogoutOutlined, MoonOutlined, SunOutlined } from "@ant-design/icons";
+import { LogoutOutlined, MoonOutlined, SunOutlined, UserOutlined } from "@ant-design/icons";
 import { Avatar, Dropdown, Layout, Menu, theme as antdTheme } from "antd";
 import { useThemes } from "@CoreBundle/components/theme/ThemeContext";
+import { useCurrentUser } from "@CoreBundle/components/user/CurrentUserContext";
 import { useLocation } from "react-router";
 import React from "react";
+
+// Core page, outside of the bundle apps' routers: a plain link loads it on the current subdomain
+const PROFILE_URL = '/profile';
 
 export default function PageLayout({ navbarItems = [], dropdownItems = [], childrenPre, children, childrenPost }) {
     const { token: { colorBgContainer } } = antdTheme.useToken();
     const location = useLocation();
     const [theme, setTheme] = useThemes();
+    const { user } = useCurrentUser();
 
     const navbarSelectedKeys = React.useMemo(
         () => navbarItems
@@ -15,6 +20,12 @@ export default function PageLayout({ navbarItems = [], dropdownItems = [], child
             .map(item => item.key.toString()),
         [location]
     );
+
+    const profileItem = {
+        key: 'profile',
+        label: <a href={PROFILE_URL}>Profile</a>,
+        icon: <UserOutlined/>,
+    };
 
     return <Layout style={{ height: '100vh' }}>
         {childrenPre}
@@ -29,6 +40,13 @@ export default function PageLayout({ navbarItems = [], dropdownItems = [], child
                 arrow
                 menu={{
                     items: [
+                        // Who is logged in, once /api/me answered
+                        user
+                            ? { key: 'account', type: 'group', label: user.email, children: [profileItem] }
+                            : profileItem,
+                        {
+                            type: 'divider',
+                        },
                         ...dropdownItems,
                         {
                             key: 'changeTheme',
@@ -48,7 +66,7 @@ export default function PageLayout({ navbarItems = [], dropdownItems = [], child
                     ]
                 }}
             >
-                <Avatar src="https://api.dicebear.com/7.x/miniavs/svg?seed=2"/>
+                <Avatar src="https://api.dicebear.com/7.x/miniavs/svg?seed=2" alt={user?.email}/>
             </Dropdown>
         </Layout.Header>
         <Layout.Content style={{ display: 'flex', maxHeight: '100%' }}>

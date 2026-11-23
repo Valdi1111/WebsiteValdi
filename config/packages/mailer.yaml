@@ -1,3 +1,9 @@
 framework:
     mailer:
         dsn: '%env(MAILER_DSN)%'
+        headers:
+            # Sender of every email: MAILER_SENDER (e.g. in .env.local), noreply@ the main domain when not set
+            From: '%env(default:mailer_default_sender:MAILER_SENDER)%'
+
+parameters:
+    mailer_default_sender: 'noreply@%domain_name%'

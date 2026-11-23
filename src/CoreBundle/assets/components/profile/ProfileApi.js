@@ -17,6 +17,7 @@ import axios from "axios";
  * @property {() => Promise<axios.AxiosResponse<ProfileRole[]>>} getRoles
  * @property {(file: File) => Promise<axios.AxiosResponse<import("../user/CurrentUserContext").CurrentUser>>} uploadAvatar
  * @property {() => Promise<axios.AxiosResponse<import("../user/CurrentUserContext").CurrentUser>>} removeAvatar
+ * @property {(currentPassword: string, newPassword: string) => Promise<axios.AxiosResponse<void>>} changePassword
  * @property {() => ProfileAPI} withErrorHandling
  * @property {(messageData: any) => ProfileAPI} withLoadingMessage
  */
@@ -41,6 +42,11 @@ export default function createProfileApi({ message }) {
         return axiosInstance.post('/avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
     };
     api.removeAvatar = async () => axiosInstance.delete('/avatar');
+    // 204; 422 with the violations, 429 after too many wrong current passwords
+    api.changePassword = async (currentPassword, newPassword) => axiosInstance.post('/password', {
+        current_password: currentPassword,
+        new_password: newPassword,
+    });
 
     return {
         ...api,

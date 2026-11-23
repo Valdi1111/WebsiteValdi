@@ -1,3 +1,5 @@
 twig:
     globals:
         mercure_hub_url: '%env(MERCURE_PUBLIC_URL)%'
+        # Name of the site in the emails (@Core/email/layout.html.twig)
+        site_domain: '%domain_name%'

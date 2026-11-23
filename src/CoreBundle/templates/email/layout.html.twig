@@ -1,0 +1,64 @@
+{#
+    Layout of every email: a white card on a grey background, with the colors of the site (Ant Design defaults).
+    Tables and inlined CSS (inline_css, twig/cssinliner-extra), since many email clients ignore <style> and modern
+    layout. The plain text part is made from this HTML by Symfony (league/html-to-markdown); the button links are
+    also written out as addresses, for the clients that show neither.
+
+    Blocks: title (also the <title>), content.
+#}
+{% apply inline_css %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}{% endblock %}</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            color: #1f1f1f;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .wrapper { width: 100%; background-color: #f5f5f5; }
+        .container { width: 100%; max-width: 560px; }
+        .card { background-color: #ffffff; border: 1px solid #f0f0f0; border-radius: 8px; }
+        .header { padding: 20px 32px; border-bottom: 1px solid #f0f0f0; font-size: 16px; font-weight: 600; color: #1f1f1f; }
+        .content { padding: 32px; }
+        .footer { padding: 16px 32px; color: #8c8c8c; font-size: 12px; text-align: center; }
+        h1 { margin: 0 0 16px; font-size: 20px; font-weight: 600; line-height: 1.4; color: #1f1f1f; }
+        p { margin: 0 0 16px; }
+        a { color: #1677ff; }
+        .button { display: inline-block; padding: 10px 20px; border-radius: 6px; background-color: #1677ff; color: #ffffff; font-weight: 600; text-decoration: none; }
+        .muted { color: #8c8c8c; font-size: 12px; }
+        .link { word-break: break-all; }
+    </style>
+</head>
+<body>
+<table class="wrapper" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+        <td align="center" style="padding: 32px 16px;">
+            <table class="container" role="presentation" width="560" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                    <td class="card">
+                        <div class="header">{{ site_domain }}</div>
+                        <div class="content">
+                            {% block content %}{% endblock %}
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="footer">
+                        Automatic email from {{ site_domain }}: replies are not read.
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>
+</body>
+</html>
+{% endapply %}

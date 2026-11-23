@@ -106,6 +106,8 @@ Two scheduled tasks ensure no HoYoLAB daily check-in is missed:
 2. **Missed Check-In Reminder (`HoyolabMissedCheckInBatchMessage`)** — Schedule: `0 14 * * *`
    - For profiles with `hoyolabMissedCheckIn = true` (when auto check-in is disabled or failed), checks midday whether today's check-in is still pending and sends a reminder with today's claimable reward.
 
+**Run a task now**: `php bin/console hoyoverse:task [<task>]` runs any scheduled task by hand (check-in, codes, reminders, diary and pulls sync, cookie renewal), as the scheduler does for every eligible profile or, with `--profile-id`, for given profiles whatever their settings. `--list` shows the tasks, `--region` limits a regional task, `--sync` handles the messages in the console instead of queuing them (shared flow: [`AbstractTaskCommand`](../GamesBundle/README.md#1-backend)).
+
 ---
 
 ## 4. Promo Code Auto Redemption

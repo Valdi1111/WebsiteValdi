@@ -87,6 +87,8 @@ Two scheduled tasks handle daily check-in for *Arknights: Endfield* (`/web/v1/ga
 2. **Missed Check-In Reminder (`SkportMissedCheckInBatchMessage`)** — Schedule: `0 14 * * *`
    - For profiles with `skportMissedCheckIn = true`, checks at 14:00 whether daily check-in is still pending and sends a reminder notification.
 
+**Run a task now**: `php bin/console gryphline:task [<task>]` runs any scheduled task by hand (check-in, stamina, reminders, pulls sync, catalog), as the scheduler does for every eligible profile or, with `--profile-id`, for given profiles whatever their settings. `--list` shows the tasks, `--region` limits a regional task, `--sync` handles the messages in the console instead of queuing them (shared flow: [`AbstractTaskCommand`](../GamesBundle/README.md#1-backend)).
+
 ---
 
 ## 4. Reminders & Real-Time Monitoring (Game Notes)

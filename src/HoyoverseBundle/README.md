@@ -138,6 +138,8 @@ Two scheduled tasks ensure no HoYoLAB daily check-in is missed:
 
 Reminders are split into **Global Tasks** (run at fixed intervals regardless of server) and **Regional Tasks** (run according to the game server's timezone: `SEA` → `Asia/Shanghai`, `EU` → `Europe/Paris`, `NA` → `America/New_York`).
 
+**Embeds**: each handler checks whether to notify (threshold, all done...) and passes the data to a presenter (`GamesBundle\Presenter\{Stamina,Dailies,Weeklies,Endgames}Presenter`, `HoyoverseBundle\Presenter\{Expeditions,RealmCurrency,ShopStatus}Presenter`), which builds the embed without any check, so other callers can show the same data (see the [GamesBundle design notes](../GamesBundle/README.md#4-design-notes)).
+
 **Notes cache**: `NotesTrait::getNotes()` keeps the raw `dailyNote` payload of each game profile in `hoyoverse.notes.cache` for 5 minutes, so the stamina, expeditions, realm, shop, dailies and weeklies checks of one profile share one HoYoLAB call (see the [GamesBundle design notes](../GamesBundle/README.md#4-design-notes)). Errors and `-501000` answers are not cached; `getNotes($account, fresh: true)` bypasses the cache and stores the new answer.
 
 ### 5.1 Stamina Reminder (`StaminaCheckBatchMessage`)
@@ -147,7 +149,7 @@ Reminders are split into **Global Tasks** (run at fixed intervals regardless of 
 
 ### 5.2 Expeditions Reminder (`ExpeditionsCheckBatchMessage`)
 - **Schedule**: `*/30 * * * *` (every 30 minutes) — *Genshin Impact, Honkai: Star Rail*.
-- **Behavior**: checks expedition/assignment status; when **all** active expeditions are `Finished`, sends a single notification per completion cycle using state caching.
+- **Behavior**: when **all** dispatched expeditions/assignments are `Finished`, notifies with `🧭 Expeditions` (`4/4 completed`; the embed also shows `🕒 Completion Time` while some are still out, for other callers). No deduplication: every run notifies until the expeditions are dispatched again.
 
 ### 5.3 Realm Currency Reminder (`RealmCurrencyCheckBatchMessage`)
 - **Schedule**: `0 * * * *` (hourly) — *Genshin Impact (Serenitea Pot)*.
@@ -155,7 +157,7 @@ Reminders are split into **Global Tasks** (run at fixed intervals regardless of 
 
 ### 5.4 Shop Status Reminder (`ShopStatusCheckBatchMessage`)
 - **Schedule**: `0 * * * *` (hourly) — *Zenless Zone Zero*.
-- **Behavior**: monitors Video Store status (`VhsSaleState`) and alerts if the store needs attention (`SaleStateNo` / no VHS promoted).
+- **Behavior**: monitors the Video Store status (`VhsSaleState`) and notifies when the store has finished selling (`SaleStateDone`), with `📼 Shop Status` (`Closed`, `Open` or `Finished`).
 
 ### 5.5 Dailies & Weeklies Reminders (`DailiesReminderBatchMessage` / `WeekliesReminderBatchMessage`)
 - **Regional Schedule**:
@@ -178,7 +180,7 @@ Reminders are split into **Global Tasks** (run at fixed intervals regardless of 
   | Shiyu Defense | floor 4 attempted (rated or with teams), or a score or a rating on floor 5 (floors 1–3 are completed automatically) | floor 4 at S rank and the three floor-5 stages at S rank, as rated by HoYoLAB (`S…` prefix, no score threshold) |
   | Deadly Assault | an attempt with a score or stars | 9★ (3★ on each of the three bosses, or `total_star` while the per-boss list is still empty) |
   | Deadly Assault (Hard) | reminded only once unlocked: 9★ in normal mode, or `has_hard` (which only says the period has Hard mode data: false at 9★ before trying it); then an attempt with a score or stars | 3★ (one boss) |
-- **Notification**: one per profile, one row per mode with three inline fields: each variant (`Not played yet`, or its progress lines: `7/9 ★`, or for Shiyu Defense one line per floor with its own icon, `⚔️ Floor 4: A`, `⚔️ Floor 5: 2/3 S`, then the stages below S, `↳ Stage 2: A (21,000)`; ✅ when at the maximum, empty when off or locked), then `🕒 Ends in` (`GameUtilsService::formatTime()`, two units). Empty fields (`"\u{200b}"`) keep the rows aligned on Discord and are skipped by Telegram.
+- **Notification**: one per profile, one row per mode with three inline fields: each variant (`Not played yet`, or its progress lines: `7/9 ★`, or for Shiyu Defense one line per floor with its own icon, `⚔️ Floor 4: A`, `⚔️ Floor 5: 2/3 S`, then the stages below S, `↳ Stage 2: A (21,000)`; ✅ when at the maximum, empty when off or locked), then `🕒 Ends in` (`DurationFormatter`, two units). Empty fields (`"\u{200b}"`) keep the rows aligned on Discord and are skipped by Telegram. The handler picks the modes to remind and passes them as `EndgameModeStatus` (variants turned off left empty) to `GamesBundle`'s `EndgamesPresenter`, which lays out the rows.
 - **Dates**: Shiyu Defense uses its epoch `end_time`. Deadly Assault only has `{year, month, day, …}` objects, which are server wall-clock times: `HoyoverseServerTimezoneResolver::serverWallClockToInstant()` reads them in the fixed offset of the profile's server (§7.5).
 - **Unexpected responses**: missing or `null` fields, empty lists and `has_data: false` count as not played; a mode without an end date gets no reminder (`info` log); empty date objects (all `null`, zeros) count as no date; a Shiyu Defense response whose `hadal_ver` is not `v2` is left out with a `warning` in the `hoyoverse.zzz` log. HoYoLAB updates the totals before the per-floor and per-boss detail (seen right after a run): a Shiyu Defense score without the floor detail is left out of that run (`info` log), Deadly Assault falls back to `total_star`. `EndgamesReminderProfileHandler` reads each mode on its own and skips the modes whose variants are all `off`: one whose request or shape fails is left out with a `warning` (exception class and retcode only) and the others are still reminded; when every requested mode fails the first error is thrown, so an expired cookie fails the task like in the other reminders.
 - **Other games**: `GenshinImpactEndgamesTrait` (requests only) and `HonkaiStarRailEndgamesTrait` (empty) do not implement `HasEndgamesInterface` yet. A game gets the reminder (configuration, settings, notification) by implementing the interface; at most two variants per mode fit in a notification row.

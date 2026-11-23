@@ -102,21 +102,6 @@ abstract class AbstractProfileTaskMessageHandler
         }
     }
 
-    public function createNotificationWithAccountData(RuntimeAccountData $accountData, string $title): UniversalEmbed
-    {
-        $gameProfile = $accountData->getGameProfile();
-
-        return new UniversalEmbed()
-            ->setTitle(sprintf('%s - %s', $gameProfile->getGameName(), $title))
-            ->setColor(0x3498DB)
-            ->setFooterText($gameProfile->getGameName())
-            ->setFooterIconUrl($gameProfile->getIconUrl() ?? 'https://hoyolab.com/favicon.ico')
-            ->setTimestamp(new \DateTimeImmutable())
-            ->addField('Player', sprintf('(`%s`) %s', $gameProfile->getGameUid(), $gameProfile->getNickname() ?? 'Player'), icon: '👤', inline: true)
-            ->addField('Region', $gameProfile->getParsedRegion() ?? 'Global', icon: '🌍', inline: true)
-            ->addField('Rank', (string) ($gameProfile->getLevel() ?? 1), icon: '🏆', inline: true);
-    }
-
     public function sendNotificationToAccountData(RuntimeAccountData $accountData, UniversalEmbed $notification): void
     {
         $this->notificationService->sendToUser(

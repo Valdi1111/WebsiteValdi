@@ -31,4 +31,29 @@ class GameNotesExpeditions extends ArrayCollection
         return $this->forAll(static fn ($_, GameNotesExpedition $expedition) => $expedition->isDone());
     }
 
+    public function countDone(): int
+    {
+        return $this->filter(static fn (GameNotesExpedition $expedition) => $expedition->isDone())->count();
+    }
+
+    /**
+     * Seconds until the last expedition still out is back. Null when none is out, or when one of them has no
+     * remaining time.
+     */
+    public function getCompletionTime(): ?int
+    {
+        $times = [];
+        foreach ($this as $expedition) {
+            if ($expedition->isDone()) {
+                continue;
+            }
+            if ($expedition->getRemainingTime() === null) {
+                return null;
+            }
+            $times[] = $expedition->getRemainingTime();
+        }
+
+        return $times !== [] ? max($times) : null;
+    }
+
 }

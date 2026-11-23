@@ -5,6 +5,7 @@ namespace App\HoyoverseBundle\MessageHandler\Profile;
 use App\HoyoverseBundle\Exception\CodeRedeemFailedException;
 use App\HoyoverseBundle\Message\Profile\CodeRedeemProfileMessage;
 use App\GamesBundle\Message\ProfileTaskMessageInterface;
+use App\GamesBundle\Presenter\GameProfileEmbedFactory;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasAutoCodeRedemptionInterface;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
@@ -35,6 +36,14 @@ class CodeRedeemProfileHandler extends AbstractProfileTaskMessageHandler
     ): void
     {
         $this->cache = $cache;
+    }
+
+    private GameProfileEmbedFactory $embedFactory;
+
+    #[Required]
+    public function setEmbedFactory(GameProfileEmbedFactory $embedFactory): void
+    {
+        $this->embedFactory = $embedFactory;
     }
 
     public function __invoke(CodeRedeemProfileMessage $message): void
@@ -75,7 +84,7 @@ class CodeRedeemProfileHandler extends AbstractProfileTaskMessageHandler
             $this->markAsRedeemed($redeemedKey);
             $this->getCache()->deleteItem($pendingKey);
 
-            $notification = $this->createNotificationWithAccountData($accountData, "Code Redeem")
+            $notification = $this->embedFactory->create($accountData->getGameProfile(), "Code Redeem")
                 ->setDescription("Code Successfully Redeemed!")
                 ->addField("Code", $redeemableCode->getCode(), icon: "💰", inline: true)
                 ->addField("Rewards", implode("\n", $redeemableCode->getRewards()), inline: true);
@@ -98,7 +107,7 @@ class CodeRedeemProfileHandler extends AbstractProfileTaskMessageHandler
                 $this->markAsRedeemed($redeemedKey);
                 $this->getCache()->deleteItem($pendingKey);
 
-                $notification = $this->createNotificationWithAccountData($accountData, "Code Redeem")
+                $notification = $this->embedFactory->create($accountData->getGameProfile(), "Code Redeem")
                     ->setDescription("Code Redeem Failed! ({$e->getHoyolabMessage()} {$e->getHoyolabRetcode()})")
                     ->addField("Code", "[{$redeemableCode->getCode()}]({$gameService->getRedemptionLink()}?code={$redeemableCode->getCode()})", icon: "💰", inline: true);
 
@@ -109,7 +118,7 @@ class CodeRedeemProfileHandler extends AbstractProfileTaskMessageHandler
             // Transient error: release pending lock so Messenger retry strategy can handle it
             $this->getCache()->deleteItem($pendingKey);
 
-            $notification = $this->createNotificationWithAccountData($accountData, "Code Redeem")
+            $notification = $this->embedFactory->create($accountData->getGameProfile(), "Code Redeem")
                 ->setDescription("Code Redeem Failed! ({$e->getHoyolabMessage()} {$e->getHoyolabRetcode()})")
                 ->addField("Code", "[{$redeemableCode->getCode()}]({$gameService->getRedemptionLink()}?code={$redeemableCode->getCode()})", icon: "💰", inline: true)
                 ->addField("Rewards", implode("\n", $redeemableCode->getRewards()), inline: true);

@@ -233,11 +233,12 @@ class GenshinImpactService extends GameService implements HasNotesInterface, Has
     {
         $notes = $this->getNotes($account);
         $expeditions = new GameNotesExpeditions();
-        foreach ($notes->getExpeditions() as $expedition) {
+        foreach ($notes->getExpeditions() ?? [] as $expedition) {
             $expeditions->addExpedition(
                 $expedition->getAvatarSideIcon(),
                 strtolower($expedition->getStatus() ?? ""),
-                $expedition->getRemainedTime()
+                // HoYoLAB sends the remaining seconds as a string
+                $expedition->getRemainedTime() !== null ? (int) $expedition->getRemainedTime() : null
             );
         }
         return $expeditions;

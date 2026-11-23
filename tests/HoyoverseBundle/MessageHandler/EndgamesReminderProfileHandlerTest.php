@@ -11,6 +11,9 @@ use App\CoreBundle\Service\Notification\TelegramParsedown;
 use App\CoreBundle\Service\Notification\UnifiedNotificationService;
 use App\GamesBundle\Model\Endgame\EndgameDefinition;
 use App\GamesBundle\Model\Endgame\GameEndgame;
+use App\GamesBundle\Presenter\EndgamesPresenter;
+use App\GamesBundle\Presenter\GameProfileEmbedFactory;
+use App\GamesBundle\Service\DurationFormatter;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Exception\RetrieveDeadlyAssaultDataException;
@@ -19,7 +22,6 @@ use App\HoyoverseBundle\MessageHandler\Profile\EndgamesReminderProfileHandler;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
-use App\HoyoverseBundle\Service\HoyolabUtilsService;
 use App\HoyoverseBundle\Service\ZenlessZoneZeroService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -32,7 +34,7 @@ class EndgamesReminderProfileHandlerTest extends TestCase
     /** End of the periods used below: 2026-03-20 03:59:59 server time (UTC+01:00) */
     private const string END = '2026-03-20 03:59:59';
 
-    private const string FILLER = EndgamesReminderProfileHandler::FILLER;
+    private const string FILLER = EndgamesPresenter::FILLER;
 
     /** @var list<UniversalEmbed> */
     private array $sent = [];
@@ -92,7 +94,9 @@ class EndgamesReminderProfileHandlerTest extends TestCase
         );
         $handler->setEndgamesConfig($config);
         // The task runs at 15:00 of the regional timezone
-        $handler->setClock(new MockClock($now, 'Europe/Paris'));
+        $clock = new MockClock($now, 'Europe/Paris');
+        $handler->setClock($clock);
+        $handler->setEndgamesPresenter(new EndgamesPresenter(new GameProfileEmbedFactory($clock), new DurationFormatter()));
 
         return $handler;
     }
@@ -105,7 +109,6 @@ class EndgamesReminderProfileHandlerTest extends TestCase
     private function zenless(array $results): ZenlessZoneZeroService
     {
         $service = $this->createStub(ZenlessZoneZeroService::class);
-        $service->method('getHoyolabUtils')->willReturn(new HoyolabUtilsService());
         $service->method('fetchEndgame')->willReturnCallback(function (EndgameDefinition $definition) use ($results): array {
             $this->requested[] = $definition->key;
             $result = $results[$definition->key] ?? [];

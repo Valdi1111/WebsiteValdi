@@ -314,6 +314,12 @@ class HoyoverseGameProfile implements GameProfileInterface
         return $this;
     }
 
+    #[Ignore]
+    public function getProviderIconUrl(): string
+    {
+        return 'https://hoyolab.com/favicon.ico';
+    }
+
     public function getParsedRegion(): ?string
     {
         return $this->parsedRegion;

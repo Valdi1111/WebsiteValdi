@@ -250,6 +250,12 @@ class GryphlineGameProfile implements GameProfileInterface
         return $this;
     }
 
+    #[Ignore]
+    public function getProviderIconUrl(): string
+    {
+        return 'https://game.skport.com/favicon.ico';
+    }
+
     public function getParsedRegion(): ?string
     {
         return $this->parsedRegion ?? $this->region;

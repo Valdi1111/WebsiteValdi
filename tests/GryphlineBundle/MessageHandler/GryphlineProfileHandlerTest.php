@@ -7,6 +7,11 @@ use App\GamesBundle\Model\GameNotes\GameNotesDailies;
 use App\GamesBundle\Model\GameNotes\GameNotesProgressMetric;
 use App\GamesBundle\Model\GameNotes\GameNotesStamina;
 use App\GamesBundle\Model\GameNotes\GameNotesWeeklies;
+use App\GamesBundle\Presenter\DailiesPresenter;
+use App\GamesBundle\Presenter\GameProfileEmbedFactory;
+use App\GamesBundle\Presenter\StaminaPresenter;
+use App\GamesBundle\Presenter\WeekliesPresenter;
+use App\GamesBundle\Service\DurationFormatter;
 use App\CoreBundle\Model\Notification\UniversalEmbed;
 use App\CoreBundle\Service\Notification\UnifiedNotificationService;
 use App\GryphlineBundle\Entity\GryphlineAccount;
@@ -26,13 +31,18 @@ use App\GamesBundle\Model\Game\CheckInResult;
 use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Repository\GryphlineGameProfileRepository;
 use App\GryphlineBundle\Service\EndfieldService;
-use App\GryphlineBundle\Service\SkportUtilsService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Contracts\Service\ServiceCollectionInterface;
 
 class GryphlineProfileHandlerTest extends TestCase
 {
+    private static function embedFactory(): GameProfileEmbedFactory
+    {
+        return new GameProfileEmbedFactory(new MockClock());
+    }
+
     private function createProfileWithUser(int $id = 1, string $biz = 'endfield'): GryphlineGameProfile
     {
         $user = new User();
@@ -62,12 +72,8 @@ class GryphlineProfileHandlerTest extends TestCase
             ->setMaxStamina(360)
             ->setStaminaRecoverTime(3600);
 
-        $skportUtils = $this->createStub(SkportUtilsService::class);
-        $skportUtils->method('formatTime')->willReturn('1h 0m');
-
         $endfieldService = $this->createStub(EndfieldService::class);
         $endfieldService->method('getStaminaData')->willReturn($staminaData);
-        $endfieldService->method('getSkportUtils')->willReturn($skportUtils);
 
         $locator = $this->createStub(ServiceCollectionInterface::class);
         $locator->method('has')->willReturn(true);
@@ -86,6 +92,7 @@ class GryphlineProfileHandlerTest extends TestCase
             );
 
         $handler = new StaminaCheckProfileHandler($repo, $locator, new NullLogger(), $notificationService);
+        $handler->setStaminaPresenter(new StaminaPresenter(self::embedFactory(), new DurationFormatter()));
         $handler(new StaminaCheckProfileMessage(1));
     }
 
@@ -112,6 +119,7 @@ class GryphlineProfileHandlerTest extends TestCase
         $notificationService->expects($this->never())->method('sendToUser');
 
         $handler = new StaminaCheckProfileHandler($repo, $locator, new NullLogger(), $notificationService);
+        $handler->setStaminaPresenter(new StaminaPresenter(self::embedFactory(), new DurationFormatter()));
         $handler(new StaminaCheckProfileMessage(1));
     }
 
@@ -131,6 +139,7 @@ class GryphlineProfileHandlerTest extends TestCase
         $notificationService->expects($this->never())->method('sendToUser');
 
         $handler = new StaminaCheckProfileHandler($repo, $locator, new NullLogger(), $notificationService);
+        $handler->setStaminaPresenter(new StaminaPresenter(self::embedFactory(), new DurationFormatter()));
         $handler(new StaminaCheckProfileMessage(1));
     }
 
@@ -168,6 +177,7 @@ class GryphlineProfileHandlerTest extends TestCase
             );
 
         $handler = new DailiesReminderProfileHandler($repo, $locator, new NullLogger(), $notificationService);
+        $handler->setDailiesPresenter(new DailiesPresenter(self::embedFactory()));
         $handler(new DailiesReminderProfileMessage(1));
     }
 
@@ -196,6 +206,7 @@ class GryphlineProfileHandlerTest extends TestCase
         $notificationService->expects($this->never())->method('sendToUser');
 
         $handler = new DailiesReminderProfileHandler($repo, $locator, new NullLogger(), $notificationService);
+        $handler->setDailiesPresenter(new DailiesPresenter(self::embedFactory()));
         $handler(new DailiesReminderProfileMessage(1));
     }
 
@@ -233,6 +244,7 @@ class GryphlineProfileHandlerTest extends TestCase
             );
 
         $handler = new WeekliesReminderProfileHandler($repo, $locator, new NullLogger(), $notificationService);
+        $handler->setWeekliesPresenter(new WeekliesPresenter(self::embedFactory()));
         $handler(new WeekliesReminderProfileMessage(1));
     }
 
@@ -272,6 +284,7 @@ class GryphlineProfileHandlerTest extends TestCase
             );
 
         $handler = new SkportCheckInProfileHandler($repo, $locator, new NullLogger(), $notificationService);
+        $handler->setEmbedFactory(self::embedFactory());
         $handler(new SkportCheckInProfileMessage(1));
     }
 
@@ -312,6 +325,7 @@ class GryphlineProfileHandlerTest extends TestCase
             );
 
         $handler = new SkportMissedCheckInProfileHandler($repo, $locator, new NullLogger(), $notificationService);
+        $handler->setEmbedFactory(self::embedFactory());
         $handler(new SkportMissedCheckInProfileMessage(1));
     }
 
@@ -337,6 +351,7 @@ class GryphlineProfileHandlerTest extends TestCase
         $notificationService->expects($this->never())->method("sendToUser");
 
         $handler = new SkportMissedCheckInProfileHandler($repo, $locator, new NullLogger(), $notificationService);
+        $handler->setEmbedFactory(self::embedFactory());
         $handler(new SkportMissedCheckInProfileMessage(1));
     }
 }

@@ -31,35 +31,12 @@ abstract class GameUtilsService
 
     /**
      * E.g. "2 days, 3 hr, 15 min, 0 sec". With $maxUnits only the largest units are kept: "2 days, 3 hr" for 2.
+     *
+     * @see DurationFormatter::format()
      */
     public function formatTime(float $seconds = 0, ?int $maxUnits = null): string
     {
-        $array = [];
-
-        if ($seconds >= self::TIME_UNITS['d']['s']) {
-            $days = (int) floor($seconds / self::TIME_UNITS['d']['s']);
-            $array[] = $days === 1 ? '1 day' : "{$days} days";
-            $seconds -= ($days * self::TIME_UNITS['d']['s']);
-        }
-        if ($seconds >= self::TIME_UNITS['h']['s']) {
-            $hr = (int) floor($seconds / self::TIME_UNITS['h']['s']);
-            $array[] = "{$hr} hr";
-            $seconds -= ($hr * self::TIME_UNITS['h']['s']);
-        }
-        if ($seconds >= self::TIME_UNITS['m']['s']) {
-            $min = (int) floor($seconds / self::TIME_UNITS['m']['s']);
-            $array[] = "{$min} min";
-            $seconds -= ($min * self::TIME_UNITS['m']['s']);
-        }
-        if ($seconds >= 0 || empty($array)) {
-            $array[] = $this->round($seconds, 3) . ' sec';
-        }
-
-        if ($maxUnits !== null) {
-            $array = array_slice($array, 0, max(1, $maxUnits));
-        }
-
-        return implode(', ', $array);
+        return new DurationFormatter()->format($seconds, $maxUnits);
     }
 
     public function round(float $number, int $precision = 0): float

@@ -7,7 +7,9 @@ use App\GamesBundle\Message\ProfileTaskMessageInterface;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasExpeditionsInterface;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
+use App\HoyoverseBundle\Presenter\ExpeditionsPresenter;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Contracts\Service\Attribute\Required;
 
 /**
  * @implements AbstractProfileTaskMessageHandler<ExpeditionsCHeckProfileMessage>
@@ -15,6 +17,14 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 #[AsMessageHandler]
 class ExpeditionsCheckProfileHandler extends AbstractProfileTaskMessageHandler
 {
+    private ExpeditionsPresenter $expeditionsPresenter;
+
+    #[Required]
+    public function setExpeditionsPresenter(ExpeditionsPresenter $expeditionsPresenter): void
+    {
+        $this->expeditionsPresenter = $expeditionsPresenter;
+    }
+
     public function __invoke(ExpeditionsCHeckProfileMessage $message): void
     {
         $this->handleProfile($message);
@@ -35,8 +45,12 @@ class ExpeditionsCheckProfileHandler extends AbstractProfileTaskMessageHandler
             return;
         }
 
-        $notification = $this->createNotificationWithAccountData($accountData, "Expeditions Reminder")
-            ->setDescription("All expeditions are completed!");
+        $notification = $this->expeditionsPresenter->present(
+            $accountData->getGameProfile(),
+            $expeditions,
+            "Expeditions Reminder",
+            "All expeditions are completed!"
+        );
 
         $this->sendNotificationToAccountData($accountData, $notification);
     }

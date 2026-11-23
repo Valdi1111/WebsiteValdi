@@ -14,3 +14,11 @@ liip_imagine:
         cache: ~
     twig:
         mode: lazy
+
+# The tests store the resized images (e.g. the profile image warm-up) under the cache dir, not in public/
+when@test:
+    liip_imagine:
+        resolvers:
+            default:
+                web_path:
+                    web_root: '%kernel.cache_dir%/public'

@@ -1,7 +1,8 @@
 import SpinComponent from "@CoreBundle/components/SpinComponent";
+import AvatarEditor from "@CoreBundle/components/profile/AvatarEditor";
 import RolesCard from "@CoreBundle/components/profile/RolesCard";
 import { useCurrentUser } from "@CoreBundle/components/user/CurrentUserContext";
-import { Button, Card, Descriptions, Flex, Result, Typography } from "antd";
+import { Button, Card, Descriptions, Divider, Flex, Result, Typography } from "antd";
 import React from "react";
 
 export default function ProfilePage() {
@@ -21,6 +22,8 @@ export default function ProfilePage() {
 
     return <Flex vertical gap="middle" style={{ width: '100%', maxWidth: 720, margin: '0 auto', padding: 24, overflowY: 'auto' }}>
         <Card title="Account">
+            <AvatarEditor/>
+            <Divider/>
             <Descriptions
                 column={1}
                 items={[

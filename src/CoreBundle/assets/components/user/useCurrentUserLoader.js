@@ -26,9 +26,12 @@ export default function useCurrentUserLoader() {
         );
     }, []);
 
+    // For the answers that already carry the updated user (e.g. the avatar upload): no second request
+    const setUser = React.useCallback(user => setState({ user, loading: false, error: null }), []);
+
     React.useEffect(() => {
         reload();
     }, [reload]);
 
-    return React.useMemo(() => ({ ...state, reload }), [state, reload]);
+    return React.useMemo(() => ({ ...state, reload, setUser }), [state, reload, setUser]);
 }

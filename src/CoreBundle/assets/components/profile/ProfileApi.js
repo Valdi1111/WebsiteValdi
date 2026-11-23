@@ -15,6 +15,8 @@ import axios from "axios";
 /**
  * @typedef {Object} ProfileAPI
  * @property {() => Promise<axios.AxiosResponse<ProfileRole[]>>} getRoles
+ * @property {(file: File) => Promise<axios.AxiosResponse<import("../user/CurrentUserContext").CurrentUser>>} uploadAvatar
+ * @property {() => Promise<axios.AxiosResponse<import("../user/CurrentUserContext").CurrentUser>>} removeAvatar
  * @property {() => ProfileAPI} withErrorHandling
  * @property {(messageData: any) => ProfileAPI} withLoadingMessage
  */
@@ -32,6 +34,13 @@ export default function createProfileApi({ message }) {
     const api = {};
 
     api.getRoles = async () => axiosInstance.get('/roles');
+    // Both answer with the updated current user
+    api.uploadAvatar = async (file) => {
+        const formData = new FormData();
+        formData.append('avatar', file);
+        return axiosInstance.post('/avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+    };
+    api.removeAvatar = async () => axiosInstance.delete('/avatar');
 
     return {
         ...api,

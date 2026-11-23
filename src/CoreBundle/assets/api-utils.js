@@ -107,9 +107,12 @@ export function withLoadingMessage(promiseFn, message, messageData) {
             } else if (err.request) {
                 // The request was made but no response was received
                 console.error('Error request:', err.request);
+                // Replaces the loading message, which has no duration
+                message.open({ key, type: "error", content: errorContent || 'The server could not be reached.', duration });
             } else {
                 // Something happened in setting up the request that triggered an Error
                 console.error('Error message:', err.message);
+                message.open({ key, type: "error", content: errorContent || err.message, duration });
             }
             // Rethrow the error to allow callers to handle it
             return Promise.reject(err);

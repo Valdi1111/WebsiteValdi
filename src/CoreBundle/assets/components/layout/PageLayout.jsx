@@ -1,7 +1,8 @@
 import { LogoutOutlined, MoonOutlined, SunOutlined, UserOutlined } from "@ant-design/icons";
-import { Avatar, Dropdown, Layout, Menu, theme as antdTheme } from "antd";
+import { Dropdown, Layout, Menu, theme as antdTheme } from "antd";
 import { useThemes } from "@CoreBundle/components/theme/ThemeContext";
 import { useCurrentUser } from "@CoreBundle/components/user/CurrentUserContext";
+import UserAvatar from "@CoreBundle/components/user/UserAvatar";
 import { useLocation } from "react-router";
 import React from "react";
 
@@ -66,7 +67,7 @@ export default function PageLayout({ navbarItems = [], dropdownItems = [], child
                     ]
                 }}
             >
-                <Avatar src="https://api.dicebear.com/7.x/miniavs/svg?seed=2" alt={user?.email}/>
+                <UserAvatar user={user} style={{ cursor: 'pointer' }}/>
             </Dropdown>
         </Layout.Header>
         <Layout.Content style={{ display: 'flex', maxHeight: '100%' }}>

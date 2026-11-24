@@ -1,0 +1,15 @@
+{# Context: account_email, set_password_url, expires_in, password_set, login_url, forgot_password_url (WelcomeLinkSender) #}
+{% extends '@Core/email/layout.html.twig' %}
+
+{% block title %}Your account is ready{% endblock %}
+
+{% block content %}
+    <h1>Your account is ready</h1>
+    <p>An administrator created an account for you, with the email <strong>{{ account_email }}</strong>. Choose your password from this link, which works once and expires in {{ expires_in }}:</p>
+    <p><a class="button" href="{{ set_password_url }}">Choose your password</a></p>
+    <p class="muted">If the button does not work, open this address in your browser:<br><a class="link" href="{{ set_password_url }}">{{ set_password_url }}</a></p>
+    {% if password_set %}
+        <p>The administrator also gave your account a password: you can <a class="link" href="{{ login_url }}">log in</a> with it right away, and change it from your profile.</p>
+    {% endif %}
+    <p>If the link has expired, ask for a new one from <a class="link" href="{{ forgot_password_url }}">Forgot password</a> on the login page.</p>
+{% endblock %}

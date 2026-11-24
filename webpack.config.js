@@ -44,6 +44,7 @@ Encore
      * and one CSS file (e.g. app.css) if your JavaScript imports CSS.
      */
     .addEntry('core', '@CoreBundle/app.js')
+    .addEntry('admin', '@CoreBundle/admin.js')
     .addEntry('login', '@CoreBundle/login.js')
     .addEntry('anime', '@AnimeBundle/app.js')
     .addEntry('books', '@BooksBundle/app.js')

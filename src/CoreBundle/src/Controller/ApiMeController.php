@@ -3,6 +3,7 @@
 namespace App\CoreBundle\Controller;
 
 use App\CoreBundle\Entity\User;
+use App\CoreBundle\Exception\FieldViolationHttpException;
 use App\CoreBundle\Exception\InvalidAvatarException;
 use App\CoreBundle\Exception\InvalidCurrentPasswordException;
 use App\CoreBundle\Model\Profile\ChangePasswordPayload;
@@ -16,14 +17,10 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Attribute\MapUploadedFile;
-use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\Constraints as Assert;
-use Symfony\Component\Validator\ConstraintViolation;
-use Symfony\Component\Validator\ConstraintViolationList;
-use Symfony\Component\Validator\Exception\ValidationFailedException;
 
 /**
  * The logged-in user, for the frontend of every subdomain: core routes have no host
@@ -113,26 +110,15 @@ class ApiMeController extends AbstractController
         try {
             $this->passwordManager->change($user, $payload->currentPassword, $payload->newPassword);
         } catch (InvalidCurrentPasswordException $e) {
-            throw self::violation('currentPassword', $e->getMessage(), $e);
+            throw new FieldViolationHttpException('currentPassword', $e->getMessage(), $e);
         }
 
         return new Response(null, Response::HTTP_NO_CONTENT);
     }
 
-    private static function invalidAvatar(string $message, ?\Throwable $previous = null): UnprocessableEntityHttpException
+    private static function invalidAvatar(string $message, ?\Throwable $previous = null): FieldViolationHttpException
     {
-        return self::violation('avatar', $message, $previous);
-    }
-
-    /**
-     * A 422 with the same shape as the MapUploadedFile / MapRequestPayload violations, so that "detail" is readable
-     * also in production and the frontend can show the message next to the field.
-     */
-    private static function violation(string $propertyPath, string $message, ?\Throwable $previous = null): UnprocessableEntityHttpException
-    {
-        $violation = new ConstraintViolation($message, null, [], null, $propertyPath, null, cause: $previous);
-
-        return new UnprocessableEntityHttpException($message, new ValidationFailedException(null, new ConstraintViolationList([$violation])));
+        return new FieldViolationHttpException('avatar', $message, $previous);
     }
 
     private function currentUserView(User $user): CurrentUserView

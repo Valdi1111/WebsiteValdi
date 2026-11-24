@@ -1,4 +1,4 @@
-import { LogoutOutlined, MoonOutlined, SunOutlined, UserOutlined } from "@ant-design/icons";
+import { LogoutOutlined, MoonOutlined, SunOutlined, TeamOutlined, UserOutlined } from "@ant-design/icons";
 import { Dropdown, Layout, Menu, theme as antdTheme } from "antd";
 import { useThemes } from "@CoreBundle/components/theme/ThemeContext";
 import { useCurrentUser } from "@CoreBundle/components/user/CurrentUserContext";
@@ -8,6 +8,8 @@ import React from "react";
 
 // Core page, outside of the bundle apps' routers: a plain link loads it on the current subdomain
 const PROFILE_URL = '/profile';
+// Core admin page, outside of the bundle apps' routers like the profile
+const ADMIN_USERS_URL = '/admin/users';
 
 export default function PageLayout({ navbarItems = [], dropdownItems = [], childrenPre, children, childrenPost }) {
     const { token: { colorBgContainer } } = antdTheme.useToken();
@@ -28,6 +30,11 @@ export default function PageLayout({ navbarItems = [], dropdownItems = [], child
         icon: <UserOutlined/>,
     };
 
+    // Only for the admins: the backend refuses the admin pages to the other users anyway
+    const adminItems = user?.roles?.includes('ROLE_ADMIN')
+        ? [{ key: 'adminUsers', label: <a href={ADMIN_USERS_URL}>Users</a>, icon: <TeamOutlined/> }]
+        : [];
+
     return <Layout style={{ height: '100vh' }}>
         {childrenPre}
         <Layout.Header style={{ display: 'flex', alignItems: 'center', background: colorBgContainer }}>
@@ -43,7 +50,7 @@ export default function PageLayout({ navbarItems = [], dropdownItems = [], child
                     items: [
                         // Who is logged in, once /api/me answered
                         user
-                            ? { key: 'account', type: 'group', label: user.email, children: [profileItem] }
+                            ? { key: 'account', type: 'group', label: user.email, children: [profileItem, ...adminItems] }
                             : profileItem,
                         {
                             type: 'divider',

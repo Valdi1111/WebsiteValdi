@@ -22,6 +22,8 @@ security:
             request_matcher: App\CoreBundle\Security\BearerTokenRequestMatcher
             stateless: true
             provider: app_user_provider
+            # Refuses the disabled accounts
+            user_checker: App\CoreBundle\Security\UserChecker
             access_token:
                 token_handler: App\CoreBundle\Security\AccessTokenHandler
             entry_point: App\CoreBundle\Security\AuthenticationEntryPoint
@@ -29,6 +31,8 @@ security:
         main:
             lazy: true
             provider: app_user_provider
+            # Refuses the disabled accounts (form and remember-me logins)
+            user_checker: App\CoreBundle\Security\UserChecker
             form_login:
                 # "app_login" is the name of the route created previously
                 login_path: core_login

@@ -35,6 +35,17 @@ import axios from "axios";
  */
 
 /**
+ * The Telegram account linked to the logged-in user (GET /api/me/telegram): everything but `linked` is null when
+ * there is none.
+ *
+ * @typedef {Object} TelegramAccount
+ * @property {boolean} linked
+ * @property {string|null} username public username, without the @; null when the account has none
+ * @property {string|null} name display name; null also when linked, with the username, for the ids set by hand
+ *   before the OpenID Connect flow existed (no names stored until linked again)
+ */
+
+/**
  * @typedef {Object} ProfileAPI
  * @property {() => Promise<axios.AxiosResponse<ProfileRole[]>>} getRoles
  * @property {(file: File) => Promise<axios.AxiosResponse<import("../user/CurrentUserContext").CurrentUser>>} uploadAvatar
@@ -47,6 +58,8 @@ import axios from "axios";
  * @property {(id: number) => Promise<axios.AxiosResponse<void>>} deleteToken
  * @property {() => Promise<axios.AxiosResponse<DiscordAccount>>} getDiscord
  * @property {() => Promise<axios.AxiosResponse<void>>} unlinkDiscord
+ * @property {() => Promise<axios.AxiosResponse<TelegramAccount>>} getTelegram
+ * @property {() => Promise<axios.AxiosResponse<void>>} unlinkTelegram
  * @property {() => ProfileAPI} withErrorHandling
  * @property {(messageData: any) => ProfileAPI} withLoadingMessage
  */
@@ -86,6 +99,9 @@ export default function createProfileApi({ message }) {
     // (/profile/discord/connect); unlinking answers 204 also when nothing is linked
     api.getDiscord = async () => axiosInstance.get('/discord');
     api.unlinkDiscord = async () => axiosInstance.delete('/discord');
+    // Telegram: the same, with the OpenID Connect flow of /profile/telegram/connect
+    api.getTelegram = async () => axiosInstance.get('/telegram');
+    api.unlinkTelegram = async () => axiosInstance.delete('/telegram');
 
     return {
         ...api,

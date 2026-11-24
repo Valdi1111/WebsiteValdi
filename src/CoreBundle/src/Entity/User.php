@@ -4,6 +4,7 @@ namespace App\CoreBundle\Entity;
 
 use App\CoreBundle\Model\Discord\DiscordUser;
 use App\CoreBundle\Model\Notification\NotifiableUserInterface;
+use App\CoreBundle\Model\Telegram\TelegramUser;
 use App\CoreBundle\Repository\UserRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -14,6 +15,8 @@ use Symfony\Component\Security\Core\User\UserInterface;
 #[ORM\UniqueConstraint(name: 'IDX_email', columns: ['email'])]
 // One Discord account per user: the bot finds the user from the Discord id of an interaction
 #[ORM\UniqueConstraint(name: 'IDX_discord_user_id', columns: ['discord_user_id'])]
+// One Telegram account per user: the bot will find the user from the Telegram id of a message
+#[ORM\UniqueConstraint(name: 'IDX_telegram_chat_id', columns: ['telegram_chat_id'])]
 #[ORM\Table(name: 'user')]
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 class User implements UserInterface, PasswordAuthenticatedUserInterface, NotifiableUserInterface
@@ -49,8 +52,21 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Notifia
     #[ORM\Column(length: 64, nullable: true)]
     private ?string $discordAvatar = null;
 
+    /**
+     * Telegram user id, which is also the id of the private chat with the bot: the notifications are sent there.
+     */
     #[ORM\Column(length: 50, nullable: true)]
-    private ?string $telegramCHatId = null;
+    private ?string $telegramChatId = null;
+
+    /**
+     * Linked Telegram account as it was when linked (linkTelegramAccount()), to show it on the profile page.
+     * Length: TelegramUser::MAX_NAME_LENGTH.
+     */
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $telegramUsername = null;
+
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $telegramName = null;
 
     /**
      * @var Collection<int, UserRole>
@@ -178,12 +194,44 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Notifia
 
     public function getTelegramChatId(): ?string
     {
-        return $this->telegramCHatId;
+        return $this->telegramChatId;
     }
 
-    public function setTelegramChatId(string $telegramCHatId): static
+    public function setTelegramChatId(string $telegramChatId): static
     {
-        $this->telegramCHatId = $telegramCHatId;
+        $this->telegramChatId = $telegramChatId;
+
+        return $this;
+    }
+
+    public function getTelegramUsername(): ?string
+    {
+        return $this->telegramUsername;
+    }
+
+    public function getTelegramName(): ?string
+    {
+        return $this->telegramName;
+    }
+
+    /**
+     * Links the account, or refreshes its names when it is already linked. The caller checks that no other user has
+     * the same Telegram id and that the bot can message it (TelegramAccountLinker).
+     */
+    public function linkTelegramAccount(TelegramUser $account): static
+    {
+        $this->telegramChatId = $account->id;
+        $this->telegramUsername = $account->username;
+        $this->telegramName = $account->name;
+
+        return $this;
+    }
+
+    public function unlinkTelegramAccount(): static
+    {
+        $this->telegramChatId = null;
+        $this->telegramUsername = null;
+        $this->telegramName = null;
 
         return $this;
     }

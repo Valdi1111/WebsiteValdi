@@ -1,5 +1,6 @@
 import DiscordAccountRow from "@CoreBundle/components/profile/DiscordAccountRow";
-import { Card } from "antd";
+import TelegramAccountRow from "@CoreBundle/components/profile/TelegramAccountRow";
+import { Card, Divider } from "antd";
 import React from "react";
 
 /**
@@ -8,5 +9,7 @@ import React from "react";
 export default function ConnectedAccountsCard() {
     return <Card title="Connected accounts">
         <DiscordAccountRow/>
+        <Divider/>
+        <TelegramAccountRow/>
     </Card>;
 }

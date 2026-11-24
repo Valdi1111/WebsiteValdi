@@ -70,7 +70,8 @@
         "symfonycasts/reset-password-bundle": "^1.26",
         "twig/cssinliner-extra": "^3.26",
         "twig/extra-bundle": "^3.0",
-        "twig/twig": "^3.0"
+        "twig/twig": "^3.0",
+        "web-token/jwt-library": "^4.2"
     },
     "config": {
         "allow-plugins": {

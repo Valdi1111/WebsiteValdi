@@ -6,6 +6,20 @@ framework:
             discord.client:
                 base_uri: 'https://discord.com/api/v10/'
                 timeout: 10
+            # OpenID Connect of Telegram, for linking the account (TelegramOAuthClient): "token" and
+            # ".well-known/jwks.json". The bot messages go through the notifier transport instead
+            telegram.oauth.client:
+                base_uri: 'https://oauth.telegram.org/'
+                # Short and retried: from some networks a connection to this host is now and then lost (seen in
+                # development, about one in four), while an answer takes 0.1 s
+                timeout: 5
+                retry_failed:
+                    # Transport errors only, also for the POST of the code exchange: when the first attempt did reach
+                    # Telegram, the retry is refused as "invalid_grant", the failure there would have been anyway
+                    http_codes:
+                        - { code: 0, methods: [] }
+                    max_retries: 2
+                    delay: 200
     messenger:
         failure_transport: core_failed
         transports:

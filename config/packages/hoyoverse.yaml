@@ -9,6 +9,13 @@ hoyoverse:
                 days_before_end: 7
             deadly_assault:
                 days_before_end: 7
+        gi:
+            spiral_abyss:
+                days_before_end: 7
+            imaginarium_theater:
+                days_before_end: 7
+            stygian_onslaught:
+                days_before_end: 7
     tasks:
         hoyolab_check_in:
             cron: '0 20 * * *'

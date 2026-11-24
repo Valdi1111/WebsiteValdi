@@ -180,7 +180,7 @@ class HoyoverseTaskCommand extends AbstractTaskCommand
             'endgames_reminder' => new ManualTask(
                 'Endgames reminder: notifies when an endgame mode ends soon and still needs clearing',
                 $when(HasEndgamesInterface::class, EndgamesReminderProfileMessage::class),
-                'ZZZ only, following the endgames settings of the profile',
+                'GI, ZZZ; following the endgames settings of the profile',
             ),
         ];
     }

@@ -25,7 +25,7 @@ use App\HoyoverseBundle\Model\RuntimeAccountData;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
 use App\HoyoverseBundle\Service\HoyolabUtilsService;
-use App\HoyoverseBundle\Service\GenshinImpactService;
+use App\HoyoverseBundle\Service\HonkaiImpact3rdService;
 use App\HoyoverseBundle\Service\Pull\HoyoverseServerTimezoneResolver;
 use App\HoyoverseBundle\Service\ZenlessZoneZeroService;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -169,7 +169,10 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
         self::bootKernel();
 
         $this->assertSame(
-            ['zzz' => ['shiyu_defense' => ['days_before_end' => 7], 'deadly_assault' => ['days_before_end' => 7]]],
+            [
+                'zzz' => ['shiyu_defense' => ['days_before_end' => 7], 'deadly_assault' => ['days_before_end' => 7]],
+                'gi' => ['spiral_abyss' => ['days_before_end' => 7], 'imaginarium_theater' => ['days_before_end' => 7], 'stygian_onslaught' => ['days_before_end' => 7]],
+            ],
             static::getContainer()->getParameter('hoyoverse.endgames_reminder')
         );
         $handler = static::getContainer()->get(EndgamesReminderProfileHandler::class);
@@ -243,12 +246,12 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
             $json['endgames'][1]['variants']
         );
 
-        // Genshin Impact does not implement HasEndgamesInterface (yet)
-        $genshin = (new HoyoverseGameProfile())->setGameId(GenshinImpactService::GAME_ID);
-        $serializer->denormalize($payload, HoyoverseGameProfile::class, null, [AbstractNormalizer::OBJECT_TO_POPULATE => $genshin]);
-        $this->assertFalse($genshin->isEndgamesCheck());
-        $this->assertNull($genshin->getEndgamesSettings());
-        $json = json_decode($serializer->serialize($genshin, 'json'), true);
+        // Honkai Impact 3rd does not implement HasEndgamesInterface
+        $honkai = (new HoyoverseGameProfile())->setGameId(HonkaiImpact3rdService::GAME_ID);
+        $serializer->denormalize($payload, HoyoverseGameProfile::class, null, [AbstractNormalizer::OBJECT_TO_POPULATE => $honkai]);
+        $this->assertFalse($honkai->isEndgamesCheck());
+        $this->assertNull($honkai->getEndgamesSettings());
+        $json = json_decode($serializer->serialize($honkai, 'json'), true);
         $this->assertArrayNotHasKey('endgames_settings', $json);
         $this->assertArrayNotHasKey('endgames', $json);
     }

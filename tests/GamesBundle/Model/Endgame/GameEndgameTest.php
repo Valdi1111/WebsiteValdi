@@ -2,7 +2,10 @@
 
 namespace App\Tests\GamesBundle\Model\Endgame;
 
+use App\GamesBundle\Model\Endgame\EndgameLevel;
 use App\GamesBundle\Model\Endgame\EndgameReminder;
+use App\GamesBundle\Model\Endgame\EndgameTarget;
+use App\GamesBundle\Model\Endgame\EndgameVariant;
 use App\GamesBundle\Model\Endgame\GameEndgame;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -33,9 +36,66 @@ class GameEndgameTest extends TestCase
     #[DataProvider('reminderProvider')]
     public function testNeedsReminderForEverySetting(GameEndgame $endgame, bool $off, bool $notPlayed, bool $fullClear): void
     {
-        $this->assertSame($off, $endgame->needsReminder(EndgameReminder::Off));
-        $this->assertSame($notPlayed, $endgame->needsReminder(EndgameReminder::NotPlayed));
-        $this->assertSame($fullClear, $endgame->needsReminder(EndgameReminder::FullClear));
+        $this->assertSame($off, $endgame->needsReminder(new EndgameTarget(EndgameReminder::Off)));
+        $this->assertSame($notPlayed, $endgame->needsReminder(new EndgameTarget(EndgameReminder::NotPlayed)));
+        $this->assertSame($fullClear, $endgame->needsReminder(new EndgameTarget(EndgameReminder::FullClear)));
+    }
+
+    /**
+     * A variant with three levels, easiest first.
+     */
+    private static function variantWithLevels(): EndgameVariant
+    {
+        return new EndgameVariant('reminder', 'Example Mode', levels: [
+            new EndgameLevel('easy', 'Easy'),
+            new EndgameLevel('normal', 'Normal'),
+            new EndgameLevel('very_hard', 'Very Hard'),
+        ]);
+    }
+
+    /**
+     * @return iterable<string, array{0: ?string, 1: string, 2: bool}>
+     */
+    public static function levelProvider(): iterable
+    {
+        // [completed level, chosen level, reminded]
+        yield 'completed below the chosen level' => ['easy', 'normal', true];
+        yield 'completed the chosen level' => ['normal', 'normal', false];
+        yield 'completed a harder level' => ['very_hard', 'normal', false];
+        yield 'completed nothing yet' => [null, 'easy', true];
+        yield 'completed an unknown level' => ['lunar', 'easy', true];
+        yield 'full clear = top level, completed below' => ['normal', 'full_clear', true];
+        yield 'full clear = top level, completed' => ['very_hard', 'full_clear', false];
+    }
+
+    #[DataProvider('levelProvider')]
+    public function testPlayedVariantWithLevelsIsRemindedUntilTheChosenLevel(?string $completed, string $chosen, bool $reminded): void
+    {
+        $target = self::variantWithLevels()->findTarget($chosen);
+        // The maximum does not matter once a level is chosen
+        $endgame = self::endgame(true, maxed: !$reminded)->setCompletedLevel($completed);
+
+        $this->assertSame($reminded, $endgame->needsReminder($target));
+        $this->assertSame(!$reminded, $endgame->isTargetReached($target));
+    }
+
+    public function testVariantWithLevelsNotPlayedLockedOrOff(): void
+    {
+        $variant = self::variantWithLevels();
+
+        $this->assertTrue(self::endgame(false)->needsReminder($variant->findTarget('easy')));
+        $this->assertTrue(self::endgame(false)->needsReminder($variant->findTarget('not_played')));
+        $this->assertFalse(self::endgame(true)->setCompletedLevel(null)->needsReminder($variant->findTarget('not_played')));
+        $this->assertFalse(self::endgame(false, unlocked: false)->needsReminder($variant->findTarget('easy')));
+        $this->assertFalse(self::endgame(false)->needsReminder($variant->findTarget('off')));
+    }
+
+    public function testWithoutALevelTheTargetIsTheMaximum(): void
+    {
+        $fullClear = new EndgameTarget(EndgameReminder::FullClear);
+
+        $this->assertTrue(self::endgame(true, true)->isTargetReached($fullClear));
+        $this->assertFalse(self::endgame(true)->setCompletedLevel('very_hard')->isTargetReached($fullClear));
     }
 
     /**
@@ -86,6 +146,7 @@ class GameEndgameTest extends TestCase
         $this->assertTrue($endgame->isUnlocked());
         $this->assertFalse($endgame->isPlayed());
         $this->assertFalse($endgame->isMaxed());
+        $this->assertNull($endgame->getCompletedLevel());
         $this->assertSame(['7/9 ★'], $endgame->getProgressLines());
         $this->assertFalse($endgame->hasProgressIcons());
     }

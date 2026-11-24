@@ -11,6 +11,21 @@ const ENDGAME_REMINDER_OPTIONS = [
 ];
 
 /**
+ * Options of an endgame variant: a variant with levels (EndgameLevel, e.g. the Imaginarium Theater difficulties)
+ * takes its levels in place of Full Clear, each one meaning "until this difficulty or a harder one is completed".
+ */
+function endgameReminderOptions(variant) {
+    if (!variant.levels?.length) {
+        return ENDGAME_REMINDER_OPTIONS;
+    }
+
+    return [
+        ...ENDGAME_REMINDER_OPTIONS.filter((option) => option.value !== "full_clear"),
+        ...variant.levels.map((level) => ({ label: level.name, value: level.key })),
+    ];
+}
+
+/**
  * HoYoverse setting sections rendered inside the shared GameProfileSettingsDrawer form.
  */
 export default function ProfileSettingsSections({ supports, hasAny, isProfileActive, profile, account }) {
@@ -211,7 +226,7 @@ export default function ProfileSettingsSections({ supports, hasAny, isProfileAct
                 {supports("endgames_check") && (
                     <SettingRow
                         label="Endgames Reminder"
-                        description="Daily alert in the last days of an endgame period. For each mode: Not Played reminds it until you play it, Full Clear until the maximum (S rank, all stars)"
+                        description="Daily alert in the last days of an endgame period. For each mode: Not Played reminds it until you play it, Full Clear until the maximum (S rank, all stars), a difficulty until you complete it or a harder one"
                     >
                         <Form.Item name="endgames_check" valuePropName="checked" noStyle>
                             <Switch disabled={!isProfileActive} />
@@ -228,7 +243,7 @@ export default function ProfileSettingsSections({ supports, hasAny, isProfileAct
                                 <Select
                                     style={{ width: 130 }}
                                     disabled={!isProfileActive}
-                                    options={ENDGAME_REMINDER_OPTIONS}
+                                    options={endgameReminderOptions(variant)}
                                 />
                             </Form.Item>
                         </SettingRow>

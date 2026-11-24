@@ -5,8 +5,9 @@ namespace App\GamesBundle\Model\Endgame;
 /**
  * Player's progress in one endgame mode, or one variant of it (e.g. Deadly Assault Hard), for the current period.
  *
- * The game decides what "played" and "maximum" mean and writes the short progress lines shown in the notification
- * (e.g. "Floor 5: 2/3 S", "7/9 ★"): this class only applies the profile setting and checks the end of the period.
+ * The game decides what "played" and "maximum" mean, tells the highest difficulty completed when the variant has
+ * levels, and writes the short progress lines shown in the notification (e.g. "Floor 5: 2/3 S", "7/9 ★"): this class
+ * only applies the profile setting and checks the end of the period.
  */
 class GameEndgame
 {
@@ -24,6 +25,9 @@ class GameEndgame
     private bool $played = false;
 
     private bool $maxed = false;
+
+    /** Key of the highest EndgameLevel completed in the period (variants with levels only) */
+    private ?string $completedLevel = null;
 
     /**
      * @var list<array{text: string, icon: ?string}>
@@ -99,6 +103,20 @@ class GameEndgame
         return $this;
     }
 
+    public function getCompletedLevel(): ?string
+    {
+        return $this->completedLevel;
+    }
+
+    /**
+     * @param string|null $completedLevel key of the highest level completed, null when none is (or it is unknown)
+     */
+    public function setCompletedLevel(?string $completedLevel): self
+    {
+        $this->completedLevel = $completedLevel;
+        return $this;
+    }
+
     /**
      * Short lines describing the progress of a played mode, each with its icon in front when it has one, e.g.
      * ["⚔️  Floor 4: S", "⚔️  Floor 5: 2/3 S", "↳ Stage 2: A (21,000)"].
@@ -139,11 +157,12 @@ class GameEndgame
 
     /**
      * Whether the player should be reminded of this mode with the given profile setting. A locked mode never needs a
-     * reminder, a mode not played always does unless the setting is off.
+     * reminder, a mode not played always does unless the setting is off; a played one only with Full Clear (or a
+     * level) while the target is not reached.
      */
-    public function needsReminder(EndgameReminder $reminder): bool
+    public function needsReminder(EndgameTarget $target): bool
     {
-        if ($reminder === EndgameReminder::Off || !$this->isUnlocked()) {
+        if ($target->reminder === EndgameReminder::Off || !$this->isUnlocked()) {
             return false;
         }
 
@@ -151,7 +170,20 @@ class GameEndgame
             return true;
         }
 
-        return $reminder === EndgameReminder::FullClear && !$this->isMaxed();
+        return $target->reminder === EndgameReminder::FullClear && !$this->isTargetReached($target);
+    }
+
+    /**
+     * Whether the progress meets the target: with a level, the completed level is at least the chosen one (an unknown
+     * or missing completed level never is); without, the maximum.
+     */
+    public function isTargetReached(EndgameTarget $target): bool
+    {
+        if ($target->level === null) {
+            return $this->isMaxed();
+        }
+
+        return $target->isLevelReached($this->getCompletedLevel());
     }
 
     /**

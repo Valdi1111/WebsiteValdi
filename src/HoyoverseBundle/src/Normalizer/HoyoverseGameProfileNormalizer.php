@@ -3,6 +3,7 @@
 namespace App\HoyoverseBundle\Normalizer;
 
 use App\GamesBundle\Model\Endgame\EndgameDefinition;
+use App\GamesBundle\Model\Endgame\EndgameLevel;
 use App\GamesBundle\Model\Endgame\EndgameSettings;
 use App\GamesBundle\Model\Endgame\EndgameVariant;
 use App\GamesBundle\Model\Game\HasDailiesInterface;
@@ -113,6 +114,7 @@ class HoyoverseGameProfileNormalizer extends AbstractGameProfileNormalizer
 
                 if ($gameService instanceof HasEndgamesInterface) {
                     // Every mode and variant with its effective value, and the modes to build the settings form from
+                    // (the levels only for the variants that have some, which take them in place of "full_clear")
                     $definitions = $gameService::getEndgameDefinitions();
                     $result[self::ENDGAMES_SETTINGS_FIELD] = EndgameSettings::normalize($definitions, $data->getEndgamesSettings());
                     $result['endgames'] = array_map(static fn (EndgameDefinition $definition) => [
@@ -121,8 +123,13 @@ class HoyoverseGameProfileNormalizer extends AbstractGameProfileNormalizer
                         'variants' => array_map(static fn (EndgameVariant $variant) => [
                             'key' => $variant->key,
                             'name' => $variant->name,
-                            'default' => $variant->defaultReminder->value,
-                        ], $definition->variants),
+                            'default' => $variant->getDefaultTarget()->getValue(),
+                        ] + ($variant->hasLevels() ? [
+                            'levels' => array_map(static fn (EndgameLevel $level) => [
+                                'key' => $level->key,
+                                'name' => $level->name,
+                            ], $variant->levels),
+                        ] : []), $definition->variants),
                     ], $definitions);
                 }
             }

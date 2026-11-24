@@ -12,9 +12,7 @@ use App\HoyoverseBundle\Exception\RetrieveDeadlyAssaultDataException;
 use App\HoyoverseBundle\Exception\RetrieveShiyuDefenseDataException;
 use App\HoyoverseBundle\Model\Endgame\DeadlyAssaultData;
 use App\HoyoverseBundle\Model\Endgame\ShiyuDefenseData;
-use App\HoyoverseBundle\Service\Pull\HoyoverseServerTimezoneResolver;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Contracts\Service\Attribute\Required;
 
 /**
  * @mixin GameInterface
@@ -22,6 +20,8 @@ use Symfony\Contracts\Service\Attribute\Required;
  */
 trait ZenlessZoneZeroEndgamesTrait
 {
+    use HoyolabEndgameDatesTrait;
+
     public const string ENDGAMES_CONFIG_KEY = 'zzz';
 
     public const string ENDGAME_SHIYU_DEFENSE = 'shiyu_defense';
@@ -30,19 +30,6 @@ trait ZenlessZoneZeroEndgamesTrait
 
     /** Profile setting of the Deadly Assault Hard mode, next to the "reminder" of the normal mode */
     public const string ENDGAME_VARIANT_HARD = 'hard_reminder';
-
-    private ?HoyoverseServerTimezoneResolver $serverTimezoneResolver = null;
-
-    public function getServerTimezoneResolver(): ?HoyoverseServerTimezoneResolver
-    {
-        return $this->serverTimezoneResolver;
-    }
-
-    #[Required]
-    public function setServerTimezoneResolver(HoyoverseServerTimezoneResolver $serverTimezoneResolver): void
-    {
-        $this->serverTimezoneResolver = $serverTimezoneResolver;
-    }
 
     final public static function getEndgamesConfigKey(): string
     {
@@ -226,54 +213,6 @@ trait ZenlessZoneZeroEndgamesTrait
     }
 
     /**
-     * Turns the empty date objects of the responses (all null, zeros, missing parts) into null: no date, instead of
-     * a denormalization error or a date in year -1. Only the given paths are touched.
-     *
-     * @param array<string, mixed>|mixed $data
-     * @param list<list<string>> $paths
-     * @return array<string, mixed>
-     */
-    private static function withoutEmptyDates(mixed $data, array $paths): array
-    {
-        if (!is_array($data)) {
-            return [];
-        }
-
-        foreach ($paths as $path) {
-            $parent = &$data;
-            foreach (array_slice($path, 0, -1) as $key) {
-                if (!isset($parent[$key]) || !is_array($parent[$key])) {
-                    unset($parent);
-                    continue 2;
-                }
-                $parent = &$parent[$key];
-            }
-
-            $key = end($path);
-            if (isset($parent[$key]) && is_array($parent[$key]) && self::isEmptyDate($parent[$key])) {
-                $parent[$key] = null;
-            }
-            unset($parent);
-        }
-
-        return $data;
-    }
-
-    /**
-     * @param array<string, mixed> $date {year, month, day, hour, minute, second} object
-     */
-    private static function isEmptyDate(array $date): bool
-    {
-        foreach (['year', 'month', 'day', 'hour', 'minute'] as $part) {
-            if (!isset($date[$part]) || !is_numeric($date[$part])) {
-                return true;
-            }
-        }
-
-        return (int) $date['year'] <= 0;
-    }
-
-    /**
      * The epoch end time is preferred (unambiguous); the server wall-clock object is the fallback.
      */
     private function getShiyuDefenseEndTime(ShiyuDefenseData $shiyuDefense, string $region): ?\DateTimeImmutable
@@ -285,14 +224,5 @@ trait ZenlessZoneZeroEndgamesTrait
         }
 
         return $this->toServerInstant($shiyuDefense->getEndTime(), $region);
-    }
-
-    private function toServerInstant(?\DateTimeInterface $wallClock, string $region): ?\DateTimeImmutable
-    {
-        if ($wallClock === null) {
-            return null;
-        }
-
-        return $this->getServerTimezoneResolver()->serverWallClockToInstant($wallClock, $region);
     }
 }

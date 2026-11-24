@@ -16,6 +16,15 @@ hoyoverse:
                 days_before_end: 7
             stygian_onslaught:
                 days_before_end: 7
+        hsr:
+            memory_of_chaos:
+                days_before_end: 7
+            pure_fiction:
+                days_before_end: 7
+            apocalyptic_shadow:
+                days_before_end: 7
+            anomaly_arbitration:
+                days_before_end: 7
     tasks:
         hoyolab_check_in:
             cron: '0 20 * * *'

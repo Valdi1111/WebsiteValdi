@@ -9,7 +9,7 @@ RUN apt-get update \
 # PHP extensions: the ones required by composer.json and CI, plus the database driver.
 # The installer also pulls in the system libraries and never prompts.
 COPY --from=ghcr.io/mlocati/php-extension-installer:2.13.2 /usr/bin/install-php-extensions /usr/local/bin/
-RUN install-php-extensions gd imagick intl mysqli pdo_mysql zip
+RUN install-php-extensions exif gd imagick intl mysqli pdo_mysql zip
 
 COPY --from=composer:2.11.2 /usr/bin/composer /usr/local/bin/composer
 

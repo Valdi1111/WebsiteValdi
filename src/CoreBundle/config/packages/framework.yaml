@@ -1,4 +1,11 @@
 framework:
+    http_client:
+        scoped_clients:
+            # Discord API, today for linking the account (DiscordOAuthClient). Relative paths without the leading
+            # slash, so that they keep the version: "users/@me", not "/users/@me"
+            discord.client:
+                base_uri: 'https://discord.com/api/v10/'
+                timeout: 10
     messenger:
         failure_transport: core_failed
         transports:

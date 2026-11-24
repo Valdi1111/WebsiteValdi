@@ -167,8 +167,16 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
     {
         self::bootKernel();
 
-        $this->assertSame(
-            ['zzz' => ['shiyu_defense' => ['days_before_end' => 7], 'deadly_assault' => ['days_before_end' => 7]]],
+        $this->assertEquals(
+            [
+                'hsr' => [
+                    'memory_of_chaos' => ['days_before_end' => 7],
+                    'pure_fiction' => ['days_before_end' => 7],
+                    'apocalyptic_shadow' => ['days_before_end' => 7],
+                    'anomaly_arbitration' => ['days_before_end' => 7],
+                ],
+                'zzz' => ['shiyu_defense' => ['days_before_end' => 7], 'deadly_assault' => ['days_before_end' => 7]],
+            ],
             static::getContainer()->getParameter('hoyoverse.endgames_reminder')
         );
         $handler = static::getContainer()->get(EndgamesReminderProfileHandler::class);

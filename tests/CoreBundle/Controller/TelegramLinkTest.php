@@ -104,11 +104,11 @@ class TelegramLinkTest extends WebTestCase
         $client->request('GET', self::url('domain_name', '/profile/telegram/callback?'.http_build_query($query)));
     }
 
-    private function assertLinkedTo(?string $id, ?string $username = null, ?string $name = null): void
+    private function assertLinkedTo(?string $id, ?string $username = null, ?string $name = null, ?string $picture = null): void
     {
         $this->assertSame(
-            [$id, $username, $name],
-            [$this->user->getTelegramChatId(), $this->user->getTelegramUsername(), $this->user->getTelegramName()],
+            [$id, $username, $name, $picture],
+            [$this->user->getTelegramChatId(), $this->user->getTelegramUsername(), $this->user->getTelegramName(), $this->user->getTelegramPicture()],
         );
     }
 
@@ -135,7 +135,7 @@ class TelegramLinkTest extends WebTestCase
         $this->telegramCallback($client, ['code' => 'the-code', 'state' => $authorization['state']]);
 
         $this->assertResponseRedirects(self::url('games.domain_name', '/profile?telegram=linked'));
-        $this->assertLinkedTo(FakeTelegramApi::USER_ID, 'nelly', 'Nelly');
+        $this->assertLinkedTo(FakeTelegramApi::USER_ID, 'nelly', 'Nelly', FakeTelegramApi::PICTURE);
         $this->assertSame([self::TOKEN_URL, self::KEYS_URL, self::SEND_URL], $this->telegram->requestedUrls());
         $exchange = $this->telegram->body(0);
         $this->assertSame(self::url('domain_name', '/profile/telegram/callback'), $exchange['redirect_uri']);
@@ -282,16 +282,29 @@ class TelegramLinkTest extends WebTestCase
         $this->assertNotContains(self::SEND_URL, $this->telegram->requestedUrls());
     }
 
-    public function testLinkingTheSameAccountAgainRefreshesTheNames(): void
+    public function testLinkingTheSameAccountAgainRefreshesTheNamesAndThePictureAddress(): void
     {
         $client = $this->createTelegramClient();
-        $this->user->linkTelegramAccount(new TelegramUser(FakeTelegramApi::USER_ID, 'old_name', 'Old'));
+        $this->user->linkTelegramAccount(new TelegramUser(FakeTelegramApi::USER_ID, 'old_name', 'Old', 'https://t.me/i/userpic/320/old.jpg'));
         $state = $this->connect($client)['state'];
 
         $this->telegramCallback($client, ['code' => 'the-code', 'state' => $state]);
 
         $this->assertResponseRedirects(self::url('games.domain_name', '/profile?telegram=linked'));
-        $this->assertLinkedTo(FakeTelegramApi::USER_ID, 'nelly', 'Nelly');
+        $this->assertLinkedTo(FakeTelegramApi::USER_ID, 'nelly', 'Nelly', FakeTelegramApi::PICTURE);
+    }
+
+    public function testLinkingAgainWithoutAPictureRemovesTheOldOne(): void
+    {
+        // The user removed or hid their picture on Telegram: the token has none
+        $this->telegram->claims = ['picture' => null];
+        $client = $this->createTelegramClient();
+        $this->user->linkTelegramAccount(new TelegramUser(FakeTelegramApi::USER_ID, 'nelly', 'Nelly', 'https://t.me/i/userpic/320/old.jpg'));
+        $state = $this->connect($client)['state'];
+
+        $this->telegramCallback($client, ['code' => 'the-code', 'state' => $state]);
+
+        $this->assertLinkedTo(FakeTelegramApi::USER_ID, 'nelly', 'Nelly', null);
     }
 
     public function testConnectWithoutTheBotConfiguredGoesBackAsUnavailable(): void
@@ -324,12 +337,15 @@ class TelegramLinkTest extends WebTestCase
     public function testApiMeTelegramGivesTheLinkedAccount(): void
     {
         $client = $this->createTelegramClient();
-        $this->user->linkTelegramAccount(new TelegramUser(FakeTelegramApi::USER_ID, 'nelly', 'Nelly'));
+        $this->user->linkTelegramAccount(new TelegramUser(FakeTelegramApi::USER_ID, 'nelly', 'Nelly', FakeTelegramApi::PICTURE));
 
         $client->request('GET', self::url('games.domain_name', '/api/me/telegram'));
 
         $this->assertResponseIsSuccessful();
-        $this->assertSame(['linked' => true, 'username' => 'nelly', 'name' => 'Nelly'], self::jsonResponse($client));
+        $this->assertSame(
+            ['linked' => true, 'username' => 'nelly', 'name' => 'Nelly', 'avatar_url' => FakeTelegramApi::PICTURE],
+            self::jsonResponse($client),
+        );
     }
 
     public function testApiMeTelegramWithAnIdSetByHandHasNoNames(): void
@@ -339,7 +355,7 @@ class TelegramLinkTest extends WebTestCase
 
         $client->request('GET', self::url('games.domain_name', '/api/me/telegram'));
 
-        $this->assertSame(['linked' => true, 'username' => null, 'name' => null], self::jsonResponse($client));
+        $this->assertSame(['linked' => true, 'username' => null, 'name' => null, 'avatar_url' => null], self::jsonResponse($client));
     }
 
     public function testApiMeTelegramWithoutALinkedAccount(): void
@@ -348,13 +364,13 @@ class TelegramLinkTest extends WebTestCase
 
         $client->request('GET', self::url('games.domain_name', '/api/me/telegram'));
 
-        $this->assertSame(['linked' => false, 'username' => null, 'name' => null], self::jsonResponse($client));
+        $this->assertSame(['linked' => false, 'username' => null, 'name' => null, 'avatar_url' => null], self::jsonResponse($client));
     }
 
     public function testDeleteApiMeTelegramUnlinksTheAccount(): void
     {
         $client = $this->createTelegramClient();
-        $this->user->linkTelegramAccount(new TelegramUser(FakeTelegramApi::USER_ID, 'nelly', 'Nelly'));
+        $this->user->linkTelegramAccount(new TelegramUser(FakeTelegramApi::USER_ID, 'nelly', 'Nelly', FakeTelegramApi::PICTURE));
 
         $client->request('DELETE', self::url('games.domain_name', '/api/me/telegram'));
 

@@ -27,7 +27,8 @@ export default function ProfilePage() {
 
     // The whole width scrolls, so that the scrollbar stays at the edge of the page and not next to the cards
     return <div style={{ width: '100%', padding: 24, overflowY: 'auto' }}>
-        {/* Two columns side by side when both fit, one under the other otherwise (Account first) */}
+        {/* Two columns side by side when both fit, one under the other otherwise: Account, Roles, Connected accounts,
+            Change password in both layouts */}
         <Flex wrap gap="middle" align="flex-start" style={{ maxWidth: 1280, margin: '0 auto' }}>
             <Flex vertical gap="middle" style={COLUMN_STYLE}>
                 <Card title="Account">
@@ -48,11 +49,11 @@ export default function ProfilePage() {
                         ]}
                     />
                 </Card>
-                <ChangePasswordCard/>
+                <RolesCard/>
             </Flex>
             <Flex vertical gap="middle" style={COLUMN_STYLE}>
                 <ConnectedAccountsCard/>
-                <RolesCard/>
+                <ChangePasswordCard/>
             </Flex>
         </Flex>
     </div>;

@@ -25,6 +25,27 @@ const RESULT_MESSAGES = new Map([
 ]);
 
 /**
+ * The picture URL with a parameter of its own at each load. Telegram's address stays the same when the user changes
+ * picture and redirects to the current one, but browsers keep that redirect for an hour (max-age=3600): a new address
+ * at each load shows the current picture at once. Telegram ignores the parameter.
+ *
+ * @param {string|null} url
+ * @returns {string|null}
+ */
+function withLoadParameter(url) {
+    if (!url) {
+        return null;
+    }
+    try {
+        const fresh = new URL(url);
+        fresh.searchParams.set('v', Date.now().toString(36));
+        return fresh.toString();
+    } catch {
+        return url;
+    }
+}
+
+/**
  * Maps the Telegram account to the generic row. The ids set by hand before the OpenID Connect flow have no stored
  * names until linked again: they get a generic title and a hint to link again. An account linked from here always has
  * a name, and a username only when the user has set one.
@@ -47,8 +68,8 @@ function toLinkedAccount(telegram) {
     return {
         title: telegram.name ?? telegram.username ?? 'Telegram account',
         subtitle,
-        // Not stored: the picture URLs of Telegram may not last
-        avatarUrl: null,
+        // The initial replaces it when missing or when it does not load
+        avatarUrl: telegram.avatar_url,
     };
 }
 
@@ -64,9 +85,10 @@ export default function TelegramAccountRow() {
     const [telegram, setTelegram] = React.useState(null);
     const [loading, setLoading] = React.useState(true);
 
-    // Returns the promise so that unlink() keeps its confirmation spinning until the row is up to date
+    // Returns the promise so that unlink() keeps its confirmation spinning until the row is up to date. The picture
+    // parameter is set here and not at each render, which would load the picture again every time
     const load = React.useCallback(() => api.withErrorHandling().getTelegram()
-        .then(res => setTelegram(res.data))
+        .then(res => setTelegram({ ...res.data, avatar_url: withLoadParameter(res.data.avatar_url) }))
         .catch(() => setTelegram(null))
         .finally(() => setLoading(false)), [api]);
 

@@ -43,6 +43,8 @@ import axios from "axios";
  * @property {string|null} username public username, without the @; null when the account has none
  * @property {string|null} name display name; null also when linked, with the username, for the ids set by hand
  *   before the OpenID Connect flow existed (no names stored until linked again)
+ * @property {string|null} avatar_url profile picture, null when the user showed none when linked; Telegram redirects
+ *   it to the current picture, and browsers keep that redirect for an hour
  */
 
 /**

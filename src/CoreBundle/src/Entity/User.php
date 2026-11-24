@@ -71,6 +71,14 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Notifia
     private ?string $telegramName = null;
 
     /**
+     * Profile picture URL of the linked account: an address of the user that Telegram redirects to their current
+     * picture, so it follows a change of picture without linking again. Null when the user showed none when linked.
+     * Length: TelegramUser::MAX_PICTURE_LENGTH.
+     */
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $telegramPicture = null;
+
+    /**
      * When an admin disabled the account, null while it is enabled. A disabled user cannot log in (UserChecker)
      * and its open sessions end at the next request (DisabledUserLogoutListener).
      */
@@ -223,15 +231,21 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Notifia
         return $this->telegramName;
     }
 
+    public function getTelegramPicture(): ?string
+    {
+        return $this->telegramPicture;
+    }
+
     /**
-     * Links the account, or refreshes its names when it is already linked. The caller checks that no other user has
-     * the same Telegram id and that the bot can message it (TelegramAccountLinker).
+     * Links the account, or refreshes its names and picture when it is already linked. The caller checks that no other
+     * user has the same Telegram id and that the bot can message it (TelegramAccountLinker).
      */
     public function linkTelegramAccount(TelegramUser $account): static
     {
         $this->telegramChatId = $account->id;
         $this->telegramUsername = $account->username;
         $this->telegramName = $account->name;
+        $this->telegramPicture = $account->picture;
 
         return $this;
     }
@@ -241,6 +255,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Notifia
         $this->telegramChatId = null;
         $this->telegramUsername = null;
         $this->telegramName = null;
+        $this->telegramPicture = null;
 
         return $this;
     }

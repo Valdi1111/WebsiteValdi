@@ -70,6 +70,7 @@ Create `.env.local` at the project root based on [`.env`](../.env) and configure
 - `MERCURE_URL`, `MERCURE_PUBLIC_URL`, `MERCURE_JWT_SECRET` (printed at the end of `setup-server.sh`)
 - Shared folder paths: `ANIME_BASE_FOLDER`, `ANIME_TEMP_FOLDER`, `VIDEOS_BASE_FOLDER`
 - External API credentials (MyAnimeList, AniList, AnimeWorld) and notification transports (`TELEGRAM_DSN`, `DISCORD_DSN`)
+- Discord application for "Link Discord" on the profile page *(optional, disabled while empty)*: `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` (the secret preferably in the secrets vault). In the [Discord Developer Portal](https://discord.com/developers/applications), OAuth2 > Redirects, register `${DEFAULT_URI}/profile/discord/callback` exactly (e.g. `https://valdi.ovh/profile/discord/callback`): the callback is on `DEFAULT_URI` whatever subdomain the user starts from. A development installation registers its own URI (e.g. `https://valdi.wip:8443/profile/discord/callback`), in the same application or, better, in a separate one
 - Node microservice port: `NODE_SERVICES_PORT=3003` (and `node-services/.env.local` if overriding its default port `3000`)
 
 `DATABASE_ENCRYPTION_KEY` *(optional)* encrypts the `encrypted_text` columns, today the game account credentials and the API token values. It belongs in the secrets vault, with `.env.local` as the alternative: see [§3.4](#34-database-encryption-optional), also for an installation that already has data in those columns.

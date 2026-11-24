@@ -2,6 +2,7 @@
 
 namespace App\CoreBundle\Entity;
 
+use App\CoreBundle\Model\Discord\DiscordUser;
 use App\CoreBundle\Model\Notification\NotifiableUserInterface;
 use App\CoreBundle\Repository\UserRepository;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -11,6 +12,8 @@ use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 
 #[ORM\UniqueConstraint(name: 'IDX_email', columns: ['email'])]
+// One Discord account per user: the bot finds the user from the Discord id of an interaction
+#[ORM\UniqueConstraint(name: 'IDX_discord_user_id', columns: ['discord_user_id'])]
 #[ORM\Table(name: 'user')]
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 class User implements UserInterface, PasswordAuthenticatedUserInterface, NotifiableUserInterface
@@ -31,6 +34,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Notifia
 
     #[ORM\Column(length: 50, nullable: true)]
     private ?string $discordUserId = null;
+
+    /**
+     * Linked Discord account as it was when linked (linkDiscordAccount()), to show it on the profile page.
+     * Length: DiscordUser::MAX_NAME_LENGTH.
+     */
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $discordUsername = null;
+
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $discordGlobalName = null;
+
+    /** Avatar hash ("a_" + 32 hex digits when animated), null for the default avatar */
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $discordAvatar = null;
 
     #[ORM\Column(length: 50, nullable: true)]
     private ?string $telegramCHatId = null;
@@ -113,9 +130,48 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Notifia
         return $this->discordUserId;
     }
 
-    public function setDiscordUserId(string $discordUserId): static
+    public function setDiscordUserId(?string $discordUserId): static
     {
         $this->discordUserId = $discordUserId;
+
+        return $this;
+    }
+
+    public function getDiscordUsername(): ?string
+    {
+        return $this->discordUsername;
+    }
+
+    public function getDiscordGlobalName(): ?string
+    {
+        return $this->discordGlobalName;
+    }
+
+    public function getDiscordAvatar(): ?string
+    {
+        return $this->discordAvatar;
+    }
+
+    /**
+     * Links the account, or refreshes names and avatar when it is already linked. The caller checks that no other
+     * user has the same Discord id (DiscordAccountLinker).
+     */
+    public function linkDiscordAccount(DiscordUser $account): static
+    {
+        $this->discordUserId = $account->id;
+        $this->discordUsername = $account->username;
+        $this->discordGlobalName = $account->globalName;
+        $this->discordAvatar = $account->avatar;
+
+        return $this;
+    }
+
+    public function unlinkDiscordAccount(): static
+    {
+        $this->discordUserId = null;
+        $this->discordUsername = null;
+        $this->discordGlobalName = null;
+        $this->discordAvatar = null;
 
         return $this;
     }

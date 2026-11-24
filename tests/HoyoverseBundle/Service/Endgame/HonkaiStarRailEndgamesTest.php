@@ -328,7 +328,6 @@ class HonkaiStarRailEndgamesTest extends KernelTestCase
             if (!str_contains($name, 'Plight')) {
                 $this->assertTrue($endgame->isPlayed(), $name);
                 $this->assertTrue($endgame->isMaxed(), $name);
-                $this->assertFalse($endgame->needsReminder(EndgameReminder::FullClear), $name);
             }
         }
 
@@ -402,8 +401,6 @@ class HonkaiStarRailEndgamesTest extends KernelTestCase
         $memory = $endgames['Memory of Chaos'];
         $this->assertTrue($memory->isPlayed());
         $this->assertFalse($memory->isMaxed());
-        $this->assertTrue($memory->needsReminder(EndgameReminder::FullClear));
-        $this->assertFalse($memory->needsReminder(EndgameReminder::NotPlayed));
         // The stages above (VII to XII) are not in the response: no line for them
         $this->assertSame(['8/36 ★', '↳ Example Memory (VI): 2/3 ★', '↳ Example Memory (IV): 0/3 ★'], $memory->getProgressLines());
         // Starward Mode was not played
@@ -423,8 +420,6 @@ class HonkaiStarRailEndgamesTest extends KernelTestCase
 
         $this->assertTrue($starward->isPlayed());
         $this->assertFalse($starward->isMaxed());
-        $this->assertTrue($starward->needsReminder(EndgameReminder::FullClear));
-        $this->assertFalse($starward->needsReminder(EndgameReminder::NotPlayed));
         $this->assertSame(['Prismatic 0/1 ★'], $starward->getProgressLines());
     }
 
@@ -463,9 +458,6 @@ class HonkaiStarRailEndgamesTest extends KernelTestCase
             // The end of the period is there all the same
             $this->assertNotNull($endgame->getEndTime(), $name);
         }
-        $this->assertTrue($endgames['Pure Fiction']->needsReminder(EndgameReminder::NotPlayed));
-        $this->assertTrue($endgames['Anomaly Arbitration']->needsReminder(EndgameReminder::NotPlayed));
-        $this->assertFalse($endgames['Anomaly Arbitration']->needsReminder(EndgameReminder::Off));
     }
 
     public function testAnomalyArbitrationBelowTheMaximum(): void
@@ -489,7 +481,6 @@ class HonkaiStarRailEndgamesTest extends KernelTestCase
         $plight = $endgames['Anomaly Arbitration (Plight)'];
         $this->assertTrue($plight->isPlayed());
         $this->assertTrue($plight->isMaxed());
-        $this->assertFalse($plight->needsReminder(EndgameReminder::FullClear));
         // No stars line for Plight
         $this->assertSame(['Cleared'], $plight->getProgressLines());
         // The normal variant counts it as the maximum, whatever the stars

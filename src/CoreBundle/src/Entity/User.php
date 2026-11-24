@@ -21,12 +21,14 @@ use Symfony\Component\Security\Core\User\UserInterface;
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 class User implements UserInterface, PasswordAuthenticatedUserInterface, NotifiableUserInterface
 {
+    public const int EMAIL_MAX_LENGTH = 180;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\Column(length: 180, unique: true)]
+    #[ORM\Column(length: self::EMAIL_MAX_LENGTH, unique: true)]
     private ?string $email = null;
 
     /**
@@ -67,6 +69,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Notifia
 
     #[ORM\Column(length: 64, nullable: true)]
     private ?string $telegramName = null;
+
+    /**
+     * When an admin disabled the account, null while it is enabled. A disabled user cannot log in (UserChecker)
+     * and its open sessions end at the next request (DisabledUserLogoutListener).
+     */
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $disabledAt = null;
 
     /**
      * @var Collection<int, UserRole>
@@ -232,6 +241,26 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Notifia
         $this->telegramChatId = null;
         $this->telegramUsername = null;
         $this->telegramName = null;
+
+        return $this;
+    }
+
+    public function getDisabledAt(): ?\DateTimeImmutable
+    {
+        return $this->disabledAt;
+    }
+
+    public function isDisabled(): bool
+    {
+        return $this->disabledAt !== null;
+    }
+
+    /**
+     * @param \DateTimeImmutable|null $disabledAt null enables the account again
+     */
+    public function setDisabledAt(?\DateTimeImmutable $disabledAt): static
+    {
+        $this->disabledAt = $disabledAt;
 
         return $this;
     }

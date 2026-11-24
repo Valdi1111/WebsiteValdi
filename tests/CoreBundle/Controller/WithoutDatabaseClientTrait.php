@@ -58,6 +58,14 @@ trait WithoutDatabaseClientTrait
                 $this->roles,
                 static fn (Role $role): bool => in_array($role->getName(), $criteria['name'], true),
             )));
+        // As MySQL sorts: no bundle first, then by bundle and name
+        $roleRepository->method('findAllSorted')
+            ->willReturnCallback(function (): array {
+                $roles = array_values($this->roles);
+                usort($roles, static fn (Role $a, Role $b): int => [$a->getBundle() ?? '', $a->getName()] <=> [$b->getBundle() ?? '', $b->getName()]);
+
+                return $roles;
+            });
         static::getContainer()->set(RoleRepository::class, $roleRepository);
         static::getContainer()->get('core.security_hierarchy.cache')->clear();
 

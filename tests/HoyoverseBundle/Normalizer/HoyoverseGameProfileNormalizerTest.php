@@ -117,7 +117,7 @@ class HoyoverseGameProfileNormalizerTest extends TestCase
         foreach ([
             [ZenlessZoneZeroService::GAME_ID, $this->createStub(ZenlessZoneZeroService::class), true],
             [GenshinImpactService::GAME_ID, $this->createStub(GenshinImpactService::class), false],
-            [HonkaiStarRailService::GAME_ID, $this->createStub(HonkaiStarRailService::class), false],
+            [HonkaiStarRailService::GAME_ID, $this->createStub(HonkaiStarRailService::class), true],
         ] as [$gameId, $gameService, $supported]) {
             $locator = $this->createStub(ServiceCollectionInterface::class);
             $locator->method('has')->willReturn(true);

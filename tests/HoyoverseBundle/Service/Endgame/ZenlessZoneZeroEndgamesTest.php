@@ -167,10 +167,28 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
     {
         self::bootKernel();
 
-        $this->assertSame(
-            ['zzz' => ['shiyu_defense' => ['days_before_end' => 7], 'deadly_assault' => ['days_before_end' => 7]]],
-            static::getContainer()->getParameter('hoyoverse.endgames_reminder')
-        );
+        // Same keys and types, whatever the order of the keys
+        $expected = [
+            'hsr' => [
+                'memory_of_chaos' => ['days_before_end' => 7],
+                'pure_fiction' => ['days_before_end' => 7],
+                'apocalyptic_shadow' => ['days_before_end' => 7],
+                'anomaly_arbitration' => ['days_before_end' => 7],
+            ],
+            'zzz' => ['shiyu_defense' => ['days_before_end' => 7], 'deadly_assault' => ['days_before_end' => 7]],
+        ];
+        $actual = static::getContainer()->getParameter('hoyoverse.endgames_reminder');
+        $sort = static function (array &$tree) use (&$sort): void {
+            ksort($tree);
+            foreach ($tree as &$branch) {
+                if (is_array($branch)) {
+                    $sort($branch);
+                }
+            }
+        };
+        $sort($expected);
+        $sort($actual);
+        $this->assertSame($expected, $actual);
         $handler = static::getContainer()->get(EndgamesReminderProfileHandler::class);
         foreach (ZenlessZoneZeroService::getEndgameDefinitions() as $definition) {
             $this->assertSame(7, $handler->getDaysBeforeEnd('zzz', $definition));

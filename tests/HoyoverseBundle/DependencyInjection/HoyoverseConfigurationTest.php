@@ -3,6 +3,7 @@
 namespace App\Tests\HoyoverseBundle\DependencyInjection;
 
 use App\HoyoverseBundle\HoyoverseBundle;
+use App\HoyoverseBundle\Service\HonkaiStarRailService;
 use App\HoyoverseBundle\Service\ZenlessZoneZeroService;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -25,14 +26,25 @@ class HoyoverseConfigurationTest extends TestCase
 
     public function testEndgameGamesAreFoundInTheGameServices(): void
     {
-        // Genshin Impact and Honkai: Star Rail do not implement HasEndgamesInterface yet
-        $this->assertSame(['zzz' => ZenlessZoneZeroService::class], HoyoverseBundle::getEndgameGameClasses());
+        // Genshin Impact does not implement HasEndgamesInterface yet
+        $this->assertSame(
+            ['hsr' => HonkaiStarRailService::class, 'zzz' => ZenlessZoneZeroService::class],
+            HoyoverseBundle::getEndgameGameClasses()
+        );
     }
 
     public function testEveryDeclaredModeGetsASevenDayWindowByDefault(): void
     {
         $this->assertSame(
-            ['zzz' => ['shiyu_defense' => ['days_before_end' => 7], 'deadly_assault' => ['days_before_end' => 7]]],
+            [
+                'hsr' => [
+                    'memory_of_chaos' => ['days_before_end' => 7],
+                    'pure_fiction' => ['days_before_end' => 7],
+                    'apocalyptic_shadow' => ['days_before_end' => 7],
+                    'anomaly_arbitration' => ['days_before_end' => 7],
+                ],
+                'zzz' => ['shiyu_defense' => ['days_before_end' => 7], 'deadly_assault' => ['days_before_end' => 7]],
+            ],
             $this->process([])['endgames_reminder']
         );
     }

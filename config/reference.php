@@ -183,6 +183,20 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         NA?: string|Param, // Default: "America/New_York"
  *     },
  *     endgames_reminder?: array{ // Endgames Reminder window, per game and endgame mode.
+ *         hsr?: array{
+ *             memory_of_chaos?: array{ // Memory of Chaos
+ *                 days_before_end?: int|Param, // Daily reminder while the period ends within this many days (24 h each). // Default: 7
+ *             },
+ *             pure_fiction?: array{ // Pure Fiction
+ *                 days_before_end?: int|Param, // Daily reminder while the period ends within this many days (24 h each). // Default: 7
+ *             },
+ *             apocalyptic_shadow?: array{ // Apocalyptic Shadow
+ *                 days_before_end?: int|Param, // Daily reminder while the period ends within this many days (24 h each). // Default: 7
+ *             },
+ *             anomaly_arbitration?: array{ // Anomaly Arbitration
+ *                 days_before_end?: int|Param, // Daily reminder while the period ends within this many days (24 h each). // Default: 7
+ *             },
+ *         },
  *         zzz?: array{
  *             shiyu_defense?: array{ // Shiyu Defense
  *                 days_before_end?: int|Param, // Daily reminder while the period ends within this many days (24 h each). // Default: 7

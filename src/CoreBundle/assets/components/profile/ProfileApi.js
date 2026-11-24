@@ -23,6 +23,18 @@ import axios from "axios";
  */
 
 /**
+ * The Discord account linked to the logged-in user (GET /api/me/discord): everything but `linked` is null when
+ * there is none.
+ *
+ * @typedef {Object} DiscordAccount
+ * @property {boolean} linked
+ * @property {string|null} username unique Discord username, without the @; null also when linked, for the ids set
+ *   by hand before the OAuth flow existed (no names stored until linked again)
+ * @property {string|null} global_name display name, null when the user has not set one
+ * @property {string|null} avatar_url Discord's default avatar when the user has none; can still fail to load (stale hash)
+ */
+
+/**
  * @typedef {Object} ProfileAPI
  * @property {() => Promise<axios.AxiosResponse<ProfileRole[]>>} getRoles
  * @property {(file: File) => Promise<axios.AxiosResponse<import("../user/CurrentUserContext").CurrentUser>>} uploadAvatar
@@ -33,6 +45,8 @@ import axios from "axios";
  * @property {(description: string) => Promise<axios.AxiosResponse<ApiToken>>} createToken
  * @property {(id: number, changes: { description?: string, valid?: boolean }) => Promise<axios.AxiosResponse<ApiToken>>} updateToken
  * @property {(id: number) => Promise<axios.AxiosResponse<void>>} deleteToken
+ * @property {() => Promise<axios.AxiosResponse<DiscordAccount>>} getDiscord
+ * @property {() => Promise<axios.AxiosResponse<void>>} unlinkDiscord
  * @property {() => ProfileAPI} withErrorHandling
  * @property {(messageData: any) => ProfileAPI} withLoadingMessage
  */
@@ -68,6 +82,10 @@ export default function createProfileApi({ message }) {
     api.createToken = async (description) => axiosInstance.post('/tokens', { description });
     api.updateToken = async (id, changes) => axiosInstance.patch(`/tokens/${id}`, changes);
     api.deleteToken = async (id) => axiosInstance.delete(`/tokens/${id}`);
+    // Discord: linking is not a request from here but a full-page navigation to the OAuth flow
+    // (/profile/discord/connect); unlinking answers 204 also when nothing is linked
+    api.getDiscord = async () => axiosInstance.get('/discord');
+    api.unlinkDiscord = async () => axiosInstance.delete('/discord');
 
     return {
         ...api,

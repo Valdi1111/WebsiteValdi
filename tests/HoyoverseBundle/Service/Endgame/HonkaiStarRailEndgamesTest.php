@@ -419,8 +419,8 @@ class HonkaiStarRailEndgamesTest extends KernelTestCase
     public function testStarwardPlayedWithoutThePrismaticStar(): void
     {
         $floors = [
-            HonkaiStarRailEndgameFixture::floor('Example Fiction (IV)Starward Mode', 3, 0, tierce: true),
-            HonkaiStarRailEndgameFixture::floor('Example Fiction (III)', 3),
+            HonkaiStarRailEndgameFixture::floor('Example Fiction (IV)Starward Mode', 3, 0, tierce: true, mode: HonkaiStarRailEndgameFixture::MODE_PURE_FICTION),
+            HonkaiStarRailEndgameFixture::floor('Example Fiction (III)', 3, mode: HonkaiStarRailEndgameFixture::MODE_PURE_FICTION),
         ];
         $service = $this->createService(['challenge_story' => HonkaiStarRailEndgameFixture::pureFiction($floors, 12, 0, 2)]);
 
@@ -434,8 +434,8 @@ class HonkaiStarRailEndgamesTest extends KernelTestCase
     public function testStageOfAnApocalypticShadowBelowThreeStarsIsListedWithItsBaseStars(): void
     {
         $floors = [
-            HonkaiStarRailEndgameFixture::floor('Example Shadow: Difficulty 4Starward Mode', 3, 1, tierce: true, stringStars: true),
-            HonkaiStarRailEndgameFixture::floor('Example Shadow: Difficulty 3', 3, stringStars: true),
+            HonkaiStarRailEndgameFixture::floor('Example Shadow: Difficulty 4Starward Mode', 3, 1, tierce: true, stringStars: true, mode: HonkaiStarRailEndgameFixture::MODE_APOCALYPTIC_SHADOW),
+            HonkaiStarRailEndgameFixture::floor('Example Shadow: Difficulty 3', 3, stringStars: true, mode: HonkaiStarRailEndgameFixture::MODE_APOCALYPTIC_SHADOW),
         ];
         $service = $this->createService(['challenge_boss' => HonkaiStarRailEndgameFixture::apocalypticShadow($floors, 8, 1, 2)]);
 
@@ -596,8 +596,8 @@ class HonkaiStarRailEndgamesTest extends KernelTestCase
         $service = $this->createService([
             'challenge' => HonkaiStarRailEndgameFixture::memoryOfChaos(),
             'challenge_story' => HonkaiStarRailEndgameFixture::pureFiction([
-                HonkaiStarRailEndgameFixture::floor('Example Fiction (II)', 2),
-                HonkaiStarRailEndgameFixture::floor('Example Fiction (I)', 3, fast: true),
+                HonkaiStarRailEndgameFixture::floor('Example Fiction (II)', 2, mode: HonkaiStarRailEndgameFixture::MODE_PURE_FICTION),
+                HonkaiStarRailEndgameFixture::floor('Example Fiction (I)', 3, fast: true, mode: HonkaiStarRailEndgameFixture::MODE_PURE_FICTION),
             ], 5, 0, 1),
             'challenge_boss' => HonkaiStarRailEndgameFixture::challenge(
                 [HonkaiStarRailEndgameFixture::group(9031, HonkaiStarRailEndgameFixture::APOCALYPTIC_SHADOW_BEGIN, HonkaiStarRailEndgameFixture::APOCALYPTIC_SHADOW_END, 'New')]

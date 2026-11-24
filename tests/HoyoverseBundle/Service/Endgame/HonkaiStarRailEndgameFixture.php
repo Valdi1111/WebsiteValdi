@@ -47,15 +47,21 @@ final class HonkaiStarRailEndgameFixture
         ];
     }
 
+    /** Modes whose stages differ in the keys: Memory of Chaos has is_chaos and round_num, Pure Fiction round_num, Apocalyptic Shadow neither */
+    public const string MODE_MEMORY_OF_CHAOS = 'memory_of_chaos';
+    public const string MODE_PURE_FICTION = 'pure_fiction';
+    public const string MODE_APOCALYPTIC_SHADOW = 'apocalyptic_shadow';
+
     /**
      * One stage of all_floor_detail[].
      *
-     * @param int  $stars      stars of the response: the base stars plus the Prismatic Star
-     * @param bool $stringStars as Apocalyptic Shadow does: stars as strings
+     * @param int    $stars       stars of the response: the base stars plus the Prismatic Star
+     * @param bool   $stringStars as Apocalyptic Shadow does: stars as strings
+     * @param string $mode        one of the MODE_* constants: is_chaos and round_num only where the real responses have them
      */
-    public static function floor(string $name, int $stars, int $extraStars = 0, bool $fast = false, bool $tierce = false, bool $stringStars = false): array
+    public static function floor(string $name, int $stars, int $extraStars = 0, bool $fast = false, bool $tierce = false, bool $stringStars = false, string $mode = self::MODE_MEMORY_OF_CHAOS): array
     {
-        return [
+        $floor = [
             'name' => $name,
             'round_num' => $fast ? 0 : 3,
             'star_num' => $stringStars ? (string) $stars : $stars,
@@ -69,6 +75,15 @@ final class HonkaiStarRailEndgameFixture
             'extra_star_num' => $stringStars ? (string) $extraStars : $extraStars,
             'is_tierce' => $tierce,
         ];
+
+        if ($mode !== self::MODE_MEMORY_OF_CHAOS) {
+            unset($floor['is_chaos']);
+        }
+        if ($mode === self::MODE_APOCALYPTIC_SHADOW) {
+            unset($floor['round_num']);
+        }
+
+        return $floor;
     }
 
     /**
@@ -154,10 +169,10 @@ final class HonkaiStarRailEndgameFixture
             self::group(9021, self::PURE_FICTION_BEGIN, self::PURE_FICTION_END),
             self::group(9020, ['year' => 2026, 'month' => 9, 'day' => 14, 'hour' => 4, 'minute' => 0], self::PURE_FICTION_BEGIN, 'End'),
         ], $floors ?? [
-            self::floor('Example Fiction (IV)Starward Mode', 4, 1, tierce: true),
-            self::floor('Example Fiction (III)', 3),
-            self::floor('Example Fiction (II)', 3, fast: true),
-            self::floor('Example Fiction (I)', 3, fast: true),
+            self::floor('Example Fiction (IV)Starward Mode', 4, 1, tierce: true, mode: self::MODE_PURE_FICTION),
+            self::floor('Example Fiction (III)', 3, mode: self::MODE_PURE_FICTION),
+            self::floor('Example Fiction (II)', 3, fast: true, mode: self::MODE_PURE_FICTION),
+            self::floor('Example Fiction (I)', 3, fast: true, mode: self::MODE_PURE_FICTION),
         ], $stars, $extraStars, $battles);
     }
 
@@ -170,10 +185,10 @@ final class HonkaiStarRailEndgameFixture
             self::group(9031, self::APOCALYPTIC_SHADOW_BEGIN, self::APOCALYPTIC_SHADOW_END, 'New'),
             self::group(9030, ['year' => 2026, 'month' => 10, 'day' => 5, 'hour' => 4, 'minute' => 0], self::APOCALYPTIC_SHADOW_BEGIN, 'End'),
         ], $floors ?? [
-            self::floor('Example Shadow: Difficulty 4Starward Mode', 4, 1, tierce: true, stringStars: true),
-            self::floor('Example Shadow: Difficulty 3', 3, stringStars: true),
-            self::floor('Example Shadow: Difficulty 2', 3, fast: true, stringStars: true),
-            self::floor('Example Shadow: Difficulty 1', 3, fast: true, stringStars: true),
+            self::floor('Example Shadow: Difficulty 4Starward Mode', 4, 1, tierce: true, stringStars: true, mode: self::MODE_APOCALYPTIC_SHADOW),
+            self::floor('Example Shadow: Difficulty 3', 3, stringStars: true, mode: self::MODE_APOCALYPTIC_SHADOW),
+            self::floor('Example Shadow: Difficulty 2', 3, fast: true, stringStars: true, mode: self::MODE_APOCALYPTIC_SHADOW),
+            self::floor('Example Shadow: Difficulty 1', 3, fast: true, stringStars: true, mode: self::MODE_APOCALYPTIC_SHADOW),
         ], $stars, $extraStars, $battles);
     }
 

@@ -183,6 +183,17 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         NA?: string|Param, // Default: "America/New_York"
  *     },
  *     endgames_reminder?: array{ // Endgames Reminder window, per game and endgame mode.
+ *         gi?: array{
+ *             spiral_abyss?: array{ // Spiral Abyss
+ *                 days_before_end?: int|Param, // Daily reminder while the period ends within this many days (24 h each). // Default: 7
+ *             },
+ *             imaginarium_theater?: array{ // Imaginarium Theater
+ *                 days_before_end?: int|Param, // Daily reminder while the period ends within this many days (24 h each). // Default: 7
+ *             },
+ *             stygian_onslaught?: array{ // Stygian Onslaught
+ *                 days_before_end?: int|Param, // Daily reminder while the period ends within this many days (24 h each). // Default: 7
+ *             },
+ *         },
  *         hsr?: array{
  *             memory_of_chaos?: array{ // Memory of Chaos
  *                 days_before_end?: int|Param, // Daily reminder while the period ends within this many days (24 h each). // Default: 7

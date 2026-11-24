@@ -7,6 +7,7 @@ use App\GamesBundle\Model\Endgame\EndgameDefinition;
 use App\GamesBundle\Model\Endgame\EndgameModeStatus;
 use App\GamesBundle\Model\Endgame\EndgameReminder;
 use App\GamesBundle\Model\Endgame\EndgameSettings;
+use App\GamesBundle\Model\Endgame\EndgameTarget;
 use App\GamesBundle\Model\Endgame\GameEndgame;
 use App\GamesBundle\Model\Game\HasEndgamesInterface;
 use App\GamesBundle\Presenter\EndgamesPresenter;
@@ -22,7 +23,8 @@ use Symfony\Contracts\Service\Attribute\Required;
 /**
  * Reminds the endgame modes whose period ends within their configured window
  * (hoyoverse.endgames_reminder.<game>.<mode>.days_before_end) and that still need something according to the
- * profile's endgamesSettings (not played yet, or not at the maximum). One notification per profile, one row per mode.
+ * profile's endgamesSettings (not played yet, or not at the maximum or the chosen difficulty). One notification per
+ * profile, one row per mode.
  *
  * @implements AbstractProfileTaskMessageHandler<EndgamesReminderProfileMessage>
  */
@@ -99,7 +101,7 @@ class EndgamesReminderProfileHandler extends AbstractProfileTaskMessageHandler
         $requested = 0;
         foreach ($definitions as $definition) {
             $modeSettings = $settings[$definition->key];
-            if (array_filter($modeSettings, static fn (EndgameReminder $reminder) => $reminder !== EndgameReminder::Off) === []) {
+            if (array_filter($modeSettings, static fn (EndgameTarget $target) => $target->reminder !== EndgameReminder::Off) === []) {
                 continue;
             }
 
@@ -141,8 +143,8 @@ class EndgamesReminderProfileHandler extends AbstractProfileTaskMessageHandler
      * The mode as a row of the notification, its variants turned off left empty. Null when no variant needs a
      * reminder within the window.
      *
-     * @param list<GameEndgame>              $endgames
-     * @param array<string, EndgameReminder> $modeSettings variant key => reminder
+     * @param list<GameEndgame>            $endgames
+     * @param array<string, EndgameTarget> $modeSettings variant key => target
      */
     private function createModeToRemind(
         GameInterface&HasEndgamesInterface $gameService,
@@ -192,7 +194,7 @@ class EndgamesReminderProfileHandler extends AbstractProfileTaskMessageHandler
             $definition,
             $endgames,
             $endTime,
-            array_keys(array_filter($modeSettings, static fn (EndgameReminder $reminder) => $reminder === EndgameReminder::Off)),
+            array_keys(array_filter($modeSettings, static fn (EndgameTarget $target) => $target->reminder === EndgameReminder::Off)),
         );
     }
 

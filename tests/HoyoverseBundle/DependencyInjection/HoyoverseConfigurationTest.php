@@ -3,6 +3,7 @@
 namespace App\Tests\HoyoverseBundle\DependencyInjection;
 
 use App\HoyoverseBundle\HoyoverseBundle;
+use App\HoyoverseBundle\Service\GenshinImpactService;
 use App\HoyoverseBundle\Service\HonkaiStarRailService;
 use App\HoyoverseBundle\Service\ZenlessZoneZeroService;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -26,9 +27,8 @@ class HoyoverseConfigurationTest extends TestCase
 
     public function testEndgameGamesAreFoundInTheGameServices(): void
     {
-        // Genshin Impact does not implement HasEndgamesInterface yet
         $this->assertSame(
-            ['hsr' => HonkaiStarRailService::class, 'zzz' => ZenlessZoneZeroService::class],
+            ['gi' => GenshinImpactService::class, 'hsr' => HonkaiStarRailService::class, 'zzz' => ZenlessZoneZeroService::class],
             HoyoverseBundle::getEndgameGameClasses()
         );
     }
@@ -37,6 +37,7 @@ class HoyoverseConfigurationTest extends TestCase
     {
         $this->assertSame(
             [
+                'gi' => ['spiral_abyss' => ['days_before_end' => 7], 'imaginarium_theater' => ['days_before_end' => 7], 'stygian_onslaught' => ['days_before_end' => 7]],
                 'hsr' => [
                     'memory_of_chaos' => ['days_before_end' => 7],
                     'pure_fiction' => ['days_before_end' => 7],

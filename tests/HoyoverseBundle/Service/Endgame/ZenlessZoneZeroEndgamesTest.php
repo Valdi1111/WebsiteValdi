@@ -7,6 +7,7 @@ use App\CoreBundle\Model\Notification\EmbedField;
 use App\CoreBundle\Model\Notification\UniversalEmbed;
 use App\CoreBundle\Service\Notification\UnifiedNotificationService;
 use App\GamesBundle\Model\Endgame\EndgameReminder;
+use App\GamesBundle\Model\Endgame\EndgameTarget;
 use App\GamesBundle\Model\Endgame\GameEndgame;
 use App\GamesBundle\Presenter\EndgamesPresenter;
 use App\GamesBundle\Presenter\GameProfileEmbedFactory;
@@ -24,7 +25,7 @@ use App\HoyoverseBundle\Model\RuntimeAccountData;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
 use App\HoyoverseBundle\Service\HoyolabUtilsService;
-use App\HoyoverseBundle\Service\GenshinImpactService;
+use App\HoyoverseBundle\Service\HonkaiImpact3rdService;
 use App\HoyoverseBundle\Service\Pull\HoyoverseServerTimezoneResolver;
 use App\HoyoverseBundle\Service\ZenlessZoneZeroService;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -169,6 +170,11 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
 
         // Same keys and types, whatever the order of the keys
         $expected = [
+            'gi' => [
+                'spiral_abyss' => ['days_before_end' => 7],
+                'imaginarium_theater' => ['days_before_end' => 7],
+                'stygian_onslaught' => ['days_before_end' => 7],
+            ],
             'hsr' => [
                 'memory_of_chaos' => ['days_before_end' => 7],
                 'pure_fiction' => ['days_before_end' => 7],
@@ -260,12 +266,12 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
             $json['endgames'][1]['variants']
         );
 
-        // Genshin Impact does not implement HasEndgamesInterface (yet)
-        $genshin = (new HoyoverseGameProfile())->setGameId(GenshinImpactService::GAME_ID);
-        $serializer->denormalize($payload, HoyoverseGameProfile::class, null, [AbstractNormalizer::OBJECT_TO_POPULATE => $genshin]);
-        $this->assertFalse($genshin->isEndgamesCheck());
-        $this->assertNull($genshin->getEndgamesSettings());
-        $json = json_decode($serializer->serialize($genshin, 'json'), true);
+        // Honkai Impact 3rd does not implement HasEndgamesInterface
+        $honkai = (new HoyoverseGameProfile())->setGameId(HonkaiImpact3rdService::GAME_ID);
+        $serializer->denormalize($payload, HoyoverseGameProfile::class, null, [AbstractNormalizer::OBJECT_TO_POPULATE => $honkai]);
+        $this->assertFalse($honkai->isEndgamesCheck());
+        $this->assertNull($honkai->getEndgamesSettings());
+        $json = json_decode($serializer->serialize($honkai, 'json'), true);
         $this->assertArrayNotHasKey('endgames_settings', $json);
         $this->assertArrayNotHasKey('endgames', $json);
     }
@@ -441,7 +447,7 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
             $this->assertTrue($endgame->isUnlocked());
             $this->assertTrue($endgame->isPlayed());
             $this->assertTrue($endgame->isMaxed());
-            $this->assertFalse($endgame->needsReminder(EndgameReminder::FullClear));
+            $this->assertFalse($endgame->needsReminder(new EndgameTarget(EndgameReminder::FullClear)));
         }
         $this->assertSame('hard_reminder', $endgames['Deadly Assault (Hard)']->getVariant());
 
@@ -481,7 +487,7 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
 
         // Hard mode stays locked below 9★ without Hard mode data
         $this->assertFalse($endgames['Deadly Assault (Hard)']->isUnlocked());
-        $this->assertFalse($endgames['Deadly Assault (Hard)']->needsReminder(EndgameReminder::FullClear));
+        $this->assertFalse($endgames['Deadly Assault (Hard)']->needsReminder(new EndgameTarget(EndgameReminder::FullClear)));
     }
 
     public function testFourthFloorOnlyIsPlayed(): void
@@ -529,7 +535,7 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
 
         $this->assertTrue($hard->isUnlocked());
         $this->assertFalse($hard->isPlayed());
-        $this->assertTrue($hard->needsReminder(EndgameReminder::NotPlayed));
+        $this->assertTrue($hard->needsReminder(new EndgameTarget(EndgameReminder::NotPlayed)));
     }
 
     public function testHardModeUnlockedButNotPlayed(): void
@@ -541,8 +547,8 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
         $this->assertTrue($hard->isUnlocked());
         $this->assertFalse($hard->isPlayed());
         $this->assertSame(['0/3 ★'], $hard->getProgressLines());
-        $this->assertTrue($hard->needsReminder(EndgameReminder::NotPlayed));
-        $this->assertFalse($hard->needsReminder(EndgameReminder::Off));
+        $this->assertTrue($hard->needsReminder(new EndgameTarget(EndgameReminder::NotPlayed)));
+        $this->assertFalse($hard->needsReminder(new EndgameTarget(EndgameReminder::Off)));
     }
 
     /**
@@ -582,7 +588,7 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
         $endgames = $this->endgamesByName($this->createService($shiyu, $assault));
 
         $this->assertFalse($endgames['Shiyu Defense']->isPlayed());
-        $this->assertTrue($endgames['Shiyu Defense']->needsReminder(EndgameReminder::NotPlayed));
+        $this->assertTrue($endgames['Shiyu Defense']->needsReminder(new EndgameTarget(EndgameReminder::NotPlayed)));
         $this->assertNotNull($endgames['Shiyu Defense']->getEndTime());
         $this->assertFalse($endgames['Deadly Assault']->isPlayed());
         $this->assertSame(['0/9 ★'], $endgames['Deadly Assault']->getProgressLines());

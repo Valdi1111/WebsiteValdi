@@ -24,6 +24,8 @@ final class FakeTelegramApi
     public const string BOT_TOKEN = self::BOT_ID.':bot-secret';
     public const string CLIENT_SECRET = 'client-secret';
     public const string USER_ID = '155735202';
+    /** Shaped as Telegram gives it: a t.me address that redirects to its CDN */
+    public const string PICTURE = 'https://t.me/i/userpic/320/test-picture-of-nelly.jpg';
     public const string KEY_ID = 'test-key';
 
     /** @var array{private: string, n: string, e: string}|null generated once: RSA key generation is slow */
@@ -120,6 +122,8 @@ final class FakeTelegramApi
             'name' => 'Nelly',
             'given_name' => 'Nelly',
             'family_name' => '',
+            // Only when the user has a profile picture they show
+            'picture' => self::PICTURE,
             'preferred_username' => 'nelly',
             'id' => self::USER_ID,
         ];

@@ -25,14 +25,66 @@ const RESULT_MESSAGES = new Map([
 ]);
 
 /**
+ * The picture URL with a parameter of its own at each load. Telegram's address stays the same when the user changes
+ * picture and redirects to the current one, but browsers keep that redirect for an hour (max-age=3600): a new address
+ * at each load shows the current picture at once. Telegram ignores the parameter.
+ *
+ * @param {string|null} url
+ * @returns {string|null}
+ */
+function withLoadParameter(url) {
+    if (!url) {
+        return null;
+    }
+    try {
+        const fresh = new URL(url);
+        fresh.searchParams.set('v', Date.now().toString(36));
+        return fresh.toString();
+    } catch {
+        return url;
+    }
+}
+
+/**
+ * The picture URL once the browser has loaded it as a real picture, else null. When the user no longer has a picture
+ * (removed, or hidden since), Telegram answers its address with status 404 and a 1×1 GIF: an image element shows it as
+ * loaded, an empty avatar instead of the initial. Loaded here first, the picture then comes from the browser cache.
+ *
+ * @param {string|null} url
+ * @returns {string|null} null while loading too: the initial shows until the picture is ready
+ */
+function useShownPicture(url) {
+    const [shown, setShown] = React.useState(null);
+
+    React.useEffect(() => {
+        setShown(null);
+        if (!url) {
+            return;
+        }
+        let active = true;
+        const image = new Image();
+        image.onload = () => active && setShown(image.naturalWidth > 1 ? url : null);
+        image.onerror = () => active && setShown(null);
+        image.src = url;
+
+        return () => {
+            active = false;
+        };
+    }, [url]);
+
+    return shown;
+}
+
+/**
  * Maps the Telegram account to the generic row. The ids set by hand before the OpenID Connect flow have no stored
  * names until linked again: they get a generic title and a hint to link again. An account linked from here always has
  * a name, and a username only when the user has set one.
  *
  * @param {import("./ProfileApi").TelegramAccount|null} telegram
+ * @param {string|null} picture useShownPicture() of the account's picture
  * @returns {import("./LinkedAccountRow").LinkedAccount|null}
  */
-function toLinkedAccount(telegram) {
+function toLinkedAccount(telegram, picture) {
     if (!telegram?.linked) {
         return null;
     }
@@ -47,8 +99,8 @@ function toLinkedAccount(telegram) {
     return {
         title: telegram.name ?? telegram.username ?? 'Telegram account',
         subtitle,
-        // Not stored: the picture URLs of Telegram may not last
-        avatarUrl: null,
+        // The initial replaces it when there is none
+        avatarUrl: picture,
     };
 }
 
@@ -63,10 +115,12 @@ export default function TelegramAccountRow() {
     // null until loaded, and after a failed request
     const [telegram, setTelegram] = React.useState(null);
     const [loading, setLoading] = React.useState(true);
+    const picture = useShownPicture(telegram?.linked ? telegram.avatar_url : null);
 
-    // Returns the promise so that unlink() keeps its confirmation spinning until the row is up to date
+    // Returns the promise so that unlink() keeps its confirmation spinning until the row is up to date. The picture
+    // parameter is set here and not at each render, which would load the picture again every time
     const load = React.useCallback(() => api.withErrorHandling().getTelegram()
-        .then(res => setTelegram(res.data))
+        .then(res => setTelegram({ ...res.data, avatar_url: withLoadParameter(res.data.avatar_url) }))
         .catch(() => setTelegram(null))
         .finally(() => setLoading(false)), [api]);
 
@@ -112,7 +166,7 @@ export default function TelegramAccountRow() {
         description="Receive notifications on Telegram from the bot of the site."
         loading={loading}
         error={!loading && telegram === null}
-        account={toLinkedAccount(telegram)}
+        account={toLinkedAccount(telegram, picture)}
         linkHref={CONNECT_URL}
         onUnlink={unlink}
         unlinkDescription="You will no longer receive notifications on Telegram."

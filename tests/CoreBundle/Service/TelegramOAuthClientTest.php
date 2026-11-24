@@ -89,7 +89,7 @@ class TelegramOAuthClientTest extends TestCase
 
         $user = $this->client($api)->fetchUser('the-code', 'the-verifier');
 
-        $this->assertSame([FakeTelegramApi::USER_ID, 'nelly', 'Nelly'], [$user->id, $user->username, $user->name]);
+        $this->assertSame([FakeTelegramApi::USER_ID, 'nelly', 'Nelly', FakeTelegramApi::PICTURE], [$user->id, $user->username, $user->name, $user->picture]);
         $this->assertSame([
             'POST https://oauth.telegram.org/token',
             'GET https://oauth.telegram.org/.well-known/jwks.json',
@@ -112,6 +112,32 @@ class TelegramOAuthClientTest extends TestCase
         $user = $this->client($api)->fetchUser('the-code', 'the-verifier');
 
         $this->assertSame(['155735202', null, str_repeat('N', 64)], [$user->id, $user->username, $user->name]);
+    }
+
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function unusablePictures(): iterable
+    {
+        yield 'no picture, as without one shown' => [null];
+        yield 'not https' => ['http://t.me/i/userpic/320/picture.jpg'];
+        yield 'a script' => ['javascript:alert(1)'];
+        yield 'not a URL' => ['picture.jpg'];
+        yield 'too long for the column' => ['https://t.me/i/userpic/320/'.str_repeat('a', 230).'.jpg'];
+        yield 'not a string' => [['https://t.me/i/userpic/320/picture.jpg']];
+    }
+
+    #[DataProvider('unusablePictures')]
+    public function testAPictureThatCannotBeShownIsLeftOut(mixed $picture): void
+    {
+        $api = $this->api();
+        $api->claims = ['picture' => $picture];
+
+        $user = $this->client($api)->fetchUser('the-code', 'the-verifier');
+
+        $this->assertNull($user->picture);
+        // The account is linked all the same
+        $this->assertSame(FakeTelegramApi::USER_ID, $user->id);
     }
 
     public function testAnIdTokenStillValidWithinTheAllowedClockDifferenceIsAccepted(): void

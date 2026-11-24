@@ -17,14 +17,22 @@ final readonly class TelegramUser
     public const int MAX_NAME_LENGTH = 64;
 
     /**
+     * Length of the picture column of User. Telegram gives "https://t.me/i/userpic/320/<43 characters>.jpg": a URL
+     * that does not fit is dropped, since a cut one would not load.
+     */
+    public const int MAX_PICTURE_LENGTH = 255;
+
+    /**
      * @param string      $id       Telegram user id, also the id of the private chat with the bot (digits)
      * @param string|null $username public username without the @, null when the user has none
      * @param string|null $name     display name
+     * @param string|null $picture  profile picture URL, null when the user has none or does not show it
      */
     public function __construct(
         public string $id,
         public ?string $username,
         public ?string $name,
+        public ?string $picture = null,
     ) {
     }
 
@@ -45,7 +53,24 @@ final readonly class TelegramUser
             throw new TelegramOAuthException('The Telegram id token has no user id: is the "profile" scope requested?');
         }
 
-        return new self($id, self::optionalName($claims['preferred_username'] ?? null), self::optionalName($claims['name'] ?? null));
+        return new self(
+            $id,
+            self::optionalName($claims['preferred_username'] ?? null),
+            self::optionalName($claims['name'] ?? null),
+            self::optionalPicture($claims['picture'] ?? null),
+        );
+    }
+
+    /**
+     * An https URL only: it becomes the src of an image on the profile page. Telegram redirects it to its CDN.
+     */
+    private static function optionalPicture(mixed $value): ?string
+    {
+        if (!is_string($value) || strlen($value) > self::MAX_PICTURE_LENGTH || filter_var($value, FILTER_VALIDATE_URL) === false) {
+            return null;
+        }
+
+        return parse_url($value, PHP_URL_SCHEME) === 'https' ? $value : null;
     }
 
     private static function optionalName(mixed $value): ?string

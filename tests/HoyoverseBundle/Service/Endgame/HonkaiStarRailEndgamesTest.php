@@ -26,6 +26,7 @@ use App\HoyoverseBundle\Service\HoyolabUtilsService;
 use App\HoyoverseBundle\Service\HonkaiStarRailService;
 use App\HoyoverseBundle\Service\Pull\HoyoverseServerTimezoneResolver;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -179,6 +180,13 @@ class HonkaiStarRailEndgamesTest extends KernelTestCase
             HoyoverseServerTimezoneResolver::class,
             static::getContainer()->get(HonkaiStarRailService::class)->getServerTimezoneResolver()
         );
+    }
+
+    public function testContainerWiresTheEndgamesClock(): void
+    {
+        self::bootKernel();
+
+        $this->assertInstanceOf(ClockInterface::class, static::getContainer()->get(HonkaiStarRailService::class)->getEndgamesClock());
     }
 
     public function testContainerWiresTheReminderWindows(): void
@@ -470,6 +478,8 @@ class HonkaiStarRailEndgamesTest extends KernelTestCase
         $this->assertFalse($endgames['Anomaly Arbitration']->isMaxed());
         $this->assertSame(['Knights 9/9 ★', 'King 2/3 ★'], $endgames['Anomaly Arbitration']->getProgressLines());
         $this->assertFalse($endgames['Anomaly Arbitration (Plight)']->isPlayed());
+        // Plight not cleared: no "Cleared" line
+        $this->assertSame([], $endgames['Anomaly Arbitration (Plight)']->getProgressLines());
     }
 
     public function testPlightClearedIsPlayedAndMaximumWithoutStars(): void
@@ -671,15 +681,19 @@ class HonkaiStarRailEndgamesTest extends KernelTestCase
 
     public function testUnreadableShapeDoesNotHideTheOthers(): void
     {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())
+            ->method('warning')
+            ->with($this->stringContains('Memory of Chaos'));
         $unreadable = HonkaiStarRailEndgameFixture::challenge([]);
         // Not a date object nor null: the denormalization throws
         $unreadable['data']['groups'] = [['begin_time' => 'not a date', 'end_time' => 'not a date']];
         $service = $this->createService(['challenge' => $unreadable, 'challenge_story' => HonkaiStarRailEndgameFixture::challenge([
             HonkaiStarRailEndgameFixture::group(9021, HonkaiStarRailEndgameFixture::PURE_FICTION_BEGIN, HonkaiStarRailEndgameFixture::PURE_FICTION_END),
-        ])]);
+        ])], $logger);
 
         $sent = [];
-        $this->createHandler($service, null, $sent)(new EndgamesReminderProfileMessage(1));
+        $this->createHandler($service, null, $sent, logger: $logger)(new EndgamesReminderProfileMessage(1));
 
         $this->assertCount(1, $sent);
         $this->assertSame('Pure Fiction', self::endgameFields($sent[0])[0][0]);
@@ -696,12 +710,19 @@ class HonkaiStarRailEndgamesTest extends KernelTestCase
 
     public function testApocalypticShadowAloneFailingIsOnlyLogged(): void
     {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())
+            ->method('warning')
+            ->with($this->logicalAnd(
+                $this->stringContains('Apocalyptic Shadow'),
+                $this->stringContains(RetrieveApocalypticShadowDataException::class)
+            ));
         $service = $this->createService(['challenge_boss' => self::errorBody(), 'challenge_story' => HonkaiStarRailEndgameFixture::challenge([
             HonkaiStarRailEndgameFixture::group(9021, HonkaiStarRailEndgameFixture::PURE_FICTION_BEGIN, HonkaiStarRailEndgameFixture::PURE_FICTION_END),
-        ])]);
+        ])], $logger);
 
         $sent = [];
-        $this->createHandler($service, null, $sent)(new EndgamesReminderProfileMessage(1));
+        $this->createHandler($service, null, $sent, logger: $logger)(new EndgamesReminderProfileMessage(1));
         $this->assertCount(1, $sent);
 
         $this->expectException(RetrieveApocalypticShadowDataException::class);

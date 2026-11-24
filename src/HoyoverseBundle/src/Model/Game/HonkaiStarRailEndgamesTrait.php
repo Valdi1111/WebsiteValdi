@@ -49,6 +49,11 @@ trait HonkaiStarRailEndgamesTrait
 
     private ?ClockInterface $endgamesClock = null;
 
+    public function getEndgamesClock(): ?ClockInterface
+    {
+        return $this->endgamesClock;
+    }
+
     #[Required]
     public function setEndgamesClock(ClockInterface $clock): void
     {
@@ -305,8 +310,10 @@ trait HonkaiStarRailEndgamesTrait
             ->setVariant(self::ENDGAME_VARIANT_PLIGHT)
             ->setEndTime($endTime)
             ->setPlayed($record->isPlightPlayed())
-            ->setMaxed($record->isPlightMaxed())
-            ->addProgressLine('Cleared');
+            ->setMaxed($record->isPlightMaxed());
+        if ($record->isPlightCleared()) {
+            $plight->addProgressLine('Cleared');
+        }
 
         return [$normal, $plight];
     }

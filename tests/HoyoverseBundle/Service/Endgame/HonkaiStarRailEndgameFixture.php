@@ -3,8 +3,8 @@
 namespace App\Tests\HoyoverseBundle\Service\Endgame;
 
 /**
- * HoYoLAB response bodies of the Honkai: Star Rail endgame records (game_record/hkrpg), with the structure of real
- * responses (fields not read by the DTOs included) and invented values.
+ * HoYoLAB response bodies of the Honkai: Star Rail endgame records (game_record/hkrpg): the structure of the real
+ * responses, limited to the fields the service reads and a few more, with invented values.
  */
 final class HonkaiStarRailEndgameFixture
 {
@@ -55,21 +55,20 @@ final class HonkaiStarRailEndgameFixture
      */
     public static function floor(string $name, int $stars, int $extraStars = 0, bool $fast = false, bool $tierce = false, bool $stringStars = false): array
     {
-        $floor = [
+        return [
             'name' => $name,
             'round_num' => $fast ? 0 : 3,
             'star_num' => $stringStars ? (string) $stars : $stars,
-            'node_1' => self::node(1101, 1),
-            'node_2' => self::node(1102, 2),
+            // A quick-cleared stage keeps the two nodes, without avatars, and has no third one
+            'node_1' => self::node(1101, 1, $fast),
+            'node_2' => self::node(1102, 2, $fast),
             'is_chaos' => true,
             'maze_id' => 9001,
             'is_fast' => $fast,
-            'node_3' => self::node(1103, 3),
+            'node_3' => $fast ? null : self::node(1103, 3),
             'extra_star_num' => $stringStars ? (string) $extraStars : $extraStars,
             'is_tierce' => $tierce,
         ];
-
-        return $fast ? array_diff_key($floor, ['node_1' => 1, 'node_2' => 1, 'node_3' => 1]) : $floor;
     }
 
     /**
@@ -95,7 +94,7 @@ final class HonkaiStarRailEndgameFixture
      * @param list<array<string, mixed>> $groups periods, the current one first
      * @param list<array<string, mixed>> $floors stages reached
      */
-    public static function challenge(array $groups, array $floors = [], int $stars = 0, int $extraStars = 0, int $battles = 0, bool $stringStars = false): array
+    public static function challenge(array $groups, array $floors = [], int $stars = 0, int $extraStars = 0, int $battles = 0): array
     {
         return [
             'retcode' => 0,
@@ -267,11 +266,11 @@ final class HonkaiStarRailEndgameFixture
         ];
     }
 
-    private static function node(int $avatarId, int $minute): array
+    private static function node(int $avatarId, int $minute, bool $withoutAvatars = false): array
     {
         return [
             'challenge_time' => ['year' => 2026, 'month' => 11, 'day' => 2, 'hour' => 20, 'minute' => 30 + $minute],
-            'avatars' => [self::avatar($avatarId)],
+            'avatars' => $withoutAvatars ? [] : [self::avatar($avatarId)],
         ];
     }
 

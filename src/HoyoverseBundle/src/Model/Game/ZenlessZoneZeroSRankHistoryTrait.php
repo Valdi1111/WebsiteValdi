@@ -69,7 +69,7 @@ trait ZenlessZoneZeroSRankHistoryTrait
     }
 
     /**
-     * Provided by ZenlessZoneZeroEndgamesTrait: converts the epochs of the records to the server wall clock.
+     * Provided by HoyolabEndgameDatesTrait (used by ZenlessZoneZeroEndgamesTrait): converts the epochs of the records to the server wall clock.
      */
     abstract public function getServerTimezoneResolver(): ?HoyoverseServerTimezoneResolver;
 

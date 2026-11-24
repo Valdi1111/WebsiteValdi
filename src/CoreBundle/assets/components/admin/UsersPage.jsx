@@ -1,13 +1,15 @@
-import { PlusOutlined } from "@ant-design/icons";
+import { EditOutlined, PlusOutlined } from "@ant-design/icons";
 import { useAdminApi } from "@CoreBundle/components/admin/AdminApiContext";
 import CreateUserModal from "@CoreBundle/components/admin/CreateUserModal";
+import EditRolesModal from "@CoreBundle/components/admin/EditRolesModal";
+import { RoleTags, RoleTagsLegend } from "@CoreBundle/components/admin/roles";
 import LocalTable from "@CoreBundle/components/standard-table/LocalTable";
 import { useCurrentUser } from "@CoreBundle/components/user/CurrentUserContext";
 import { formatDateTimeFromIso } from "@CoreBundle/format-utils";
-import { Button, Flex, Popconfirm, Switch, Tag, Tooltip, Typography } from "antd";
+import { App, Button, Flex, Popconfirm, Switch, Tag, Tooltip, Typography } from "antd";
 import React from "react";
 
-// Assigned roles, as in the profile's RolesCard
+// Tags of the roles filter, blue as the assigned roles
 const ROLE_COLOR = 'blue';
 
 const LINK_CATALOG = {
@@ -84,11 +86,14 @@ function StatusSwitch({ user, self, onChange }) {
  */
 export default function UsersPage() {
     const api = useAdminApi();
+    const { message } = App.useApp();
     const { user: currentUser } = useCurrentUser();
     const [users, setUsers] = React.useState([]);
     const [roles, setRoles] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
     const [creating, setCreating] = React.useState(false);
+    // The user whose roles are being edited
+    const [editing, setEditing] = React.useState(null);
 
     const load = React.useCallback(() => {
         setLoading(true);
@@ -112,11 +117,26 @@ export default function UsersPage() {
         .then(res => replace(res.data))
         .catch(() => {});
 
-    // Role code => tag in the cells and in the filter of the roles column
+    const rolesByName = React.useMemo(() => Object.fromEntries(roles.map(role => [role.name, role])), [roles]);
+    // Role code => tag in the filter of the roles column
     const roleCatalog = React.useMemo(
         () => Object.fromEntries(roles.map(role => [role.name, { text: role.label, color: ROLE_COLOR }])),
         [roles]
     );
+
+    const currentUserId = currentUser?.id;
+
+    const onRolesSaved = (user) => {
+        setEditing(null);
+        if (user.id === currentUserId) {
+            // The session keeps the roles of the login: the next request logs out, and the reload shows the login page
+            message.success('Roles saved: log in again to get them.', 2);
+            setTimeout(() => window.location.reload(), 2000);
+            return;
+        }
+        replace(user);
+        message.success('Roles saved');
+    };
 
     // Flat string fields for the tag filters of LocalTable
     const rows = React.useMemo(() => users.map(user => ({
@@ -125,8 +145,6 @@ export default function UsersPage() {
         telegram: user.telegram_linked ? 'linked' : 'not_linked',
         status: user.enabled ? 'active' : 'disabled',
     })), [users]);
-
-    const currentUserId = currentUser?.id;
 
     const columns = React.useMemo(() => [
         {
@@ -137,18 +155,18 @@ export default function UsersPage() {
         },
         {
             title: 'Roles',
-            dataIndex: 'roles',
+            // Filtered on what users can do: assigned and inherited
+            dataIndex: 'effective_roles',
             filterType: 'tags',
             tagCatalog: roleCatalog,
             // A fixed width wraps the tags: the table is as wide as its content (scroll x "max-content")
-            width: 360,
-            render: (names) => names.length > 0
-                ? <Flex wrap gap={6}>
-                    {names.map(name => <Tooltip key={name} title={name}>
-                        <Tag color={ROLE_COLOR} style={{ marginInlineEnd: 0 }}>{roleCatalog[name]?.text ?? name}</Tag>
-                    </Tooltip>)}
-                </Flex>
-                : <Typography.Text type="secondary">No roles</Typography.Text>,
+            width: 400,
+            render: (_, user) => <Flex justify="space-between" align="start" gap="small">
+                <RoleTags assigned={user.roles} effective={user.effective_roles} rolesByName={rolesByName}/>
+                <Tooltip title="Edit the roles">
+                    <Button size="small" type="text" icon={<EditOutlined/>} onClick={() => setEditing(user)} aria-label="Edit the roles"/>
+                </Tooltip>
+            </Flex>,
         },
         {
             title: 'Discord',
@@ -178,13 +196,14 @@ export default function UsersPage() {
                 onChange={(enabled) => setEnabled(user, enabled)}
             />,
         },
-    ], [api, roleCatalog, currentUserId]);
+    ], [api, roleCatalog, rolesByName, currentUserId]);
 
     return <Flex vertical gap="middle" style={{ width: '100%', maxWidth: 1200, margin: '0 auto', padding: 24, overflowY: 'auto' }}>
         <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-            Everyone who can log in to the site. The roles decide which pages a user can open. A new user receives an
-            email with a link to choose the password. A disabled user is logged out and can no longer log in, not even
-            with an API token, until enabled again.
+            Everyone who can log in to the site. The roles decide which pages a user can open: the assigned ones and
+            those they bring through the role hierarchy. A user whose roles change is logged out, and gets the new ones
+            at the next login. A new user receives an email with a link to choose the password. A disabled user is
+            logged out and can no longer log in, not even with an API token, until enabled again.
         </Typography.Paragraph>
         <LocalTable
             rowKey="id"
@@ -194,13 +213,23 @@ export default function UsersPage() {
             loading={loading}
             pagination={false}
             onReload={load}
-            extraToolbarActions={<Button type="primary" icon={<PlusOutlined/>} onClick={() => setCreating(true)}>New user</Button>}
+            extraToolbarActions={<Flex align="center" gap="middle">
+                <RoleTagsLegend/>
+                <Button type="primary" icon={<PlusOutlined/>} onClick={() => setCreating(true)}>New user</Button>
+            </Flex>}
         />
         <CreateUserModal
             open={creating}
             roles={roles}
             onClose={() => setCreating(false)}
             onCreated={(user) => setUsers(list => [...list.filter(u => u.id !== user.id), user].toSorted(byEmail))}
+        />
+        <EditRolesModal
+            user={editing}
+            roles={roles}
+            isSelf={editing?.id === currentUserId}
+            onClose={() => setEditing(null)}
+            onSaved={onRolesSaved}
         />
     </Flex>;
 }

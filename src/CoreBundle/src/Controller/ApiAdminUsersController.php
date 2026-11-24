@@ -4,11 +4,12 @@ namespace App\CoreBundle\Controller;
 
 use App\CoreBundle\Entity\User;
 use App\CoreBundle\Exception\CannotDisableOwnAccountException;
+use App\CoreBundle\Exception\CannotRemoveOwnAdminRoleException;
 use App\CoreBundle\Exception\EmailAlreadyUsedException;
 use App\CoreBundle\Exception\FieldViolationHttpException;
 use App\CoreBundle\Exception\UnknownRoleException;
-use App\CoreBundle\Model\Admin\AdminUserView;
 use App\CoreBundle\Model\Admin\CreateUserPayload;
+use App\CoreBundle\Model\Admin\SetUserRolesPayload;
 use App\CoreBundle\Model\Admin\UpdateUserPayload;
 use App\CoreBundle\Repository\UserRepository;
 use App\CoreBundle\Security\ApiTokenVoter;
@@ -66,7 +67,7 @@ class ApiAdminUsersController extends AbstractController
             throw new FieldViolationHttpException('roles', $e->getMessage(), $e);
         }
 
-        return $this->json(AdminUserView::fromUser($user), Response::HTTP_CREATED);
+        return $this->json($this->userManager->getUserView($user), Response::HTTP_CREATED);
     }
 
     /**
@@ -75,7 +76,7 @@ class ApiAdminUsersController extends AbstractController
     #[Route('/users/{id}', name: 'users_update', requirements: ['id' => '\d+'], methods: ['PATCH'])]
     public function apiAdminUsersUpdate(#[CurrentUser] User $admin, int $id, #[MapRequestPayload] UpdateUserPayload $payload): JsonResponse
     {
-        $user = $this->userRepository->find($id) ?? throw new NotFoundHttpException('User not found.');
+        $user = $this->findUser($id);
 
         try {
             $this->userManager->setEnabled($user, (bool) $payload->enabled, $admin);
@@ -83,6 +84,29 @@ class ApiAdminUsersController extends AbstractController
             throw new FieldViolationHttpException('enabled', $e->getMessage(), $e);
         }
 
-        return $this->json(AdminUserView::fromUser($user));
+        return $this->json($this->userManager->getUserView($user));
+    }
+
+    /**
+     * Replaces the assigned roles; answers with the user. The user is logged out at their next request, also when it
+     * is the admin making the change, and gets the new roles at the next login.
+     */
+    #[Route('/users/{id}/roles', name: 'users_roles', requirements: ['id' => '\d+'], methods: ['PUT'])]
+    public function apiAdminUsersRoles(#[CurrentUser] User $admin, int $id, #[MapRequestPayload] SetUserRolesPayload $payload): JsonResponse
+    {
+        $user = $this->findUser($id);
+
+        try {
+            $this->userManager->setRoles($user, $payload->roles ?? [], $admin);
+        } catch (UnknownRoleException|CannotRemoveOwnAdminRoleException $e) {
+            throw new FieldViolationHttpException('roles', $e->getMessage(), $e);
+        }
+
+        return $this->json($this->userManager->getUserView($user));
+    }
+
+    private function findUser(int $id): User
+    {
+        return $this->userRepository->find($id) ?? throw new NotFoundHttpException('User not found.');
     }
 }

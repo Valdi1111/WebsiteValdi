@@ -11,6 +11,7 @@ use App\CoreBundle\Repository\ResetPasswordRequestRepository;
 use App\CoreBundle\Repository\TokenRepository;
 use App\CoreBundle\Repository\UserRepository;
 use App\CoreBundle\Security\RememberMeTokenRevoker;
+use App\CoreBundle\Service\Admin\AdminUserManager;
 use App\CoreBundle\Service\Password\WelcomeLinkSender;
 use App\Tests\CoreBundle\InMemoryResetPasswordRequestRepository;
 use App\Tests\CoreBundle\InMemoryTokenRepository;
@@ -123,6 +124,8 @@ class AdminUsersTest extends WebTestCase
         yield 'list' => ['GET', '/users', null];
         yield 'create' => ['POST', '/users', ['email' => 'new@example.test', 'password' => null, 'roles' => ['ROLE_ADMIN']]];
         yield 'disable' => ['PATCH', '/users/42', ['enabled' => false]];
+        // The member making themselves an admin
+        yield 'roles of a user' => ['PUT', '/users/7/roles', ['roles' => ['ROLE_USER', 'ROLE_ADMIN']]];
     }
 
     /**
@@ -155,6 +158,7 @@ class AdminUsersTest extends WebTestCase
         $this->assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
         $this->assertCount(2, $this->users->rows);
         $this->assertFalse($this->admin->isDisabled());
+        $this->assertNotContains('ROLE_ADMIN', $this->member->getRoles());
     }
 
     /**
@@ -224,8 +228,9 @@ class AdminUsersTest extends WebTestCase
             [
                 'id' => 42,
                 'email' => 'me@example.test',
-                // Assigned only: not ROLE_USER and ROLE_USER_BOOKS, which they bring
+                // Assigned, then with ROLE_USER and ROLE_USER_BOOKS, which they bring
                 'roles' => ['ROLE_ADMIN', 'ROLE_ADMIN_BOOKS'],
+                'effective_roles' => ['ROLE_ADMIN', 'ROLE_ADMIN_BOOKS', 'ROLE_USER', 'ROLE_USER_BOOKS'],
                 'discord_linked' => true,
                 'discord_username' => 'me_on_discord',
                 'telegram_linked' => true,
@@ -237,6 +242,7 @@ class AdminUsersTest extends WebTestCase
                 'id' => 7,
                 'email' => 'member@example.test',
                 'roles' => ['ROLE_USER'],
+                'effective_roles' => ['ROLE_USER'],
                 'discord_linked' => false,
                 'discord_username' => null,
                 'telegram_linked' => false,
@@ -255,10 +261,11 @@ class AdminUsersTest extends WebTestCase
 
         $this->assertResponseIsSuccessful();
         $this->assertSame([
-            ['name' => 'ROLE_ADMIN', 'label' => 'Admin', 'bundle' => null],
-            ['name' => 'ROLE_USER', 'label' => 'User', 'bundle' => null],
-            ['name' => 'ROLE_ADMIN_BOOKS', 'label' => 'Admin books', 'bundle' => 'BooksBundle'],
-            ['name' => 'ROLE_USER_BOOKS', 'label' => 'User books', 'bundle' => 'BooksBundle'],
+            ['name' => 'ROLE_ADMIN', 'label' => 'Admin', 'bundle' => null, 'implies' => ['ROLE_USER']],
+            ['name' => 'ROLE_USER', 'label' => 'User', 'bundle' => null, 'implies' => []],
+            // Also what it brings indirectly
+            ['name' => 'ROLE_ADMIN_BOOKS', 'label' => 'Admin books', 'bundle' => 'BooksBundle', 'implies' => ['ROLE_USER', 'ROLE_USER_BOOKS']],
+            ['name' => 'ROLE_USER_BOOKS', 'label' => 'User books', 'bundle' => 'BooksBundle', 'implies' => ['ROLE_USER']],
         ], self::jsonResponse($client));
     }
 
@@ -278,6 +285,7 @@ class AdminUsersTest extends WebTestCase
             'id' => $json['id'],
             'email' => 'new.user@example.test',
             'roles' => ['ROLE_USER', 'ROLE_USER_BOOKS'],
+            'effective_roles' => ['ROLE_USER', 'ROLE_USER_BOOKS'],
             'discord_linked' => false,
             'discord_username' => null,
             'telegram_linked' => false,
@@ -424,8 +432,150 @@ class AdminUsersTest extends WebTestCase
         $client = $this->createAdminClient();
 
         $client->jsonRequest('PATCH', self::apiUrl('/users/999'), ['enabled' => false]);
-
         $this->assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+
+        $client->jsonRequest('PUT', self::apiUrl('/users/999/roles'), ['roles' => ['ROLE_USER']]);
+        $this->assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+    }
+
+    /**
+     * @return array<string, UserRole> assigned roles of the user by name, to tell kept rows from new ones
+     */
+    private static function assignedRoles(User $user): array
+    {
+        $assigned = [];
+        foreach ($user->getAssignedRoles() as $userRole) {
+            $assigned[(string) $userRole->getRole()?->getName()] = $userRole;
+        }
+        ksort($assigned);
+
+        return $assigned;
+    }
+
+    public function testReplacesTheRolesOfAUserKeepingTheUnchangedOnes(): void
+    {
+        $client = $this->createAdminClient();
+        $this->member->addAssignedRole((new UserRole())->setRole($this->roles['ROLE_USER_BOOKS']));
+        $kept = self::assignedRoles($this->member)['ROLE_USER_BOOKS'];
+
+        $client->jsonRequest('PUT', self::apiUrl('/users/7/roles'), ['roles' => ['ROLE_USER_BOOKS', 'ROLE_ADMIN_BOOKS']]);
+
+        $this->assertResponseIsSuccessful();
+        $json = self::jsonResponse($client);
+        $this->assertSame(['ROLE_ADMIN_BOOKS', 'ROLE_USER_BOOKS'], $json['roles']);
+        // ROLE_USER is still there, inherited
+        $this->assertSame(['ROLE_ADMIN_BOOKS', 'ROLE_USER', 'ROLE_USER_BOOKS'], $json['effective_roles']);
+        $assigned = self::assignedRoles($this->member);
+        $this->assertSame(['ROLE_ADMIN_BOOKS', 'ROLE_USER_BOOKS'], array_keys($assigned));
+        // The row of a kept role stays: no delete and insert on the unique (user, role) index
+        $this->assertSame($kept, $assigned['ROLE_USER_BOOKS']);
+    }
+
+    public function testAUserCanBeLeftWithoutRoles(): void
+    {
+        $client = $this->createAdminClient();
+
+        $client->jsonRequest('PUT', self::apiUrl('/users/7/roles'), ['roles' => []]);
+
+        $this->assertResponseIsSuccessful();
+        $this->assertSame([[], []], [self::jsonResponse($client)['roles'], self::jsonResponse($client)['effective_roles']]);
+        $this->assertSame([], $this->member->getRoles());
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>, string}> body and the message on "roles"
+     */
+    public static function invalidRoleSets(): iterable
+    {
+        yield 'unknown role' => [['roles' => ['ROLE_USER', 'ROLE_NOPE']], 'Unknown role: ROLE_NOPE.'];
+        // Never "remove every role" by mistake
+        yield 'no roles key' => [[], 'Give the roles of the user, an empty list for none.'];
+    }
+
+    /**
+     * @param array<string, mixed> $body
+     */
+    #[DataProvider('invalidRoleSets')]
+    public function testAnInvalidRoleSetIsRefused(array $body, string $message): void
+    {
+        $client = $this->createAdminClient();
+
+        $client->jsonRequest('PUT', self::apiUrl('/users/7/roles'), $body);
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $this->assertSame(['roles' => [$message]], self::violations($client));
+        $this->assertSame(['ROLE_USER'], $this->member->getRoles());
+    }
+
+    /**
+     * @return iterable<string, array{list<string>}>
+     */
+    public static function setsWithoutTheAdminRole(): iterable
+    {
+        yield 'bundle roles only' => [['ROLE_ADMIN_BOOKS', 'ROLE_USER']];
+        yield 'no roles' => [[]];
+    }
+
+    /**
+     * @param list<string> $roles
+     */
+    #[DataProvider('setsWithoutTheAdminRole')]
+    public function testAnAdminCannotRemoveTheAdminRoleFromThemselves(array $roles): void
+    {
+        $client = $this->createAdminClient();
+
+        $client->jsonRequest('PUT', self::apiUrl('/users/42/roles'), ['roles' => $roles]);
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $this->assertSame(['roles' => ['You cannot remove the admin role from yourself.']], self::violations($client));
+        $this->assertSame(['ROLE_ADMIN', 'ROLE_ADMIN_BOOKS'], array_keys(self::assignedRoles($this->admin)));
+        // Nothing changed, so the session goes on
+        $client->request('GET', self::apiUrl('/users'));
+        $this->assertResponseIsSuccessful();
+    }
+
+    public function testAnAdminCanChangeTheirOwnRolesKeepingTheAdminRoleAndIsLoggedOut(): void
+    {
+        $client = $this->createAdminClient();
+
+        $client->jsonRequest('PUT', self::apiUrl('/users/42/roles'), ['roles' => ['ROLE_ADMIN']]);
+
+        $this->assertResponseIsSuccessful();
+        $this->assertSame(['ROLE_ADMIN'], self::jsonResponse($client)['roles']);
+        // The session keeps the roles of the login: it ends at the next request
+        $client->request('GET', self::apiUrl('/users'));
+        $this->assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
+    }
+
+    public function testAnAdminCanRemoveTheAdminRoleOfAnotherAdmin(): void
+    {
+        $client = $this->createAdminClient();
+        $this->member->addAssignedRole((new UserRole())->setRole($this->roles['ROLE_ADMIN']));
+
+        $client->jsonRequest('PUT', self::apiUrl('/users/7/roles'), ['roles' => ['ROLE_USER']]);
+
+        $this->assertResponseIsSuccessful();
+        $this->assertSame(['ROLE_USER'], $this->member->getRoles());
+        // The admin making the change stays one: there is always an admin left
+        $this->assertContains('ROLE_ADMIN', $this->admin->getRoles());
+    }
+
+    public function testTheEditedUserIsLoggedOutOnlyWhenTheRolesChange(): void
+    {
+        $client = $this->createClientWithUsers();
+        $client->loginUser($this->member);
+        $client->request('GET', self::url('games.domain_name', '/api/me'));
+        $this->assertResponseIsSuccessful();
+        $userManager = static::getContainer()->get(AdminUserManager::class);
+
+        // Saved by an admin meanwhile, as the page does it, with the same roles: nothing changes
+        $this->assertFalse($userManager->setRoles($this->member, ['ROLE_USER'], $this->admin));
+        $client->request('GET', self::url('games.domain_name', '/api/me'));
+        $this->assertResponseIsSuccessful();
+
+        $this->assertTrue($userManager->setRoles($this->member, ['ROLE_USER', 'ROLE_USER_BOOKS'], $this->admin));
+        $client->request('GET', self::url('games.domain_name', '/api/me'));
+        $this->assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
     }
 
     public function testADisabledUserIsLoggedOutAtTheNextRequest(): void

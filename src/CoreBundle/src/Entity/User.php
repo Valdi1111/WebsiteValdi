@@ -86,9 +86,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Notifia
     private ?\DateTimeImmutable $disabledAt = null;
 
     /**
+     * A role removed from the collection (removeAssignedRole()) deletes its user_role row at the flush.
+     *
      * @var Collection<int, UserRole>
      */
-    #[ORM\OneToMany(targetEntity: UserRole::class, mappedBy: 'user', cascade: ['persist', 'remove'])]
+    #[ORM\OneToMany(targetEntity: UserRole::class, mappedBy: 'user', cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $assignedRoles;
 
     public function __construct()

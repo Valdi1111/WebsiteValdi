@@ -11,6 +11,7 @@ export const ADMIN_API_URL = '/api/admin';
  * @property {string} name role code, e.g. ROLE_USER_BOOKS
  * @property {string} label display name
  * @property {string|null} bundle e.g. BooksBundle, null for the site-wide roles
+ * @property {string[]} implies roles it brings through the role hierarchy, also indirectly, without itself
  */
 
 /**
@@ -19,7 +20,8 @@ export const ADMIN_API_URL = '/api/admin';
  * @typedef {Object} AdminUser
  * @property {number} id
  * @property {string} email
- * @property {string[]} roles assigned role codes, sorted; the inherited ones are not included
+ * @property {string[]} roles assigned role codes, sorted
+ * @property {string[]} effective_roles assigned and inherited through the role hierarchy, sorted
  * @property {boolean} discord_linked
  * @property {string|null} discord_username null when not linked, or linked by hand before the profile page could do it
  * @property {boolean} telegram_linked
@@ -34,6 +36,7 @@ export const ADMIN_API_URL = '/api/admin';
  * @property {() => Promise<axios.AxiosResponse<AdminUser[]>>} getUsers
  * @property {(email: string, password: string|null, roles: string[]) => Promise<axios.AxiosResponse<AdminUser>>} createUser
  * @property {(id: number, changes: { enabled?: boolean }) => Promise<axios.AxiosResponse<AdminUser>>} updateUser
+ * @property {(id: number, roles: string[]) => Promise<axios.AxiosResponse<AdminUser>>} setUserRoles
  * @property {() => AdminAPI} withErrorHandling
  * @property {(messageData: any) => AdminAPI} withLoadingMessage
  */
@@ -59,6 +62,8 @@ export default function createAdminApi({ message }) {
     api.createUser = async (email, password, roles) => axiosInstance.post('/users', { email, password, roles });
     // 422 when an admin disables their own account
     api.updateUser = async (id, changes) => axiosInstance.patch(`/users/${id}`, changes);
+    // The whole set: the missing roles are removed. 422 on "roles" for an unknown role or your own admin role
+    api.setUserRoles = async (id, roles) => axiosInstance.put(`/users/${id}/roles`, { roles });
 
     return {
         ...api,

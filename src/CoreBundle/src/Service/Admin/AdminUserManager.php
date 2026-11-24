@@ -6,6 +6,7 @@ use App\CoreBundle\Entity\Role;
 use App\CoreBundle\Entity\User;
 use App\CoreBundle\Entity\UserRole;
 use App\CoreBundle\Exception\CannotDisableOwnAccountException;
+use App\CoreBundle\Exception\CannotRemoveOwnAdminRoleException;
 use App\CoreBundle\Exception\EmailAlreadyUsedException;
 use App\CoreBundle\Exception\UnknownRoleException;
 use App\CoreBundle\Model\Admin\AdminRoleView;
@@ -15,20 +16,27 @@ use App\CoreBundle\Repository\RoleRepository;
 use App\CoreBundle\Repository\UserRepository;
 use App\CoreBundle\Security\RememberMeTokenRevoker;
 use App\CoreBundle\Service\Password\WelcomeLinkSender;
+use App\CoreBundle\Service\UserRoleResolver;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Security\Core\Role\RoleHierarchyInterface;
 
 /**
- * Users admin page (/api/admin/users): listing, creating, disabling and enabling users.
+ * Users admin page (/api/admin/users): listing, creating, disabling and enabling users, and changing their roles.
  *
  * Assigning roles changes no cached role map (core.security_hierarchy.cache holds the hierarchy by role, not users).
  */
 class AdminUserManager
 {
+    /** The site-wide admin role, which the users admin page and its API require */
+    public const string ADMIN_ROLE = 'ROLE_ADMIN';
+
     public function __construct(
         private readonly UserRepository $userRepository,
         private readonly RoleRepository $roleRepository,
+        private readonly UserRoleResolver $roleResolver,
+        private readonly RoleHierarchyInterface $roleHierarchy,
         private readonly UserPasswordHasherInterface $passwordHasher,
         private readonly WelcomeLinkSender $welcomeLinkSender,
         private readonly ResetPasswordRequestRepository $resetPasswordRequests,
@@ -42,7 +50,12 @@ class AdminUserManager
      */
     public function getUserViews(): array
     {
-        return array_map(AdminUserView::fromUser(...), $this->userRepository->findAllWithRoles());
+        return array_map($this->getUserView(...), $this->userRepository->findAllWithRoles());
+    }
+
+    public function getUserView(User $user): AdminUserView
+    {
+        return AdminUserView::fromUser($user, $this->roleResolver->getReachableRoleNames($user));
     }
 
     /**
@@ -50,7 +63,16 @@ class AdminUserManager
      */
     public function getRoleViews(): array
     {
-        return array_map(AdminRoleView::fromRole(...), $this->roleRepository->findAllSorted());
+        return array_map(
+            function (Role $role): AdminRoleView {
+                $name = (string) $role->getName();
+                $implies = array_values(array_diff($this->roleHierarchy->getReachableRoleNames([$name]), [$name]));
+                sort($implies);
+
+                return AdminRoleView::fromRole($role, $implies);
+            },
+            $this->roleRepository->findAllSorted(),
+        );
     }
 
     /**
@@ -121,6 +143,59 @@ class AdminUserManager
         $this->userRepository->save($user);
         $this->rememberMeTokens->revoke($user, false);
         $this->resetPasswordRequests->removeRequests($user);
+    }
+
+    /**
+     * Replaces the assigned roles with the given ones: user_role rows are added and removed, those kept are left as
+     * they are. Nothing is saved when the set does not change.
+     *
+     * The user is logged out at their next request, and gets the new roles at the next login: the session keeps the
+     * roles of the login, and ContextListener drops it when they differ from those of the database. The API tokens
+     * get the new roles at once. An admin changing their own roles is logged out too.
+     *
+     * An admin cannot leave themselves without the admin role (assigned or inherited). This also keeps at least one
+     * admin: only an admin can make the change, and never on their own role.
+     *
+     * @param list<string> $roleNames roles to assign
+     * @param User         $admin     the admin making the change
+     *
+     * @return bool whether the roles changed
+     *
+     * @throws UnknownRoleException
+     * @throws CannotRemoveOwnAdminRoleException
+     */
+    public function setRoles(User $user, array $roleNames, User $admin): bool
+    {
+        $roles = $this->findRoles($roleNames);
+        $names = array_map(static fn (Role $role): string => (string) $role->getName(), $roles);
+
+        if ($user->getId() === $admin->getId() && !in_array(self::ADMIN_ROLE, $this->roleHierarchy->getReachableRoleNames($names), true)) {
+            throw new CannotRemoveOwnAdminRoleException();
+        }
+
+        $changed = false;
+        // On a copy: removing changes the collection
+        foreach ($user->getAssignedRoles()->toArray() as $assignedRole) {
+            if (!in_array($assignedRole->getRole()?->getName(), $names, true)) {
+                // Deleted at the flush (orphanRemoval)
+                $user->removeAssignedRole($assignedRole);
+                $changed = true;
+            }
+        }
+
+        $kept = $user->getRoles();
+        foreach ($roles as $role) {
+            if (!in_array($role->getName(), $kept, true)) {
+                $user->addAssignedRole((new UserRole())->setRole($role));
+                $changed = true;
+            }
+        }
+
+        if ($changed) {
+            $this->userRepository->save($user);
+        }
+
+        return $changed;
     }
 
     /**

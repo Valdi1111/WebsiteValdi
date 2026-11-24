@@ -1,6 +1,7 @@
 import { ThunderboltOutlined } from "@ant-design/icons";
 import { useAdminApi } from "@CoreBundle/components/admin/AdminApiContext";
 import generatePassword from "@CoreBundle/components/admin/generatePassword";
+import { toRoleOptions } from "@CoreBundle/components/admin/roles";
 import { Alert, App, Button, Checkbox, Flex, Form, Input, Modal, Select, Space, Typography } from "antd";
 import React from "react";
 
@@ -15,26 +16,6 @@ const LINK_VALIDITY = '7 days';
 const DEFAULT_ROLES = ['ROLE_USER'];
 // Form fields the backend violations can point at
 const FIELDS = ['email', 'password', 'roles'];
-
-/**
- * Select options of the roles, one group per bundle in the backend order (site-wide roles first), named as in the
- * profile's RolesCard.
- *
- * @param {import("./AdminApi").AdminRole[]} roles
- */
-function toRoleOptions(roles) {
-    const groups = new Map();
-    for (const role of roles) {
-        const key = role.bundle ?? '';
-        if (!groups.has(key)) {
-            groups.set(key, { key: key || 'general', label: role.bundle ? role.bundle.replace(/Bundle$/, '') : 'General', options: [] });
-        }
-        // A plain string label: it is also what the selected tags show
-        groups.get(key).options.push({ value: role.name, label: role.label });
-    }
-
-    return [...groups.values()];
-}
 
 /**
  * The form of a new user, mounted only while it is shown: every opening of the modal starts from empty fields.

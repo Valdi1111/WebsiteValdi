@@ -460,6 +460,19 @@ class GenshinImpactEndgamesTest extends KernelTestCase
 
         $this->assertFalse($theater->isPlayed());
         $this->assertNull($theater->getEndTime());
+
+        // Through the handler: no end, logged at info, no reminder
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())
+            ->method('info')
+            ->with($this->stringContains('End of the "Imaginarium Theater" period unknown'));
+
+        $now = '2026-02-20 15:00:00';
+        $sent = [];
+        $service = $this->createServiceWith([GenshinImpactService::ENDGAME_IMAGINARIUM_THEATER => $body], $now);
+        $this->createHandler($service, ['spiral_abyss' => ['reminder' => 'off'], 'imaginarium_theater' => ['reminder' => 'lunar'], 'stygian_onslaught' => ['reminder' => 'off']], $sent, $now, $logger)(new EndgamesReminderProfileMessage(1));
+
+        $this->assertSame([], $sent);
     }
 
     public function testStygianOnslaughtBestOfTheCurrentPeriod(): void
@@ -600,11 +613,18 @@ class GenshinImpactEndgamesTest extends KernelTestCase
         $abyss['data']['end_time'] = $epoch;
         $theater = GenshinEndgameFixture::theater();
         $theater['data']['data'][0]['schedule']['end_time'] = $epoch;
+        $stygian = GenshinEndgameFixture::stygianOnslaught();
+        $stygian['data']['data'][0]['schedule']['end_time'] = $epoch;
 
-        $service = $this->createServiceWith([GenshinImpactService::ENDGAME_SPIRAL_ABYSS => $abyss, GenshinImpactService::ENDGAME_IMAGINARIUM_THEATER => $theater]);
+        $service = $this->createServiceWith([
+            GenshinImpactService::ENDGAME_SPIRAL_ABYSS => $abyss,
+            GenshinImpactService::ENDGAME_IMAGINARIUM_THEATER => $theater,
+            GenshinImpactService::ENDGAME_STYGIAN_ONSLAUGHT => $stygian,
+        ]);
 
         $this->assertNull($this->fetch($service, GenshinImpactService::ENDGAME_SPIRAL_ABYSS)->getEndTime());
         $this->assertNull($this->fetch($service, GenshinImpactService::ENDGAME_IMAGINARIUM_THEATER)->getEndTime());
+        $this->assertNull($this->fetch($service, GenshinImpactService::ENDGAME_STYGIAN_ONSLAUGHT)->getEndTime());
     }
 
     public function testFetchEndgameThrowsWhenTheRequestFails(): void

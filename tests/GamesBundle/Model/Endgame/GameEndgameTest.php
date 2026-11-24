@@ -73,7 +73,7 @@ class GameEndgameTest extends TestCase
     {
         $target = self::variantWithLevels()->findTarget($chosen);
         // The maximum does not matter once a level is chosen
-        $endgame = self::endgame(true, maxed: !$reminded)->setCompletedLevel($completed);
+        $endgame = self::endgame(true, maxed: $reminded)->setCompletedLevel($completed);
 
         $this->assertSame($reminded, $endgame->needsReminder($target));
         $this->assertSame(!$reminded, $endgame->isTargetReached($target));

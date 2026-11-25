@@ -53,7 +53,8 @@ class GameNotesStamina
             return $this->isFull();
         }
 
-        return $this->getCurrentStamina() >= $threshold;
+        // An unknown current stamina never reaches the threshold (null >= 0 would be true)
+        return $this->getCurrentStamina() !== null && $this->getCurrentStamina() >= $threshold;
     }
 
     public function isFull(): bool

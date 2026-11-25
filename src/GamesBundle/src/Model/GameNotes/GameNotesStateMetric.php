@@ -6,6 +6,11 @@ use App\CoreBundle\Model\LabeledInterface;
 
 class GameNotesStateMetric implements GameNotesMetricInterface
 {
+    /**
+     * Shown in place of the current state when the notes do not report it.
+     */
+    public const string UNKNOWN_OUTPUT = 'Unknown';
+
     private ?string $name = null;
 
     private ?\BackedEnum $currentValue = null;
@@ -58,18 +63,24 @@ class GameNotesStateMetric implements GameNotesMetricInterface
         return $this;
     }
 
+    /**
+     * An unknown current state is never done, even when the target is unknown too.
+     */
     public function isDone(): bool
     {
-        return $this->getCurrentValue() === $this->getTargetValue();
+        return $this->getCurrentValue() !== null && $this->getCurrentValue() === $this->getTargetValue();
     }
 
     public function getFormattedOutput(): string
     {
         $currentValue = $this->getCurrentValue();
+        if ($currentValue === null) {
+            return self::UNKNOWN_OUTPUT;
+        }
         if ($currentValue instanceof LabeledInterface) {
             return $currentValue->getLabel();
         }
 
-        return $currentValue?->value;
+        return (string) $currentValue->value;
     }
 }

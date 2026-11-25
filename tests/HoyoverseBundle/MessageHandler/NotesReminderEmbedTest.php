@@ -33,6 +33,8 @@ use App\HoyoverseBundle\MessageHandler\Profile\StaminaCheckProfileHandler;
 use App\HoyoverseBundle\MessageHandler\Profile\WeekliesReminderProfileHandler;
 use App\HoyoverseBundle\Model\Notes\GameNotesExpeditions;
 use App\HoyoverseBundle\Model\Notes\GameNotesRealm;
+use App\HoyoverseBundle\Model\Notes\ZenlessZoneZeroCafe;
+use App\HoyoverseBundle\Model\Notes\ZenlessZoneZeroCardSign;
 use App\HoyoverseBundle\Model\Notes\ZenlessZoneZeroVhsSale;
 use App\HoyoverseBundle\Presenter\ExpeditionsPresenter;
 use App\HoyoverseBundle\Presenter\RealmCurrencyPresenter;
@@ -293,5 +295,84 @@ class NotesReminderEmbedTest extends TestCase
                 ['Shop Status', 'Finished', '📼', true],
             ],
         ], $this->sentEmbed());
+    }
+
+    public function testUnknownStaminaWithAZeroThresholdSendsNothing(): void
+    {
+        $profile = $this->createProfile('Honkai: Star Rail')->setStaminaCheck(true)->setStaminaThreshold(0);
+        $service = $this->createStub(HonkaiStarRailService::class);
+        $service->method('getStaminaData')->willReturn(new GameNotesStamina()->setMaxStamina(300));
+
+        $this->createHandler(StaminaCheckProfileHandler::class, $profile, $service)(new StaminaCheckProfileMessage(1));
+
+        $this->assertSame([], $this->sent);
+    }
+
+    public function testDailiesWithAnUnknownStateShowItAsUnknown(): void
+    {
+        $dailies = new GameNotesDailies()
+            ->addDaily(new GameNotesProgressMetric()->setName('Engagement Points')->setCurrentValue(400)->setMaxValue(400))
+            ->addDaily(new GameNotesStateMetric()->setName('Scratch Card')->setTargetValue(ZenlessZoneZeroCardSign::DONE))
+            ->addDaily(new GameNotesStateMetric()->setName('Coff Cafe')->setCurrentValue(ZenlessZoneZeroCafe::DONE)->setTargetValue(ZenlessZoneZeroCafe::DONE));
+        $service = $this->createStub(ZenlessZoneZeroService::class);
+        $service->method('getDailiesData')->willReturn($dailies);
+
+        $this->createHandler(DailiesReminderProfileHandler::class, $this->createProfile('Zenless Zone Zero'), $service)(new DailiesReminderProfileMessage(1));
+
+        $this->assertSame([
+            'title' => 'Zenless Zone Zero - Dailies Reminder',
+            'description' => "Don't Forget to Do Your Dailies!",
+            'color' => 0x3498DB,
+            'footer' => ['Zenless Zone Zero', 'https://hoyolab.com/favicon.ico'],
+            'fields' => [
+                ...self::PLAYER_FIELDS,
+                ['Engagement Points', '400/400', '📅', true],
+                ['Scratch Card', 'Unknown', '📅', true],
+                ['Coff Cafe', 'Drank', '📅', true],
+            ],
+        ], $this->sentEmbed());
+    }
+
+    public function testUnknownRealmCurrencyIsNotFull(): void
+    {
+        $profile = $this->createProfile('Genshin Impact')->setRealmCurrencyCheck(true)->setRealmCurrencyThreshold(-1);
+        $service = $this->createStub(GenshinImpactService::class);
+        $service->method('getRealmData')->willReturn(new GameNotesRealm());
+
+        $this->createHandler(RealmCurrencyCheckProfileHandler::class, $profile, $service)(new RealmCurrencyCheckProfileMessage(1));
+
+        $this->assertSame([], $this->sent);
+    }
+
+    public function testUnknownRealmCurrencyWithAZeroThresholdSendsNothing(): void
+    {
+        $profile = $this->createProfile('Genshin Impact')->setRealmCurrencyCheck(true)->setRealmCurrencyThreshold(0);
+        $service = $this->createStub(GenshinImpactService::class);
+        $service->method('getRealmData')->willReturn(new GameNotesRealm()->setMaxCoin(2400));
+
+        $this->createHandler(RealmCurrencyCheckProfileHandler::class, $profile, $service)(new RealmCurrencyCheckProfileMessage(1));
+
+        $this->assertSame([], $this->sent);
+    }
+
+    public function testUnknownShopStatusSendsNothing(): void
+    {
+        $shopStatus = new GameNotesStateMetric()->setName('Shop Status')->setTargetValue(ZenlessZoneZeroVhsSale::DONE);
+        $service = $this->createStub(ZenlessZoneZeroService::class);
+        $service->method('getShopStatusData')->willReturn($shopStatus);
+
+        $this->createHandler(ShopStatusCheckProfileHandler::class, $this->createProfile('Zenless Zone Zero'), $service)(new ShopStatusCheckProfileMessage(1));
+
+        $this->assertSame([], $this->sent);
+    }
+
+    public function testShopStatusWithNoKnownStateNorTargetSendsNothing(): void
+    {
+        $service = $this->createStub(ZenlessZoneZeroService::class);
+        $service->method('getShopStatusData')->willReturn(new GameNotesStateMetric()->setName('Shop Status'));
+
+        $this->createHandler(ShopStatusCheckProfileHandler::class, $this->createProfile('Zenless Zone Zero'), $service)(new ShopStatusCheckProfileMessage(1));
+
+        $this->assertSame([], $this->sent);
     }
 }

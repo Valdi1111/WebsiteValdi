@@ -31,6 +31,14 @@ abstract class AbstractNotesSection implements ProfileSectionInterface
     }
 
     /**
+     * Notes sections share one read per profile, so the compact view shows all of them.
+     */
+    public function inSummary(): bool
+    {
+        return true;
+    }
+
+    /**
      * Summary of a list of metrics (dailies, weeklies): the unlocked ones not done yet, or "Done".
      *
      * @param iterable<GameNotesMetricInterface> $metrics

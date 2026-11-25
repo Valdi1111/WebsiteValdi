@@ -9,6 +9,7 @@ use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Model\Game\CheckInTrait;
 use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Model\Game\HasCheckInInterface;
+use App\GamesBundle\Model\Game\HasCheckInStatusInterface;
 use App\GamesBundle\Model\Game\HasDailiesInterface;
 use App\GamesBundle\Model\Game\HasManualPullsInterface;
 use App\GamesBundle\Model\Game\HasNotesInterface;
@@ -34,7 +35,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 #[AutoconfigureTag(name: 'gryphline.game.biz', attributes: ['key' => self::GAME_BIZ])]
 #[AutoconfigureTag(name: 'gryphline.game.id', attributes: ['key' => self::GAME_ID])]
-class ArknightsEndfieldService implements GameInterface, HasCheckInInterface, HasNotesInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasAutoPullImportInterface, HasManualPullsInterface
+class ArknightsEndfieldService implements GameInterface, HasCheckInInterface, HasCheckInStatusInterface, HasNotesInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasAutoPullImportInterface, HasManualPullsInterface
 {
     use CheckInTrait;
     use NotesTrait;
@@ -119,9 +120,12 @@ class ArknightsEndfieldService implements GameInterface, HasCheckInInterface, Ha
         return ArknightsEndfieldNotes::class;
     }
 
+    /**
+     * One stamina point every 7 min 12 s (checked in game, and against the full time of real notes).
+     */
     public function getRegenRate(): int
     {
-        return 360;
+        return 432;
     }
 
     public function getMaxStamina(): int

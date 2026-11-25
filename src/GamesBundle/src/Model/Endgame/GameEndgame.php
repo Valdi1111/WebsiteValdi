@@ -34,6 +34,9 @@ class GameEndgame
      */
     private array $progressLines = [];
 
+    /** When the API answered (the response may come from a cache), null when unknown */
+    private ?\DateTimeImmutable $fetchedAt = null;
+
     public function getName(): ?string
     {
         return $this->name;
@@ -153,6 +156,21 @@ class GameEndgame
         }
 
         return false;
+    }
+
+    /**
+     * When the API answered the request(s) this result was built from, the oldest when there are several; null when
+     * unknown.
+     */
+    public function getFetchedAt(): ?\DateTimeImmutable
+    {
+        return $this->fetchedAt;
+    }
+
+    public function setFetchedAt(?\DateTimeImmutable $fetchedAt): self
+    {
+        $this->fetchedAt = $fetchedAt;
+        return $this;
     }
 
     /**

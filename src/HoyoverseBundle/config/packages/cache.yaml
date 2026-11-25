@@ -17,5 +17,13 @@ framework:
             hoyoverse.notes.cache:
                 adapter: cache.adapter.filesystem
                 default_lifetime: 300
+            # Raw battle record payloads per game profile and endgame request (endgames status and reminder)
+            hoyoverse.endgames.cache:
+                adapter: cache.adapter.filesystem
+                default_lifetime: 1800
+            # Raw HoYoLAB check-in info per game profile (read only, never claims), cleared by a successful check-in
+            hoyoverse.check_in_status.cache:
+                adapter: cache.adapter.filesystem
+                default_lifetime: 600
 
 

@@ -2,15 +2,13 @@
 
 namespace App\GryphlineBundle\Normalizer;
 
-use App\GamesBundle\Model\Game\HasDailiesInterface;
 use App\GamesBundle\Model\Game\HasManualPullsInterface;
-use App\GamesBundle\Model\Game\HasStaminaInterface;
-use App\GamesBundle\Model\Game\HasWeekliesInterface;
+use App\GamesBundle\Model\Profile\ProfileSetting;
 use App\GamesBundle\Normalizer\AbstractGameProfileNormalizer;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
 use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Model\Game\HasAutoPullImportInterface;
-use App\GryphlineBundle\Model\Game\HasCheckInInterface;
+use App\GryphlineBundle\Status\GryphlineProfileSettings;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
@@ -19,13 +17,6 @@ use Symfony\Contracts\Service\ServiceCollectionInterface;
 
 class GryphlineGameProfileNormalizer extends AbstractGameProfileNormalizer
 {
-    public const array CONDITIONAL_SETTINGS = [
-        HasCheckInInterface::class => ['skportCheckIn', 'skportMissedCheckIn'],
-        HasStaminaInterface::class => ['staminaCheck', 'staminaThreshold'],
-        HasDailiesInterface::class => ['dailiesCheck'],
-        HasWeekliesInterface::class => ['weekliesCheck'],
-        HasAutoPullImportInterface::class => ['syncPulls'],
-    ];
 
     /**
      * @param ServiceCollectionInterface<GameInterface> $locatorByGameId
@@ -49,7 +40,8 @@ class GryphlineGameProfileNormalizer extends AbstractGameProfileNormalizer
 
     protected function getConditionalSettings(): array
     {
-        return self::CONDITIONAL_SETTINGS;
+        // The fields of each capability come from the settings of the provider, their single definition
+        return ProfileSetting::fieldsByCapability(GryphlineProfileSettings::all());
     }
 
     protected function getTimezoneMap(): array

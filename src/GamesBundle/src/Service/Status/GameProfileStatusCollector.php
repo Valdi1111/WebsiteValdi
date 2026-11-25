@@ -7,6 +7,7 @@ use App\GamesBundle\Model\Game\HasNotesInterface;
 use App\GamesBundle\Model\Profile\AccountHealth;
 use App\GamesBundle\Model\Profile\GameProfileContext;
 use App\GamesBundle\Model\Profile\GameProfileRef;
+use App\GamesBundle\Model\Status\FetchedDataInterface;
 use App\GamesBundle\Model\Status\GameProfileStatus;
 use App\GamesBundle\Model\Status\ProfileSectionInterface;
 use App\GamesBundle\Model\Status\SectionResult;
@@ -47,6 +48,14 @@ class GameProfileStatusCollector
     public function getSections(): array
     {
         return $this->sections;
+    }
+
+    /**
+     * @return list<string> the sections of the compact view of a profile (/status, daily summary), in display order
+     */
+    public function getSummarySectionKeys(): array
+    {
+        return array_keys(array_filter($this->sections, static fn (ProfileSectionInterface $section): bool => $section->inSummary()));
     }
 
     /**
@@ -108,6 +117,14 @@ class GameProfileStatusCollector
             }
         }
 
+        // The oldest data of the profile, so a view never shows cached data as newer than it is
+        foreach ($results as $result) {
+            $dataFetchedAt = $result->data instanceof FetchedDataInterface ? $result->data->getFetchedAt() : null;
+            if ($dataFetchedAt !== null && ($fetchedAt === null || $dataFetchedAt < $fetchedAt)) {
+                $fetchedAt = $dataFetchedAt;
+            }
+        }
+
         return new GameProfileStatus($profile, $ref, $context->game, $health, $results, $fetchedAt);
     }
 
@@ -134,13 +151,17 @@ class GameProfileStatusCollector
         }
     }
 
+    /**
+     * Class and code only, like the endgames reminder: provider messages and response bodies can carry account data.
+     * games:status -v prints the messages.
+     */
     private function logFailure(string $message, GameProfileRef $ref, ?string $section, \Throwable $e): void
     {
         $this->logger->warning($message . ': {error}', [
             'profile' => (string) $ref,
             'section' => $section,
-            'error' => $e->getMessage(),
-            'exception' => $e,
+            'error' => $e::class,
+            'code' => $e->getCode(),
         ]);
     }
 }

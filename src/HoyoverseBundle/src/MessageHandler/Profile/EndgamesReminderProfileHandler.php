@@ -11,6 +11,7 @@ use App\GamesBundle\Model\Endgame\EndgameTarget;
 use App\GamesBundle\Model\Endgame\GameEndgame;
 use App\GamesBundle\Model\Game\HasEndgamesInterface;
 use App\GamesBundle\Presenter\EndgamesPresenter;
+use App\GamesBundle\Service\Endgame\EndgameStatusBuilder;
 use App\HoyoverseBundle\Exception\HoyolabException;
 use App\HoyoverseBundle\Message\Profile\EndgamesReminderProfileMessage;
 use App\HoyoverseBundle\Model\Game\GameInterface;
@@ -35,6 +36,8 @@ class EndgamesReminderProfileHandler extends AbstractProfileTaskMessageHandler
 
     private EndgamesPresenter $endgamesPresenter;
 
+    private EndgameStatusBuilder $endgameStatusBuilder;
+
     /**
      * @var array<string, array<string, array{days_before_end: int}>>
      */
@@ -50,6 +53,12 @@ class EndgamesReminderProfileHandler extends AbstractProfileTaskMessageHandler
     public function setEndgamesPresenter(EndgamesPresenter $endgamesPresenter): void
     {
         $this->endgamesPresenter = $endgamesPresenter;
+    }
+
+    #[Required]
+    public function setEndgameStatusBuilder(EndgameStatusBuilder $endgameStatusBuilder): void
+    {
+        $this->endgameStatusBuilder = $endgameStatusBuilder;
     }
 
     /**
@@ -78,9 +87,10 @@ class EndgamesReminderProfileHandler extends AbstractProfileTaskMessageHandler
     }
 
     /**
-     * Every mode is read on its own: one that cannot be read is left out with a warning and the others are still
-     * reminded. Only when every mode requested fails, the first error is thrown, so an account-wide problem (expired
-     * cookie, private game record) fails the task like in the other reminders. Modes turned off are not requested.
+     * Every mode is read on its own (EndgameStatusBuilder): one that cannot be read is left out with a warning and the
+     * others are still reminded. Only when every mode requested fails, the first error is thrown, so an account-wide
+     * problem (expired cookie, private game record) fails the task like in the other reminders. Modes turned off are
+     * not requested. The modes are always requested again (fresh): a cached response could predate a clear.
      */
     protected function processProfile(
         GameInterface $gameService,
@@ -96,32 +106,38 @@ class EndgamesReminderProfileHandler extends AbstractProfileTaskMessageHandler
         $definitions = $gameService::getEndgameDefinitions();
         $settings = EndgameSettings::resolve($definitions, $accountData->getGameProfile()->getEndgamesSettings());
 
+        $requested = array_values(array_filter(
+            $definitions,
+            static fn (EndgameDefinition $definition) => array_filter(
+                $settings[$definition->key],
+                static fn (EndgameTarget $target) => $target->reminder !== EndgameReminder::Off
+            ) !== []
+        ));
+
+        $readout = $this->endgameStatusBuilder->read($gameService, $accountData, $requested, fresh: true);
+
         $modes = [];
-        $errors = [];
-        $requested = 0;
-        foreach ($definitions as $definition) {
-            $modeSettings = $settings[$definition->key];
-            if (array_filter($modeSettings, static fn (EndgameTarget $target) => $target->reminder !== EndgameReminder::Off) === []) {
+        foreach ($readout->modes as $modeReadout) {
+            if ($modeReadout->error !== null) {
+                $this->logUnreadableMode($modeReadout->definition, $accountData, $modeReadout->error);
                 continue;
             }
 
-            $requested++;
-            try {
-                $endgames = $gameService->fetchEndgame($definition, $accountData);
-            } catch (\Throwable $e) {
-                $errors[] = $e;
-                $this->logUnreadableMode($definition, $accountData, $e);
-                continue;
-            }
-
-            $mode = $this->createModeToRemind($gameService, $definition, $endgames, $modeSettings, $accountData, $now);
+            $mode = $this->createModeToRemind(
+                $gameService,
+                $modeReadout->definition,
+                $modeReadout->endgames,
+                $settings[$modeReadout->definition->key],
+                $accountData,
+                $now
+            );
             if ($mode !== null) {
                 $modes[] = $mode;
             }
         }
 
-        if ($errors !== [] && count($errors) === $requested) {
-            throw $errors[0];
+        if ($readout->allFailed()) {
+            throw $readout->getErrors()[0];
         }
 
         if ($modes === []) {

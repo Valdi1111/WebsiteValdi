@@ -32,7 +32,11 @@ interface HasEndgamesInterface
      * response cannot be interpreted (e.g. an unknown format): no reminder. Throws when the request fails, so that
      * the reminder can tell a failing mode from a mode with nothing to remind.
      *
+     * The responses may come from a per profile cache: each GameEndgame carries the fetch time of the response(s)
+     * it was built from (GameEndgame::getFetchedAt()).
+     *
+     * @param bool $fresh skip the cache: request every response of the mode again and replace the cached ones
      * @return list<GameEndgame>
      */
-    public function fetchEndgame(EndgameDefinition $definition, RuntimeAccountDataInterface $account): array;
+    public function fetchEndgame(EndgameDefinition $definition, RuntimeAccountDataInterface $account, bool $fresh = false): array;
 }

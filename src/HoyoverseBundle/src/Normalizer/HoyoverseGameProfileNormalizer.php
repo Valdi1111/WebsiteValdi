@@ -6,27 +6,18 @@ use App\GamesBundle\Model\Endgame\EndgameDefinition;
 use App\GamesBundle\Model\Endgame\EndgameLevel;
 use App\GamesBundle\Model\Endgame\EndgameSettings;
 use App\GamesBundle\Model\Endgame\EndgameVariant;
-use App\GamesBundle\Model\Game\HasDailiesInterface;
 use App\GamesBundle\Model\Game\HasEndgamesInterface;
 use App\GamesBundle\Model\Game\HasManualPullsInterface;
 use App\GamesBundle\Model\Game\HasSRankHistoryImportInterface;
-use App\GamesBundle\Model\Game\HasStaminaInterface;
-use App\GamesBundle\Model\Game\HasWeekliesInterface;
+use App\GamesBundle\Model\Profile\ProfileSetting;
 use App\GamesBundle\Normalizer\AbstractGameProfileNormalizer;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Model\Game\GameInterface;
-use App\HoyoverseBundle\Model\Game\HasCodeRedemptionInterface;
-use App\HoyoverseBundle\Model\Game\HasDiaryInterface;
-use App\HoyoverseBundle\Model\Game\HasExpeditionsInterface;
-use App\HoyoverseBundle\Model\Game\HasHilichurlInterface;
-use App\HoyoverseBundle\Model\Game\HasHoyolabCheckInInterface;
-use App\HoyoverseBundle\Model\Game\HasMimoInterface;
 use App\HoyoverseBundle\Model\Game\HasPowershellPullImportInterface;
 use App\HoyoverseBundle\Model\Game\HasPullTrackerInterface;
-use App\HoyoverseBundle\Model\Game\HasRealmCurrencyInterface;
-use App\HoyoverseBundle\Model\Game\HasShopStatusInterface;
 use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
 use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
+use App\HoyoverseBundle\Status\HoyoverseProfileSettings;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\AutowireLocator;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
@@ -39,21 +30,6 @@ class HoyoverseGameProfileNormalizer extends AbstractGameProfileNormalizer
     /** Serialized name of HoyoverseGameProfile::$endgamesSettings (the property name is accepted as well) */
     public const string ENDGAMES_SETTINGS_FIELD = 'endgames_settings';
 
-    public const array CONDITIONAL_SETTINGS = [
-        HasHoyolabCheckInInterface::class => ['hoyolabCheckIn', 'hoyolabMissedCheckIn'],
-        HasCodeRedemptionInterface::class => ['codeRedeem'],
-        HasStaminaInterface::class => ['staminaCheck', 'staminaThreshold'],
-        HasExpeditionsInterface::class => ['expeditionsCheck'],
-        HasRealmCurrencyInterface::class => ['realmCurrencyCheck', 'realmCurrencyThreshold'],
-        HasShopStatusInterface::class => ['shopStatusCheck'],
-        HasMimoInterface::class => ['mimoCheck', 'mimoRedeem', 'mimoRedeemDraw', 'mimoLottery', 'mimoReservePoints'],
-        HasHilichurlInterface::class => ['hilichurlCheck', 'hilichurlRedeem'],
-        HasDailiesInterface::class => ['dailiesCheck'],
-        HasWeekliesInterface::class => ['weekliesCheck'],
-        HasEndgamesInterface::class => ['endgamesCheck', 'endgamesSettings'],
-        HasDiaryInterface::class => ['syncDiary'],
-        HasStokenPullImportInterface::class => ['syncPulls'],
-    ];
 
     /**
      * @param ServiceCollectionInterface<GameInterface> $locatorByGameId
@@ -80,7 +56,8 @@ class HoyoverseGameProfileNormalizer extends AbstractGameProfileNormalizer
 
     protected function getConditionalSettings(): array
     {
-        return self::CONDITIONAL_SETTINGS;
+        // The fields of each capability come from the settings of the provider, their single definition
+        return ProfileSetting::fieldsByCapability(HoyoverseProfileSettings::all());
     }
 
     protected function getTimezoneMap(): array

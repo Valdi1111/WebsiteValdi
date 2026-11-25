@@ -88,6 +88,8 @@ Two scheduled tasks handle daily check-in for *Arknights: Endfield* (`/web/v1/ga
 2. **Missed Check-In (`SkportMissedCheckInBatchMessage`)** — Schedule: `0 14 * * *`
    - For profiles with `skportMissedCheckIn = true`, runs the same check-in at 14:00: a reward still unclaimed is **claimed** and notified; an already claimed one sends nothing. It is not a reminder: nothing is left for the player to do.
 
+**Status read**: `HasCheckInStatusInterface::getCheckInStatus()` reads `GET /web/v1/game/endfield/attendance` only, never the claim, for the status views (with the same session renewal on a 401); the answer is cached 10 minutes per profile (`gryphline.check_in_status.cache`) and deleted by `checkIn()` once the reward is claimed or found claimed.
+
 **Run a task now**: `php bin/console gryphline:task [<task>]` runs any scheduled task by hand (check-in, stamina, reminders, pulls sync, catalog), as the scheduler does for every eligible profile or, with `--profile-id`, for given profiles whatever their settings. `--list` shows the tasks, `--region` limits a regional task, `--sync` handles the messages in the console instead of queuing them (shared flow: [`AbstractTaskCommand`](../GamesBundle/README.md#1-backend)).
 
 ---
@@ -103,7 +105,7 @@ Via the signed endpoint `GET /api/v1/game/endfield/card/detail`, `ArknightsEndfi
 ### 4.1 Stamina Reminder (`StaminaCheckBatchMessage`)
 - **Schedule**: `*/30 * * * *` (every 30 minutes).
 - **Parameters**:
-  - Max stamina cap: `360` (regeneration rate: 1 point every 360 seconds / 6 minutes).
+  - Max stamina cap: `360` (regeneration rate: 1 point every 432 seconds / 7 min 12 s, 200 points a day).
   - Configurable per profile via the `staminaCheck` toggle and `staminaThreshold` (`-1` = notify only at full cap `360/360`).
 - **No anti-spam**: every run notifies while the stamina is at or above the threshold (or full, with `-1`), so the reminder repeats every 30 minutes until the stamina is spent. The 5-minute notes cache only saves SKPort calls.
 

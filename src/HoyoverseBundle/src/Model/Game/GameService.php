@@ -2,7 +2,9 @@
 
 namespace App\HoyoverseBundle\Model\Game;
 
-abstract class GameService implements GameInterface, HasHoyolabCheckInInterface
+use App\GamesBundle\Model\Game\HasCheckInStatusInterface;
+
+abstract class GameService implements GameInterface, HasHoyolabCheckInInterface, HasCheckInStatusInterface
 {
     use HoyolabTrait;
     use HoyolabCheckInTrait;

@@ -15,6 +15,10 @@ framework:
             gryphline.notes.cache:
                 adapter: cache.adapter.filesystem
                 default_lifetime: 300
+            # Raw SKPort attendance per game profile (read only, never claims), cleared by a successful check-in
+            gryphline.check_in_status.cache:
+                adapter: cache.adapter.filesystem
+                default_lifetime: 600
             # Compact Endfield operator and weapon catalog: rebuilt by gryphline:ake-catalog:update, never expires
             gryphline.ake_catalog.cache:
                 adapter: cache.adapter.filesystem

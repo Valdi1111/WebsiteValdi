@@ -22,6 +22,9 @@ class FakeProfileProvider extends AbstractGameProfileProvider
 
     public ?AccountHealth $health = null;
 
+    /** @var list<\App\GamesBundle\Model\Profile\ProfileSetting> */
+    public array $settings = [];
+
     public ?\Throwable $contextError = null;
 
     /** @var array<string, array{0: string, 1?: list<string>}> */
@@ -105,6 +108,11 @@ class FakeProfileProvider extends AbstractGameProfileProvider
                 return $this->profile->getAccount()?->getUser();
             }
         };
+    }
+
+    public function getSettings(): array
+    {
+        return $this->settings;
     }
 
     public function getAccountHealth(GameAccountInterface $account): AccountHealth

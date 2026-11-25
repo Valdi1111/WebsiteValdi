@@ -5,17 +5,13 @@ namespace App\GamesBundle\Model\Game;
 use App\GamesBundle\Model\GameNotes\GameNotes;
 use Psr\Clock\ClockInterface;
 use Symfony\Contracts\Cache\CacheInterface;
-use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Service\Attribute\Required;
 
 /**
- * Per game profile cache of the raw notes payload, shared by the bundle NotesTrait implementations.
- *
- * An entry is {fetchedAt: unix timestamp, data: raw API payload}, plain arrays only: an entry written
- * before a deploy still reads after it, where a serialized notes object of an older class shape could fail.
- * The notes object is denormalized again on every read and gets the fetch time of its entry
- * (GameNotes::getFetchedAt()). The TTL is the default lifetime of the pool, which the bundle trait injects
- * through its own setNotesCache().
+ * Per game profile cache of the raw notes payload, shared by the bundle NotesTrait implementations, on the entry rules
+ * of CachedProfileData ({fetchedAt, data}, plain arrays, errors and partial answers not stored). The notes object is
+ * denormalized again on every read and gets the fetch time of its entry (GameNotes::getFetchedAt()). The TTL is the
+ * default lifetime of the pool, which the bundle trait injects through its own setNotesCache().
  */
 trait CachedNotesTrait
 {
@@ -42,30 +38,9 @@ trait CachedNotesTrait
      */
     private function getCachedNotesEntry(RuntimeAccountDataInterface $account, bool $fresh, \Closure $fetch): array
     {
-        $compute = function (?ItemInterface $item = null, bool &$save = true) use ($fetch): array {
-            [$data, $save] = $fetch();
-
-            return [
-                'fetchedAt' => ($this->notesClock?->now() ?? new \DateTimeImmutable())->getTimestamp(),
-                'data' => $data,
-            ];
-        };
-
         $profileId = $account->getGameProfile()->getId();
-        // No pool (service built by hand) or no id (unsaved profile, one shared key would mix the notes of several profiles)
-        if ($this->notesCache === null || $profileId === null) {
-            return $compute();
-        }
 
-        $key = 'notes_' . $profileId;
-        // INF forces the recompute while keeping the stampede protection of get()
-        $entry = $this->notesCache->get($key, $compute, $fresh ? INF : null);
-        if (!is_array($entry) || !is_int($entry['fetchedAt'] ?? null) || !is_array($entry['data'] ?? null)) {
-            // Entry of another shape (written by another version of this trait): fetch it again
-            $entry = $this->notesCache->get($key, $compute, INF);
-        }
-
-        return $entry;
+        return CachedProfileData::get($this->notesCache, $profileId !== null ? 'notes_' . $profileId : null, $fresh, $fetch, $this->notesClock);
     }
 
     /**
@@ -76,9 +51,6 @@ trait CachedNotesTrait
      */
     private function withFetchTime(GameNotes $notes, array $entry): GameNotes
     {
-        // In the timezone of the clock, as every other time of the embeds ("@" alone would give UTC)
-        $timezone = ($this->notesClock?->now() ?? new \DateTimeImmutable())->getTimezone();
-
-        return $notes->setFetchedAt(new \DateTimeImmutable('@' . $entry['fetchedAt'])->setTimezone($timezone));
+        return $notes->setFetchedAt(CachedProfileData::fetchedAt($entry, $this->notesClock));
     }
 }

@@ -54,7 +54,8 @@ class ProfileSummaryPresenter
         if ($status->error !== null) {
             $lines[] = '⚠️ The data of this profile could not be read right now.';
         } elseif ($status->sections === []) {
-            $lines[] = 'No live data for this game.';
+            // Neutral: the game may have data, only not in the sections asked
+            $lines[] = 'Nothing to show for this game.';
         }
         if ($status->fetchedAt !== null) {
             $age = $this->embedFactory->now()->getTimestamp() - $status->fetchedAt->getTimestamp();

@@ -53,4 +53,10 @@ interface GameProfileProviderInterface
     public function createContext(GameProfileInterface $profile, bool $fresh = false): GameProfileContext;
 
     public function getAccountHealth(GameAccountInterface $account): AccountHealth;
+
+    /**
+     * @return list<ProfileSetting> the settings of the profiles of the provider, for every game: a game has those
+     *                              whose capability its service implements
+     */
+    public function getSettings(): array;
 }

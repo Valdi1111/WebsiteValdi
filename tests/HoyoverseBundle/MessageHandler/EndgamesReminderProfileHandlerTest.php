@@ -14,6 +14,7 @@ use App\GamesBundle\Model\Endgame\GameEndgame;
 use App\GamesBundle\Presenter\EndgamesPresenter;
 use App\GamesBundle\Presenter\GameProfileEmbedFactory;
 use App\GamesBundle\Service\DurationFormatter;
+use App\GamesBundle\Service\Endgame\EndgameStatusBuilder;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Exception\RetrieveDeadlyAssaultDataException;
@@ -99,6 +100,7 @@ class EndgamesReminderProfileHandlerTest extends TestCase
         $clock = new MockClock($now, 'Europe/Paris');
         $handler->setClock($clock);
         $handler->setEndgamesPresenter(new EndgamesPresenter(new GameProfileEmbedFactory($clock), new DurationFormatter()));
+        $handler->setEndgameStatusBuilder(new EndgameStatusBuilder());
 
         return $handler;
     }
@@ -359,6 +361,22 @@ class EndgamesReminderProfileHandlerTest extends TestCase
         $handler(new EndgamesReminderProfileMessage(1));
 
         $this->assertSame('Shiyu Defense', $this->sentEndgameFields()[0][0]);
+    }
+
+    public function testModesAreReadFresh(): void
+    {
+        $fresh = [];
+        $service = $this->createStub(ZenlessZoneZeroService::class);
+        $service->method('fetchEndgame')->willReturnCallback(function (EndgameDefinition $definition, mixed $account, bool $isFresh = false) use (&$fresh): array {
+            $fresh[$definition->key] = $isFresh;
+
+            return [];
+        });
+
+        $this->createHandler($service)(new EndgamesReminderProfileMessage(1));
+
+        // A cached response could predate a clear: the reminder always requests the modes again
+        $this->assertSame(['shiyu_defense' => true, 'deadly_assault' => true], $fresh);
     }
 
     public function testErrorIsThrownWhenEveryRequestedModeFails(): void

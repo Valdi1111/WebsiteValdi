@@ -116,7 +116,7 @@ class GamesSectionsTest extends TestCase
         $this->assertEquals(new SummaryLine('Dailies', 'Daily Tasks 2/4, Engagement 100/400', '📅', true), $dailies->summarize(self::profile(), $pending));
 
         $done = new GameNotesWeeklies()->addWeekly($metric('Resin Discounts', 0, 3)->setCheckType(GameNotesMetricCheckType::CURRENT_EQUALS_ZERO));
-        $this->assertEquals(new SummaryLine('Weeklies', 'Done', '🗓️'), $weeklies->summarize(self::profile(), $done));
+        $this->assertEquals(new SummaryLine('Weeklies', 'Done', '📆'), $weeklies->summarize(self::profile(), $done));
 
         $this->assertEquals(new SummaryLine('Dailies', 'None', '📅'), $dailies->summarize(self::profile(), new GameNotesDailies()));
     }

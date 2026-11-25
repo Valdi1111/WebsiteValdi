@@ -54,4 +54,18 @@ class ProfileStatusWiringTest extends KernelTestCase
             array_keys(static::getContainer()->get(GameProfileStatusCollector::class)->getSections())
         );
     }
+
+    /**
+     * Section icons start the labels of games:status: an emoji made wide by the variation selector U+FE0F (🗓️, ⚔️)
+     * is counted one column narrow by the console tables and runs into the label.
+     */
+    public function testSectionIconsAreWideWithoutVariationSelector(): void
+    {
+        self::bootKernel();
+
+        foreach (static::getContainer()->get(GameProfileStatusCollector::class)->getSections() as $key => $section) {
+            $this->assertStringNotContainsString("\u{FE0F}", $section->getIcon(), sprintf('Icon of the "%s" section', $key));
+            $this->assertSame(1, mb_strlen($section->getIcon()), sprintf('Icon of the "%s" section', $key));
+        }
+    }
 }

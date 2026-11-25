@@ -35,7 +35,8 @@ class WeekliesSection extends AbstractNotesSection
 
     public function getIcon(): string
     {
-        return '🗓️';
+        // Not 🗓️: an emoji made wide by U+FE0F is counted one column narrow by the console tables
+        return '📆';
     }
 
     protected function getCapability(): string

@@ -47,14 +47,32 @@ class GameNotesRealm
 
     public function isWithinThreshold(RuntimeAccountData $accountData): bool
     {
-        if ($accountData->getGameProfile()->getRealmCurrencyThreshold() < 0) {
-            return $this->isFull();
-        }
-        return $this->getCurrentCoin() >= $accountData->getGameProfile()->getRealmCurrencyThreshold();
+        return $this->reachesThreshold($accountData->getGameProfile()->getRealmCurrencyThreshold());
     }
 
+    /**
+     * Whether the realm currency reached the threshold of a profile; a null or negative threshold means "when full".
+     * An unknown current amount never reaches it.
+     */
+    public function reachesThreshold(?int $threshold): bool
+    {
+        if ($this->getCurrentCoin() === null) {
+            return false;
+        }
+        if ($threshold === null || $threshold < 0) {
+            return $this->isFull();
+        }
+
+        return $this->getCurrentCoin() >= $threshold;
+    }
+
+    /**
+     * Full only when both the current and the max amount are known.
+     */
     public function isFull(): bool
     {
-        return $this->getCurrentCoin() == $this->getMaxCoin();
+        return $this->getCurrentCoin() !== null
+            && $this->getMaxCoin() !== null
+            && $this->getCurrentCoin() >= $this->getMaxCoin();
     }
 }

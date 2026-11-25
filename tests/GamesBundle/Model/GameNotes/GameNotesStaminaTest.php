@@ -73,4 +73,19 @@ class GameNotesStaminaTest extends TestCase
         $stamina->setCurrentStamina(180);
         $this->assertTrue($stamina->isWithinThreshold($accountData));
     }
+
+    public function testAnUnknownCurrentStaminaNeverReachesAThreshold(): void
+    {
+        $stamina = new GameNotesStamina()->setMaxStamina(200);
+
+        foreach ([0, 160, -1, null] as $threshold) {
+            $profile = $this->createStub(GameProfileInterface::class);
+            $profile->method('getStaminaThreshold')->willReturn($threshold);
+            $accountData = $this->createStub(RuntimeAccountDataInterface::class);
+            $accountData->method('getGameProfile')->willReturn($profile);
+
+            // null >= 0 would be true
+            $this->assertFalse($stamina->isWithinThreshold($accountData), sprintf('Threshold %s', var_export($threshold, true)));
+        }
+    }
 }

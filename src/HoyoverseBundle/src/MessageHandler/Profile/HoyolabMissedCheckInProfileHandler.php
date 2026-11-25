@@ -45,7 +45,7 @@ class HoyolabMissedCheckInProfileHandler extends AbstractProfileTaskMessageHandl
         if (!$checkInResult->isAlreadySignedIn()) {
             $notification = $this->embedFactory->create($accountData->getGameProfile(), "Daily Check-In")
                 ->setDescription($checkInResult->getResult())
-                ->addField("Today's Reward", "{$checkInResult->getAwardData()->getName()}", icon: "🎁", inline: true)
+                ->addField("Today's Reward", $checkInResult->getAwardData()?->getName() ?? "Item", icon: "🎁", inline: true)
                 ->addField("Total Sign-ins", $checkInResult->getTotalSignDay(), icon: "📅", inline: true);
 
             $this->sendNotificationToAccountData($accountData, $notification);

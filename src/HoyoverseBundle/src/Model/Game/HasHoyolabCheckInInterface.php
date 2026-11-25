@@ -4,6 +4,7 @@ namespace App\HoyoverseBundle\Model\Game;
 
 use App\GamesBundle\Model\Game\AwardData;
 use App\GamesBundle\Model\Game\CheckInResult;
+use App\HoyoverseBundle\Exception\RetrieveSignInfoException;
 use App\HoyoverseBundle\Exception\SignInFailedException;
 use App\HoyoverseBundle\Exception\SignInRiskException;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
@@ -36,6 +37,8 @@ interface HasHoyolabCheckInInterface
 
     /**
      * Fetches current check-in status information.
+     *
+     * @throws RetrieveSignInfoException when the request fails or the answer has no readable sign state
      */
     public function getSignInfo(RuntimeAccountData $account): SignInfo;
 

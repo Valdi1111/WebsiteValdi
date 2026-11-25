@@ -18,6 +18,8 @@ use App\HoyoverseBundle\Model\SignInfo;
 use Psr\Clock\ClockInterface;
 use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Serializer\Exception\PartialDenormalizationException;
+use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Service\Attribute\Required;
 
@@ -70,16 +72,19 @@ trait HoyolabCheckInTrait
                 ->setAlreadySignedIn(true)
                 ->setResult($this->getCheckInSignedMessage())
                 ->setTotalSignDay($signInfo->getTotalSignDay())
-                ->setAwardData($awardsData[$signInfo->getTotalSignDay() - 1]);
+                // No award for a month total of 0 (index -1) or a day past the award list
+                ->setAwardData($awardsData[$signInfo->getTotalSignDay() - 1] ?? null);
         }
 
         // A failed or captcha-blocked claim throws here and keeps the cached status, which still reads "not signed"
         $this->signIn($account);
         // Right after the claim, before anything else can fail: the status must not keep showing "not signed"
         $this->forgetCheckInStatus($account);
-        $awardData = $awardsData[$signInfo->getTotalSignDay()];
+        // The claim went through: nothing may throw from here on, a day past the award list just has no award
+        $awardData = $awardsData[$signInfo->getTotalSignDay()] ?? null;
+        $reward = $awardData !== null ? "{$awardData->getName()} x{$awardData->getCnt()}" : 'not in the award list';
 
-        $this->getLogger()->info("({$account->getGameProfile()->getGameUid()}) {$account->getGameProfile()->getNickname()} Today's Reward: {$awardData->getName()} x{$awardData->getCnt()}");
+        $this->getLogger()->info("({$account->getGameProfile()->getGameUid()}) {$account->getGameProfile()->getNickname()} Today's Reward: {$reward}");
 
         return new CheckInResult()
             ->setResult($this->getCheckInSuccessMessage())
@@ -121,10 +126,24 @@ trait HoyolabCheckInTrait
     {
         $body = $this->requestSignInfo($account);
 
-        return $this->getDenormalizer()->denormalize(
-            $body['data'] ?? [],
-            SignInfo::class
-        );
+        $data = $body['data'] ?? null;
+        try {
+            $signInfo = $this->getDenormalizer()->denormalize(
+                is_array($data) ? $data : [],
+                SignInfo::class,
+                context: [DenormalizerInterface::COLLECT_DENORMALIZATION_ERRORS => true]
+            );
+        } catch (PartialDenormalizationException $e) {
+            // A malformed field is left unset: harmless for the optional ones, caught below for the sign state
+            $signInfo = $e->getData();
+        }
+
+        // Never guess the sign state: a guessed "not signed" would claim, a guessed "signed" would skip the claim
+        if (!$signInfo instanceof SignInfo || !$signInfo->hasSignState()) {
+            throw new RetrieveSignInfoException('Check-in info without a readable sign state')->setHoyolabBody($body);
+        }
+
+        return $signInfo;
     }
 
     public function getCheckInStatus(RuntimeAccountDataInterface $account, bool $fresh = false): CheckInStatus

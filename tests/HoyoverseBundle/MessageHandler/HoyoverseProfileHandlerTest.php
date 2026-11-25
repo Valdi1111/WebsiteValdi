@@ -366,4 +366,108 @@ class HoyoverseProfileHandlerTest extends TestCase
         // Returns normally: a thrown exception would make Messenger retry, and call sign again
         $handler(new $messageClass(1));
     }
+
+    /**
+     * @return array<string, string|null> field name => value
+     */
+    private static function fieldValues(UniversalEmbed $embed): array
+    {
+        $values = [];
+        foreach ($embed->getFields() as $field) {
+            $values[$field->getName()] = $field->getValue();
+        }
+
+        return $values;
+    }
+
+    /**
+     * @param callable(UniversalEmbed): void $assertEmbed
+     */
+    private function runCheckInHandler(string $handlerClass, CheckInResult $checkInResult, int $expectedSends, ?callable $assertEmbed = null): void
+    {
+        $profile = $this->createProfileWithUser();
+        $repo = $this->createStub(HoyoverseGameProfileRepository::class);
+        $repo->method('find')->willReturn($profile);
+
+        $hsrService = $this->createStub(HonkaiStarRailService::class);
+        $hsrService->method('checkIn')->willReturn($checkInResult);
+
+        $locator = $this->createStub(ServiceCollectionInterface::class);
+        $locator->method('has')->willReturn(true);
+        $locator->method('get')->willReturn($hsrService);
+
+        $notificationService = $this->createMock(UnifiedNotificationService::class);
+        $notificationService->expects($this->exactly($expectedSends))
+            ->method('sendToUser')
+            ->with(
+                $this->isInstanceOf(User::class),
+                $this->callback(function (UniversalEmbed $embed) use ($assertEmbed) {
+                    if ($assertEmbed !== null) {
+                        $assertEmbed($embed);
+                    }
+                    return true;
+                }),
+                ['telegram']
+            );
+
+        $handler = new $handlerClass($repo, $this->parsingCookieUtils(), $locator, new NullLogger(), $notificationService);
+        $handler->setEmbedFactory(self::embedFactory());
+        $message = $handlerClass === HoyolabMissedCheckInProfileHandler::class
+            ? new HoyolabMissedCheckInProfileMessage(1)
+            : new HoyolabCheckInProfileMessage(1);
+        $handler($message);
+    }
+
+    public function testHoyolabCheckInProfileHandlerShowsTheAward(): void
+    {
+        $checkInResult = (new CheckInResult())
+            ->setResult('Check-in successful!')
+            ->setTotalSignDay(20)
+            ->setAwardData((new AwardData())->setName('Stellar Jade')->setCount(60));
+
+        $this->runCheckInHandler(HoyolabCheckInProfileHandler::class, $checkInResult, 1, function (UniversalEmbed $embed) {
+            $fields = self::fieldValues($embed);
+            $this->assertSame('Stellar Jade', $fields["Today's Reward"]);
+            $this->assertSame('20', $fields['Total Sign-ins']);
+        });
+    }
+
+    public function testHoyolabCheckInProfileHandlerNotifiesWithoutAward(): void
+    {
+        $checkInResult = (new CheckInResult())
+            ->setAlreadySignedIn(true)
+            ->setResult('Already checked in today')
+            ->setTotalSignDay(0);
+
+        $this->runCheckInHandler(HoyolabCheckInProfileHandler::class, $checkInResult, 1, function (UniversalEmbed $embed) {
+            $this->assertStringContainsString('Already checked in today', $embed->getDescription());
+            $fields = self::fieldValues($embed);
+            $this->assertSame('Item', $fields["Today's Reward"]);
+            $this->assertSame('0', $fields['Total Sign-ins']);
+        });
+    }
+
+    public function testHoyolabMissedCheckInProfileHandlerNotifiesWithoutAward(): void
+    {
+        $checkInResult = (new CheckInResult())
+            ->setResult('Check-in successful!')
+            ->setTotalSignDay(31);
+
+        $this->runCheckInHandler(HoyolabMissedCheckInProfileHandler::class, $checkInResult, 1, function (UniversalEmbed $embed) {
+            $this->assertStringContainsString('Check-in successful!', $embed->getDescription());
+            $fields = self::fieldValues($embed);
+            $this->assertSame('Item', $fields["Today's Reward"]);
+            $this->assertSame('31', $fields['Total Sign-ins']);
+        });
+    }
+
+    public function testHoyolabMissedCheckInProfileHandlerSkipsWhenAlreadySignedIn(): void
+    {
+        $checkInResult = (new CheckInResult())
+            ->setAlreadySignedIn(true)
+            ->setResult('Already checked in today')
+            ->setTotalSignDay(0);
+
+        $this->runCheckInHandler(HoyolabMissedCheckInProfileHandler::class, $checkInResult, 0);
+    }
 }

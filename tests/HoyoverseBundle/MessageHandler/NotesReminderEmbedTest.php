@@ -40,8 +40,8 @@ use App\HoyoverseBundle\Presenter\ShopStatusPresenter;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use App\HoyoverseBundle\Service\GenshinImpactService;
 use App\HoyoverseBundle\Service\HonkaiStarRailService;
-use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
 use App\HoyoverseBundle\Service\ZenlessZoneZeroService;
+use App\Tests\HoyoverseBundle\CookieUtilsStubTrait;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Clock\MockClock;
@@ -52,6 +52,8 @@ use Symfony\Contracts\Service\ServiceCollectionInterface;
  */
 class NotesReminderEmbedTest extends TestCase
 {
+    use CookieUtilsStubTrait;
+
     private const string NOW = '2026-03-17 15:00:00';
 
     private const array PLAYER_FIELDS = [
@@ -101,7 +103,7 @@ class NotesReminderEmbedTest extends TestCase
             $this->sent[] = $embed;
         });
 
-        $handler = new $class($repo, $this->createStub(HoyolabCookieUtilsService::class), $locator, new NullLogger(), $notificationService);
+        $handler = new $class($repo, $this->parsingCookieUtils(), $locator, new NullLogger(), $notificationService);
 
         $embedFactory = new GameProfileEmbedFactory(new MockClock(self::NOW, 'UTC'));
         match (true) {

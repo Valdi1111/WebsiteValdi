@@ -128,7 +128,7 @@ class ZenlessZoneZeroEndgamesTest extends KernelTestCase
         $locator->method('has')->willReturn(true);
         $locator->method('get')->willReturn($service);
         $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
-        $cookieUtils->method('parseCookie')->willReturn($this->createAccount()->getParsedCookie());
+        $cookieUtils->method('tryParseCookie')->willReturn($this->createAccount()->getParsedCookie());
         $notificationService = $this->createStub(UnifiedNotificationService::class);
         $notificationService->method('sendToUser')->willReturnCallback(function (User $user, UniversalEmbed $embed) use (&$sent): void {
             $sent[] = $embed;

@@ -9,6 +9,7 @@ use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Exception\HoyolabException;
 use App\HoyoverseBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\HoyoverseBundle\MessageHandler\Profile\SyncPullsPageProfileHandler;
+use App\HoyoverseBundle\Model\ParsedCookie;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
 use App\HoyoverseBundle\Service\GenshinImpactService;
@@ -42,6 +43,7 @@ class SyncPullsPageProfileHandlerTest extends TestCase
 
         $error = new HoyolabException('Failed to generate authkey for profile Traveler: Please login (retcode: -100)');
         $cookieUtils = $this->createMock(HoyolabCookieUtilsService::class);
+        $cookieUtils->method('tryParseCookie')->willReturn(new ParsedCookie());
         $cookieUtils->expects($this->once())->method('generateAuthKey')->willThrowException($error);
 
         $giService = $this->getMockBuilder(GenshinImpactService::class)

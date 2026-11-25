@@ -29,7 +29,7 @@ use App\HoyoverseBundle\MessageHandler\Profile\WeekliesReminderProfileHandler;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use App\HoyoverseBundle\Service\HonkaiStarRailService;
-use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
+use App\Tests\HoyoverseBundle\CookieUtilsStubTrait;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Clock\MockClock;
@@ -37,6 +37,8 @@ use Symfony\Contracts\Service\ServiceCollectionInterface;
 
 class HoyoverseProfileHandlerTest extends TestCase
 {
+    use CookieUtilsStubTrait;
+
     private static function embedFactory(): GameProfileEmbedFactory
     {
         return new GameProfileEmbedFactory(new MockClock());
@@ -92,7 +94,7 @@ class HoyoverseProfileHandlerTest extends TestCase
                 ['telegram']
             );
 
-        $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
+        $cookieUtils = $this->parsingCookieUtils();
 
         $handler = new StaminaCheckProfileHandler($repo, $cookieUtils, $locator, new NullLogger(), $notificationService);
         $handler->setStaminaPresenter(new StaminaPresenter(self::embedFactory(), new DurationFormatter()));
@@ -121,7 +123,7 @@ class HoyoverseProfileHandlerTest extends TestCase
         $notificationService = $this->createMock(UnifiedNotificationService::class);
         $notificationService->expects($this->never())->method('sendToUser');
 
-        $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
+        $cookieUtils = $this->parsingCookieUtils();
 
         $handler = new StaminaCheckProfileHandler($repo, $cookieUtils, $locator, new NullLogger(), $notificationService);
         $handler->setStaminaPresenter(new StaminaPresenter(self::embedFactory(), new DurationFormatter()));
@@ -143,7 +145,7 @@ class HoyoverseProfileHandlerTest extends TestCase
         $notificationService = $this->createMock(UnifiedNotificationService::class);
         $notificationService->expects($this->never())->method('sendToUser');
 
-        $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
+        $cookieUtils = $this->parsingCookieUtils();
 
         $handler = new StaminaCheckProfileHandler($repo, $cookieUtils, $locator, new NullLogger(), $notificationService);
         $handler->setStaminaPresenter(new StaminaPresenter(self::embedFactory(), new DurationFormatter()));
@@ -183,7 +185,7 @@ class HoyoverseProfileHandlerTest extends TestCase
                 ['telegram']
             );
 
-        $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
+        $cookieUtils = $this->parsingCookieUtils();
 
         $handler = new DailiesReminderProfileHandler($repo, $cookieUtils, $locator, new NullLogger(), $notificationService);
         $handler->setDailiesPresenter(new DailiesPresenter(self::embedFactory()));
@@ -214,7 +216,7 @@ class HoyoverseProfileHandlerTest extends TestCase
         $notificationService = $this->createMock(UnifiedNotificationService::class);
         $notificationService->expects($this->never())->method('sendToUser');
 
-        $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
+        $cookieUtils = $this->parsingCookieUtils();
 
         $handler = new DailiesReminderProfileHandler($repo, $cookieUtils, $locator, new NullLogger(), $notificationService);
         $handler->setDailiesPresenter(new DailiesPresenter(self::embedFactory()));
@@ -254,7 +256,7 @@ class HoyoverseProfileHandlerTest extends TestCase
                 ['telegram']
             );
 
-        $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
+        $cookieUtils = $this->parsingCookieUtils();
 
         $handler = new WeekliesReminderProfileHandler($repo, $cookieUtils, $locator, new NullLogger(), $notificationService);
         $handler->setWeekliesPresenter(new WeekliesPresenter(self::embedFactory()));
@@ -296,7 +298,7 @@ class HoyoverseProfileHandlerTest extends TestCase
                 ['telegram']
             );
 
-        $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
+        $cookieUtils = $this->parsingCookieUtils();
 
         $handler = new HoyolabCheckInProfileHandler($repo, $cookieUtils, $locator, new NullLogger(), $notificationService);
         $handler->setEmbedFactory(self::embedFactory());

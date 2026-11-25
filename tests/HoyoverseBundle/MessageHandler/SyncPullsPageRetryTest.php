@@ -13,12 +13,12 @@ use App\HoyoverseBundle\MessageHandler\Profile\SyncPullsPageProfileHandler;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
 use App\HoyoverseBundle\Service\GenshinImpactService;
-use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
 use App\HoyoverseBundle\Service\Pull\ManualPullService;
 use App\HoyoverseBundle\Service\Pull\PullOperationTracker;
 use App\HoyoverseBundle\Service\Pull\PullSyntheticReconcilerManager;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
+use App\Tests\HoyoverseBundle\CookieUtilsStubTrait;
 use PHPUnit\Framework\TestCase;
 use Psr\Cache\CacheItemInterface;
 use Psr\Log\NullLogger;
@@ -35,6 +35,8 @@ use Symfony\Component\Messenger\MessageBusInterface;
  */
 class SyncPullsPageRetryTest extends TestCase
 {
+    use CookieUtilsStubTrait;
+
     private const string BANNER = '301';
 
     /**
@@ -178,7 +180,7 @@ class SyncPullsPageRetryTest extends TestCase
 
         $handler = new SyncPullsPageProfileHandler(
             $profileRepo,
-            $this->createStub(HoyolabCookieUtilsService::class),
+            $this->parsingCookieUtils(),
             new ServiceLocator([GenshinImpactService::GAME_ID => static fn () => $giService]),
             new NullLogger(),
             $this->createStub(UnifiedNotificationService::class),

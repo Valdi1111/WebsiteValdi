@@ -25,7 +25,7 @@ class UpdateCookieMessageHandlerTest extends TestCase
     private function createHandler(\Closure $renew, UnifiedNotificationService $notificationService): UpdateCookieMessageHandler
     {
         $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
-        $cookieUtils->method('parseCookie')->willReturn((new ParsedCookie())->setLtokenV2('v2_old')->setLtuidV2('111')->setLtmidV2('mid111')->setStokenV2('v2_st'));
+        $cookieUtils->method('tryParseCookie')->willReturn((new ParsedCookie())->setLtokenV2('v2_old')->setLtuidV2('111')->setLtmidV2('mid111')->setStokenV2('v2_st'));
         $cookieUtils->method('renew')->willReturnCallback($renew);
         $cookieUtils->method('getLogger')->willReturn(new NullLogger());
 

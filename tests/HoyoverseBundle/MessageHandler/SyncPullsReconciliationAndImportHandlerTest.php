@@ -18,7 +18,6 @@ use App\HoyoverseBundle\Model\Pull\SyntheticPullReconcilerInterface;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
 use App\HoyoverseBundle\Service\GenshinImpactService;
-use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
 use App\HoyoverseBundle\Service\Pull\ManualPullService;
 use App\HoyoverseBundle\Service\Pull\PullBackupImportService;
 use App\HoyoverseBundle\Service\Pull\PullOperationTracker;
@@ -26,6 +25,7 @@ use App\HoyoverseBundle\Service\Pull\PullSyntheticReconcilerManager;
 use App\HoyoverseBundle\MessageHandler\Profile\ImportPullsBackupHandler;
 use App\HoyoverseBundle\MessageHandler\Profile\SyncPullsPageProfileHandler;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Tests\HoyoverseBundle\CookieUtilsStubTrait;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
@@ -39,6 +39,8 @@ use Symfony\Component\Messenger\Stamp\DelayStamp;
 
 class SyncPullsReconciliationAndImportHandlerTest extends TestCase
 {
+    use CookieUtilsStubTrait;
+
     public function testSyncPullsHandlerPromotesSyntheticPullAndTracksProgress(): void
     {
         $account = (new HoyoverseAccount())->setCookie('ltoken_v2=abc; ltuid_v2=123');
@@ -96,7 +98,7 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
         $tracker = new PullOperationTracker(new ArrayAdapter(), $hub, 'games.test');
         $operation = $tracker->startSyncOperation(10, 1, PullOperationKind::STOKEN_SYNC, ['301' => 'Character Event Wish']);
 
-        $cookieUtils = $this->createStub(HoyolabCookieUtilsService::class);
+        $cookieUtils = $this->parsingCookieUtils();
         $notificationService = $this->createStub(UnifiedNotificationService::class);
         $bus = $this->createMock(MessageBusInterface::class);
         $bus->expects($this->never())->method('dispatch'); // Stopped on existing real pull
@@ -208,7 +210,7 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
 
         $handler = new SyncPullsPageProfileHandler(
             $profileRepo,
-            $this->createStub(HoyolabCookieUtilsService::class),
+            $this->parsingCookieUtils(),
             new ServiceLocator([GenshinImpactService::GAME_ID => static fn () => $giService]),
             new NullLogger(),
             $this->createStub(UnifiedNotificationService::class),

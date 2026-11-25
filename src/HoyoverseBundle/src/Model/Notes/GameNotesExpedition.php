@@ -7,6 +7,7 @@ class GameNotesExpedition
     private ?string $avatar = null;
     private ?string $status = null;
     private ?int $remainingTime = null;
+    private ?\DateTimeImmutable $finishAt = null;
 
     public function getAvatar(): ?string
     {
@@ -38,6 +39,20 @@ class GameNotesExpedition
     public function setRemainingTime(?int $remainingTime): self
     {
         $this->remainingTime = $remainingTime;
+        return $this;
+    }
+
+    /**
+     * When the expedition is back, as an instant set from the fetch time of the notes. Null when unknown.
+     */
+    public function getFinishAt(): ?\DateTimeImmutable
+    {
+        return $this->finishAt;
+    }
+
+    public function setFinishAt(?\DateTimeImmutable $finishAt): self
+    {
+        $this->finishAt = $finishAt;
         return $this;
     }
 

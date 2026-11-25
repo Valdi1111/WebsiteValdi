@@ -137,7 +137,8 @@ class ArknightsEndfieldService implements GameInterface, HasCheckInInterface, Ha
         return new GameNotesStamina()
             ->setCurrentStamina($notes->getCurStamina())
             ->setMaxStamina($notes->getMaxStamina() ?? $this->getMaxStamina())
-            ->setStaminaRecoverTime($notes->getStaminaRecoveryTime());
+            ->setStaminaRecoverTime($notes->getStaminaRecoveryTime())
+            ->setFullAt($notes->getStaminaFullAt());
     }
 
     public function getDailiesData(RuntimeAccountDataInterface $account): GameNotesDailies

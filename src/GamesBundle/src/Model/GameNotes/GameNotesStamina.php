@@ -12,6 +12,8 @@ class GameNotesStamina
 
     private ?int $staminaRecoverTime = null;
 
+    private ?\DateTimeImmutable $fullAt = null;
+
     public function getCurrentStamina(): ?int
     {
         return $this->currentStamina;
@@ -45,10 +47,43 @@ class GameNotesStamina
         return $this;
     }
 
+    /**
+     * When the stamina is full, as an instant: set from the fetch time of the notes, so it stays right however old
+     * the cached notes are (unlike getStaminaRecoveryTime(), relative to the fetch). Null when unknown.
+     */
+    public function getFullAt(): ?\DateTimeImmutable
+    {
+        return $this->fullAt;
+    }
+
+    public function setFullAt(?\DateTimeImmutable $fullAt): self
+    {
+        $this->fullAt = $fullAt;
+        return $this;
+    }
+
+    /**
+     * Seconds until the stamina is full at $now: from getFullAt() when known, else the relative recovery time.
+     */
+    public function getSecondsUntilFull(\DateTimeInterface $now): ?int
+    {
+        if ($this->fullAt !== null) {
+            return max(0, $this->fullAt->getTimestamp() - $now->getTimestamp());
+        }
+
+        return $this->staminaRecoverTime;
+    }
+
     public function isWithinThreshold(RuntimeAccountDataInterface $accountData): bool
     {
-        $profile = $accountData->getGameProfile();
-        $threshold = $profile->getStaminaThreshold();
+        return $this->reachesThreshold($accountData->getGameProfile()->getStaminaThreshold());
+    }
+
+    /**
+     * Whether the stamina reached the threshold of a profile; a null or negative threshold means "when full".
+     */
+    public function reachesThreshold(?int $threshold): bool
+    {
         if ($threshold === null || $threshold < 0) {
             return $this->isFull();
         }

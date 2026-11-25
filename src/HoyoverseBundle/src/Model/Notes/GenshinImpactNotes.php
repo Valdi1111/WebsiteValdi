@@ -3,12 +3,15 @@
 namespace App\HoyoverseBundle\Model\Notes;
 
 use App\GamesBundle\Model\GameNotes\GameNotes;
+use App\GamesBundle\Model\GameNotes\GameNotesFetchedAtTrait;
 
 use Symfony\Component\Serializer\Attribute\SerializedName;
 use Symfony\Component\Serializer\Attribute\SerializedPath;
 
 class GenshinImpactNotes implements GameNotes
 {
+    use GameNotesFetchedAtTrait;
+
     // =========================================================================
     // Stamina (Resin)
     // =========================================================================

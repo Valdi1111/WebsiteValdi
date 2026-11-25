@@ -3,6 +3,8 @@
 namespace App\GamesBundle;
 
 use App\GamesBundle\Model\Game\PullItemIconResolverInterface;
+use App\GamesBundle\Model\Profile\GameProfileProviderInterface;
+use App\GamesBundle\Model\Status\ProfileSectionInterface;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -40,6 +42,10 @@ class GamesBundle extends AbstractBundle
         // alongside its #[AutoconfigureTag] attribute.
         $container->registerForAutoconfiguration(PullItemIconResolverInterface::class)
             ->addTag('games.pull_item_icon_resolver');
+        $container->registerForAutoconfiguration(GameProfileProviderInterface::class)
+            ->addTag(GameProfileProviderInterface::TAG);
+        $container->registerForAutoconfiguration(ProfileSectionInterface::class)
+            ->addTag(ProfileSectionInterface::TAG);
     }
 
     public function configure(DefinitionConfigurator $definition): void

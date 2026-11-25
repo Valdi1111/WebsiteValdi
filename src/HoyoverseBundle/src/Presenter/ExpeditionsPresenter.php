@@ -29,7 +29,7 @@ class ExpeditionsPresenter
                 inline: true
             );
 
-        $completionTime = $expeditions->getCompletionTime();
+        $completionTime = $expeditions->getSecondsUntilAllBack($this->embedFactory->now());
         if ($completionTime !== null) {
             $embed->addField('Completion Time', $this->durationFormatter->format($completionTime), icon: '🕒', inline: true);
         }

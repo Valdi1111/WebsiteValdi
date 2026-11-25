@@ -74,6 +74,32 @@ class GameNotesStaminaTest extends TestCase
         $this->assertTrue($stamina->isWithinThreshold($accountData));
     }
 
+    public function testSecondsUntilFullPreferTheFullInstant(): void
+    {
+        $now = new \DateTimeImmutable('2026-11-22 10:00:00');
+        $stamina = new GameNotesStamina()->setStaminaRecoverTime(3600);
+        $this->assertSame(3600, $stamina->getSecondsUntilFull($now), 'without an instant, the relative time');
+
+        $stamina->setFullAt($now->modify('+1000 seconds'));
+        $this->assertSame(1000, $stamina->getSecondsUntilFull($now));
+
+        $stamina->setFullAt($now->modify('-10 seconds'));
+        $this->assertSame(0, $stamina->getSecondsUntilFull($now), 'never negative once full');
+
+        $this->assertNull(new GameNotesStamina()->getSecondsUntilFull($now));
+    }
+
+    public function testReachesThreshold(): void
+    {
+        $stamina = new GameNotesStamina()->setCurrentStamina(180)->setMaxStamina(200);
+
+        $this->assertTrue($stamina->reachesThreshold(160));
+        $this->assertFalse($stamina->reachesThreshold(190));
+        $this->assertFalse($stamina->reachesThreshold(-1), 'negative: only when full');
+        $this->assertFalse($stamina->reachesThreshold(null), 'null: only when full');
+        $this->assertTrue($stamina->setCurrentStamina(200)->reachesThreshold(null));
+    }
+
     public function testAnUnknownCurrentStaminaNeverReachesAThreshold(): void
     {
         $stamina = new GameNotesStamina()->setMaxStamina(200);

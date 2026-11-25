@@ -12,6 +12,8 @@ class GameNotesRealm
 
     private ?int $coinRecoverTime = null;
 
+    private ?\DateTimeImmutable $fullAt = null;
+
     public function getCurrentCoin(): ?int
     {
         return $this->currentCoin;
@@ -43,6 +45,32 @@ class GameNotesRealm
     {
         $this->coinRecoverTime = $coinRecoverTime;
         return $this;
+    }
+
+    /**
+     * When the realm currency is full, as an instant set from the fetch time of the notes. Null when unknown.
+     */
+    public function getFullAt(): ?\DateTimeImmutable
+    {
+        return $this->fullAt;
+    }
+
+    public function setFullAt(?\DateTimeImmutable $fullAt): self
+    {
+        $this->fullAt = $fullAt;
+        return $this;
+    }
+
+    /**
+     * Seconds until the realm currency is full at $now: from getFullAt() when known, else the relative recovery time.
+     */
+    public function getSecondsUntilFull(\DateTimeInterface $now): ?int
+    {
+        if ($this->fullAt !== null) {
+            return max(0, $this->fullAt->getTimestamp() - $now->getTimestamp());
+        }
+
+        return $this->coinRecoverTime;
     }
 
     public function isWithinThreshold(RuntimeAccountData $accountData): bool

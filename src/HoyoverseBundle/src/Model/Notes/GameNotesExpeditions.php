@@ -14,12 +14,14 @@ class GameNotesExpeditions extends ArrayCollection
         ?string $avatar,
         ?string $status,
         ?int    $remainingTime,
+        ?\DateTimeImmutable $finishAt = null,
     ): self
     {
         $this->add(new GameNotesExpedition()
             ->setAvatar($avatar)
             ->setStatus($status)
-            ->setRemainingTime($remainingTime));
+            ->setRemainingTime($remainingTime)
+            ->setFinishAt($finishAt));
         return $this;
     }
 
@@ -54,6 +56,26 @@ class GameNotesExpeditions extends ArrayCollection
         }
 
         return $times !== [] ? max($times) : null;
+    }
+
+    /**
+     * Seconds at $now until the last expedition still out is back: from the instants of getFinishAt() when every
+     * one has it, else getCompletionTime() (relative to the fetch). Null as for getCompletionTime().
+     */
+    public function getSecondsUntilAllBack(\DateTimeInterface $now): ?int
+    {
+        $finishAt = [];
+        foreach ($this as $expedition) {
+            if ($expedition->isDone()) {
+                continue;
+            }
+            if ($expedition->getFinishAt() === null) {
+                return $this->getCompletionTime();
+            }
+            $finishAt[] = $expedition->getFinishAt()->getTimestamp();
+        }
+
+        return $finishAt !== [] ? max(0, max($finishAt) - $now->getTimestamp()) : null;
     }
 
 }

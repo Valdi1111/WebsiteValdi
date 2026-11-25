@@ -199,7 +199,8 @@ class HonkaiStarRailService extends GameService implements HasNotesInterface, Ha
         return new GameNotesStamina()
             ->setCurrentStamina($notes->getCurrentStamina())
             ->setMaxStamina($notes->getMaxStamina())
-            ->setStaminaRecoverTime($notes->getStaminaRecoverTime());
+            ->setStaminaRecoverTime($notes->getStaminaRecoverTime())
+            ->setFullAt($notes->timeAfterFetch($notes->getStaminaRecoverTime()));
     }
 
     public function getDailiesData(RuntimeAccountDataInterface $account): GameNotesDailies
@@ -242,7 +243,8 @@ class HonkaiStarRailService extends GameService implements HasNotesInterface, Ha
                 // An assignment has up to two characters: the first one stands for it
                 $expedition->getAvatars()[0] ?? null,
                 strtolower($expedition->getStatus() ?? ""),
-                $expedition->getRemainingTime()
+                $expedition->getRemainingTime(),
+                $notes->timeAfterFetch($expedition->getRemainingTime())
             );
         }
         return $expeditions;

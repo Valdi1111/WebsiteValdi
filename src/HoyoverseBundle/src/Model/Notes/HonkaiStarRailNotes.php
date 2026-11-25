@@ -3,11 +3,14 @@
 namespace App\HoyoverseBundle\Model\Notes;
 
 use App\GamesBundle\Model\GameNotes\GameNotes;
+use App\GamesBundle\Model\GameNotes\GameNotesFetchedAtTrait;
 
 use Symfony\Component\Serializer\Attribute\SerializedName;
 
 class HonkaiStarRailNotes implements GameNotes
 {
+    use GameNotesFetchedAtTrait;
+
     // =========================================================================
     // Stamina (Trailblaze Power & Reserve)
     // =========================================================================

@@ -202,7 +202,8 @@ class GenshinImpactService extends GameService implements HasNotesInterface, Has
         return new GameNotesStamina()
             ->setCurrentStamina($notes->getCurrentResin())
             ->setMaxStamina($notes->getMaxResin())
-            ->setStaminaRecoverTime($notes->getResinRecoveryTime());
+            ->setStaminaRecoverTime($notes->getResinRecoveryTime())
+            ->setFullAt($notes->timeAfterFetch($notes->getResinRecoveryTime()));
     }
 
     public function getDailiesData(RuntimeAccountDataInterface $account): GameNotesDailies
@@ -239,7 +240,8 @@ class GenshinImpactService extends GameService implements HasNotesInterface, Has
                 $expedition->getAvatarSideIcon(),
                 strtolower($expedition->getStatus() ?? ""),
                 // HoYoLAB sends the remaining seconds as a string
-                $expedition->getRemainedTime() !== null ? (int) $expedition->getRemainedTime() : null
+                $expedition->getRemainedTime() !== null ? (int) $expedition->getRemainedTime() : null,
+                $notes->timeAfterFetch($expedition->getRemainedTime())
             );
         }
         return $expeditions;
@@ -251,7 +253,8 @@ class GenshinImpactService extends GameService implements HasNotesInterface, Has
         return new GameNotesRealm()
             ->setCurrentCoin($notes->getCurrentHomeCoin())
             ->setMaxCoin($notes->getMaxHomeCoin())
-            ->setCoinRecoverTime($notes->getHomeCoinRecoveryTime());
+            ->setCoinRecoverTime($notes->getHomeCoinRecoveryTime())
+            ->setFullAt($notes->timeAfterFetch($notes->getHomeCoinRecoveryTime()));
     }
 
     public function getAuthkeyGameBiz(): string

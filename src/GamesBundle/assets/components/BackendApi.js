@@ -17,6 +17,7 @@ import axios from "axios";
  * @typedef {Object} GamesGameProfilesAPI
  * @property {(accountId: string|number) => Promise<axios.AxiosResponse<any>>} get
  * @property {(accountId: string|number, gameProfileId: string|number) => Promise<axios.AxiosResponse<any>>} getId
+ * @property {(gameProfileId: string|number, options?: { fresh?: boolean }) => Promise<axios.AxiosResponse<any>>} getStatus
  * @property {(accountId: string|number, gameProfileId: string|number, data: Object) => Promise<axios.AxiosResponse<any>>} updateSettings
  * @property {(accountId: string|number, gameProfileId: string|number) => Promise<axios.AxiosResponse<any>>} getDiaryMeta
  * @property {(accountId: string|number, gameProfileId: string|number, params: { period: string, currency: string }) => Promise<axios.AxiosResponse<any>>} getDiarySummary
@@ -62,6 +63,10 @@ export default function (apiUrl, { message }) {
     api._gameProfiles.get = async (id) => axiosInstance.get(`/accounts/${id}/gameProfiles`);
     api._gameProfiles.getId = async (accountId, gameProfileId) => axiosInstance.get(`/accounts/${accountId}/gameProfiles/${gameProfileId}`);
     api._gameProfiles.updateSettings = async (accountId, gameProfileId, data) => axiosInstance.patch(`/accounts/${accountId}/gameProfiles/${gameProfileId}/settings`, data);
+    // Live status, not nested under the account (the profile id is enough). fresh skips the backend
+    // caches and is rate limited (429), so the param is sent only when asked for
+    api._gameProfiles.getStatus = async (gameProfileId, { fresh = false } = {}) =>
+        axiosInstance.get(`/gameProfiles/${gameProfileId}/status`, fresh ? { params: { fresh: 1 } } : undefined);
 
     // Diary routes
     api._gameProfiles.getDiaryMeta = async (accountId, gameProfileId) =>

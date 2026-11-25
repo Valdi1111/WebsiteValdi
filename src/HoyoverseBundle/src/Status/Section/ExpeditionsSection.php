@@ -67,9 +67,10 @@ class ExpeditionsSection extends AbstractNotesSection
         }
 
         // Null when none is out, or when the return of one of them is unknown
-        $secondsUntilAllBack = $data->getSecondsUntilAllBack($this->clock->now());
+        $now = $this->clock->now();
+        $secondsUntilAllBack = $data->getSecondsUntilAllBack($now);
         // Cached notes whose last return has passed: every expedition is back by now, whatever they still say
-        if (!$data->allDone() && $secondsUntilAllBack === 0) {
+        if ($data->haveAllReturnedBy($now)) {
             return new SummaryLine($this->getLabel(), sprintf('%d/%d back', $data->count(), $data->count()), $this->getIcon(), attention: true);
         }
 

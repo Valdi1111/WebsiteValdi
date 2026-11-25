@@ -74,6 +74,15 @@ class GameNotesStamina
         return $this->staminaRecoverTime;
     }
 
+    /**
+     * Whether the stamina filled up after the notes were read: cached notes whose full instant has passed still hold
+     * the count of their read, and views show it full, as it is in the game.
+     */
+    public function hasFilledUpBy(\DateTimeInterface $now): bool
+    {
+        return !$this->isFull() && $this->fullAt !== null && $this->fullAt->getTimestamp() <= $now->getTimestamp();
+    }
+
     public function isWithinThreshold(RuntimeAccountDataInterface $accountData): bool
     {
         return $this->reachesThreshold($accountData->getGameProfile()->getStaminaThreshold());

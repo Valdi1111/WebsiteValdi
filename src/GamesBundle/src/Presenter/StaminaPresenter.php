@@ -20,11 +20,14 @@ class StaminaPresenter
 
     public function present(GameProfileInterface $profile, GameNotesStamina $stamina, string $title, ?string $description = null): UniversalEmbed
     {
+        $now = $this->embedFactory->now();
+        // Cached notes whose full instant has passed: full by now, as the compact view says
+        $current = $stamina->hasFilledUpBy($now) ? $stamina->getMaxStamina() : $stamina->getCurrentStamina();
         $embed = $this->embedFactory->create($profile, $title, $description)
-            ->addField('Stamina', "{$stamina->getCurrentStamina()}/{$stamina->getMaxStamina()}", icon: '🔋', inline: true);
+            ->addField('Stamina', "{$current}/{$stamina->getMaxStamina()}", icon: '🔋', inline: true);
 
         // Counted from the full instant when known, so cached notes do not show a stale time; no field when unknown
-        $secondsUntilFull = $stamina->getSecondsUntilFull($this->embedFactory->now());
+        $secondsUntilFull = $stamina->getSecondsUntilFull($now);
         if ($secondsUntilFull !== null) {
             $embed->addField('Recovery Time', $this->durationFormatter->format($secondsUntilFull), icon: '🕒', inline: true);
         }

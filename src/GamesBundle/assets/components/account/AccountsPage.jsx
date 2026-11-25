@@ -2,6 +2,7 @@ import AccountCard from "@GamesBundle/components/account/AccountCard";
 import { useBackendApi } from "@GamesBundle/components/BackendApiContext";
 import { useGameProvider } from "@GamesBundle/components/GameProviderContext";
 import GameProfileSettingsDrawer from "@GamesBundle/components/game-profile/GameProfileSettingsDrawer";
+import GameProfileStatusDrawer from "@GamesBundle/components/game-profile/GameProfileStatusDrawer";
 import React, { useState, useEffect, useCallback } from "react";
 import { Button, Typography, Space, Empty, Spin, Grid } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
@@ -22,11 +23,15 @@ export default function AccountsPage() {
     // { accountId, profileId }: the account itself is read from the list so it stays fresh after reloads
     const [selectedTarget, setSelectedTarget] = useState(null);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    // Same shape, kept apart so closing one drawer never clears the target of the other
+    const [statusTarget, setStatusTarget] = useState(null);
+    const [isStatusOpen, setIsStatusOpen] = useState(false);
 
     const api = useBackendApi();
     const { label, AddAccountModal } = useGameProvider();
 
     const selectedAccount = accounts.find((acc) => acc.id === selectedTarget?.accountId) ?? null;
+    const statusAccount = accounts.find((acc) => acc.id === statusTarget?.accountId) ?? null;
 
     const loadAccounts = useCallback(() => {
         setLoading(true);
@@ -107,6 +112,11 @@ export default function AccountsPage() {
         setIsSettingsOpen(true);
     };
 
+    const handleOpenStatus = (accountId, profileId) => {
+        setStatusTarget({ accountId, profileId });
+        setIsStatusOpen(true);
+    };
+
     return (
         <div
             style={{
@@ -164,6 +174,7 @@ export default function AccountsPage() {
                             onRelogin={handleOpenRelogin}
                             onDelete={handleDeleteAccount}
                             onOpenProfileSettings={handleOpenSettings}
+                            onOpenProfileStatus={handleOpenStatus}
                         />
                     ))}
                 </Space>
@@ -187,6 +198,15 @@ export default function AccountsPage() {
                     setSelectedTarget(null);
                 }}
                 onSaved={loadAccounts}
+            />
+
+            {/* The target is kept on close so the header does not vanish during the close animation;
+                the next open replaces it */}
+            <GameProfileStatusDrawer
+                open={isStatusOpen}
+                account={statusAccount}
+                profileId={statusTarget?.profileId}
+                onClose={() => setIsStatusOpen(false)}
             />
         </div>
     );

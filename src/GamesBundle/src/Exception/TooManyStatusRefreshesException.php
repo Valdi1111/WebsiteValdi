@@ -1,0 +1,28 @@
+<?php
+
+namespace App\GamesBundle\Exception;
+
+use App\CoreBundle\Exception\UserFacingHttpExceptionInterface;
+use Symfony\Component\HttpFoundation\Response;
+
+/**
+ * Too many status reads of a game profile that skip the caches: the rate limiter (games_status_refresh) refused this
+ * one. A 429 whose message is shown to the user, also in production.
+ */
+class TooManyStatusRefreshesException extends \RuntimeException implements UserFacingHttpExceptionInterface
+{
+    public function __construct(public readonly \DateTimeImmutable $retryAfter)
+    {
+        parent::__construct('Too many refreshes of this profile: try again in a few minutes.');
+    }
+
+    public function getStatusCode(): int
+    {
+        return Response::HTTP_TOO_MANY_REQUESTS;
+    }
+
+    public function getHeaders(): array
+    {
+        return ['Retry-After' => (string) max(1, $this->retryAfter->getTimestamp() - time())];
+    }
+}

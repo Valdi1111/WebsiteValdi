@@ -59,6 +59,28 @@ class GameProfileStatusCollector
     }
 
     /**
+     * Sections the profile supports, without reading any data: the context of a provider is built without API calls.
+     *
+     * Asked for every profile the site lists, so nothing is logged: a profile whose context cannot be built (unreadable
+     * cookie, game without a service) has no section here, and its status would show the error anyway.
+     *
+     * @return list<string> section keys, in display order
+     */
+    public function getSupportedSectionKeys(GameProfileInterface $profile): array
+    {
+        try {
+            $context = $this->registry->providerOf($profile)?->createContext($profile);
+        } catch (\Throwable) {
+            return [];
+        }
+        if ($context === null) {
+            return [];
+        }
+
+        return array_keys(array_filter($this->sections, static fn (ProfileSectionInterface $section): bool => $section->supports($context)));
+    }
+
+    /**
      * @param list<GameProfileInterface> $profiles   profiles of registered providers, already checked by the caller
      * @param list<string>|null          $sectionKeys sections to read, null for all; results keep the display order
      * @param bool                       $fresh      skip the caches (notes...) and read the APIs again

@@ -21,15 +21,18 @@ class ExpeditionsPresenter
 
     public function present(GameProfileInterface $profile, GameNotesExpeditions $expeditions, string $title, ?string $description = null): UniversalEmbed
     {
+        $now = $this->embedFactory->now();
+        // Cached notes whose last return has passed: all back by now, as the compact view says
+        $done = $expeditions->haveAllReturnedBy($now) ? $expeditions->count() : $expeditions->countDone();
         $embed = $this->embedFactory->create($profile, $title, $description)
             ->addField(
                 'Expeditions',
-                $expeditions->isEmpty() ? 'None dispatched' : "{$expeditions->countDone()}/{$expeditions->count()} completed",
+                $expeditions->isEmpty() ? 'None dispatched' : "{$done}/{$expeditions->count()} completed",
                 icon: '🧭',
                 inline: true
             );
 
-        $completionTime = $expeditions->getSecondsUntilAllBack($this->embedFactory->now());
+        $completionTime = $expeditions->getSecondsUntilAllBack($now);
         if ($completionTime !== null) {
             $embed->addField('Completion Time', $this->durationFormatter->format($completionTime), icon: '🕒', inline: true);
         }

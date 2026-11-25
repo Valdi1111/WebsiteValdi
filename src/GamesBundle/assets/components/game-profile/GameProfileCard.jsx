@@ -5,6 +5,7 @@ import {
     WarningOutlined,
     AreaChartOutlined,
     HistoryOutlined,
+    DashboardOutlined,
 } from "@ant-design/icons";
 import { Card, Avatar, Tag, Tooltip, Typography, Space } from "antd";
 import { useNavigate } from "react-router";
@@ -16,7 +17,7 @@ const { Text } = Typography;
  * Game profile summary card. Tags and actions are driven by the fields the backend exposes
  * for the profile (`"field" in profile`), so the same card serves every provider.
  */
-export default function GameProfileCard({ profile, account, onOpenSettings }) {
+export default function GameProfileCard({ profile, account, onOpenSettings, onOpenStatus }) {
     const navigate = useNavigate();
     const { basePath } = useGameProvider();
     const [imgError, setImgError] = useState(false);
@@ -29,8 +30,15 @@ export default function GameProfileCard({ profile, account, onOpenSettings }) {
     // The diary feature is supported only if the profile defines sync_diary
     const supportsDiary = "sync_diary" in profile;
     const isEnabled = (field) => field in profile && Boolean(profile[field]);
+    // Empty for games/providers without live data: the status view would have nothing to show
+    const supportsStatus = profile.status_sections?.length > 0 && Boolean(onOpenStatus);
 
     const actions = [
+        supportsStatus ? (
+            <Tooltip title="View Status" key="status">
+                <DashboardOutlined onClick={() => onOpenStatus(profile.id)} />
+            </Tooltip>
+        ) : null,
         supportsDiary ? (
             <Tooltip title="View Resource Diary" key="diary">
                 <AreaChartOutlined onClick={() => navigate(`${profilePath}/diary`)} />

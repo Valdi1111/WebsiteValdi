@@ -22,6 +22,7 @@ use App\GamesBundle\Status\Section\StaminaSection;
 use App\Tests\GamesBundle\Status\Fixtures\FakeGameProfile;
 use App\Tests\GamesBundle\Status\Fixtures\FakeNotesGameService;
 use App\Tests\GamesBundle\Status\Fixtures\FakeProfileProvider;
+use App\Tests\GamesBundle\Status\Fixtures\OtherFakeGameProfile;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
 use Symfony\Component\Clock\MockClock;
@@ -299,5 +300,29 @@ class GameProfileStatusCollectorTest extends TestCase
     {
         // The account section of these tests is not in the summary
         $this->assertSame(['stamina', 'dailies'], $this->collector()->getSummarySectionKeys());
+    }
+
+    public function testSupportedSectionsAreFoundWithoutReadingAnything(): void
+    {
+        $collector = $this->collector();
+
+        $this->assertSame(['stamina', 'dailies', 'account'], $collector->getSupportedSectionKeys($this->profile()));
+        $this->assertSame([], $this->service->notesCalls);
+        $this->assertSame(0, $this->service->getterCalls);
+
+        // Without account data only the sections that need none are left
+        $this->provider->withAccountData = false;
+        $this->assertSame(['account'], $collector->getSupportedSectionKeys($this->profile()));
+    }
+
+    public function testProfileWithoutContextHasNoSupportedSectionAndLogsNothing(): void
+    {
+        $collector = $this->collector();
+        $this->provider->contextError = new \RuntimeException('cookie=secret');
+
+        $this->assertSame([], $collector->getSupportedSectionKeys($this->profile()));
+        // A profile of no registered provider
+        $this->assertSame([], $collector->getSupportedSectionKeys(new OtherFakeGameProfile(new FakeGameProfile(9))));
+        $this->assertSame([], $this->logs);
     }
 }

@@ -4,6 +4,7 @@ namespace App\PerfectworldBundle\Normalizer;
 
 use App\GamesBundle\Model\Game\HasManualPullsInterface;
 use App\GamesBundle\Normalizer\AbstractGameProfileNormalizer;
+use App\GamesBundle\Service\Status\GameProfileStatusCollector;
 use App\PerfectworldBundle\Entity\PerfectworldGameProfile;
 use App\PerfectworldBundle\Model\Game\GameInterface;
 use App\PerfectworldBundle\Model\Game\HasPullTrackerInterface;
@@ -32,8 +33,10 @@ class PerfectworldGameProfileNormalizer extends AbstractGameProfileNormalizer
         NormalizerInterface&DenormalizerInterface $objectNormalizer,
         #[AutowireLocator(services: 'perfectworld.game.id', indexAttribute: 'key')]
         ServiceCollectionInterface $locatorByGameId,
+        #[Autowire(lazy: true)]
+        ?GameProfileStatusCollector $statusCollector = null,
     ) {
-        parent::__construct($objectNormalizer, $locatorByGameId);
+        parent::__construct($objectNormalizer, $locatorByGameId, $statusCollector);
     }
 
     protected function getSupportedClass(): string

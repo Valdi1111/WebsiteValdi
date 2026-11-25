@@ -5,6 +5,7 @@ namespace App\GryphlineBundle\Normalizer;
 use App\GamesBundle\Model\Game\HasManualPullsInterface;
 use App\GamesBundle\Model\Profile\ProfileSetting;
 use App\GamesBundle\Normalizer\AbstractGameProfileNormalizer;
+use App\GamesBundle\Service\Status\GameProfileStatusCollector;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
 use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Model\Game\HasAutoPullImportInterface;
@@ -29,8 +30,10 @@ class GryphlineGameProfileNormalizer extends AbstractGameProfileNormalizer
         ServiceCollectionInterface $locatorByGameId,
         #[Autowire(param: 'gryphline.timezones')]
         private readonly array $timezones = [],
+        #[Autowire(lazy: true)]
+        ?GameProfileStatusCollector $statusCollector = null,
     ) {
-        parent::__construct($objectNormalizer, $locatorByGameId);
+        parent::__construct($objectNormalizer, $locatorByGameId, $statusCollector);
     }
 
     protected function getSupportedClass(): string

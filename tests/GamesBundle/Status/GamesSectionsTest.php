@@ -100,6 +100,10 @@ class GamesSectionsTest extends TestCase
         // Cached notes fetched before the stamina was full: full by now
         $stale = new GameNotesStamina()->setCurrentStamina(198)->setMaxStamina(200)->setFullAt($now->modify('-1 minute'));
         $this->assertEquals(new SummaryLine('Stamina', '200/200 · full', '🔋', true), $line($stale));
+        // The full view says the same, not the count of the read
+        $fields = $section->present(self::profile(), $stale)->getFields();
+        $this->assertSame('200/200', $fields[GameProfileEmbedFactory::HEADER_FIELD_COUNT]->getValue());
+        $this->assertSame('120/200', $section->present(self::profile(), $notFull)->getFields()[GameProfileEmbedFactory::HEADER_FIELD_COUNT]->getValue());
     }
 
     public function testMetricsSummaries(): void

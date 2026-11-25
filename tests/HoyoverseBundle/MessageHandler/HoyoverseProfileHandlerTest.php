@@ -3,6 +3,8 @@
 namespace App\Tests\HoyoverseBundle\MessageHandler;
 
 use App\CoreBundle\Entity\User;
+use App\CoreBundle\Model\Notification\EmbedField;
+use App\GamesBundle\Message\ProfileTaskMessageInterface;
 use App\GamesBundle\Model\Game\AwardData;
 use App\GamesBundle\Model\Game\CheckInResult;
 use App\GamesBundle\Model\GameNotes\GameNotesDailies;
@@ -20,16 +22,21 @@ use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Message\Profile\DailiesReminderProfileMessage;
 use App\HoyoverseBundle\Message\Profile\HoyolabCheckInProfileMessage;
+use App\HoyoverseBundle\Message\Profile\HoyolabMissedCheckInProfileMessage;
 use App\HoyoverseBundle\Message\Profile\StaminaCheckProfileMessage;
 use App\HoyoverseBundle\Message\Profile\WeekliesReminderProfileMessage;
+use App\HoyoverseBundle\MessageHandler\Profile\AbstractProfileTaskMessageHandler;
 use App\HoyoverseBundle\MessageHandler\Profile\DailiesReminderProfileHandler;
 use App\HoyoverseBundle\MessageHandler\Profile\HoyolabCheckInProfileHandler;
+use App\HoyoverseBundle\MessageHandler\Profile\HoyolabMissedCheckInProfileHandler;
 use App\HoyoverseBundle\MessageHandler\Profile\StaminaCheckProfileHandler;
 use App\HoyoverseBundle\MessageHandler\Profile\WeekliesReminderProfileHandler;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
 use App\HoyoverseBundle\Service\HonkaiStarRailService;
+use App\HoyoverseBundle\Exception\SignInRiskException;
 use App\Tests\HoyoverseBundle\CookieUtilsStubTrait;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Clock\MockClock;
@@ -303,5 +310,60 @@ class HoyoverseProfileHandlerTest extends TestCase
         $handler = new HoyolabCheckInProfileHandler($repo, $cookieUtils, $locator, new NullLogger(), $notificationService);
         $handler->setEmbedFactory(self::embedFactory());
         $handler(new HoyolabCheckInProfileMessage(1));
+    }
+
+    /**
+     * @return iterable<string, array{class-string<AbstractProfileTaskMessageHandler<ProfileTaskMessageInterface>>, class-string<ProfileTaskMessageInterface>}>
+     */
+    public static function checkInHandlers(): iterable
+    {
+        yield 'auto check-in' => [HoyolabCheckInProfileHandler::class, HoyolabCheckInProfileMessage::class];
+        yield 'missed check-in' => [HoyolabMissedCheckInProfileHandler::class, HoyolabMissedCheckInProfileMessage::class];
+    }
+
+    /**
+     * @param class-string<AbstractProfileTaskMessageHandler<ProfileTaskMessageInterface>> $handlerClass
+     * @param class-string<ProfileTaskMessageInterface>                                     $messageClass
+     */
+    #[DataProvider('checkInHandlers')]
+    public function testHoyolabCheckInHandlersNotifyACaptchaAsNotClaimed(string $handlerClass, string $messageClass): void
+    {
+        $profile = $this->createProfileWithUser();
+        $repo = $this->createStub(HoyoverseGameProfileRepository::class);
+        $repo->method('find')->willReturn($profile);
+
+        $hsrService = $this->createMock(HonkaiStarRailService::class);
+        $hsrService->expects($this->once())
+            ->method('checkIn')
+            ->willThrowException(new SignInRiskException(5001));
+
+        $locator = $this->createStub(ServiceCollectionInterface::class);
+        $locator->method('has')->willReturn(true);
+        $locator->method('get')->willReturn($hsrService);
+
+        $notificationService = $this->createMock(UnifiedNotificationService::class);
+        $notificationService->expects($this->once())
+            ->method('sendToUser')
+            ->with(
+                $this->isInstanceOf(User::class),
+                $this->callback(function (UniversalEmbed $embed) {
+                    $this->assertSame('Honkai: Star Rail - Daily Check-In Failed', $embed->getTitle());
+                    $this->assertStringContainsString('NOT claimed', $embed->getDescription());
+                    $this->assertStringContainsString('check in by hand', $embed->getDescription());
+                    $this->assertSame(0xED4245, $embed->getColor());
+                    // Only the profile header of the embed factory: no reward, no sign-in total
+                    $this->assertSame(
+                        ['Player', 'Region', 'Rank'],
+                        array_map(static fn (EmbedField $field): ?string => $field->getName(), $embed->getFields())
+                    );
+                    return true;
+                }),
+                ['telegram']
+            );
+
+        $handler = new $handlerClass($repo, $this->parsingCookieUtils(), $locator, new NullLogger(), $notificationService);
+        $handler->setEmbedFactory(self::embedFactory());
+        // Returns normally: a thrown exception would make Messenger retry, and call sign again
+        $handler(new $messageClass(1));
     }
 }

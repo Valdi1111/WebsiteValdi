@@ -2,14 +2,13 @@
 
 namespace App\HoyoverseBundle\MessageHandler\Profile;
 
+use App\HoyoverseBundle\Exception\SignInRiskException;
 use App\HoyoverseBundle\Message\Profile\HoyolabCheckInProfileMessage;
 use App\GamesBundle\Message\ProfileTaskMessageInterface;
-use App\GamesBundle\Presenter\GameProfileEmbedFactory;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasHoyolabCheckInInterface;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
-use Symfony\Contracts\Service\Attribute\Required;
 
 /**
  * @implements AbstractProfileTaskMessageHandler<HoyolabCheckInProfileMessage>
@@ -17,13 +16,7 @@ use Symfony\Contracts\Service\Attribute\Required;
 #[AsMessageHandler]
 class HoyolabCheckInProfileHandler extends AbstractProfileTaskMessageHandler
 {
-    private GameProfileEmbedFactory $embedFactory;
-
-    #[Required]
-    public function setEmbedFactory(GameProfileEmbedFactory $embedFactory): void
-    {
-        $this->embedFactory = $embedFactory;
-    }
+    use HoyolabCheckInNotificationTrait;
 
     public function __invoke(HoyolabCheckInProfileMessage $message): void
     {
@@ -40,7 +33,13 @@ class HoyolabCheckInProfileHandler extends AbstractProfileTaskMessageHandler
             return;
         }
 
-        $checkInResult = $gameService->checkIn($accountData);
+        try {
+            $checkInResult = $gameService->checkIn($accountData);
+        } catch (SignInRiskException) {
+            $this->notifyCheckInRisk($accountData);
+
+            return;
+        }
 
         $notification = $this->embedFactory->create($accountData->getGameProfile(), "Daily Check-In")
             ->setDescription($checkInResult->getResult())

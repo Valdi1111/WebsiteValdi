@@ -2,14 +2,13 @@
 
 namespace App\HoyoverseBundle\MessageHandler\Profile;
 
+use App\HoyoverseBundle\Exception\SignInRiskException;
 use App\HoyoverseBundle\Message\Profile\HoyolabMissedCheckInProfileMessage;
 use App\GamesBundle\Message\ProfileTaskMessageInterface;
-use App\GamesBundle\Presenter\GameProfileEmbedFactory;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasHoyolabCheckInInterface;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
-use Symfony\Contracts\Service\Attribute\Required;
 
 /**
  * @implements AbstractProfileTaskMessageHandler<HoyolabMissedCheckInProfileMessage>
@@ -17,13 +16,7 @@ use Symfony\Contracts\Service\Attribute\Required;
 #[AsMessageHandler]
 class HoyolabMissedCheckInProfileHandler extends AbstractProfileTaskMessageHandler
 {
-    private GameProfileEmbedFactory $embedFactory;
-
-    #[Required]
-    public function setEmbedFactory(GameProfileEmbedFactory $embedFactory): void
-    {
-        $this->embedFactory = $embedFactory;
-    }
+    use HoyolabCheckInNotificationTrait;
 
     public function __invoke(HoyolabMissedCheckInProfileMessage $message): void
     {
@@ -40,7 +33,14 @@ class HoyolabMissedCheckInProfileHandler extends AbstractProfileTaskMessageHandl
             return;
         }
 
-        $checkInResult = $gameService->checkIn($accountData);
+        try {
+            $checkInResult = $gameService->checkIn($accountData);
+        } catch (SignInRiskException) {
+            // Still unclaimed: unlike an already claimed reward, the player has something to do
+            $this->notifyCheckInRisk($accountData);
+
+            return;
+        }
 
         if (!$checkInResult->isAlreadySignedIn()) {
             $notification = $this->embedFactory->create($accountData->getGameProfile(), "Daily Check-In")

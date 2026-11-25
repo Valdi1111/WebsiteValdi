@@ -10,6 +10,7 @@ use App\HoyoverseBundle\Exception\NoAwardsDataException;
 use App\HoyoverseBundle\Exception\RetrieveAwardsDataException;
 use App\HoyoverseBundle\Exception\RetrieveSignInfoException;
 use App\HoyoverseBundle\Exception\SignInFailedException;
+use App\HoyoverseBundle\Exception\SignInRiskException;
 use App\GamesBundle\Model\Game\AwardData;
 use App\GamesBundle\Model\Game\CheckInResult;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
@@ -72,6 +73,7 @@ trait HoyolabCheckInTrait
                 ->setAwardData($awardsData[$signInfo->getTotalSignDay() - 1]);
         }
 
+        // A failed or captcha-blocked claim throws here and keeps the cached status, which still reads "not signed"
         $this->signIn($account);
         // Right after the claim, before anything else can fail: the status must not keep showing "not signed"
         $this->forgetCheckInStatus($account);
@@ -87,7 +89,7 @@ trait HoyolabCheckInTrait
 
     public function signIn(RuntimeAccountData $account): void
     {
-        $this->requestHoyolab(
+        $body = $this->requestHoyolab(
             method: Request::METHOD_POST,
             url: $this->getUrlSign(),
             auth: $account,
@@ -95,6 +97,24 @@ trait HoyolabCheckInTrait
             exceptionClass: SignInFailedException::class,
             extraHeaders: ['x-rpc-signgame' => $this->getSignGame()]
         );
+
+        $risk = self::findSignRisk($body);
+        if ($risk !== null) {
+            $riskCode = $risk['risk_code'] ?? null;
+            $riskCode = is_int($riskCode) || is_string($riskCode) ? $riskCode : null;
+            $profile = $account->getGameProfile();
+
+            $this->getLogger()->warning("({$profile->getGameUid()}) {$profile->getNickname()} check-in blocked by a HoYoLAB captcha: reward not claimed", [
+                'uid'       => $profile->getGameUid(),
+                'region'    => $profile->getRegion(),
+                'risk_code' => $riskCode,
+            ]);
+
+            throw new SignInRiskException($riskCode)
+                ->setHoyolabRetcode(is_int($body['retcode'] ?? null) ? $body['retcode'] : null)
+                ->setHoyolabMessage(is_string($body['message'] ?? null) ? $body['message'] : null)
+                ->setHoyolabBody($body);
+        }
     }
 
     public function getSignInfo(RuntimeAccountData $account): SignInfo
@@ -183,6 +203,33 @@ trait HoyolabCheckInTrait
 
         // An answer without retcode passes requestHoyolab() but is not a confirmed success: used, never cached
         return [is_array($data) ? $data : [], ($body['retcode'] ?? null) === 0 && is_array($data)];
+    }
+
+    /**
+     * The captcha (GeeTest) flags of a sign answer, when it asks for one. Such an answer keeps retcode 0 and message
+     * "OK", but nothing was claimed. The global endpoints nest the flags in data.gt_result (risk_code 5001/5003,
+     * is_risk true); the older shape keeps them in data (risk_code 375, no is_risk). A claimed reward has risk_code 0
+     * and is_risk false, or no flags at all.
+     *
+     * @param array<string, mixed> $body the whole HoYoLAB answer
+     * @return array<string, mixed>|null
+     */
+    private static function findSignRisk(array $body): ?array
+    {
+        $data = $body['data'] ?? null;
+        if (!is_array($data)) {
+            return null;
+        }
+
+        $flags = is_array($data['gt_result'] ?? null) ? $data['gt_result'] : $data;
+        $riskCode = $flags['risk_code'] ?? null;
+
+        // Not keyed on "success": it is 1 when a challenge was issued
+        if (($flags['is_risk'] ?? null) === true || !in_array($riskCode, [null, 0, '0'], true)) {
+            return $flags;
+        }
+
+        return null;
     }
 
     /**

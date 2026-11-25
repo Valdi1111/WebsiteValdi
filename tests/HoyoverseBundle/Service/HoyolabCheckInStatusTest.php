@@ -7,6 +7,7 @@ use App\GryphlineBundle\Model\RuntimeAccountData as GryphlineRuntimeAccountData;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Exception\RetrieveSignInfoException;
 use App\HoyoverseBundle\Exception\SignInFailedException;
+use App\HoyoverseBundle\Exception\SignInRiskException;
 use App\HoyoverseBundle\Model\Game\GameService;
 use App\HoyoverseBundle\Model\ParsedCookie;
 use App\HoyoverseBundle\Model\RuntimeAccountData;
@@ -24,7 +25,8 @@ use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
 /**
- * Read-only, per-profile cached check-in status of the HoYoLAB check-in trait, with the application serializer.
+ * Read-only, per-profile cached check-in status of the HoYoLAB check-in trait, with the application serializer, and
+ * what a claim (also one blocked by a captcha) does to it.
  */
 class HoyolabCheckInStatusTest extends KernelTestCase
 {
@@ -347,6 +349,115 @@ class HoyolabCheckInStatusTest extends KernelTestCase
         }
 
         $this->assertTrue($this->cache->getItem('check_in_42')->isHit());
+    }
+
+    /**
+     * Captcha (GeeTest) answers of the sign endpoint, as reported by the open-source HoYoLAB clients: retcode 0 and
+     * "OK", but nothing claimed.
+     *
+     * @return iterable<string, array{array<string, mixed>, int|string|null}>
+     */
+    public static function riskSignData(): iterable
+    {
+        // Global endpoints: the flags are nested in gt_result
+        yield 'gt_result, risk code 5001' => [
+            ['code' => 'ok', 'first_bind' => false, 'gt_result' => ['risk_code' => 5001, 'gt' => 'a280f1e34s45a37ae91c65fc745fba71c', 'challenge' => 'ef74ab0042086a343ba869f5e29dab6e', 'success' => 1, 'is_risk' => true]],
+            5001,
+        ];
+        yield 'gt_result, risk code 5003' => [
+            ['code' => 'ok', 'first_bind' => false, 'gt_result' => ['risk_code' => 5003, 'gt' => 'a280f1e34s45a37ae91c65fc745fba71c', 'challenge' => '173a8894200a4b727007', 'success' => 1, 'is_risk' => true]],
+            5003,
+        ];
+        yield 'gt_result, is_risk without risk code' => [
+            ['code' => 'ok', 'gt_result' => ['gt' => 'a280f1e34s45a37ae91c65fc745fba71c', 'challenge' => 'ef74ab0042086a343ba869f5e29dab6e', 'success' => 1, 'is_risk' => true]],
+            null,
+        ];
+        // Older flat shape, without is_risk
+        yield 'flat data, risk code 375' => [
+            ['code' => '', 'risk_code' => 375, 'gt' => 'f1342eaf43e356aa680d18f55fa1f1ca', 'challenge' => '0df673a17f95e318a0bdf943742e4a9f', 'success' => 1],
+            375,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $signData
+     */
+    #[DataProvider('riskSignData')]
+    public function testCaptchaAnswerIsNotAClaimAndKeepsTheEntry(array $signData, int|string|null $riskCode): void
+    {
+        $service = $this->createService([
+            self::answer(self::infoData(isSign: false, totalSignDay: 11)), // status
+            self::answer(self::infoData(isSign: false, totalSignDay: 11)), // check-in: info
+            self::awardsAnswer(),                                          // check-in: home
+            self::answer($signData),                                       // check-in: sign, captcha
+        ]);
+        $account = $this->createAccount();
+        $service->getCheckInStatus($account);
+
+        try {
+            $service->checkIn($account);
+            $this->fail('A captcha answer must not read as a claim');
+        } catch (SignInRiskException $e) {
+            // Still a failed sign for the callers that only know SignInFailedException
+            $this->assertInstanceOf(SignInFailedException::class, $e);
+            $this->assertSame($riskCode, $e->getRiskCode());
+            $this->assertSame(0, $e->getHoyolabRetcode());
+            $this->assertSame($signData, $e->getHoyolabBody()['data']);
+        }
+
+        // One claim attempt only, and the status still reads "not signed" from its entry, without a new request
+        $this->assertSame(['method' => 'POST', 'url' => $service->getUrlSign()], $this->requests[3]);
+        $this->assertCount(1, array_filter($this->requests, static fn (array $request): bool => $request['method'] === 'POST'));
+        $status = $service->getCheckInStatus($account);
+        $this->assertFalse($status->signedToday);
+        $this->assertSame(11, $status->totalDays);
+        $this->assertCount(4, $this->requests);
+    }
+
+    #[DataProvider('gameServices')]
+    public function testCaptchaAnswerIsNotAClaimForEveryGame(string $class): void
+    {
+        [$signData] = self::riskSignData()->current();
+        $service = $this->createService([
+            self::answer(self::infoData(isSign: false, totalSignDay: 11)), // check-in: info
+            self::awardsAnswer(),                                          // check-in: home
+            self::answer($signData),                                       // check-in: sign, captcha
+        ], $class);
+
+        $this->expectException(SignInRiskException::class);
+        $service->checkIn($this->createAccount());
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>}>
+     */
+    public static function claimedSignData(): iterable
+    {
+        // What a claim answers on the global endpoints: the flags are there, all clear
+        yield 'gt_result without risk' => [
+            ['code' => 'ok', 'first_bind' => false, 'gt_result' => ['risk_code' => 0, 'gt' => '', 'challenge' => '', 'success' => 0, 'is_risk' => false]],
+        ];
+        yield 'no flags' => [['code' => 'ok']];
+    }
+
+    /**
+     * @param array<string, mixed> $signData
+     */
+    #[DataProvider('claimedSignData')]
+    public function testSignAnswerWithoutRiskIsAClaim(array $signData): void
+    {
+        $service = $this->createService([
+            self::answer(self::infoData(isSign: false, totalSignDay: 11)), // check-in: info
+            self::awardsAnswer(),                                          // check-in: home
+            self::answer($signData),                                       // check-in: sign
+        ]);
+
+        $result = $service->checkIn($this->createAccount());
+
+        $this->assertFalse($result->isAlreadySignedIn());
+        $this->assertSame($service->getCheckInSuccessMessage(), $result->getResult());
+        $this->assertSame(12, $result->getTotalSignDay());
+        $this->assertSame('Reward 12', $result->getAwardData()->getName());
     }
 
     public function testStatusRejectsAnotherAccountType(): void

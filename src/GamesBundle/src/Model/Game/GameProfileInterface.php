@@ -14,6 +14,11 @@ interface GameProfileInterface
 
     public function getLevel(): ?int;
 
+    /**
+     * Game of the profile within its provider (hk4e_global, endfield...): with the provider, it finds the game service.
+     */
+    public function getGameBiz(): ?string;
+
     public function getGameName(): ?string;
 
     public function getIconUrl(): ?string;

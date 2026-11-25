@@ -205,7 +205,8 @@ class ZenlessZoneZeroService extends GameService implements HasNotesInterface, H
         return new GameNotesStamina()
             ->setCurrentStamina($notes->getCurrentEnergy())
             ->setMaxStamina($notes->getMaxEnergy())
-            ->setStaminaRecoverTime($notes->getEnergyRestore());
+            ->setStaminaRecoverTime($notes->getEnergyRestore())
+            ->setFullAt($notes->timeAfterFetch($notes->getEnergyRestore()));
     }
 
     public function getDailiesData(RuntimeAccountDataInterface $account): GameNotesDailies

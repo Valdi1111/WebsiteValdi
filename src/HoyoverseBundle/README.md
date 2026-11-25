@@ -140,7 +140,7 @@ Reminders are split into **Global Tasks** (run at fixed intervals regardless of 
 
 **Embeds**: each handler checks whether to notify (threshold, all done...) and passes the data to a presenter (`GamesBundle\Presenter\{Stamina,Dailies,Weeklies,Endgames}Presenter`, `HoyoverseBundle\Presenter\{Expeditions,RealmCurrency,ShopStatus}Presenter`), which builds the embed without any check, so other callers can show the same data (see the [GamesBundle design notes](../GamesBundle/README.md#4-design-notes)).
 
-**Notes cache**: `NotesTrait::getNotes()` keeps the raw `dailyNote` payload of each game profile in `hoyoverse.notes.cache` for 5 minutes, so the stamina, expeditions, realm, shop, dailies and weeklies checks of one profile share one HoYoLAB call (see the [GamesBundle design notes](../GamesBundle/README.md#4-design-notes)). Errors and `-501000` answers are not cached; `getNotes($account, fresh: true)` bypasses the cache and stores the new answer.
+**Notes cache**: `NotesTrait::getNotes()` keeps the raw `dailyNote` payload of each game profile in `hoyoverse.notes.cache` for 5 minutes, so the stamina, expeditions, realm, shop, dailies and weeklies checks of one profile share one HoYoLAB call (see the [GamesBundle design notes](../GamesBundle/README.md#4-design-notes)). Errors and `-501000` answers are not cached; `getNotes($account, fresh: true)` bypasses the cache and stores the new answer. The notes carry the fetch time of their entry, and the getters turn the relative times of the payload (stamina, realm currency, expeditions) into instants, so the embeds show the time left when they are sent, not when the notes were fetched.
 
 ### 5.1 Stamina Reminder (`StaminaCheckBatchMessage`)
 - **Schedule**: `*/30 * * * *` (every 30 minutes).

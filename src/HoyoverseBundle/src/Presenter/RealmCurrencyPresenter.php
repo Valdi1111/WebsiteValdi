@@ -24,9 +24,10 @@ class RealmCurrencyPresenter
         $embed = $this->embedFactory->create($profile, $title, $description)
             ->addField('Realm Currency', "{$realm->getCurrentCoin()}/{$realm->getMaxCoin()}", icon: '💰', inline: true);
 
-        // Unknown recovery time: no field rather than a made-up one
-        if ($realm->getCoinRecoveryTime() !== null) {
-            $embed->addField('Recovery Time', $this->durationFormatter->format($realm->getCoinRecoveryTime()), icon: '🕒', inline: true);
+        // Counted from the full instant when known, so cached notes do not show a stale time; no field when unknown
+        $secondsUntilFull = $realm->getSecondsUntilFull($this->embedFactory->now());
+        if ($secondsUntilFull !== null) {
+            $embed->addField('Recovery Time', $this->durationFormatter->format($secondsUntilFull), icon: '🕒', inline: true);
         }
 
         return $embed;

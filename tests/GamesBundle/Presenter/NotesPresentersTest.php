@@ -65,6 +65,23 @@ class NotesPresentersTest extends TestCase
         ], self::dataFields($embed));
     }
 
+    public function testStaminaRecoveryTimeCountsFromTheFullInstant(): void
+    {
+        // Notes fetched 4 minutes before the embed clock: the full instant wins over the relative time
+        $now = new \DateTimeImmutable('2026-11-22 10:00:00', new \DateTimeZone('UTC'));
+        $stamina = new GameNotesStamina()->setCurrentStamina(100)->setMaxStamina(200)
+            ->setStaminaRecoverTime(3600)
+            ->setFullAt($now->modify('-240 seconds')->modify('+3600 seconds'));
+
+        $embed = new StaminaPresenter(new GameProfileEmbedFactory(new MockClock($now)), new DurationFormatter())
+            ->present($this->profile(), $stamina, 'Stamina');
+
+        $this->assertSame([
+            ['Stamina', '100/200', '🔋', true],
+            ['Recovery Time', '56 min, 0 sec', '🕒', true],
+        ], self::dataFields($embed));
+    }
+
     public function testStaminaWithoutRecoveryTime(): void
     {
         $stamina = new GameNotesStamina()->setCurrentStamina(360)->setMaxStamina(360);

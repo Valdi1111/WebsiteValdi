@@ -19,6 +19,14 @@ class GameProfileEmbedFactory
     ) {
     }
 
+    /**
+     * Time of the embeds: presenters compute "time left" from it, so an embed never mixes two clocks.
+     */
+    public function now(): \DateTimeImmutable
+    {
+        return $this->clock->now();
+    }
+
     public function create(GameProfileInterface $profile, string $title, ?string $description = null): UniversalEmbed
     {
         return new UniversalEmbed()

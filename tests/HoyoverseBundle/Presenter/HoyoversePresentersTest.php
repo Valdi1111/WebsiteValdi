@@ -96,6 +96,24 @@ class HoyoversePresentersTest extends TestCase
         ], self::dataFields($embed));
     }
 
+    public function testTimesCountFromTheInstantsOfTheFetch(): void
+    {
+        // Notes fetched 4 minutes before the embed clock
+        $now = new \DateTimeImmutable('2026-11-22 10:00:00', new \DateTimeZone('UTC'));
+        $fetchedAt = $now->modify('-240 seconds');
+        $factory = new GameProfileEmbedFactory(new MockClock($now));
+        $realm = new GameNotesRealm()->setCurrentCoin(1000)->setMaxCoin(2400)->setCoinRecoverTime(3600)->setFullAt($fetchedAt->modify('+3600 seconds'));
+        $expeditions = new GameNotesExpeditions()
+            ->addExpedition('avatar-1.png', 'ongoing', 3600, $fetchedAt->modify('+3600 seconds'))
+            ->addExpedition('avatar-2.png', 'ongoing', 7200, $fetchedAt->modify('+7200 seconds'));
+
+        $realmEmbed = new RealmCurrencyPresenter($factory, new DurationFormatter())->present(self::profile('Genshin Impact'), $realm, 'Realm Currency');
+        $expeditionsEmbed = new ExpeditionsPresenter($factory, new DurationFormatter())->present(self::profile('Genshin Impact'), $expeditions, 'Expeditions');
+
+        $this->assertSame(['Recovery Time', '56 min, 0 sec', '🕒', true], self::dataFields($realmEmbed)[1]);
+        $this->assertSame(['Completion Time', '1 hr, 56 min, 0 sec', '🕒', true], self::dataFields($expeditionsEmbed)[1]);
+    }
+
     public function testExpeditionsAllBack(): void
     {
         $expeditions = new GameNotesExpeditions()

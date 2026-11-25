@@ -3,10 +3,13 @@
 namespace App\GryphlineBundle\Model\Notes;
 
 use App\GamesBundle\Model\GameNotes\GameNotes;
+use App\GamesBundle\Model\GameNotes\GameNotesFetchedAtTrait;
 use Symfony\Component\Serializer\Attribute\SerializedPath;
 
 class ArknightsEndfieldNotes implements GameNotes
 {
+    use GameNotesFetchedAtTrait;
+
     // =========================================================================
     // Stamina (Dungeon)
     // =========================================================================
@@ -91,6 +94,16 @@ class ArknightsEndfieldNotes implements GameNotes
     {
         $maxTs = $this->getMaxTs();
         return $maxTs !== null ? max(0, $maxTs - time()) : null;
+    }
+
+    /**
+     * When the stamina is full: maxTs is already an instant, so it needs no fetch time (unlike the relative times
+     * of HoYoLAB). Null when SKPort does not send it.
+     */
+    public function getStaminaFullAt(): ?\DateTimeImmutable
+    {
+        $maxTs = $this->getMaxTs();
+        return $maxTs !== null && $maxTs > 0 ? new \DateTimeImmutable('@' . $maxTs) : null;
     }
 
     public function getDailyActivation(): ?int

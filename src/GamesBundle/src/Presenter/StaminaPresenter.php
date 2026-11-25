@@ -23,9 +23,10 @@ class StaminaPresenter
         $embed = $this->embedFactory->create($profile, $title, $description)
             ->addField('Stamina', "{$stamina->getCurrentStamina()}/{$stamina->getMaxStamina()}", icon: '🔋', inline: true);
 
-        // Unknown recovery time: no field rather than a made-up one
-        if ($stamina->getStaminaRecoveryTime() !== null) {
-            $embed->addField('Recovery Time', $this->durationFormatter->format($stamina->getStaminaRecoveryTime()), icon: '🕒', inline: true);
+        // Counted from the full instant when known, so cached notes do not show a stale time; no field when unknown
+        $secondsUntilFull = $stamina->getSecondsUntilFull($this->embedFactory->now());
+        if ($secondsUntilFull !== null) {
+            $embed->addField('Recovery Time', $this->durationFormatter->format($secondsUntilFull), icon: '🕒', inline: true);
         }
 
         return $embed;

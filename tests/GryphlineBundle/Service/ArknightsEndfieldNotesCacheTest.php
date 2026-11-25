@@ -126,6 +126,15 @@ class ArknightsEndfieldNotesCacheTest extends KernelTestCase
         );
     }
 
+    public function testStaminaIsFullAtMaxTsWhateverTheFetchTime(): void
+    {
+        $service = $this->createService([self::success()]);
+        $account = $this->createAccount();
+
+        $this->assertEquals(new \DateTimeImmutable('@1795400000'), $service->getStaminaData($account)->getFullAt());
+        $this->assertEquals(new \DateTimeImmutable('2026-11-22 10:00:00', new \DateTimeZone('UTC')), $service->getNotes($account)->getFetchedAt());
+    }
+
     public function testFreshCallsTheApiAgain(): void
     {
         $service = $this->createService([self::success(100), self::success(150)]);

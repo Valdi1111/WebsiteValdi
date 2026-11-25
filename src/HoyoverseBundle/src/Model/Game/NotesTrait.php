@@ -31,9 +31,9 @@ trait NotesTrait
 
     public function getNotes(RuntimeAccountDataInterface $account, bool $fresh = false): GameNotes
     {
-        $data = $this->getCachedNotesData($account, $fresh, fn (): array => $this->fetchNotesData($account));
+        $entry = $this->getCachedNotesEntry($account, $fresh, fn (): array => $this->fetchNotesData($account));
 
-        return $this->getDenormalizer()->denormalize($data, $this->getNotesClass());
+        return $this->withFetchTime($this->getDenormalizer()->denormalize($entry['data'], $this->getNotesClass()), $entry);
     }
 
     /**

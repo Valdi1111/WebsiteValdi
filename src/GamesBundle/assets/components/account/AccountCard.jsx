@@ -22,6 +22,7 @@ export default function AccountCard({
     onRelogin,
     onDelete,
     onOpenProfileSettings,
+    onOpenProfileStatus,
 }) {
     const { AccountStatusTags, getReloginState } = useGameProvider();
     const hasProfiles = account.game_profiles && account.game_profiles.length > 0;
@@ -103,6 +104,7 @@ export default function AccountCard({
                                 profile={profile}
                                 account={account}
                                 onOpenSettings={(profileId) => onOpenProfileSettings(account.id, profileId)}
+                                onOpenStatus={(profileId) => onOpenProfileStatus(account.id, profileId)}
                             />
                         </Col>
                     ))}

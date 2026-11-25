@@ -2,6 +2,8 @@
 
 namespace App\GamesBundle\Normalizer;
 
+use App\GamesBundle\Model\Game\GameProfileInterface;
+use App\GamesBundle\Service\Status\GameProfileStatusCollector;
 use InvalidArgumentException;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
@@ -18,9 +20,14 @@ abstract class AbstractGameProfileNormalizer implements NormalizerInterface, Den
         'notificationPlatforms',
     ];
 
+    /**
+     * @param GameProfileStatusCollector|null $statusCollector Lazy in the provider normalizers: the game providers
+     *                                                        need the serializer, which needs these normalizers
+     */
     public function __construct(
         protected readonly NormalizerInterface&DenormalizerInterface $objectNormalizer,
         protected readonly ServiceCollectionInterface $locatorByGameId,
+        private readonly ?GameProfileStatusCollector $statusCollector = null,
     ) {
     }
 
@@ -139,6 +146,10 @@ abstract class AbstractGameProfileNormalizer implements NormalizerInterface, Den
             $parsedTz = $data->getParsedTimezone();
             // Null offsets are deprecated since PHP 8.5: profiles without a region have no timezone
             $result['timezone'] = $parsedTz !== null ? ($timezoneMap[$parsedTz] ?? $parsedTz) : null;
+        }
+        if (is_array($result) && $this->statusCollector !== null && $data instanceof GameProfileInterface) {
+            // Sections of the on-demand status: the profile card offers it only when the game has some
+            $result['status_sections'] = $this->statusCollector->getSupportedSectionKeys($data);
         }
 
         return $result;

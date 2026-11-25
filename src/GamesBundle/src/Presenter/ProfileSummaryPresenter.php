@@ -18,6 +18,7 @@ class ProfileSummaryPresenter
     public const string TITLE = 'Status';
     public const string UNAVAILABLE = 'Unavailable right now';
     public const string ATTENTION = '🔔';
+    public const string PROFILE_UNAVAILABLE = 'The data of this profile could not be read right now.';
 
     public function __construct(
         private readonly GameProfileEmbedFactory $embedFactory,
@@ -52,7 +53,7 @@ class ProfileSummaryPresenter
             $lines[] = '⚠️ ' . $status->accountHealth->problem;
         }
         if ($status->error !== null) {
-            $lines[] = '⚠️ The data of this profile could not be read right now.';
+            $lines[] = '⚠️ ' . self::PROFILE_UNAVAILABLE;
         } elseif ($status->sections === []) {
             // Neutral: the game may have data, only not in the sections asked
             $lines[] = 'Nothing to show for this game.';

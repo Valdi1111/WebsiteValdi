@@ -1,0 +1,8 @@
+framework:
+    rate_limiter:
+        # Status reads of a game profile that skip the caches (ProfileStatusRefreshLimiter: "Refresh" on the site and,
+        # later, in the bot), per user and profile. One read is the notes, the check-in and one call per endgame mode
+        games_status_refresh:
+            policy: sliding_window
+            limit: 3
+            interval: '10 minutes'

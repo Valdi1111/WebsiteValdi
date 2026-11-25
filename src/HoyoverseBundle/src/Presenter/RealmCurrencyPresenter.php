@@ -21,11 +21,14 @@ class RealmCurrencyPresenter
 
     public function present(GameProfileInterface $profile, GameNotesRealm $realm, string $title, ?string $description = null): UniversalEmbed
     {
+        $now = $this->embedFactory->now();
+        // Cached notes whose full instant has passed: full by now, as the compact view says
+        $current = $realm->hasFilledUpBy($now) ? $realm->getMaxCoin() : $realm->getCurrentCoin();
         $embed = $this->embedFactory->create($profile, $title, $description)
-            ->addField('Realm Currency', "{$realm->getCurrentCoin()}/{$realm->getMaxCoin()}", icon: '💰', inline: true);
+            ->addField('Realm Currency', "{$current}/{$realm->getMaxCoin()}", icon: '💰', inline: true);
 
         // Counted from the full instant when known, so cached notes do not show a stale time; no field when unknown
-        $secondsUntilFull = $realm->getSecondsUntilFull($this->embedFactory->now());
+        $secondsUntilFull = $realm->getSecondsUntilFull($now);
         if ($secondsUntilFull !== null) {
             $embed->addField('Recovery Time', $this->durationFormatter->format($secondsUntilFull), icon: '🕒', inline: true);
         }

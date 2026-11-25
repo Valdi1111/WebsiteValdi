@@ -78,4 +78,13 @@ class GameNotesExpeditions extends ArrayCollection
         return $finishAt !== [] ? max(0, max($finishAt) - $now->getTimestamp()) : null;
     }
 
+    /**
+     * Whether every expedition still out in the notes is back by now: cached notes whose last return has passed still
+     * show them out, and views show them back, as they are in the game.
+     */
+    public function haveAllReturnedBy(\DateTimeInterface $now): bool
+    {
+        return !$this->isEmpty() && !$this->allDone() && $this->getSecondsUntilAllBack($now) === 0;
+    }
+
 }

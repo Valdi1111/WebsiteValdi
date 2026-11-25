@@ -2,6 +2,7 @@
 
 namespace App\Tests\HoyoverseBundle\Status;
 
+use App\CoreBundle\Model\Notification\UniversalEmbed;
 use App\GamesBundle\Model\Game\GameProfileInterface;
 use App\GamesBundle\Model\GameNotes\GameNotesStateMetric;
 use App\GamesBundle\Model\Profile\GameDescriptor;
@@ -275,6 +276,26 @@ class HoyoverseSectionsTest extends TestCase
             self::line('Realm Currency', $value, '💰', $attention),
             self::realmCurrencySection()->summarize(self::profile(realmCurrencyThreshold: $threshold), $realm),
         );
+    }
+
+    public function testFullViewsAgreeWithTheSummaryOnStaleNotes(): void
+    {
+        // Notes fetched 4 minutes before the clock of the sections, every return and full instant passed since
+        $fetchedAt = self::now()->modify('-240 seconds');
+        $expeditions = new GameNotesExpeditions()
+            ->addExpedition('avatar-1.png', 'finished', 0, $fetchedAt)
+            ->addExpedition('avatar-2.png', 'ongoing', 60, $fetchedAt->modify('+60 seconds'));
+        $realm = new GameNotesRealm()->setCurrentCoin(2390)->setMaxCoin(2400)->setCoinRecoverTime(60)->setFullAt($fetchedAt->modify('+60 seconds'));
+        $field = static fn (UniversalEmbed $embed): ?string => $embed->getFields()[GameProfileEmbedFactory::HEADER_FIELD_COUNT]->getValue();
+
+        $this->assertSame('2/2 completed', $field(self::expeditionsSection()->present(self::profile(), $expeditions)));
+        $this->assertSame('2400/2400', $field(self::realmCurrencySection()->present(self::profile(), $realm)));
+
+        // Still out, still filling: the count of the read
+        $expeditions->addExpedition('avatar-3.png', 'ongoing', 3600, $fetchedAt->modify('+3600 seconds'));
+        $this->assertSame('1/3 completed', $field(self::expeditionsSection()->present(self::profile(), $expeditions)));
+        $realm->setFullAt($fetchedAt->modify('+3600 seconds'));
+        $this->assertSame('2390/2400', $field(self::realmCurrencySection()->present(self::profile(), $realm)));
     }
 
     public function testRealmCurrencyOfAnotherProfileNeedsAttentionWhenFull(): void

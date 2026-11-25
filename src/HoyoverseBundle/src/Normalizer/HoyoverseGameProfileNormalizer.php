@@ -11,6 +11,7 @@ use App\GamesBundle\Model\Game\HasManualPullsInterface;
 use App\GamesBundle\Model\Game\HasSRankHistoryImportInterface;
 use App\GamesBundle\Model\Profile\ProfileSetting;
 use App\GamesBundle\Normalizer\AbstractGameProfileNormalizer;
+use App\GamesBundle\Service\Status\GameProfileStatusCollector;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Model\Game\HasPowershellPullImportInterface;
@@ -45,8 +46,10 @@ class HoyoverseGameProfileNormalizer extends AbstractGameProfileNormalizer
         private readonly array $timezones = [],
         #[Autowire(lazy: true)]
         private readonly ?HoyolabCookieUtilsService $cookieUtils = null,
+        #[Autowire(lazy: true)]
+        ?GameProfileStatusCollector $statusCollector = null,
     ) {
-        parent::__construct($objectNormalizer, $locatorByGameId);
+        parent::__construct($objectNormalizer, $locatorByGameId, $statusCollector);
     }
 
     protected function getSupportedClass(): string

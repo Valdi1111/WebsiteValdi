@@ -14,6 +14,12 @@ class GameProfileEmbedFactory
 {
     public const int COLOR = 0x3498DB;
 
+    /**
+     * Fields create() starts every embed with (player, region, rank): a view that shows the profile on its own drops
+     * them.
+     */
+    public const int HEADER_FIELD_COUNT = 3;
+
     public function __construct(
         private readonly ClockInterface $clock,
     ) {

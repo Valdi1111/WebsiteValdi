@@ -68,9 +68,10 @@ class RealmCurrencySection extends AbstractNotesSection
             return new SummaryLine($this->getLabel(), 'Unknown', $this->getIcon());
         }
 
-        $secondsUntilFull = $data->getSecondsUntilFull($this->clock->now());
+        $now = $this->clock->now();
+        $secondsUntilFull = $data->getSecondsUntilFull($now);
         // Cached notes whose full instant has passed: the realm currency is full by now, whatever they still say
-        if (!$data->isFull() && $data->getFullAt() !== null && $secondsUntilFull === 0) {
+        if ($data->hasFilledUpBy($now)) {
             return new SummaryLine($this->getLabel(), sprintf('%d/%d · full', $data->getMaxCoin(), $data->getMaxCoin()), $this->getIcon(), attention: true);
         }
 

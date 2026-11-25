@@ -21,8 +21,8 @@ use App\HoyoverseBundle\Message\Profile\EndgamesReminderProfileMessage;
 use App\HoyoverseBundle\MessageHandler\Profile\EndgamesReminderProfileHandler;
 use App\HoyoverseBundle\Model\Game\GameInterface;
 use App\HoyoverseBundle\Repository\HoyoverseGameProfileRepository;
-use App\HoyoverseBundle\Service\HoyolabCookieUtilsService;
 use App\HoyoverseBundle\Service\ZenlessZoneZeroService;
+use App\Tests\HoyoverseBundle\CookieUtilsStubTrait;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -31,6 +31,8 @@ use Symfony\Contracts\Service\ServiceCollectionInterface;
 
 class EndgamesReminderProfileHandlerTest extends TestCase
 {
+    use CookieUtilsStubTrait;
+
     /** End of the periods used below: 2026-03-20 03:59:59 server time (UTC+01:00) */
     private const string END = '2026-03-20 03:59:59';
 
@@ -87,7 +89,7 @@ class EndgamesReminderProfileHandlerTest extends TestCase
 
         $handler = new EndgamesReminderProfileHandler(
             $repo,
-            $this->createStub(HoyolabCookieUtilsService::class),
+            $this->parsingCookieUtils(),
             $locator,
             $logger ?? new NullLogger(),
             $notificationService

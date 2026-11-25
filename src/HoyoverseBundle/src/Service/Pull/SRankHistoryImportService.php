@@ -401,7 +401,7 @@ class SRankHistoryImportService
     }
 
     /**
-     * tryParseCookie(): the exception of parseCookie() contains the cookie, which must never reach the tracker.
+     * tryParseCookie(): the callers report a missing or incomplete cookie in their own words, which the tracker shows.
      */
     private function parseCookie(HoyoverseGameProfile $profile): ?ParsedCookie
     {

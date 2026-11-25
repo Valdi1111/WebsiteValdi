@@ -4,6 +4,7 @@ namespace App\HoyoverseBundle\MessageHandler\Profile;
 
 use App\CoreBundle\Model\Notification\UniversalEmbed;
 use App\CoreBundle\Service\Notification\UnifiedNotificationService;
+use App\HoyoverseBundle\Exception\ConfigurationException;
 use App\HoyoverseBundle\Exception\HoyolabException;
 use App\GamesBundle\Message\ProfileTaskMessageInterface;
 use App\HoyoverseBundle\Model\Game\GameInterface;
@@ -66,7 +67,10 @@ abstract class AbstractProfileTaskMessageHandler
             return;
         }
 
-        $parsedCookie = $this->cookieUtils->parseCookie($gameProfile->getAccount()->getCookie());
+        // The exception goes to Messenger (retries, failed messages, worker log): name the account, not the cookie
+        $account = $gameProfile->getAccount();
+        $parsedCookie = $this->cookieUtils->tryParseCookie($account?->getCookie())
+            ?? throw ConfigurationException::invalidCookie($account?->getId());
         $accountData = new RuntimeAccountData()
             ->setParsedCookie($parsedCookie)
             ->setGameProfile($gameProfile);

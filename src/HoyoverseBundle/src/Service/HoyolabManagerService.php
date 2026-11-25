@@ -4,6 +4,7 @@ namespace App\HoyoverseBundle\Service;
 
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
+use App\HoyoverseBundle\Exception\ConfigurationException;
 use App\HoyoverseBundle\Exception\NoGameRecordsException;
 use App\HoyoverseBundle\Exception\NoGameRolesException;
 use App\HoyoverseBundle\Exception\RetrieveGameRecordsException;
@@ -74,7 +75,8 @@ class HoyolabManagerService
 
     public function updateCachedGameProfilesByGameRoles(HoyoverseAccount $account): HoyoverseAccount
     {
-        $parsedCookie = $this->cookieUtils->parseCookie($account->getCookie());
+        $parsedCookie = $this->cookieUtils->tryParseCookie($account->getCookie())
+            ?? throw ConfigurationException::invalidCookie($account->getId());
         $gameRoles = $this->getGameRoles($parsedCookie);
 
         $gameProfileRepo = $this->entityManager->getRepository(HoyoverseGameProfile::class);
@@ -137,7 +139,8 @@ class HoyolabManagerService
 
     public function updateCachedGameProfilesByGameRecords(HoyoverseAccount $account): HoyoverseAccount
     {
-        $parsedCookie = $this->cookieUtils->parseCookie($account->getCookie());
+        $parsedCookie = $this->cookieUtils->tryParseCookie($account->getCookie())
+            ?? throw ConfigurationException::invalidCookie($account->getId());
         $gameRecords = $this->getGameRecords($parsedCookie);
 
         $gameProfileRepo = $this->entityManager->getRepository(HoyoverseGameProfile::class);

@@ -5,6 +5,7 @@ namespace App\HoyoverseBundle\MessageHandler;
 use App\CoreBundle\Model\Notification\UniversalEmbed;
 use App\CoreBundle\Service\Notification\UnifiedNotificationService;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
+use App\HoyoverseBundle\Exception\ConfigurationException;
 use App\HoyoverseBundle\Exception\HoyolabUnavailableException;
 use App\HoyoverseBundle\Message\UpdateCookieMessage;
 use App\HoyoverseBundle\Repository\HoyoverseAccountRepository;
@@ -60,7 +61,9 @@ class UpdateCookieMessageHandler
             return;
         }
 
-        $parsedCookie = $this->cookieUtils->parseCookie($rawCookie);
+        // __invoke() logs the message: name the account, not the cookie
+        $parsedCookie = $this->cookieUtils->tryParseCookie($rawCookie)
+            ?? throw ConfigurationException::invalidCookie($account->getId());
 
         // Skip renewal if no renewal secret (stoken_v2) is configured
         if (!$parsedCookie->canAutoRenew()) {

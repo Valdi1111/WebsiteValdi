@@ -66,15 +66,23 @@ class HoyolabCookieUtilsService
      *
      * @return ParsedCookie The populated model containing authentication tokens and identifiers.
      *
-     * @throws ConfigurationException If required tokens (ltoken_v2, ltuid_v2, ltmid_v2) are missing.
+     * @throws ConfigurationException If required tokens (ltoken_v2, ltuid_v2, ltmid_v2) are missing. The message names
+     *                                only the missing tokens, never the cookie.
      */
-    public function parseCookie(string $cookieString): ParsedCookie
+    public function parseCookie(#[\SensitiveParameter] string $cookieString): ParsedCookie
     {
         $cookieMap = $this->toMap($cookieString);
 
         $cookie = $this->denormalizer->denormalize($cookieMap, ParsedCookie::class);
         if (!$cookie->isValid()) {
-            throw new ConfigurationException("No ltoken_v2, ltuid_v2, or ltmid_v2 found in cookie: $cookieString");
+            // Token names only: the cookie holds the account credentials, and this message reaches logs and failed messages
+            $missing = array_keys(array_filter([
+                'ltoken_v2' => $cookie->getLtokenV2(),
+                'ltuid_v2'  => $cookie->getLtuidV2(),
+                'ltmid_v2'  => $cookie->getLtmidV2(),
+            ], static fn (?string $value): bool => empty($value)));
+
+            throw new ConfigurationException(sprintf('The cookie lacks %s.', implode(', ', $missing)));
         }
 
         return $cookie;
@@ -82,9 +90,9 @@ class HoyolabCookieUtilsService
 
     /**
      * Same as parseCookie(), but returns null instead of throwing when the cookie is missing or lacks the basic tokens.
-     * Callers must not log the exception of parseCookie(): its message contains the cookie.
+     * Prefer it when the caller reports the problem itself, naming the account: see ConfigurationException::invalidCookie().
      */
-    public function tryParseCookie(?string $cookieString): ?ParsedCookie
+    public function tryParseCookie(#[\SensitiveParameter] ?string $cookieString): ?ParsedCookie
     {
         if ($cookieString === null || trim($cookieString) === '') {
             return null;
@@ -101,7 +109,7 @@ class HoyolabCookieUtilsService
      * Whether the cookie carries the tokens required by the HoYoLAB web code redemption endpoints
      * (cookie_token_v2, account_mid_v2, account_id_v2). They are the same for every auto-redeemable game.
      */
-    public function canRedeemCodes(?string $cookieString): bool
+    public function canRedeemCodes(#[\SensitiveParameter] ?string $cookieString): bool
     {
         return $this->tryParseCookie($cookieString)?->canRedeemCodes() ?? false;
     }
@@ -116,7 +124,7 @@ class HoyolabCookieUtilsService
      *
      * @return string The reconstructed cookie string.
      */
-    public function filterCookie(string $cookieString, string $separator = ';', array $whitelist = [], array $blacklist = []): string
+    public function filterCookie(#[\SensitiveParameter] string $cookieString, string $separator = ';', array $whitelist = [], array $blacklist = []): string
     {
         if (!empty($whitelist)) {
             $filtered = array_filter(
@@ -147,7 +155,7 @@ class HoyolabCookieUtilsService
      *
      * @return array<string, string> Key-value map of parsed cookie properties.
      */
-    public function toMap(string $cookieString, string $separator = ';'): array
+    public function toMap(#[\SensitiveParameter] string $cookieString, string $separator = ';'): array
     {
         $map = [];
         $parts = explode($separator, $cookieString);
@@ -168,7 +176,7 @@ class HoyolabCookieUtilsService
     /**
      * Extracts the HoYoverse account UID (ltuid_v2 / account_id_v2 / ltuid / account_id) from a raw cookie string.
      */
-    public function extractAccountUid(string $cookieString): ?string
+    public function extractAccountUid(#[\SensitiveParameter] string $cookieString): ?string
     {
         $map = $this->toMap($cookieString);
         $uid = $map['ltuid_v2'] ?? $map['account_id_v2'] ?? $map['ltuid'] ?? $map['account_id'] ?? null;
@@ -344,7 +352,9 @@ class HoyolabCookieUtilsService
             throw new ConfigurationException('GameProfile does not have an associated HoyoverseAccount.');
         }
 
-        $parsedCookie = $this->parseCookie((string) $account->getCookie());
+        // The message reaches the pull sync tracker, which the user sees: name the account, not the cookie
+        $parsedCookie = $this->tryParseCookie($account->getCookie())
+            ?? throw ConfigurationException::invalidCookie($account->getId());
         $stoken = $parsedCookie->getStokenV2();
 
         if (empty($stoken)) {

@@ -4,7 +4,7 @@ namespace App\GryphlineBundle;
 
 use App\GamesBundle\DependencyInjection\GameTasksConfiguration;
 use App\GryphlineBundle\Message\Batch\DailiesReminderBatchMessage;
-use App\GryphlineBundle\Message\Batch\EndfieldCatalogUpdateMessage;
+use App\GryphlineBundle\Message\Batch\AkeCatalogUpdateMessage;
 use App\GryphlineBundle\Message\Batch\SkportCheckInBatchMessage;
 use App\GryphlineBundle\Message\Batch\SkportMissedCheckInBatchMessage;
 use App\GryphlineBundle\Message\Batch\StaminaCheckBatchMessage;
@@ -62,7 +62,7 @@ class GryphlineBundle extends AbstractBundle
         GameTasksConfiguration::addTaskNode($tasksNode, 'skport_missed_check_in', SkportMissedCheckInBatchMessage::class);
         GameTasksConfiguration::addTaskNode($tasksNode, 'stamina', StaminaCheckBatchMessage::class);
         GameTasksConfiguration::addTaskNode($tasksNode, 'sync_pulls', SyncPullsBatchMessage::class);
-        GameTasksConfiguration::addTaskNode($tasksNode, 'catalog_update', EndfieldCatalogUpdateMessage::class);
+        GameTasksConfiguration::addTaskNode($tasksNode, 'catalog_update', AkeCatalogUpdateMessage::class);
 
         // 2. Regional tasks (regional = true)
         GameTasksConfiguration::addTaskNode($tasksNode, 'dailies_reminder', DailiesReminderBatchMessage::class, regional: true);

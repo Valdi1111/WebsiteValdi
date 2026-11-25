@@ -8,7 +8,7 @@ use App\GryphlineBundle\Message\Batch\DailiesReminderBatchMessage;
 use App\GryphlineBundle\Message\Profile\SkportCheckInProfileMessage;
 use App\GryphlineBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\GryphlineBundle\Repository\GryphlineGameProfileRepository;
-use App\GryphlineBundle\Service\EndfieldService;
+use App\GryphlineBundle\Service\ArknightsEndfieldService;
 use App\GryphlineBundle\Service\Pull\PullOperationTracker;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
@@ -32,14 +32,14 @@ class GryphlineTaskCommandTest extends KernelTestCase
 
     private PullOperationTracker $tracker;
 
-    private EndfieldService $endfield;
+    private ArknightsEndfieldService $endfield;
 
     private function createTester(): CommandTester
     {
         self::bootKernel();
         $container = static::getContainer();
 
-        $profile = (new GryphlineGameProfile())->setGameId(3)->setGameBiz(EndfieldService::GAME_BIZ)->setGameName('Arknights: Endfield')->setGameUid('1234567')->setServerId('2')->setNickname('Endmin');
+        $profile = (new GryphlineGameProfile())->setGameId(3)->setGameBiz(ArknightsEndfieldService::GAME_BIZ)->setGameName('Arknights: Endfield')->setGameUid('1234567')->setServerId('2')->setNickname('Endmin');
         (new \ReflectionProperty(GryphlineGameProfile::class, 'id'))->setValue($profile, 7);
         $repository = $this->createStub(GryphlineGameProfileRepository::class);
         $repository->method('find')->willReturnCallback(static fn (int $id): ?GryphlineGameProfile => $id === 7 ? $profile : null);
@@ -53,13 +53,13 @@ class GryphlineTaskCommandTest extends KernelTestCase
         });
 
         $this->tracker = new PullOperationTracker(new ArrayAdapter(), $this->createStub(HubInterface::class), 'games.test');
-        $endfield = $this->endfield = $container->get(EndfieldService::class);
+        $endfield = $this->endfield = $container->get(ArknightsEndfieldService::class);
 
         return new CommandTester(new GryphlineTaskCommand(
             $repository,
             $bus,
             $this->tracker,
-            new ServiceLocator([EndfieldService::GAME_BIZ => static fn (): EndfieldService => $endfield]),
+            new ServiceLocator([ArknightsEndfieldService::GAME_BIZ => static fn (): ArknightsEndfieldService => $endfield]),
             $container->getParameter('gryphline.tasks'),
             $container->getParameter('gryphline.timezones'),
         ));

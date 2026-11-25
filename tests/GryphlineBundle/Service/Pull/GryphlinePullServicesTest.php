@@ -12,7 +12,7 @@ use App\GryphlineBundle\Entity\GryphlinePull;
 use App\GryphlineBundle\Model\Pull\ImportedPullRecord;
 use App\GryphlineBundle\Model\Pull\PullBackupImporterInterface;
 use App\GryphlineBundle\Repository\GryphlinePullRepository;
-use App\GryphlineBundle\Service\EndfieldService;
+use App\GryphlineBundle\Service\ArknightsEndfieldService;
 use App\GryphlineBundle\Service\Pull\PullBackupImporterManager;
 use App\GryphlineBundle\Service\Pull\ManualPullService;
 use App\GryphlineBundle\Service\Pull\PullBackupImportService;
@@ -35,9 +35,9 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class GryphlinePullServicesTest extends TestCase
 {
-    private function createEndfieldService(): EndfieldService
+    private function createArknightsEndfieldService(): ArknightsEndfieldService
     {
-        return new EndfieldService(
+        return new ArknightsEndfieldService(
             $this->createStub(HttpClientInterface::class),
             $this->createStub(HttpClientInterface::class),
             $this->createStub(SkportSignerService::class),
@@ -52,8 +52,8 @@ class GryphlinePullServicesTest extends TestCase
     private function createProfile(int $id = 12): GryphlineGameProfile
     {
         $profile = (new GryphlineGameProfile())
-            ->setGameId(EndfieldService::GAME_ID)
-            ->setGameBiz(EndfieldService::GAME_BIZ)
+            ->setGameId(ArknightsEndfieldService::GAME_ID)
+            ->setGameBiz(ArknightsEndfieldService::GAME_BIZ)
             ->setNickname('Endministrator');
         (new \ReflectionProperty(GryphlineGameProfile::class, 'id'))->setValue($profile, $id);
 
@@ -95,7 +95,7 @@ class GryphlinePullServicesTest extends TestCase
 
             public static function getSupportedGameServices(): array
             {
-                return [EndfieldService::class];
+                return [ArknightsEndfieldService::class];
             }
 
             public function validate(string $filePath): PullBackupValidationResult
@@ -172,7 +172,7 @@ class GryphlinePullServicesTest extends TestCase
 
     public function testImporterManagerReturnsMetadataAndHandlesEmptyRegistry(): void
     {
-        $endfield = $this->createEndfieldService();
+        $endfield = $this->createArknightsEndfieldService();
 
         $emptyManager = new PullBackupImporterManager([]);
         $this->assertSame([], $emptyManager->getMetadataForGameService($endfield));
@@ -191,7 +191,7 @@ class GryphlinePullServicesTest extends TestCase
     public function testBackupImportServiceDeduplicatesBySeqIdAndSyntheticLogicalMultiset(): void
     {
         $profile = $this->createProfile(12);
-        $endfield = $this->createEndfieldService();
+        $endfield = $this->createArknightsEndfieldService();
         $ts = new \DateTimeImmutable('2026-06-01 12:00:00', new \DateTimeZone('UTC'));
 
         $records = [
@@ -233,7 +233,7 @@ class GryphlinePullServicesTest extends TestCase
             $pullRepo,
             $manager,
             new LockFactory(new InMemoryStore()),
-            new ServiceLocator([EndfieldService::GAME_BIZ => static fn () => $endfield]),
+            new ServiceLocator([ArknightsEndfieldService::GAME_BIZ => static fn () => $endfield]),
             $manualPullService,
         );
 
@@ -261,7 +261,7 @@ class GryphlinePullServicesTest extends TestCase
     public function testBackupImportServiceSkipsTheRealignOnDryRunAndWhenNothingIsImported(): void
     {
         $profile = $this->createProfile(12);
-        $endfield = $this->createEndfieldService();
+        $endfield = $this->createArknightsEndfieldService();
         $ts = new \DateTimeImmutable('2026-06-01 12:00:00');
         $records = [
             new ImportedPullRecord('1001', 'E_CharacterGachaPoolType_Special', 'char', 'pool_1', 'Chartered', 'chr_1', 'Laevatain', 6, $ts),
@@ -277,7 +277,7 @@ class GryphlinePullServicesTest extends TestCase
             $emptyRepo,
             new PullBackupImporterManager([$this->createDummyImporter($records)]),
             new LockFactory(new InMemoryStore()),
-            new ServiceLocator([EndfieldService::GAME_BIZ => static fn () => $endfield]),
+            new ServiceLocator([ArknightsEndfieldService::GAME_BIZ => static fn () => $endfield]),
             $manualPullService,
         );
         $this->assertSame(1, $dryRun->import($profile, 'endfield_test_export', '/tmp/unused.json', dryRun: true)->imported);
@@ -289,7 +289,7 @@ class GryphlinePullServicesTest extends TestCase
             $knownRepo,
             new PullBackupImporterManager([$this->createDummyImporter($records)]),
             new LockFactory(new InMemoryStore()),
-            new ServiceLocator([EndfieldService::GAME_BIZ => static fn () => $endfield]),
+            new ServiceLocator([ArknightsEndfieldService::GAME_BIZ => static fn () => $endfield]),
             $manualPullService,
         );
         $this->assertSame(0, $nothingNew->import($profile, 'endfield_test_export', '/tmp/unused.json')->imported);
@@ -298,7 +298,7 @@ class GryphlinePullServicesTest extends TestCase
     public function testBackupImportServiceThrowsWhenProfileLockIsHeld(): void
     {
         $profile = $this->createProfile(12);
-        $endfield = $this->createEndfieldService();
+        $endfield = $this->createArknightsEndfieldService();
         $lockFactory = new LockFactory(new InMemoryStore());
         $heldLock = $lockFactory->createLock(PullBackupImportService::getProfileLockKey(12));
         $this->assertTrue($heldLock->acquire(false));
@@ -309,7 +309,7 @@ class GryphlinePullServicesTest extends TestCase
                 $this->createStub(GryphlinePullRepository::class),
                 new PullBackupImporterManager([$this->createDummyImporter([])]),
                 $lockFactory,
-                new ServiceLocator([EndfieldService::GAME_BIZ => static fn () => $endfield]),
+                new ServiceLocator([ArknightsEndfieldService::GAME_BIZ => static fn () => $endfield]),
                 $this->createStub(ManualPullService::class),
             );
 

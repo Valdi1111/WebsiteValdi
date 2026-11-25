@@ -15,8 +15,8 @@ framework:
             gryphline.notes.cache:
                 adapter: cache.adapter.filesystem
                 default_lifetime: 300
-            # Compact Endfield operator and weapon catalog: rebuilt by gryphline:endfield-catalog:update, never expires
-            gryphline.endfield_catalog.cache:
+            # Compact Endfield operator and weapon catalog: rebuilt by gryphline:ake-catalog:update, never expires
+            gryphline.ake_catalog.cache:
                 adapter: cache.adapter.filesystem
                 default_lifetime: 0
 

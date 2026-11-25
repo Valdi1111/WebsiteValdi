@@ -7,7 +7,7 @@ use App\GamesBundle\Model\Pull\Manual\FillerPlan;
 use App\GamesBundle\Model\Pull\PullOrigin;
 use App\GamesBundle\Service\Pull\PullGapPlanner;
 use App\GryphlineBundle\Entity\GryphlinePull;
-use App\GryphlineBundle\Service\EndfieldService;
+use App\GryphlineBundle\Service\ArknightsEndfieldService;
 use App\GryphlineBundle\Service\Pull\GryphlinePullStatsCalculator;
 use App\HoyoverseBundle\Entity\HoyoversePull;
 use App\HoyoverseBundle\Service\GenshinImpactService;
@@ -73,7 +73,7 @@ class PullWallClockTest extends KernelTestCase
 
     public function testGryphlineRealignIsStableForFillersInTheDstGap(): void
     {
-        $game = (new \ReflectionClass(EndfieldService::class))->newInstanceWithoutConstructor();
+        $game = (new \ReflectionClass(ArknightsEndfieldService::class))->newInstanceWithoutConstructor();
         $calculator = new GryphlinePullStatsCalculator(new PullGapPlanner());
         $rows = [
             $this->row(1, '01:00:00', 6),

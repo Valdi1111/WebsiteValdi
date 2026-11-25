@@ -3,7 +3,7 @@
 namespace App\Tests\GryphlineBundle\Service;
 
 use App\GamesBundle\Model\Game\PullItemIconQuery;
-use App\GryphlineBundle\Service\EndfieldService;
+use App\GryphlineBundle\Service\ArknightsEndfieldService;
 use App\GryphlineBundle\Service\PullIcon\AkeDataIconResolver;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
@@ -47,19 +47,19 @@ class AkeDataIconResolverTest extends TestCase
 
         $this->assertSame(
             'https://data.akedata.wiki/public/images/assets/beyond/dynamicassets/gameplay/ui/sprites/charremoteicon/icon_chr_0004_pelica.png',
-            $resolver->resolveUrl(EndfieldService::class, new PullItemIconQuery(itemId: 'chr_0004_pelica', itemType: 'char'))
+            $resolver->resolveUrl(ArknightsEndfieldService::class, new PullItemIconQuery(itemId: 'chr_0004_pelica', itemType: 'char'))
         );
 
         // Swapped iconId case: wpn_funnel_0008 -> iconId wpn_funnel_0010 in itemicon/
         $this->assertSame(
             'https://data.akedata.wiki/public/images/assets/beyond/dynamicassets/gameplay/ui/sprites/itemicon/wpn_funnel_0010.png',
-            $resolver->resolveUrl(EndfieldService::class, new PullItemIconQuery(itemId: 'wpn_funnel_0008', itemType: 'weapon'))
+            $resolver->resolveUrl(ArknightsEndfieldService::class, new PullItemIconQuery(itemId: 'wpn_funnel_0008', itemType: 'weapon'))
         );
 
         // Fallback to gachaweapon/ when itemicon/ doesn't exist
         $this->assertSame(
             'https://data.akedata.wiki/public/images/assets/beyond/dynamicassets/gameplay/ui/sprites/gachaweapon/wpn_sword_0005.png',
-            $resolver->resolveUrl(EndfieldService::class, new PullItemIconQuery(itemId: 'wpn_sword_0005', itemType: 'weapon'))
+            $resolver->resolveUrl(ArknightsEndfieldService::class, new PullItemIconQuery(itemId: 'wpn_sword_0005', itemType: 'weapon'))
         );
     }
 }

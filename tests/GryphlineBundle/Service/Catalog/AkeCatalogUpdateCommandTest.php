@@ -2,22 +2,22 @@
 
 namespace App\Tests\GryphlineBundle\Service\Catalog;
 
-use App\GryphlineBundle\Command\EndfieldCatalogUpdateCommand;
-use App\GryphlineBundle\Service\Catalog\EndfieldCatalog;
-use App\GryphlineBundle\Service\Catalog\EndfieldCatalogBuilder;
-use App\GryphlineBundle\Service\Catalog\EndfieldCatalogUpdater;
+use App\GryphlineBundle\Command\AkeCatalogUpdateCommand;
+use App\GryphlineBundle\Service\Catalog\AkeCatalog;
+use App\GryphlineBundle\Service\Catalog\AkeCatalogBuilder;
+use App\GryphlineBundle\Service\Catalog\AkeCatalogUpdater;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 
-class EndfieldCatalogUpdateCommandTest extends TestCase
+class AkeCatalogUpdateCommandTest extends TestCase
 {
     public function testBuildsSavesAndPrintsTheSummary(): void
     {
         $pool = new ArrayAdapter();
-        $tester = new CommandTester($this->createCommand(new AkeDataFixture(), new EndfieldCatalog($pool)));
+        $tester = new CommandTester($this->createCommand(new AkeDataFixture(), new AkeCatalog($pool)));
 
         $this->assertSame(Command::SUCCESS, $tester->execute([]), $tester->getDisplay());
 
@@ -28,13 +28,13 @@ class EndfieldCatalogUpdateCommandTest extends TestCase
         $this->assertMatchesRegularExpression('/Weapons\s+2/', $display);
         $this->assertMatchesRegularExpression('/6★\s+4 \(3 operators, 1 weapons\)/', $display);
 
-        $this->assertSame(AkeDataFixture::LATEST, new EndfieldCatalog($pool)->getVersion());
+        $this->assertSame(AkeDataFixture::LATEST, new AkeCatalog($pool)->getVersion());
     }
 
     public function testManifestVersionOption(): void
     {
         $fixture = new AkeDataFixture();
-        $catalog = new EndfieldCatalog(new ArrayAdapter());
+        $catalog = new AkeCatalog(new ArrayAdapter());
         $tester = new CommandTester($this->createCommand($fixture, $catalog));
 
         $this->assertSame(Command::SUCCESS, $tester->execute(['--manifest-version' => AkeDataFixture::OLDER]), $tester->getDisplay());
@@ -45,7 +45,7 @@ class EndfieldCatalogUpdateCommandTest extends TestCase
 
     public function testAbortedBuildKeepsPreviousCatalogAndFails(): void
     {
-        $catalog = new EndfieldCatalog(new ArrayAdapter());
+        $catalog = new AkeCatalog(new ArrayAdapter());
         $catalog->save([
             'version' => AkeDataFixture::OLDER,
             'built_at' => '2026-11-16T06:00:00+01:00',
@@ -59,10 +59,10 @@ class EndfieldCatalogUpdateCommandTest extends TestCase
         $this->assertSame(AkeDataFixture::OLDER, $catalog->getVersion());
     }
 
-    private function createCommand(AkeDataFixture $fixture, EndfieldCatalog $catalog): EndfieldCatalogUpdateCommand
+    private function createCommand(AkeDataFixture $fixture, AkeCatalog $catalog): AkeCatalogUpdateCommand
     {
-        return new EndfieldCatalogUpdateCommand(new EndfieldCatalogUpdater(
-            new EndfieldCatalogBuilder($fixture->client(), new NullLogger()),
+        return new AkeCatalogUpdateCommand(new AkeCatalogUpdater(
+            new AkeCatalogBuilder($fixture->client(), new NullLogger()),
             $catalog,
             new NullLogger(),
         ));

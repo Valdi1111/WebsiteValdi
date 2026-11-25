@@ -20,7 +20,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * is saved, so the previous catalog stays in place. The result is not merged with the previous
  * catalog: every AkeData version ships the full tables.
  */
-class EndfieldCatalogBuilder
+class AkeCatalogBuilder
 {
     private const string MANIFEST_PATH = 'manifest.json';
     private const string ITEM_TABLE_FILE = 'ItemTable.json';
@@ -39,7 +39,7 @@ class EndfieldCatalogBuilder
 
     /**
      * Builds the catalog of the given manifest version id ("latest" when null). The result is not saved:
-     * callers persist it with EndfieldCatalog::save().
+     * callers persist it with AkeCatalog::save().
      *
      * @return array{version: string, built_at: string, items: array<string, array{id: string, name: string, rarity: ?int, type: string}>}
      *
@@ -115,7 +115,7 @@ class EndfieldCatalogBuilder
         $candidates = [];
         foreach ($itemTable as $itemId => $entry) {
             $itemId = (string) $itemId;
-            $type = EndfieldCatalog::typeFromItemId($itemId);
+            $type = AkeCatalog::typeFromItemId($itemId);
             if ($type === null || !is_array($entry)) {
                 continue;
             }

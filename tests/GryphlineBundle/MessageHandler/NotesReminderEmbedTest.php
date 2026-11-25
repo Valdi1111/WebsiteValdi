@@ -26,7 +26,7 @@ use App\GryphlineBundle\MessageHandler\Profile\DailiesReminderProfileHandler;
 use App\GryphlineBundle\MessageHandler\Profile\StaminaCheckProfileHandler;
 use App\GryphlineBundle\MessageHandler\Profile\WeekliesReminderProfileHandler;
 use App\GryphlineBundle\Repository\GryphlineGameProfileRepository;
-use App\GryphlineBundle\Service\EndfieldService;
+use App\GryphlineBundle\Service\ArknightsEndfieldService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Clock\MockClock;
@@ -122,7 +122,7 @@ class NotesReminderEmbedTest extends TestCase
     public function testStaminaWithinTheThreshold(): void
     {
         $profile = $this->createProfile()->setStaminaCheck(true)->setStaminaThreshold(200);
-        $service = $this->createStub(EndfieldService::class);
+        $service = $this->createStub(ArknightsEndfieldService::class);
         $service->method('getStaminaData')->willReturn(new GameNotesStamina()->setCurrentStamina(250)->setMaxStamina(360)->setStaminaRecoverTime(90061));
 
         $this->createHandler(StaminaCheckProfileHandler::class, $profile, $service)(new StaminaCheckProfileMessage(1));
@@ -149,7 +149,7 @@ class NotesReminderEmbedTest extends TestCase
                 ->setCurrentValue(2)
                 ->setMaxValue(5)
                 ->setCheckType(GameNotesMetricCheckType::CURRENT_EQUALS_ZERO));
-        $service = $this->createStub(EndfieldService::class);
+        $service = $this->createStub(ArknightsEndfieldService::class);
         $service->method('getDailiesData')->willReturn($dailies);
 
         $this->createHandler(DailiesReminderProfileHandler::class, $this->createProfile(), $service)(new DailiesReminderProfileMessage(1));
@@ -171,7 +171,7 @@ class NotesReminderEmbedTest extends TestCase
     {
         $weeklies = new GameNotesWeeklies()
             ->addWeekly(new GameNotesProgressMetric()->setName('Weekly Routine')->setCurrentValue(4)->setMaxValue(10));
-        $service = $this->createStub(EndfieldService::class);
+        $service = $this->createStub(ArknightsEndfieldService::class);
         $service->method('getWeekliesData')->willReturn($weeklies);
 
         $this->createHandler(WeekliesReminderProfileHandler::class, $this->createProfile(), $service)(new WeekliesReminderProfileMessage(1));

@@ -8,7 +8,7 @@ use App\GamesBundle\Model\Pull\Manual\FillerPlan;
 use App\GamesBundle\Model\Pull\PullOrigin;
 use App\GamesBundle\Model\Pull\PullTimelineEntry;
 use App\GamesBundle\Service\Pull\PullGapPlanner;
-use App\GryphlineBundle\Service\EndfieldService;
+use App\GryphlineBundle\Service\ArknightsEndfieldService;
 use App\GryphlineBundle\Service\Pull\GryphlinePullStatsCalculator;
 use App\GryphlineBundle\Service\SkportAuthService;
 use App\GryphlineBundle\Service\SkportSignerService;
@@ -145,9 +145,9 @@ class GryphlinePullStatsCalculatorTest extends TestCase
         return new GryphlinePullStatsCalculator(new PullGapPlanner());
     }
 
-    private function game(): EndfieldService
+    private function game(): ArknightsEndfieldService
     {
-        return new EndfieldService(
+        return new ArknightsEndfieldService(
             $this->createStub(HttpClientInterface::class),
             $this->createStub(HttpClientInterface::class),
             $this->createStub(SkportSignerService::class),

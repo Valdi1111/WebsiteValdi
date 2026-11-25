@@ -18,8 +18,8 @@ use App\GryphlineBundle\Message\Profile\ImportPullsBackupMessage;
 use App\GryphlineBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\GryphlineBundle\Model\Pull\PullBackupImporterInterface;
 use App\GryphlineBundle\Repository\GryphlinePullRepository;
-use App\GryphlineBundle\Service\Catalog\EndfieldCatalog;
-use App\GryphlineBundle\Service\EndfieldService;
+use App\GryphlineBundle\Service\Catalog\AkeCatalog;
+use App\GryphlineBundle\Service\ArknightsEndfieldService;
 use App\GryphlineBundle\Service\Pull\GryphlinePullStatsCalculator;
 use App\GryphlineBundle\Service\Pull\ManualPullService;
 use App\GryphlineBundle\Service\Pull\PullBackupImporterManager;
@@ -103,17 +103,17 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $account = (new GryphlineAccount())->setUser($user);
         $profile = (new GryphlineGameProfile())
             ->setAccount($account)
-            ->setGameId(EndfieldService::GAME_ID)
-            ->setGameBiz(EndfieldService::GAME_BIZ)
+            ->setGameId(ArknightsEndfieldService::GAME_ID)
+            ->setGameBiz(ArknightsEndfieldService::GAME_BIZ)
             ->setNickname('Endministrator');
         (new \ReflectionProperty(GryphlineGameProfile::class, 'id'))->setValue($profile, $profileId);
 
         return [$account, $profile];
     }
 
-    private function createEndfieldService(): EndfieldService
+    private function createArknightsEndfieldService(): ArknightsEndfieldService
     {
-        return new EndfieldService(
+        return new ArknightsEndfieldService(
             $this->createStub(HttpClientInterface::class),
             $this->createStub(HttpClientInterface::class),
             $this->createStub(SkportSignerService::class),
@@ -127,9 +127,9 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
 
     private function createController(): ApiGameProfilesController
     {
-        $endfield = $this->createEndfieldService();
+        $endfield = $this->createArknightsEndfieldService();
         $locator = new ServiceLocator([
-            EndfieldService::GAME_BIZ => static fn () => $endfield,
+            ArknightsEndfieldService::GAME_BIZ => static fn () => $endfield,
         ]);
 
         $controller = new ApiGameProfilesController(
@@ -194,7 +194,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
 
             public static function getSupportedGameServices(): array
             {
-                return [EndfieldService::class];
+                return [ArknightsEndfieldService::class];
             }
 
             public function validate(string $filePath): PullBackupValidationResult
@@ -459,7 +459,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $this->assertSame(2, $payload['banner']['unknown_count']);
     }
 
-    private function createManualPullService(GryphlinePullRepository $pullRepo, ?EndfieldCatalog $catalog = null): ManualPullService
+    private function createManualPullService(GryphlinePullRepository $pullRepo, ?AkeCatalog $catalog = null): ManualPullService
     {
         $planner = new PullGapPlanner();
 
@@ -470,7 +470,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
             $planner,
             new ManualPullGuard($planner),
             new LockFactory(new InMemoryStore()),
-            $catalog ?? new EndfieldCatalog(new ArrayAdapter()),
+            $catalog ?? new AkeCatalog(new ArrayAdapter()),
             new MockClock('2026-11-22 12:00:00', 'UTC'),
             new NullLogger(),
         );
@@ -482,7 +482,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         [$account, $profile] = $this->createAccountAndProfile($user, 10);
         $controller = $this->createController();
 
-        $catalog = new EndfieldCatalog(new ArrayAdapter());
+        $catalog = new AkeCatalog(new ArrayAdapter());
         $catalog->save(['version' => 'v1', 'built_at' => 'now', 'items' => [
             'wpn_funnel_0011' => ['id' => 'wpn_funnel_0011', 'name' => 'Delivery Guaranteed', 'rarity' => 6, 'type' => 'weapon'],
             'chr_0005_chen' => ['id' => 'chr_0005_chen', 'name' => 'Chen Qianyu', 'rarity' => 6, 'type' => 'char'],
@@ -546,7 +546,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $pull = new GryphlinePull();
         (new \ReflectionProperty(GryphlinePull::class, 'id'))->setValue($pull, 321);
         $service = $this->createMock(ManualPullService::class);
-        $service->expects($this->once())->method('createManualS')->with($profile, $this->isInstanceOf(EndfieldService::class), $request)->willReturn($pull);
+        $service->expects($this->once())->method('createManualS')->with($profile, $this->isInstanceOf(ArknightsEndfieldService::class), $request)->willReturn($pull);
 
         $response = $controller->apiGameProfilePullsManualCreate($account, $profile, $request, $service);
 
@@ -583,8 +583,8 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
 
         $pull = (new GryphlinePull())->setGameProfile($profile)->setOrigin(PullOrigin::Manual);
         $service = $this->createMock(ManualPullService::class);
-        $service->expects($this->once())->method('declarePity')->with($profile, $this->isInstanceOf(EndfieldService::class), $pull, null);
-        $service->expects($this->once())->method('deleteManual')->with($profile, $this->isInstanceOf(EndfieldService::class), $pull);
+        $service->expects($this->once())->method('declarePity')->with($profile, $this->isInstanceOf(ArknightsEndfieldService::class), $pull, null);
+        $service->expects($this->once())->method('deleteManual')->with($profile, $this->isInstanceOf(ArknightsEndfieldService::class), $pull);
 
         $declared = $controller->apiGameProfilePullsDeclaredPity($account, $profile, $pull, new DeclarePityRequest(null), $service);
         $deleted = $controller->apiGameProfilePullsManualDelete($account, $profile, $pull, $service);

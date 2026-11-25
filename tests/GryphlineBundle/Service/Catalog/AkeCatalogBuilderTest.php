@@ -2,12 +2,12 @@
 
 namespace App\Tests\GryphlineBundle\Service\Catalog;
 
-use App\GryphlineBundle\Service\Catalog\EndfieldCatalogBuilder;
+use App\GryphlineBundle\Service\Catalog\AkeCatalogBuilder;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 
-class EndfieldCatalogBuilderTest extends TestCase
+class AkeCatalogBuilderTest extends TestCase
 {
     public function testBuildsCompactCatalogOfTheLatestVersion(): void
     {
@@ -122,8 +122,8 @@ class EndfieldCatalogBuilderTest extends TestCase
         $this->createBuilder(new AkeDataFixture([$path => $content]))->build();
     }
 
-    private function createBuilder(AkeDataFixture $fixture): EndfieldCatalogBuilder
+    private function createBuilder(AkeDataFixture $fixture): AkeCatalogBuilder
     {
-        return new EndfieldCatalogBuilder($fixture->client(), new NullLogger());
+        return new AkeCatalogBuilder($fixture->client(), new NullLogger());
     }
 }

@@ -18,7 +18,7 @@ use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Model\Pull\SyntheticPullReconcilerInterface;
 use App\GryphlineBundle\Repository\GryphlineGameProfileRepository;
 use App\GryphlineBundle\Repository\GryphlinePullRepository;
-use App\GryphlineBundle\Service\EndfieldService;
+use App\GryphlineBundle\Service\ArknightsEndfieldService;
 use App\GryphlineBundle\Service\Pull\ManualPullService;
 use App\GryphlineBundle\Service\Pull\PullBackupImportService;
 use App\GryphlineBundle\Service\Pull\PullOperationTracker;
@@ -48,8 +48,8 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
         $account = (new GryphlineAccount())->setAccountToken('acc-tok');
         $profile = (new GryphlineGameProfile())
             ->setAccount($account)
-            ->setGameId(EndfieldService::GAME_ID)
-            ->setGameBiz(EndfieldService::GAME_BIZ)
+            ->setGameId(ArknightsEndfieldService::GAME_ID)
+            ->setGameBiz(ArknightsEndfieldService::GAME_BIZ)
             ->setGameUid('90001')
             ->setNickname('Endministrator');
         (new \ReflectionProperty(GryphlineGameProfile::class, 'id'))->setValue($profile, $id);
@@ -57,9 +57,9 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
         return $profile;
     }
 
-    private function createEndfieldMock(array $pullsToReturn, ?string $nextSeqId = null): EndfieldService
+    private function createArknightsEndfieldMock(array $pullsToReturn, ?string $nextSeqId = null): ArknightsEndfieldService
     {
-        $service = $this->getMockBuilder(EndfieldService::class)
+        $service = $this->getMockBuilder(ArknightsEndfieldService::class)
             ->setConstructorArgs([
                 $this->createStub(HttpClientInterface::class),
                 $this->createStub(HttpClientInterface::class),
@@ -99,7 +99,7 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
         $incomingPromoted = (new GryphlinePull())->setSeqId('5002')->setPoolCategory('char')->setPoolType('E_CharacterGachaPoolType_Special')->setName('Perlica')->setPulledAt($ts);
         $incomingExisting = (new GryphlinePull())->setSeqId('5001')->setPoolCategory('char')->setPoolType('E_CharacterGachaPoolType_Special')->setName('Chen')->setPulledAt($ts);
 
-        $endfield = $this->createEndfieldMock([$incomingNew, $incomingPromoted, $incomingExisting], '5000');
+        $endfield = $this->createArknightsEndfieldMock([$incomingNew, $incomingPromoted, $incomingExisting], '5000');
 
         $profileRepo = $this->createStub(GryphlineGameProfileRepository::class);
         $profileRepo->method('find')->willReturn($profile);
@@ -151,7 +151,7 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
 
         $handler = new SyncPullsPageProfileHandler(
             $profileRepo,
-            new ServiceLocator([EndfieldService::GAME_BIZ => static fn () => $endfield]),
+            new ServiceLocator([ArknightsEndfieldService::GAME_BIZ => static fn () => $endfield]),
             new NullLogger(),
             $this->createStub(UnifiedNotificationService::class),
             $this->createStub(SkportAuthService::class),
@@ -179,7 +179,7 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
     public function testSyncPullsHandlerRequeuesWhenProfileLockIsHeld(): void
     {
         $profile = $this->createProfile(10);
-        $endfield = new EndfieldService(
+        $endfield = new ArknightsEndfieldService(
             $this->createStub(HttpClientInterface::class),
             $this->createStub(HttpClientInterface::class),
             $this->createStub(SkportSignerService::class),
@@ -210,7 +210,7 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
 
             $handler = new SyncPullsPageProfileHandler(
                 $profileRepo,
-                new ServiceLocator([EndfieldService::GAME_BIZ => static fn () => $endfield]),
+                new ServiceLocator([ArknightsEndfieldService::GAME_BIZ => static fn () => $endfield]),
                 new NullLogger(),
                 $this->createStub(UnifiedNotificationService::class),
                 $this->createStub(SkportAuthService::class),
@@ -234,14 +234,14 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
         }
     }
 
-    private function createSyncHandler(EndfieldService $endfield, GryphlineGameProfile $profile, MessageBusInterface $bus, ManualPullService $manualPullService): SyncPullsPageProfileHandler
+    private function createSyncHandler(ArknightsEndfieldService $endfield, GryphlineGameProfile $profile, MessageBusInterface $bus, ManualPullService $manualPullService): SyncPullsPageProfileHandler
     {
         $profileRepo = $this->createStub(GryphlineGameProfileRepository::class);
         $profileRepo->method('find')->willReturn($profile);
 
         return new SyncPullsPageProfileHandler(
             $profileRepo,
-            new ServiceLocator([EndfieldService::GAME_BIZ => static fn () => $endfield]),
+            new ServiceLocator([ArknightsEndfieldService::GAME_BIZ => static fn () => $endfield]),
             new NullLogger(),
             $this->createStub(UnifiedNotificationService::class),
             $this->createStub(SkportAuthService::class),
@@ -259,7 +259,7 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
     {
         $profile = $this->createProfile(10);
         $pull = (new GryphlinePull())->setSeqId('5003')->setPoolCategory('weapon')->setPoolType('E_WeaponGachaPoolType_Standard')->setName('JET')->setPulledAt(new \DateTimeImmutable());
-        $endfield = $this->createEndfieldMock([$pull], '5003');
+        $endfield = $this->createArknightsEndfieldMock([$pull], '5003');
 
         $bus = $this->createMock(MessageBusInterface::class);
         $bus->expects($this->once())->method('dispatch')->willReturnCallback(static fn (object $msg, array $stamps): Envelope => new Envelope($msg, $stamps));
@@ -274,7 +274,7 @@ class SyncPullsReconciliationAndImportHandlerTest extends TestCase
     public function testSyncPullsHandlerRealignsOnAnEmptyLastPage(): void
     {
         $profile = $this->createProfile(10);
-        $endfield = $this->createEndfieldMock([], null);
+        $endfield = $this->createArknightsEndfieldMock([], null);
 
         $bus = $this->createMock(MessageBusInterface::class);
         $bus->expects($this->never())->method('dispatch');

@@ -4,7 +4,7 @@ namespace App\GryphlineBundle\Service\PullIcon;
 
 use App\GamesBundle\Model\Game\PullItemIconQuery;
 use App\GamesBundle\Model\Game\PullItemIconResolverInterface;
-use App\GryphlineBundle\Service\EndfieldService;
+use App\GryphlineBundle\Service\ArknightsEndfieldService;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Contracts\Cache\CacheInterface;
@@ -30,14 +30,14 @@ class AkeDataIconResolver implements PullItemIconResolverInterface
     public static function getSupportedGameServices(): array
     {
         return [
-            EndfieldService::class => 100,
+            ArknightsEndfieldService::class => 100,
         ];
     }
 
     public function resolveUrl(string|object $gameService, PullItemIconQuery $query): ?string
     {
         $serviceClass = is_object($gameService) ? $gameService::class : $gameService;
-        if (!is_a($serviceClass, EndfieldService::class, true)) {
+        if (!is_a($serviceClass, ArknightsEndfieldService::class, true)) {
             return null;
         }
 

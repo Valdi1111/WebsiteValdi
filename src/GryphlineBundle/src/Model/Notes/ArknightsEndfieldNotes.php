@@ -5,7 +5,7 @@ namespace App\GryphlineBundle\Model\Notes;
 use App\GamesBundle\Model\GameNotes\GameNotes;
 use Symfony\Component\Serializer\Attribute\SerializedPath;
 
-class EndfieldNotes implements GameNotes
+class ArknightsEndfieldNotes implements GameNotes
 {
     // =========================================================================
     // Stamina (Dungeon)

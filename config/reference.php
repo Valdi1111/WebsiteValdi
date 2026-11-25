@@ -361,7 +361,7 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *         },
  *         catalog_update?: array{
  *             enabled?: bool|Param, // Default: true
- *             message_class?: string|Param, // Default: "App\\GryphlineBundle\\Message\\Batch\\EndfieldCatalogUpdateMessage"
+ *             message_class?: string|Param, // Default: "App\\GryphlineBundle\\Message\\Batch\\AkeCatalogUpdateMessage"
  *             cron?: string|Param, // Default: null
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null

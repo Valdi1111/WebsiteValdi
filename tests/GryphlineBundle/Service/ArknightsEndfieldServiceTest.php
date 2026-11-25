@@ -6,10 +6,10 @@ use App\CoreBundle\Entity\User;
 use App\GamesBundle\Model\Game\RuntimeAccountDataInterface;
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
-use App\GryphlineBundle\Model\Notes\EndfieldNotes;
+use App\GryphlineBundle\Model\Notes\ArknightsEndfieldNotes;
 use App\GryphlineBundle\Model\RuntimeAccountData;
 use App\GryphlineBundle\Model\SkportSessionCredentials;
-use App\GryphlineBundle\Service\EndfieldService;
+use App\GryphlineBundle\Service\ArknightsEndfieldService;
 use App\GryphlineBundle\Service\SkportAuthService;
 use App\GryphlineBundle\Service\SkportSignerService;
 use App\GryphlineBundle\Service\SkportUtilsService;
@@ -20,7 +20,7 @@ use Symfony\Component\ObjectMapper\ObjectMapperInterface;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-class EndfieldServiceTest extends TestCase
+class ArknightsEndfieldServiceTest extends TestCase
 {
     private function createService(
         ?HttpClientInterface $skportClient = null,
@@ -30,8 +30,8 @@ class EndfieldServiceTest extends TestCase
         ?SkportUtilsService $utils = null,
         ?DenormalizerInterface $denormalizer = null,
         ?ObjectMapperInterface $objectMapper = null
-    ): EndfieldService {
-        return new EndfieldService(
+    ): ArknightsEndfieldService {
+        return new ArknightsEndfieldService(
             $skportClient ?? $this->createStub(HttpClientInterface::class),
             $httpClient ?? $this->createStub(HttpClientInterface::class),
             $signer ?? $this->createStub(SkportSignerService::class),
@@ -127,12 +127,12 @@ class EndfieldServiceTest extends TestCase
     public function testConstantsAndMetadata(): void
     {
         $service = $this->createService();
-        $this->assertSame(3, EndfieldService::getGameId());
-        $this->assertSame('endfield', EndfieldService::getGameBiz());
+        $this->assertSame(3, ArknightsEndfieldService::getGameId());
+        $this->assertSame('endfield', ArknightsEndfieldService::getGameBiz());
         $this->assertSame('Arknights: Endfield', $service->getGameName());
         $this->assertSame(360, $service->getMaxStamina());
         $this->assertSame(360, $service->getRegenRate());
         $this->assertSame('/api/v1/game/endfield/card/detail', $service->getUrlNotes());
-        $this->assertSame(EndfieldNotes::class, $service->getNotesClass());
+        $this->assertSame(ArknightsEndfieldNotes::class, $service->getNotesClass());
     }
 }

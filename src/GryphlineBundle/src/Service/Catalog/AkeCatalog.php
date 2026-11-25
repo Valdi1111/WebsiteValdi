@@ -9,8 +9,8 @@ use Symfony\Contracts\Service\ResetInterface;
 /**
  * Read side of the compact Endfield item catalog (operators and weapons) built from AkeData.
  *
- * The catalog is stored as a single item in the persistent "gryphline.endfield_catalog.cache" pool by
- * gryphline:endfield-catalog:update and is never built on demand: when it is missing, every lookup
+ * The catalog is stored as a single item in the persistent "gryphline.ake_catalog.cache" pool by
+ * gryphline:ake-catalog:update and is never built on demand: when it is missing, every lookup
  * returns null and callers fall back to the pulls already stored.
  *
  * Shape:
@@ -20,9 +20,9 @@ use Symfony\Contracts\Service\ResetInterface;
  * Item ids are kept verbatim: they equal gryphline_pull.item_id, and the types match its pool_category.
  * The decoded catalog is memoised until reset(), which the kernel calls between worker messages.
  */
-class EndfieldCatalog implements ResetInterface
+class AkeCatalog implements ResetInterface
 {
-    public const string CACHE_KEY = 'endfield_catalog_v1';
+    public const string CACHE_KEY = 'ake_catalog_v1';
 
     public const string TYPE_CHAR = 'char';
     public const string TYPE_WEAPON = 'weapon';
@@ -37,7 +37,7 @@ class EndfieldCatalog implements ResetInterface
     private ?array $catalog = null;
 
     public function __construct(
-        #[Target('gryphline.endfield_catalog.cache')]
+        #[Target('gryphline.ake_catalog.cache')]
         private readonly CacheItemPoolInterface $cache,
     ) {
     }
@@ -108,7 +108,7 @@ class EndfieldCatalog implements ResetInterface
     }
 
     /**
-     * Persists a catalog produced by EndfieldCatalogBuilder (without expiry) and refreshes the memo.
+     * Persists a catalog produced by AkeCatalogBuilder (without expiry) and refreshes the memo.
      *
      * @param array<string, mixed> $catalog
      */

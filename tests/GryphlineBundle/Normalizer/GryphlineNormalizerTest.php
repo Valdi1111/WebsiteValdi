@@ -8,7 +8,7 @@ use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
 use App\GryphlineBundle\Normalizer\GryphlineAccountNormalizer;
 use App\GryphlineBundle\Normalizer\GryphlineGameProfileNormalizer;
-use App\GryphlineBundle\Service\EndfieldService;
+use App\GryphlineBundle\Service\ArknightsEndfieldService;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
@@ -24,7 +24,7 @@ class GryphlineNormalizerTest extends TestCase
 
             public function normalize(mixed $data, ?string $format = null, array $context = []): array
             {
-                return $this->normalizedData ?? ['id' => 10, 'game_id' => EndfieldService::GAME_ID, 'skport_check_in' => true, 'skport_missed_check_in' => true];
+                return $this->normalizedData ?? ['id' => 10, 'game_id' => ArknightsEndfieldService::GAME_ID, 'skport_check_in' => true, 'skport_missed_check_in' => true];
             }
 
             public function supportsNormalization(mixed $data, ?string $format = null, array $context = []): bool
@@ -75,7 +75,7 @@ class GryphlineNormalizerTest extends TestCase
     {
         $dummy = $this->createDummyObjectNormalizer();
 
-        $endfield = $this->createStub(EndfieldService::class);
+        $endfield = $this->createStub(ArknightsEndfieldService::class);
         $endfield->method('getRarityConfig')->willReturn(new RarityConfig(
             new RarityTierConfig(6, '6★', '6★'),
             new RarityTierConfig(5, '5★', '5★'),
@@ -92,7 +92,7 @@ class GryphlineNormalizerTest extends TestCase
         $normalizer = new GryphlineGameProfileNormalizer($dummy, $locator);
 
         $profile = (new GryphlineGameProfile())
-            ->setGameId(EndfieldService::GAME_ID)
+            ->setGameId(ArknightsEndfieldService::GAME_ID)
             ->setSkportCheckIn(true)
             ->setSkportMissedCheckIn(true);
 
@@ -116,11 +116,11 @@ class GryphlineNormalizerTest extends TestCase
 
         $locator = $this->createStub(ServiceCollectionInterface::class);
         $locator->method('has')->willReturn(true);
-        $locator->method('get')->willReturn($this->createStub(EndfieldService::class));
+        $locator->method('get')->willReturn($this->createStub(ArknightsEndfieldService::class));
 
         $normalizer = new GryphlineGameProfileNormalizer($dummy, $locator);
 
-        $profile = (new GryphlineGameProfile())->setGameId(EndfieldService::GAME_ID);
+        $profile = (new GryphlineGameProfile())->setGameId(ArknightsEndfieldService::GAME_ID);
         $this->assertTrue($normalizer->supportsDenormalization([], GryphlineGameProfile::class));
 
         $normalizer->denormalize(

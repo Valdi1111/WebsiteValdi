@@ -2,11 +2,11 @@
 
 namespace App\Tests\GryphlineBundle\Service\Catalog;
 
-use App\GryphlineBundle\Service\Catalog\EndfieldCatalog;
+use App\GryphlineBundle\Service\Catalog\AkeCatalog;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
-class EndfieldCatalogTest extends TestCase
+class AkeCatalogTest extends TestCase
 {
     private const array CATALOG = [
         'version' => AkeDataFixture::LATEST,
@@ -41,7 +41,7 @@ class EndfieldCatalogTest extends TestCase
 
     public function testEmptyPoolMeansNotLoaded(): void
     {
-        $catalog = new EndfieldCatalog(new ArrayAdapter());
+        $catalog = new AkeCatalog(new ArrayAdapter());
 
         $this->assertFalse($catalog->isLoaded());
         $this->assertNull($catalog->getVersion());
@@ -53,11 +53,11 @@ class EndfieldCatalogTest extends TestCase
     public function testSaveRefreshesTheMemoAndResetRereadsThePool(): void
     {
         $pool = new ArrayAdapter();
-        $reader = new EndfieldCatalog($pool);
+        $reader = new AkeCatalog($pool);
         $this->assertFalse($reader->isLoaded());
 
         // Another process (the weekly task) saves a catalog into the shared pool
-        $writer = new EndfieldCatalog($pool);
+        $writer = new AkeCatalog($pool);
         $writer->save(self::CATALOG);
         $this->assertSame('Ember', $writer->find('chr_0009_azrila')['name']);
 
@@ -70,17 +70,17 @@ class EndfieldCatalogTest extends TestCase
 
     public function testTypeFromItemIdMatchesThePoolCategories(): void
     {
-        $this->assertSame('char', EndfieldCatalog::typeFromItemId('chr_0005_chen'));
-        $this->assertSame('weapon', EndfieldCatalog::typeFromItemId('wpn_funnel_0011'));
-        $this->assertNull(EndfieldCatalog::typeFromItemId('item_gold'));
+        $this->assertSame('char', AkeCatalog::typeFromItemId('chr_0005_chen'));
+        $this->assertSame('weapon', AkeCatalog::typeFromItemId('wpn_funnel_0011'));
+        $this->assertNull(AkeCatalog::typeFromItemId('item_gold'));
     }
 
     /**
      * @param array<string, mixed> $stored
      */
-    private function createCatalog(array $stored): EndfieldCatalog
+    private function createCatalog(array $stored): AkeCatalog
     {
-        $catalog = new EndfieldCatalog(new ArrayAdapter());
+        $catalog = new AkeCatalog(new ArrayAdapter());
         $catalog->save($stored);
         $catalog->reset();
 

@@ -7,7 +7,7 @@ use App\GryphlineBundle\Entity\GryphlineGameProfile;
 use App\GryphlineBundle\Exception\SkportApiException;
 use App\GryphlineBundle\Model\RuntimeAccountData;
 use App\GryphlineBundle\Model\SkportSessionCredentials;
-use App\GryphlineBundle\Service\EndfieldService;
+use App\GryphlineBundle\Service\ArknightsEndfieldService;
 use App\GryphlineBundle\Service\SkportAuthService;
 use App\GryphlineBundle\Service\SkportSignerService;
 use App\GryphlineBundle\Service\SkportUtilsService;
@@ -23,7 +23,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 /**
  * Per-profile notes cache of the SKPort NotesTrait, with the application serializer.
  */
-class EndfieldNotesCacheTest extends KernelTestCase
+class ArknightsEndfieldNotesCacheTest extends KernelTestCase
 {
     private int $requests = 0;
 
@@ -37,7 +37,7 @@ class EndfieldNotesCacheTest extends KernelTestCase
     /**
      * @param list<MockResponse> $responses SKPort answers, one per request in order
      */
-    private function createService(array $responses, ?SkportAuthService $auth = null): EndfieldService
+    private function createService(array $responses, ?SkportAuthService $auth = null): ArknightsEndfieldService
     {
         self::bootKernel();
 
@@ -47,7 +47,7 @@ class EndfieldNotesCacheTest extends KernelTestCase
             return array_shift($responses) ?? self::answer(['code' => -1, 'message' => 'unexpected request']);
         }, 'https://zonai.skport.com');
 
-        $service = new EndfieldService(
+        $service = new ArknightsEndfieldService(
             $client,
             $this->createStub(HttpClientInterface::class),
             $this->createStub(SkportSignerService::class),
@@ -67,7 +67,7 @@ class EndfieldNotesCacheTest extends KernelTestCase
     {
         $profile = (new GryphlineGameProfile())
             ->setAccount(new GryphlineAccount())
-            ->setGameId(EndfieldService::GAME_ID)
+            ->setGameId(ArknightsEndfieldService::GAME_ID)
             ->setGameUid('4000000001')
             ->setServerId('2');
         (new \ReflectionProperty(GryphlineGameProfile::class, 'id'))->setValue($profile, 9);
@@ -182,6 +182,6 @@ class EndfieldNotesCacheTest extends KernelTestCase
         self::bootKernel();
         $container = static::getContainer();
 
-        $this->assertSame($container->get('gryphline.notes.cache'), $container->get(EndfieldService::class)->getNotesCache());
+        $this->assertSame($container->get('gryphline.notes.cache'), $container->get(ArknightsEndfieldService::class)->getNotesCache());
     }
 }

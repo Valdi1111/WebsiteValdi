@@ -2,12 +2,12 @@
 
 namespace App\Tests\GryphlineBundle\Service\Catalog;
 
-use App\GryphlineBundle\Message\Batch\EndfieldCatalogUpdateMessage;
-use App\GryphlineBundle\MessageHandler\Batch\EndfieldCatalogUpdateHandler;
+use App\GryphlineBundle\Message\Batch\AkeCatalogUpdateMessage;
+use App\GryphlineBundle\MessageHandler\Batch\AkeCatalogUpdateHandler;
 use App\GryphlineBundle\Scheduler\ScheduleProvider;
-use App\GryphlineBundle\Service\Catalog\EndfieldCatalog;
-use App\GryphlineBundle\Service\Catalog\EndfieldCatalogBuilder;
-use App\GryphlineBundle\Service\Catalog\EndfieldCatalogUpdater;
+use App\GryphlineBundle\Service\Catalog\AkeCatalog;
+use App\GryphlineBundle\Service\Catalog\AkeCatalogBuilder;
+use App\GryphlineBundle\Service\Catalog\AkeCatalogUpdater;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
@@ -18,7 +18,7 @@ use Symfony\Component\Scheduler\Generator\MessageContext;
 /**
  * The weekly catalog update runs on the gryphline schedule and transport, like the other Gryphline tasks.
  */
-class EndfieldCatalogScheduleTest extends KernelTestCase
+class AkeCatalogScheduleTest extends KernelTestCase
 {
     public function testCatalogUpdateIsConfiguredWeekly(): void
     {
@@ -26,7 +26,7 @@ class EndfieldCatalogScheduleTest extends KernelTestCase
 
         $this->assertTrue($container->getParameter('gryphline.task.catalog_update.enabled'));
         $this->assertSame('0 6 * * 1', $container->getParameter('gryphline.task.catalog_update.cron'));
-        $this->assertSame(EndfieldCatalogUpdateMessage::class, $container->getParameter('gryphline.task.catalog_update.message_class'));
+        $this->assertSame(AkeCatalogUpdateMessage::class, $container->getParameter('gryphline.task.catalog_update.message_class'));
         $this->assertFalse($container->getParameter('gryphline.task.catalog_update.regional'));
     }
 
@@ -34,7 +34,7 @@ class EndfieldCatalogScheduleTest extends KernelTestCase
     {
         $schedule = new ScheduleProvider(new ParameterBag([
             'gryphline.tasks' => [
-                'catalog_update' => ['enabled' => true, 'message_class' => EndfieldCatalogUpdateMessage::class, 'cron' => '0 6 * * 1', 'regional' => false, 'jitter' => null],
+                'catalog_update' => ['enabled' => true, 'message_class' => AkeCatalogUpdateMessage::class, 'cron' => '0 6 * * 1', 'regional' => false, 'jitter' => null],
             ],
             'gryphline.timezones' => ['US_EU' => 'Europe/Paris', 'SEA' => 'Asia/Shanghai'],
         ]))->getSchedule();
@@ -46,14 +46,14 @@ class EndfieldCatalogScheduleTest extends KernelTestCase
         $messages = iterator_to_array($recurringMessages[0]->getMessages($context), false);
         $this->assertInstanceOf(RedispatchMessage::class, $messages[0]);
         $this->assertSame('gryphline', $messages[0]->transportNames);
-        $this->assertInstanceOf(EndfieldCatalogUpdateMessage::class, $messages[0]->envelope);
+        $this->assertInstanceOf(AkeCatalogUpdateMessage::class, $messages[0]->envelope);
     }
 
     public function testHandlerRebuildsTheCatalog(): void
     {
-        $catalog = new EndfieldCatalog(new ArrayAdapter());
+        $catalog = new AkeCatalog(new ArrayAdapter());
 
-        new EndfieldCatalogUpdateHandler($this->createUpdater(new AkeDataFixture(), $catalog))(new EndfieldCatalogUpdateMessage());
+        new AkeCatalogUpdateHandler($this->createUpdater(new AkeDataFixture(), $catalog))(new AkeCatalogUpdateMessage());
 
         $this->assertSame(AkeDataFixture::LATEST, $catalog->getVersion());
         $this->assertSame('Chen Qianyu', $catalog->find('chr_0005_chen')['name']);
@@ -61,16 +61,16 @@ class EndfieldCatalogScheduleTest extends KernelTestCase
 
     public function testAbortedScheduledUpdateThrowsForTheTransportRetry(): void
     {
-        $catalog = new EndfieldCatalog(new ArrayAdapter());
+        $catalog = new AkeCatalog(new ArrayAdapter());
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('previous catalog kept');
 
-        new EndfieldCatalogUpdateHandler($this->createUpdater(new AkeDataFixture(['manifest.json' => null]), $catalog))(new EndfieldCatalogUpdateMessage());
+        new AkeCatalogUpdateHandler($this->createUpdater(new AkeDataFixture(['manifest.json' => null]), $catalog))(new AkeCatalogUpdateMessage());
     }
 
-    private function createUpdater(AkeDataFixture $fixture, EndfieldCatalog $catalog): EndfieldCatalogUpdater
+    private function createUpdater(AkeDataFixture $fixture, AkeCatalog $catalog): AkeCatalogUpdater
     {
-        return new EndfieldCatalogUpdater(new EndfieldCatalogBuilder($fixture->client(), new NullLogger()), $catalog, new NullLogger());
+        return new AkeCatalogUpdater(new AkeCatalogBuilder($fixture->client(), new NullLogger()), $catalog, new NullLogger());
     }
 }

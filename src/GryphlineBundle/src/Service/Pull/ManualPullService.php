@@ -15,7 +15,7 @@ use App\GryphlineBundle\Entity\GryphlineGameProfile;
 use App\GryphlineBundle\Entity\GryphlinePull;
 use App\GryphlineBundle\Model\Game\HasAutoPullImportInterface;
 use App\GryphlineBundle\Repository\GryphlinePullRepository;
-use App\GryphlineBundle\Service\Catalog\EndfieldCatalog;
+use App\GryphlineBundle\Service\Catalog\AkeCatalog;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Psr\Log\LoggerInterface;
@@ -47,7 +47,7 @@ class ManualPullService
         private readonly PullGapPlanner $planner,
         private readonly ManualPullGuard $guard,
         private readonly LockFactory $lockFactory,
-        private readonly EndfieldCatalog $catalog,
+        private readonly AkeCatalog $catalog,
         private readonly ClockInterface $clock,
         #[Target('gryphline')]
         private readonly LoggerInterface $logger,

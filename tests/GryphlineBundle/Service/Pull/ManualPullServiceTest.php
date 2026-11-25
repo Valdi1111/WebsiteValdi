@@ -11,8 +11,8 @@ use App\GamesBundle\Service\Pull\PullGapPlanner;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
 use App\GryphlineBundle\Entity\GryphlinePull;
 use App\GryphlineBundle\Repository\GryphlinePullRepository;
-use App\GryphlineBundle\Service\Catalog\EndfieldCatalog;
-use App\GryphlineBundle\Service\EndfieldService;
+use App\GryphlineBundle\Service\Catalog\AkeCatalog;
+use App\GryphlineBundle\Service\ArknightsEndfieldService;
 use App\GryphlineBundle\Service\Pull\GryphlinePullStatsCalculator;
 use App\GryphlineBundle\Service\Pull\ManualPullService;
 use App\GryphlineBundle\Service\Pull\PullBackupImportService;
@@ -54,14 +54,14 @@ class ManualPullServiceTest extends TestCase
     private array $recordedItems = [];
 
     private GryphlineGameProfile $profile;
-    private EndfieldService $game;
+    private ArknightsEndfieldService $game;
     private LockFactory $lockFactory;
 
     protected function setUp(): void
     {
         $this->profile = $this->createProfile(12);
         $this->lockFactory = new LockFactory(new InMemoryStore());
-        $this->game = new EndfieldService(
+        $this->game = new ArknightsEndfieldService(
             $this->createStub(HttpClientInterface::class),
             $this->createStub(HttpClientInterface::class),
             $this->createStub(SkportSignerService::class),
@@ -75,7 +75,7 @@ class ManualPullServiceTest extends TestCase
 
     private function createProfile(int $id): GryphlineGameProfile
     {
-        $profile = (new GryphlineGameProfile())->setGameId(EndfieldService::GAME_ID)->setGameBiz(EndfieldService::GAME_BIZ);
+        $profile = (new GryphlineGameProfile())->setGameId(ArknightsEndfieldService::GAME_ID)->setGameBiz(ArknightsEndfieldService::GAME_BIZ);
         (new \ReflectionProperty(GryphlineGameProfile::class, 'id'))->setValue($profile, $id);
 
         return $profile;
@@ -142,7 +142,7 @@ class ManualPullServiceTest extends TestCase
         return $rows;
     }
 
-    private function service(?ManualPullGuard $guard = null, ?EndfieldCatalog $catalog = null): ManualPullService
+    private function service(?ManualPullGuard $guard = null, ?AkeCatalog $catalog = null): ManualPullService
     {
         $repository = $this->createStub(GryphlinePullRepository::class);
         $repository->method('findBannerRows')->willReturnCallback(fn (GryphlineGameProfile $profile, array $categories): array => $this->bannerRows($categories));
@@ -170,7 +170,7 @@ class ManualPullServiceTest extends TestCase
             $planner,
             $guard ?? new ManualPullGuard($planner),
             $this->lockFactory,
-            $catalog ?? new EndfieldCatalog(new ArrayAdapter()),
+            $catalog ?? new AkeCatalog(new ArrayAdapter()),
             new MockClock('2026-11-22 12:00:00', 'UTC'),
             new NullLogger(),
         );
@@ -522,7 +522,7 @@ class ManualPullServiceTest extends TestCase
             $planner,
             new ManualPullGuard($planner),
             $this->lockFactory,
-            new EndfieldCatalog(new ArrayAdapter()),
+            new AkeCatalog(new ArrayAdapter()),
             new MockClock(),
             new NullLogger(),
         ))->realignAll($this->profile, $this->game);
@@ -537,7 +537,7 @@ class ManualPullServiceTest extends TestCase
 
     public function testSuggestionsMergeTheCatalogWithTheRecordedItemsOfTheBannerCategory(): void
     {
-        $catalog = new EndfieldCatalog(new ArrayAdapter());
+        $catalog = new AkeCatalog(new ArrayAdapter());
         $catalog->save([
             'version' => '1.6.4@1',
             'built_at' => '2026-11-21T06:00:00+00:00',

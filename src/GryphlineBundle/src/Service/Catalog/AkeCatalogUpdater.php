@@ -9,11 +9,11 @@ use Symfony\Component\DependencyInjection\Attribute\Target;
  * Rebuilds and saves the Endfield catalog (used by the console command and the scheduled
  * catalog_update task). No backfill is needed: stored pulls already carry the names from the API.
  */
-class EndfieldCatalogUpdater
+class AkeCatalogUpdater
 {
     public function __construct(
-        private readonly EndfieldCatalogBuilder $builder,
-        private readonly EndfieldCatalog $catalog,
+        private readonly AkeCatalogBuilder $builder,
+        private readonly AkeCatalog $catalog,
         #[Target('gryphline')]
         private readonly LoggerInterface $logger,
     ) {

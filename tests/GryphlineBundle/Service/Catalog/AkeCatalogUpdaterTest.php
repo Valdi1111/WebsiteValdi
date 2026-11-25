@@ -2,15 +2,15 @@
 
 namespace App\Tests\GryphlineBundle\Service\Catalog;
 
-use App\GryphlineBundle\Service\Catalog\EndfieldCatalog;
-use App\GryphlineBundle\Service\Catalog\EndfieldCatalogBuilder;
-use App\GryphlineBundle\Service\Catalog\EndfieldCatalogUpdater;
+use App\GryphlineBundle\Service\Catalog\AkeCatalog;
+use App\GryphlineBundle\Service\Catalog\AkeCatalogBuilder;
+use App\GryphlineBundle\Service\Catalog\AkeCatalogUpdater;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
-class EndfieldCatalogUpdaterTest extends TestCase
+class AkeCatalogUpdaterTest extends TestCase
 {
     private const array PREVIOUS_CATALOG = [
         'version' => AkeDataFixture::OLDER,
@@ -24,7 +24,7 @@ class EndfieldCatalogUpdaterTest extends TestCase
     public function testBuildsAndSavesTheCatalog(): void
     {
         $pool = new ArrayAdapter();
-        $catalog = new EndfieldCatalog($pool);
+        $catalog = new AkeCatalog($pool);
         $catalog->save(self::PREVIOUS_CATALOG);
 
         $result = $this->createUpdater(new AkeDataFixture(), $catalog)->update();
@@ -33,7 +33,7 @@ class EndfieldCatalogUpdaterTest extends TestCase
         $this->assertSame(5, $result['new_items']);
 
         // Saved in the pool: a fresh reader sees it, and the full tables replace the previous catalog
-        $reader = new EndfieldCatalog($pool);
+        $reader = new AkeCatalog($pool);
         $this->assertSame(AkeDataFixture::LATEST, $reader->getVersion());
         $this->assertSame('Delivery Guaranteed', $reader->find('wpn_funnel_0011')['name']);
         $this->assertNull($reader->find('wpn_old_0001'));
@@ -55,7 +55,7 @@ class EndfieldCatalogUpdaterTest extends TestCase
     public function testFailedBuildKeepsThePreviousCatalog(array $files): void
     {
         $pool = new ArrayAdapter();
-        $catalog = new EndfieldCatalog($pool);
+        $catalog = new AkeCatalog($pool);
         $catalog->save(self::PREVIOUS_CATALOG);
 
         try {
@@ -66,11 +66,11 @@ class EndfieldCatalogUpdaterTest extends TestCase
         }
 
         $this->assertSame(self::PREVIOUS_CATALOG, $catalog->all());
-        $this->assertSame(self::PREVIOUS_CATALOG, new EndfieldCatalog($pool)->all());
+        $this->assertSame(self::PREVIOUS_CATALOG, new AkeCatalog($pool)->all());
     }
 
-    private function createUpdater(AkeDataFixture $fixture, EndfieldCatalog $catalog): EndfieldCatalogUpdater
+    private function createUpdater(AkeDataFixture $fixture, AkeCatalog $catalog): AkeCatalogUpdater
     {
-        return new EndfieldCatalogUpdater(new EndfieldCatalogBuilder($fixture->client(), new NullLogger()), $catalog, new NullLogger());
+        return new AkeCatalogUpdater(new AkeCatalogBuilder($fixture->client(), new NullLogger()), $catalog, new NullLogger());
     }
 }

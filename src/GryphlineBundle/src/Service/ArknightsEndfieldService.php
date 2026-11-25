@@ -17,7 +17,7 @@ use App\GamesBundle\Model\Game\HasWeekliesInterface;
 use App\GryphlineBundle\Model\Game\GryphlinePullTrait;
 use App\GryphlineBundle\Model\Game\HasAutoPullImportInterface;
 use App\GryphlineBundle\Model\Game\NotesTrait;
-use App\GryphlineBundle\Model\Notes\EndfieldNotes;
+use App\GryphlineBundle\Model\Notes\ArknightsEndfieldNotes;
 use App\GamesBundle\Model\GameNotes\GameNotesStamina;
 use App\GamesBundle\Model\Game\RuntimeAccountDataInterface;
 use App\GryphlineBundle\Model\RuntimeAccountData;
@@ -30,11 +30,11 @@ use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
- * @implements HasNotesInterface<EndfieldNotes>
+ * @implements HasNotesInterface<ArknightsEndfieldNotes>
  */
 #[AutoconfigureTag(name: 'gryphline.game.biz', attributes: ['key' => self::GAME_BIZ])]
 #[AutoconfigureTag(name: 'gryphline.game.id', attributes: ['key' => self::GAME_ID])]
-class EndfieldService implements GameInterface, HasCheckInInterface, HasNotesInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasAutoPullImportInterface, HasManualPullsInterface
+class ArknightsEndfieldService implements GameInterface, HasCheckInInterface, HasNotesInterface, HasStaminaInterface, HasDailiesInterface, HasWeekliesInterface, HasAutoPullImportInterface, HasManualPullsInterface
 {
     use CheckInTrait;
     use NotesTrait;
@@ -54,7 +54,7 @@ class EndfieldService implements GameInterface, HasCheckInInterface, HasNotesInt
         private readonly SkportUtilsService $skportUtils,
         private readonly DenormalizerInterface $denormalizer,
         private readonly ObjectMapperInterface $objectMapper,
-        #[Target('gryphline.endfield')]
+        #[Target('gryphline.ake')]
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -116,7 +116,7 @@ class EndfieldService implements GameInterface, HasCheckInInterface, HasNotesInt
 
     public function getNotesClass(): string
     {
-        return EndfieldNotes::class;
+        return ArknightsEndfieldNotes::class;
     }
 
     public function getRegenRate(): int
@@ -131,7 +131,7 @@ class EndfieldService implements GameInterface, HasCheckInInterface, HasNotesInt
 
     public function getStaminaData(RuntimeAccountDataInterface $account): GameNotesStamina
     {
-        /** @var EndfieldNotes $notes */
+        /** @var ArknightsEndfieldNotes $notes */
         $notes = $this->getNotes($account);
 
         return new GameNotesStamina()
@@ -142,7 +142,7 @@ class EndfieldService implements GameInterface, HasCheckInInterface, HasNotesInt
 
     public function getDailiesData(RuntimeAccountDataInterface $account): GameNotesDailies
     {
-        /** @var EndfieldNotes $notes */
+        /** @var ArknightsEndfieldNotes $notes */
         $notes = $this->getNotes($account);
 
         return new GameNotesDailies()
@@ -156,7 +156,7 @@ class EndfieldService implements GameInterface, HasCheckInInterface, HasNotesInt
 
     public function getWeekliesData(RuntimeAccountDataInterface $account): GameNotesWeeklies
     {
-        /** @var EndfieldNotes $notes */
+        /** @var ArknightsEndfieldNotes $notes */
         $notes = $this->getNotes($account);
 
         return new GameNotesWeeklies()

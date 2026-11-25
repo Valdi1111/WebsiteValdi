@@ -21,14 +21,14 @@ It supports direct login with Gryphline credentials (including GeeTest v4 captch
 
 ### 1.1 Game Service Architecture: Capability Interfaces, Traits & Dynamic Normalization
 
-Each game in the bundle (currently `EndfieldService`, registered in the Service Locator via the `gryphline.game.id` and `gryphline.game.biz` tags) implements `App\GryphlineBundle\Model\Game\GameInterface` and declares its capabilities through **Capability Interfaces** (shared from `GamesBundle` or specific to `GryphlineBundle`).  
+Each game in the bundle (currently `ArknightsEndfieldService`, registered in the Service Locator via the `gryphline.game.id` and `gryphline.game.biz` tags) implements `App\GryphlineBundle\Model\Game\GameInterface` and declares its capabilities through **Capability Interfaces** (shared from `GamesBundle` or specific to `GryphlineBundle`).  
 Both background **MessageHandlers** and `GryphlineGameProfileNormalizer` inspect implemented interfaces via `instanceof` to enable scheduled jobs and dynamically expose only supported settings to the frontend:
 
 | Interface | Namespace | Associated Trait | Fields / Flags Exposed by Normalizer | Purpose / Enabled Feature |
 | :--- | :--- | :--- | :--- | :--- |
 | `GameInterface` | `GryphlineBundle` | — | — | Base contract for a Gryphline/SKPort game service (`getGameId()`, `getGameBiz()`, `getGameName()`, `getIcon()`, `ensureCredentials()`). |
 | `HasCheckInInterface` | `GryphlineBundle` | `CheckInTrait` | `skportCheckIn`, `skportMissedCheckIn` | The game supports signed daily check-in on SKPort (`/web/v1/game/{biz}/attendance`), enabling **Auto Check-In** and **Missed Check-In Reminder**. |
-| `HasNotesInterface` | `GamesBundle` | `NotesTrait` | — | The game exposes the *Real-Time Card Detail* endpoint (`/api/v1/game/{biz}/card/detail`) on SKPort to read live profile data (`EndfieldNotes`). |
+| `HasNotesInterface` | `GamesBundle` | `NotesTrait` | — | The game exposes the *Real-Time Card Detail* endpoint (`/api/v1/game/{biz}/card/detail`) on SKPort to read live profile data (`ArknightsEndfieldNotes`). |
 | `HasStaminaInterface` | `GamesBundle` | `NotesTrait` | `staminaCheck`, `staminaThreshold` | The game exposes real-time Stamina/Sanity and full recovery timestamp, enabling **Stamina Reminder**. |
 | `HasDailiesInterface` | `GamesBundle` | `NotesTrait` | `dailiesCheck` | The game exposes daily progress (*Daily Activation* `100/100`), enabling the regional **Dailies Reminder**. |
 | `HasWeekliesInterface` | `GamesBundle` | `NotesTrait` | `weekliesCheck` | The game exposes weekly progress (*Weekly Mission*), enabling the regional **Weeklies Reminder**. |
@@ -94,7 +94,7 @@ Two scheduled tasks handle daily check-in for *Arknights: Endfield* (`/web/v1/ga
 
 ## 4. Reminders & Real-Time Monitoring (Game Notes)
 
-Via the signed endpoint `GET /api/v1/game/endfield/card/detail`, `EndfieldService` retrieves real-time profile metrics (`EndfieldNotes`) to drive automated reminders.
+Via the signed endpoint `GET /api/v1/game/endfield/card/detail`, `ArknightsEndfieldService` retrieves real-time profile metrics (`ArknightsEndfieldNotes`) to drive automated reminders.
 
 **Embeds**: each handler checks whether to notify (threshold, all done) and passes the data to `GamesBundle`'s `StaminaPresenter`, `DailiesPresenter` or `WeekliesPresenter`, which builds the embed without any check (see the [GamesBundle design notes](../GamesBundle/README.md#4-design-notes)).
 
@@ -146,7 +146,7 @@ Key behaviors:
 
 ### 5.3 Item Icons & Image Caching (`LiipImagine`)
 Operator and weapon thumbnails in cards (`PullsRecentBadge`) and detail tables (`PullItemThumbnail`) use the shared architecture documented in **[Pull Item Icons & Image Caching](../../docs/PULL_ITEM_ICONS.md)**:
-- **External Provider (`AkeDataIconResolver`)**: implements `PullItemIconResolverInterface` for `EndfieldService` (`endfield`, priority `100`), using the dedicated `gryphline.akedata.client` HTTP client (`https://data.akedata.wiki`) and the `gryphline.item_icons.cache` pool (24h TTL with stampede protection):
+- **External Provider (`AkeDataIconResolver`)**: implements `PullItemIconResolverInterface` for `ArknightsEndfieldService` (`endfield`, priority `100`), using the dedicated `gryphline.akedata.client` HTTP client (`https://data.akedata.wiki`) and the `gryphline.item_icons.cache` pool (24h TTL with stampede protection):
   - Fetches `manifest.json` (`latest.tableCfgPath`), `asset-sync-index.json`, and `ItemTable.json`, caching only the compact `[itemId => relativePath]` lookup map.
   - **Operators** (`chr_*`): resolves icons from `charremoteicon/icon_{charId}`.
   - **Weapons**: resolves `iconId` via `ItemTable` under `itemicon/` (falling back to `gachaweapon/`).
@@ -185,7 +185,7 @@ The bundle already includes the same backup import pipeline as `HoyoverseBundle`
     ```
 
 ### 5.6 Missing pulls (manual S and declared pity)
-The API window only covers the last months, so the oldest S pulls are missing and the first recorded one has a low pity. Following the shared design and rules ([GamesBundle § 4.1](../GamesBundle/README.md#41-missing-pulls-manual-s-and-declared-pity)), `Service/Pull/ManualPullService` lets the user declare the real pity of an S or add an older S (`EndfieldService` implements `HasManualPullsInterface`; the profile exposes `supports_manual_pulls`):
+The API window only covers the last months, so the oldest S pulls are missing and the first recorded one has a low pity. Following the shared design and rules ([GamesBundle § 4.1](../GamesBundle/README.md#41-missing-pulls-manual-s-and-declared-pity)), `Service/Pull/ManualPullService` lets the user declare the real pity of an S or add an older S (`ArknightsEndfieldService` implements `HasManualPullsInterface`; the profile exposes `supports_manual_pulls`):
 - **Rows**: `gryphline_pull.origin` (`recorded` / `manual` / `filler`), `declared_pity` and `is_up` (nullable: whether an S was the rate-up item, when a source gives it; exposed on rows as `is_up`); `item_id` is nullable. There is no pull number column: entries never carry one, so the planner never numbers a filler here. Manual rows use `seq_id = manual_<uuid v7>` and filler ("unknown") rows `filler_<uuid v7>`, with `pool_type` = banner key, `pool_category` from `getPoolCategoryForPoolType()` and `pool_name` = banner name. A filler has `name = Unknown`, `rarity = 0` and no item.
 - **Counting** (`GryphlinePullStatsCalculator`): a filler is a headhunt (S pity, `#`, `currency_spent`, monthly chart) but not a B (`unknown_count`), has no pity and resets the 5★ pity. S rows and `recent_s_pulls` also carry `origin`, `declared_pity`, `recorded_pity`, `insert_after`, `insert_before`, `suggested_at` and `has_room`; each banner carries `open_window` and `oldest_s` (its first S, the anchor of "Add missing S").
 - **Realign**: the shared `PullGapPlanner` merges manual S pulls into the recorded ones imported later and creates, moves or deletes the fillers. It runs after each manual operation, at the end of a backup import (not on dry runs) and on the last page of each banner sync, always inside the `gryphline_profile_pulls_{id}` lock. The logical dedup of imports and the synthetic reconciliation ignore manual and filler rows.

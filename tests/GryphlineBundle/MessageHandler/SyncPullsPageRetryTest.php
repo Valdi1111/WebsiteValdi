@@ -12,7 +12,7 @@ use App\GryphlineBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\GryphlineBundle\MessageHandler\Profile\SyncPullsPageProfileHandler;
 use App\GryphlineBundle\Repository\GryphlineGameProfileRepository;
 use App\GryphlineBundle\Repository\GryphlinePullRepository;
-use App\GryphlineBundle\Service\EndfieldService;
+use App\GryphlineBundle\Service\ArknightsEndfieldService;
 use App\GryphlineBundle\Service\Pull\ManualPullService;
 use App\GryphlineBundle\Service\Pull\PullOperationTracker;
 use App\GryphlineBundle\Service\Pull\PullSyntheticReconcilerManager;
@@ -121,13 +121,13 @@ class SyncPullsPageRetryTest extends TestCase
         $account = (new GryphlineAccount())->setAccountToken('acc-tok');
         $profile = (new GryphlineGameProfile())
             ->setAccount($account)
-            ->setGameId(EndfieldService::GAME_ID)
-            ->setGameBiz(EndfieldService::GAME_BIZ)
+            ->setGameId(ArknightsEndfieldService::GAME_ID)
+            ->setGameBiz(ArknightsEndfieldService::GAME_BIZ)
             ->setGameUid('90001')
             ->setNickname('Endministrator');
         (new \ReflectionProperty(GryphlineGameProfile::class, 'id'))->setValue($profile, 10);
 
-        $endfield = self::getStubBuilder(EndfieldService::class)
+        $endfield = self::getStubBuilder(ArknightsEndfieldService::class)
             ->setConstructorArgs([
                 $this->createStub(HttpClientInterface::class),
                 $this->createStub(HttpClientInterface::class),
@@ -200,7 +200,7 @@ class SyncPullsPageRetryTest extends TestCase
 
         return new SyncPullsPageProfileHandler(
             $profileRepo,
-            new ServiceLocator([EndfieldService::GAME_BIZ => static fn () => $endfield]),
+            new ServiceLocator([ArknightsEndfieldService::GAME_BIZ => static fn () => $endfield]),
             new NullLogger(),
             $this->createStub(UnifiedNotificationService::class),
             $this->createStub(SkportAuthService::class),

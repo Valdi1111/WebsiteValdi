@@ -1,7 +1,7 @@
 monolog:
     channels:
         - gryphline
-        - gryphline.endfield
+        - gryphline.ake
 
 when@prod:
     monolog:
@@ -11,8 +11,8 @@ when@prod:
                 path: '%kernel.logs_dir%/gryphline.log'
                 level: debug
                 channels: ['gryphline']
-            gryphline_endfield_file:
+            gryphline_ake_file:
                 type: stream
-                path: '%kernel.logs_dir%/gryphline-endfield.log'
+                path: '%kernel.logs_dir%/gryphline-arknights-endfield.log'
                 level: debug
-                channels: ['gryphline.endfield']
+                channels: ['gryphline.ake']

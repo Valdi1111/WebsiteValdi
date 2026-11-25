@@ -30,7 +30,7 @@ use App\GamesBundle\Model\Game\AwardData;
 use App\GamesBundle\Model\Game\CheckInResult;
 use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Repository\GryphlineGameProfileRepository;
-use App\GryphlineBundle\Service\EndfieldService;
+use App\GryphlineBundle\Service\ArknightsEndfieldService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Clock\MockClock;
@@ -72,12 +72,12 @@ class GryphlineProfileHandlerTest extends TestCase
             ->setMaxStamina(360)
             ->setStaminaRecoverTime(3600);
 
-        $endfieldService = $this->createStub(EndfieldService::class);
-        $endfieldService->method('getStaminaData')->willReturn($staminaData);
+        $arknightsEndfieldService = $this->createStub(ArknightsEndfieldService::class);
+        $arknightsEndfieldService->method('getStaminaData')->willReturn($staminaData);
 
         $locator = $this->createStub(ServiceCollectionInterface::class);
         $locator->method('has')->willReturn(true);
-        $locator->method('get')->willReturn($endfieldService);
+        $locator->method('get')->willReturn($arknightsEndfieldService);
 
         $notificationService = $this->createMock(UnifiedNotificationService::class);
         $notificationService->expects($this->once())
@@ -108,12 +108,12 @@ class GryphlineProfileHandlerTest extends TestCase
             ->setCurrentStamina(150)
             ->setMaxStamina(360);
 
-        $endfieldService = $this->createStub(EndfieldService::class);
-        $endfieldService->method('getStaminaData')->willReturn($staminaData);
+        $arknightsEndfieldService = $this->createStub(ArknightsEndfieldService::class);
+        $arknightsEndfieldService->method('getStaminaData')->willReturn($staminaData);
 
         $locator = $this->createStub(ServiceCollectionInterface::class);
         $locator->method('has')->willReturn(true);
-        $locator->method('get')->willReturn($endfieldService);
+        $locator->method('get')->willReturn($arknightsEndfieldService);
 
         $notificationService = $this->createMock(UnifiedNotificationService::class);
         $notificationService->expects($this->never())->method('sendToUser');
@@ -157,12 +157,12 @@ class GryphlineProfileHandlerTest extends TestCase
                 ->setMaxValue(100)
         );
 
-        $endfieldService = $this->createStub(EndfieldService::class);
-        $endfieldService->method('getDailiesData')->willReturn($dailies);
+        $arknightsEndfieldService = $this->createStub(ArknightsEndfieldService::class);
+        $arknightsEndfieldService->method('getDailiesData')->willReturn($dailies);
 
         $locator = $this->createStub(ServiceCollectionInterface::class);
         $locator->method('has')->willReturn(true);
-        $locator->method('get')->willReturn($endfieldService);
+        $locator->method('get')->willReturn($arknightsEndfieldService);
 
         $notificationService = $this->createMock(UnifiedNotificationService::class);
         $notificationService->expects($this->once())
@@ -195,12 +195,12 @@ class GryphlineProfileHandlerTest extends TestCase
                 ->setMaxValue(100)
         );
 
-        $endfieldService = $this->createStub(EndfieldService::class);
-        $endfieldService->method('getDailiesData')->willReturn($dailies);
+        $arknightsEndfieldService = $this->createStub(ArknightsEndfieldService::class);
+        $arknightsEndfieldService->method('getDailiesData')->willReturn($dailies);
 
         $locator = $this->createStub(ServiceCollectionInterface::class);
         $locator->method('has')->willReturn(true);
-        $locator->method('get')->willReturn($endfieldService);
+        $locator->method('get')->willReturn($arknightsEndfieldService);
 
         $notificationService = $this->createMock(UnifiedNotificationService::class);
         $notificationService->expects($this->never())->method('sendToUser');
@@ -224,12 +224,12 @@ class GryphlineProfileHandlerTest extends TestCase
                 ->setMaxValue(10)
         );
 
-        $endfieldService = $this->createStub(EndfieldService::class);
-        $endfieldService->method('getWeekliesData')->willReturn($weeklies);
+        $arknightsEndfieldService = $this->createStub(ArknightsEndfieldService::class);
+        $arknightsEndfieldService->method('getWeekliesData')->willReturn($weeklies);
 
         $locator = $this->createStub(ServiceCollectionInterface::class);
         $locator->method('has')->willReturn(true);
-        $locator->method('get')->willReturn($endfieldService);
+        $locator->method('get')->willReturn($arknightsEndfieldService);
 
         $notificationService = $this->createMock(UnifiedNotificationService::class);
         $notificationService->expects($this->once())
@@ -263,12 +263,12 @@ class GryphlineProfileHandlerTest extends TestCase
             ->setTotalSignDay(15)
             ->setAwardData($award);
 
-        $endfieldService = $this->createStub(EndfieldService::class);
-        $endfieldService->method('checkIn')->willReturn($checkInResult);
+        $arknightsEndfieldService = $this->createStub(ArknightsEndfieldService::class);
+        $arknightsEndfieldService->method('checkIn')->willReturn($checkInResult);
 
         $locator = $this->createStub(ServiceCollectionInterface::class);
         $locator->method('has')->willReturn(true);
-        $locator->method('get')->willReturn($endfieldService);
+        $locator->method('get')->willReturn($arknightsEndfieldService);
 
         $notificationService = $this->createMock(UnifiedNotificationService::class);
         $notificationService->expects($this->once())
@@ -304,12 +304,12 @@ class GryphlineProfileHandlerTest extends TestCase
             ->setTotalSignDay(16)
             ->setAwardData($award);
 
-        $endfieldService = $this->createStub(EndfieldService::class);
-        $endfieldService->method("checkIn")->willReturn($checkInResult);
+        $arknightsEndfieldService = $this->createStub(ArknightsEndfieldService::class);
+        $arknightsEndfieldService->method("checkIn")->willReturn($checkInResult);
 
         $locator = $this->createStub(ServiceCollectionInterface::class);
         $locator->method("has")->willReturn(true);
-        $locator->method("get")->willReturn($endfieldService);
+        $locator->method("get")->willReturn($arknightsEndfieldService);
 
         $notificationService = $this->createMock(UnifiedNotificationService::class);
         $notificationService->expects($this->once())
@@ -340,12 +340,12 @@ class GryphlineProfileHandlerTest extends TestCase
             ->setAlreadySignedIn(true)
             ->setResult("Already signed in today.");
 
-        $endfieldService = $this->createStub(EndfieldService::class);
-        $endfieldService->method("checkIn")->willReturn($checkInResult);
+        $arknightsEndfieldService = $this->createStub(ArknightsEndfieldService::class);
+        $arknightsEndfieldService->method("checkIn")->willReturn($checkInResult);
 
         $locator = $this->createStub(ServiceCollectionInterface::class);
         $locator->method("has")->willReturn(true);
-        $locator->method("get")->willReturn($endfieldService);
+        $locator->method("get")->willReturn($arknightsEndfieldService);
 
         $notificationService = $this->createMock(UnifiedNotificationService::class);
         $notificationService->expects($this->never())->method("sendToUser");

@@ -70,6 +70,11 @@ class PerfectworldProfileProvider extends AbstractGameProfileProvider
      * again, as the account card on the site says. The expiry is read at login on a best-effort basis and may be
      * unknown (null), which is not a problem.
      */
+    public function getSettings(): array
+    {
+        return [];
+    }
+
     public function getAccountHealth(GameAccountInterface $account): AccountHealth
     {
         if (!$account instanceof PerfectworldAccount) {

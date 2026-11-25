@@ -18,7 +18,6 @@ use App\HoyoverseBundle\Model\Endgame\HonkaiStarRailChallengeData;
 use App\HoyoverseBundle\Model\Endgame\HonkaiStarRailChallengeFloor;
 use App\HoyoverseBundle\Model\Endgame\HonkaiStarRailEndgamePeriod;
 use Psr\Clock\ClockInterface;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Contracts\Service\Attribute\Required;
 
 /**
@@ -27,6 +26,7 @@ use Symfony\Contracts\Service\Attribute\Required;
  */
 trait HonkaiStarRailEndgamesTrait
 {
+    use CachedEndgameRequestTrait;
     use HoyolabEndgameDatesTrait;
 
     public const string ENDGAMES_CONFIG_KEY = 'hsr';
@@ -87,29 +87,36 @@ trait HonkaiStarRailEndgamesTrait
         ];
     }
 
-    public function fetchEndgame(EndgameDefinition $definition, RuntimeAccountDataInterface $account): array
+    public function fetchEndgame(EndgameDefinition $definition, RuntimeAccountDataInterface $account, bool $fresh = false): array
     {
-        return match ($definition->key) {
+        // One response per mode, whose fetch time every result of the mode carries
+        $entry = $this->requestEndgameMode($definition->key, $account, $fresh);
+
+        return $this->withEndgameFetchTime(match ($definition->key) {
             self::ENDGAME_MEMORY_OF_CHAOS => $this->readChallengeEndgames(
                 $definition,
                 $account,
-                $this->getMemoryOfChaos($account),
+                $this->denormalizeChallenge($entry['data']),
                 HonkaiStarRailChallengeData::MEMORY_OF_CHAOS_MAX_STARS
             ),
             self::ENDGAME_PURE_FICTION => $this->readChallengeEndgames(
                 $definition,
                 $account,
-                $this->getPureFiction($account),
+                $this->denormalizeChallenge($entry['data']),
                 HonkaiStarRailChallengeData::STORY_MAX_STARS
             ),
             self::ENDGAME_APOCALYPTIC_SHADOW => $this->readChallengeEndgames(
                 $definition,
                 $account,
-                $this->getApocalypticShadow($account),
+                $this->denormalizeChallenge($entry['data']),
                 HonkaiStarRailChallengeData::STORY_MAX_STARS
             ),
-            self::ENDGAME_ANOMALY_ARBITRATION => $this->readAnomalyArbitrationEndgames($definition, $account),
-        };
+            self::ENDGAME_ANOMALY_ARBITRATION => $this->readAnomalyArbitrationEndgames(
+                $definition,
+                $account,
+                $this->denormalizeAnomalyArbitration($entry['data'])
+            ),
+        }, $entry);
     }
 
     public function getUrlMemoryOfChaos(): string
@@ -134,76 +141,96 @@ trait HonkaiStarRailEndgamesTrait
 
     /**
      * Memory of Chaos of the current period, with the stages reached.
+     *
+     * @param bool $fresh skip the endgames cache (the new response replaces the cached one)
      */
-    public function getMemoryOfChaos(RuntimeAccountDataInterface $account): HonkaiStarRailChallengeData
+    public function getMemoryOfChaos(RuntimeAccountDataInterface $account, bool $fresh = false): HonkaiStarRailChallengeData
     {
-        return $this->requestChallenge($this->getUrlMemoryOfChaos(), $account, RetrieveMemoryOfChaosDataException::class);
+        return $this->denormalizeChallenge($this->requestEndgameMode(self::ENDGAME_MEMORY_OF_CHAOS, $account, $fresh)['data']);
     }
 
     /**
      * Pure Fiction of the current period, with the stages reached.
+     *
+     * @param bool $fresh skip the endgames cache (the new response replaces the cached one)
      */
-    public function getPureFiction(RuntimeAccountDataInterface $account): HonkaiStarRailChallengeData
+    public function getPureFiction(RuntimeAccountDataInterface $account, bool $fresh = false): HonkaiStarRailChallengeData
     {
-        return $this->requestChallenge($this->getUrlPureFiction(), $account, RetrievePureFictionDataException::class);
+        return $this->denormalizeChallenge($this->requestEndgameMode(self::ENDGAME_PURE_FICTION, $account, $fresh)['data']);
     }
 
     /**
      * Apocalyptic Shadow of the current period, with the stages reached.
+     *
+     * @param bool $fresh skip the endgames cache (the new response replaces the cached one)
      */
-    public function getApocalypticShadow(RuntimeAccountDataInterface $account): HonkaiStarRailChallengeData
+    public function getApocalypticShadow(RuntimeAccountDataInterface $account, bool $fresh = false): HonkaiStarRailChallengeData
     {
-        return $this->requestChallenge($this->getUrlApocalypticShadow(), $account, RetrieveApocalypticShadowDataException::class);
+        return $this->denormalizeChallenge($this->requestEndgameMode(self::ENDGAME_APOCALYPTIC_SHADOW, $account, $fresh)['data']);
     }
 
     /**
      * Anomaly Arbitration: the current run.
+     *
+     * @param bool $fresh skip the endgames cache (the new response replaces the cached one)
      */
-    public function getAnomalyArbitration(RuntimeAccountDataInterface $account): AnomalyArbitrationData
+    public function getAnomalyArbitration(RuntimeAccountDataInterface $account, bool $fresh = false): AnomalyArbitrationData
     {
-        $body = $this->requestEndgame($this->getUrlAnomalyArbitration(), $account, RetrieveAnomalyArbitrationDataException::class, []);
+        return $this->denormalizeAnomalyArbitration($this->requestEndgameMode(self::ENDGAME_ANOMALY_ARBITRATION, $account, $fresh)['data']);
+    }
 
-        return $this->getDenormalizer()->denormalize(
-            self::withoutEmptyDates($body['data'] ?? [], self::listDatePaths($body['data'] ?? [], 'challenge_peak_records', ['group'])),
-            AnomalyArbitrationData::class
+    /**
+     * The battle record request of a mode, through the endgames cache. Star Rail answers "-10001 invalid request"
+     * without the DS header, like the notes.
+     *
+     * @return array{fetchedAt: int, data: array<string, mixed>}
+     */
+    private function requestEndgameMode(string $mode, RuntimeAccountDataInterface $account, bool $fresh): array
+    {
+        [$url, $exceptionClass, $extraQuery] = match ($mode) {
+            self::ENDGAME_MEMORY_OF_CHAOS => [$this->getUrlMemoryOfChaos(), RetrieveMemoryOfChaosDataException::class, ['need_all' => 'true']],
+            self::ENDGAME_PURE_FICTION => [$this->getUrlPureFiction(), RetrievePureFictionDataException::class, ['need_all' => 'true']],
+            self::ENDGAME_APOCALYPTIC_SHADOW => [$this->getUrlApocalypticShadow(), RetrieveApocalypticShadowDataException::class, ['need_all' => 'true']],
+            self::ENDGAME_ANOMALY_ARBITRATION => [$this->getUrlAnomalyArbitration(), RetrieveAnomalyArbitrationDataException::class, []],
+        };
+
+        $profile = $account->getGameProfile();
+
+        return $this->requestCachedEndgame(
+            $account,
+            $url,
+            [
+                'role_id' => $profile->getGameUid(),
+                'server' => $profile->getRegion(),
+                'schedule_type' => 1,
+            ] + $extraQuery,
+            $exceptionClass,
+            $fresh,
+            withDs: true
         );
     }
 
     /**
-     * @param class-string<\App\HoyoverseBundle\Exception\HoyolabException> $exceptionClass
+     * Memory of Chaos, Pure Fiction and Apocalyptic Shadow share one shape.
+     *
+     * @param array<string, mixed> $data
      */
-    private function requestChallenge(string $url, RuntimeAccountDataInterface $account, string $exceptionClass): HonkaiStarRailChallengeData
+    private function denormalizeChallenge(array $data): HonkaiStarRailChallengeData
     {
-        $body = $this->requestEndgame($url, $account, $exceptionClass, ['need_all' => 'true']);
-
         return $this->getDenormalizer()->denormalize(
-            self::withoutEmptyDates($body['data'] ?? [], self::listDatePaths($body['data'] ?? [], 'groups', [])),
+            self::withoutEmptyDates($data, self::listDatePaths($data, 'groups', [])),
             HonkaiStarRailChallengeData::class
         );
     }
 
     /**
-     * Star Rail answers "-10001 invalid request" without the DS header, like the notes.
-     *
-     * @param class-string<\App\HoyoverseBundle\Exception\HoyolabException> $exceptionClass
-     * @param array<string, string>                                         $extraQuery
-     * @return array<string, mixed>
+     * @param array<string, mixed> $data
      */
-    private function requestEndgame(string $url, RuntimeAccountDataInterface $account, string $exceptionClass, array $extraQuery): array
+    private function denormalizeAnomalyArbitration(array $data): AnomalyArbitrationData
     {
-        $profile = $account->getGameProfile();
-
-        return $this->requestHoyolab(
-            method: Request::METHOD_GET,
-            url: $url,
-            auth: $account,
-            query: [
-                'role_id' => $profile->getGameUid(),
-                'server' => $profile->getRegion(),
-                'schedule_type' => 1,
-            ] + $extraQuery,
-            exceptionClass: $exceptionClass,
-            extraHeaders: ['DS' => $this->getHoyolabUtils()->generateDS()]
+        return $this->getDenormalizer()->denormalize(
+            self::withoutEmptyDates($data, self::listDatePaths($data, 'challenge_peak_records', ['group'])),
+            AnomalyArbitrationData::class
         );
     }
 
@@ -280,7 +307,7 @@ trait HonkaiStarRailEndgamesTrait
     /**
      * @return list<GameEndgame> normal part, then Plight
      */
-    private function readAnomalyArbitrationEndgames(EndgameDefinition $definition, RuntimeAccountDataInterface $account): array
+    private function readAnomalyArbitrationEndgames(EndgameDefinition $definition, RuntimeAccountDataInterface $account, AnomalyArbitrationData $anomalyArbitration): array
     {
         $region = (string) $account->getGameProfile()->getRegion();
 
@@ -288,7 +315,7 @@ trait HonkaiStarRailEndgamesTrait
         // the end is unknown and the handler sends nothing
         $record = new AnomalyArbitrationRecord();
         $endTime = null;
-        foreach ($this->getAnomalyArbitration($account)->getRecords() ?? [] as $candidate) {
+        foreach ($anomalyArbitration->getRecords() ?? [] as $candidate) {
             $endTime = $this->getEndOfCurrentPeriod($candidate->getPeriod(), $region);
             if ($endTime !== null) {
                 $record = $candidate;

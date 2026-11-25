@@ -40,6 +40,12 @@ interface ProfileSectionInterface
     public function usesNotes(): bool;
 
     /**
+     * Whether the compact view of a profile (/status, daily summary) shows the section. Sections with their own costly
+     * reads (endgames: one battle record call per mode) are left to their own command.
+     */
+    public function inSummary(): bool;
+
+    /**
      * @return T
      * @throws \Throwable when the data cannot be read
      */

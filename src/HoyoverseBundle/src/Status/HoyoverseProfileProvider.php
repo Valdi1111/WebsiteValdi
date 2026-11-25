@@ -69,6 +69,11 @@ class HoyoverseProfileProvider extends AbstractGameProfileProvider
         return self::activeInOrder($profiles);
     }
 
+    public function getSettings(): array
+    {
+        return HoyoverseProfileSettings::all();
+    }
+
     public function getAccountHealth(GameAccountInterface $account): AccountHealth
     {
         if ($account instanceof HoyoverseAccount && $account->isCookieRefreshFailed() === true) {

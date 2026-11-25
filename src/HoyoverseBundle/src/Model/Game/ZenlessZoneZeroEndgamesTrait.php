@@ -12,7 +12,6 @@ use App\HoyoverseBundle\Exception\RetrieveDeadlyAssaultDataException;
 use App\HoyoverseBundle\Exception\RetrieveShiyuDefenseDataException;
 use App\HoyoverseBundle\Model\Endgame\DeadlyAssaultData;
 use App\HoyoverseBundle\Model\Endgame\ShiyuDefenseData;
-use Symfony\Component\HttpFoundation\Request;
 
 /**
  * @mixin GameInterface
@@ -20,6 +19,7 @@ use Symfony\Component\HttpFoundation\Request;
  */
 trait ZenlessZoneZeroEndgamesTrait
 {
+    use CachedEndgameRequestTrait;
     use HoyolabEndgameDatesTrait;
 
     public const string ENDGAMES_CONFIG_KEY = 'zzz';
@@ -50,12 +50,15 @@ trait ZenlessZoneZeroEndgamesTrait
         ];
     }
 
-    public function fetchEndgame(EndgameDefinition $definition, RuntimeAccountDataInterface $account): array
+    public function fetchEndgame(EndgameDefinition $definition, RuntimeAccountDataInterface $account, bool $fresh = false): array
     {
-        return match ($definition->key) {
-            self::ENDGAME_SHIYU_DEFENSE => $this->readShiyuDefenseEndgames($definition, $account),
-            self::ENDGAME_DEADLY_ASSAULT => $this->readDeadlyAssaultEndgames($definition, $account),
-        };
+        // One response per mode, whose fetch time every result of the mode carries
+        $entry = $this->requestEndgameMode($definition->key, $account, $fresh);
+
+        return $this->withEndgameFetchTime(match ($definition->key) {
+            self::ENDGAME_SHIYU_DEFENSE => $this->readShiyuDefenseEndgames($definition, $account, $this->denormalizeShiyuDefense($entry['data'])),
+            self::ENDGAME_DEADLY_ASSAULT => $this->readDeadlyAssaultEndgames($definition, $account, $this->denormalizeDeadlyAssault($entry['data'])),
+        }, $entry);
     }
 
     public function getUrlShiyuDefense(): string
@@ -65,28 +68,12 @@ trait ZenlessZoneZeroEndgamesTrait
 
     /**
      * Shiyu Defense of the current period, with the score of every stage.
+     *
+     * @param bool $fresh skip the endgames cache (the new response replaces the cached one)
      */
-    public function getShiyuDefense(RuntimeAccountDataInterface $account): ShiyuDefenseData
+    public function getShiyuDefense(RuntimeAccountDataInterface $account, bool $fresh = false): ShiyuDefenseData
     {
-        $body = $this->requestHoyolab(
-            method: Request::METHOD_GET,
-            url: $this->getUrlShiyuDefense(),
-            auth: $account,
-            query: [
-                'role_id' => $account->getGameProfile()->getGameUid(),
-                'server' => $account->getGameProfile()->getRegion(),
-                'schedule_type' => 1,
-            ],
-            exceptionClass: RetrieveShiyuDefenseDataException::class
-        );
-
-        return $this->getDenormalizer()->denormalize(
-            self::withoutEmptyDates($body['data'] ?? [], [
-                ['hadal_info_v2', 'hadal_begin_time'],
-                ['hadal_info_v2', 'hadal_end_time'],
-            ]),
-            ShiyuDefenseData::class
-        );
+        return $this->denormalizeShiyuDefense($this->requestEndgameMode(self::ENDGAME_SHIYU_DEFENSE, $account, $fresh)['data']);
     }
 
     public function getUrlDeadlyAssault(): string
@@ -96,23 +83,61 @@ trait ZenlessZoneZeroEndgamesTrait
 
     /**
      * Deadly Assault of the current period, with the score and stars of every boss (normal and Hard mode).
+     *
+     * @param bool $fresh skip the endgames cache (the new response replaces the cached one)
      */
-    public function getDeadlyAssault(RuntimeAccountDataInterface $account): DeadlyAssaultData
+    public function getDeadlyAssault(RuntimeAccountDataInterface $account, bool $fresh = false): DeadlyAssaultData
     {
-        $body = $this->requestHoyolab(
-            method: Request::METHOD_GET,
-            url: $this->getUrlDeadlyAssault(),
-            auth: $account,
-            query: [
-                'uid' => $account->getGameProfile()->getGameUid(),
-                'region' => $account->getGameProfile()->getRegion(),
-                'schedule_type' => 1,
-            ],
-            exceptionClass: RetrieveDeadlyAssaultDataException::class
-        );
+        return $this->denormalizeDeadlyAssault($this->requestEndgameMode(self::ENDGAME_DEADLY_ASSAULT, $account, $fresh)['data']);
+    }
 
+    /**
+     * The battle record request of a mode (current period: schedule_type 1), through the endgames cache.
+     *
+     * @return array{fetchedAt: int, data: array<string, mixed>}
+     */
+    private function requestEndgameMode(string $mode, RuntimeAccountDataInterface $account, bool $fresh): array
+    {
+        $profile = $account->getGameProfile();
+
+        [$url, $query, $exceptionClass] = match ($mode) {
+            self::ENDGAME_SHIYU_DEFENSE => [$this->getUrlShiyuDefense(), [
+                'role_id' => $profile->getGameUid(),
+                'server' => $profile->getRegion(),
+                'schedule_type' => 1,
+            ], RetrieveShiyuDefenseDataException::class],
+            // Deadly Assault names the player parameters differently
+            self::ENDGAME_DEADLY_ASSAULT => [$this->getUrlDeadlyAssault(), [
+                'uid' => $profile->getGameUid(),
+                'region' => $profile->getRegion(),
+                'schedule_type' => 1,
+            ], RetrieveDeadlyAssaultDataException::class],
+        };
+
+        return $this->requestCachedEndgame($account, $url, $query, $exceptionClass, $fresh);
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function denormalizeShiyuDefense(array $data): ShiyuDefenseData
+    {
         return $this->getDenormalizer()->denormalize(
-            self::withoutEmptyDates($body['data'] ?? [], [['start_time'], ['end_time']]),
+            self::withoutEmptyDates($data, [
+                ['hadal_info_v2', 'hadal_begin_time'],
+                ['hadal_info_v2', 'hadal_end_time'],
+            ]),
+            ShiyuDefenseData::class
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function denormalizeDeadlyAssault(array $data): DeadlyAssaultData
+    {
+        return $this->getDenormalizer()->denormalize(
+            self::withoutEmptyDates($data, [['start_time'], ['end_time']]),
             DeadlyAssaultData::class
         );
     }
@@ -120,12 +145,11 @@ trait ZenlessZoneZeroEndgamesTrait
     /**
      * @return list<GameEndgame>
      */
-    private function readShiyuDefenseEndgames(EndgameDefinition $definition, RuntimeAccountDataInterface $account): array
+    private function readShiyuDefenseEndgames(EndgameDefinition $definition, RuntimeAccountDataInterface $account, ShiyuDefenseData $shiyuDefense): array
     {
         $profile = $account->getGameProfile();
         $region = (string) $profile->getRegion();
 
-        $shiyuDefense = $this->getShiyuDefense($account);
         if (!$shiyuDefense->isSupportedVersion()) {
             // Unknown format: played/maximum cannot be told, so no reminder rather than a wrong one
             $this->getLogger()->warning(sprintf(
@@ -185,11 +209,10 @@ trait ZenlessZoneZeroEndgamesTrait
     /**
      * @return list<GameEndgame> normal mode, then Hard mode
      */
-    private function readDeadlyAssaultEndgames(EndgameDefinition $definition, RuntimeAccountDataInterface $account): array
+    private function readDeadlyAssaultEndgames(EndgameDefinition $definition, RuntimeAccountDataInterface $account, DeadlyAssaultData $deadlyAssault): array
     {
         $region = (string) $account->getGameProfile()->getRegion();
 
-        $deadlyAssault = $this->getDeadlyAssault($account);
         $deadlyAssaultEnd = $this->toServerInstant($deadlyAssault->getEndTime(), $region);
 
         $normal = new GameEndgame()

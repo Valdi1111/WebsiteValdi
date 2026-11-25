@@ -131,7 +131,7 @@ class ArknightsEndfieldServiceTest extends TestCase
         $this->assertSame('endfield', ArknightsEndfieldService::getGameBiz());
         $this->assertSame('Arknights: Endfield', $service->getGameName());
         $this->assertSame(360, $service->getMaxStamina());
-        $this->assertSame(360, $service->getRegenRate());
+        $this->assertSame(432, $service->getRegenRate());
         $this->assertSame('/api/v1/game/endfield/card/detail', $service->getUrlNotes());
         $this->assertSame(ArknightsEndfieldNotes::class, $service->getNotesClass());
     }

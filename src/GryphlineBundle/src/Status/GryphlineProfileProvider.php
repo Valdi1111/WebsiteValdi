@@ -67,6 +67,11 @@ class GryphlineProfileProvider extends AbstractGameProfileProvider
      * An expired SKPort session is routine (the game service renews it from the account token on the next call):
      * only a failed renewal needs the user.
      */
+    public function getSettings(): array
+    {
+        return GryphlineProfileSettings::all();
+    }
+
     public function getAccountHealth(GameAccountInterface $account): AccountHealth
     {
         if ($account instanceof GryphlineAccount && $account->isTokenRefreshFailed() === true) {

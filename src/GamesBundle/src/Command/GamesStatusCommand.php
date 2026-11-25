@@ -46,7 +46,7 @@ class GamesStatusCommand extends Command
         // Not "--profile": a global option of the console
         #[Option('Only this profile, as "<provider>:<id>" (e.g. "hoyoverse:42")')]
         array $ref = [],
-        #[Option('Only this section (stamina, dailies...)')]
+        #[Option('Only this section (stamina, dailies, endgames...); default the sections of the summary')]
         array $section = [],
         #[Option('Skip the caches and call the game APIs again')]
         bool $fresh = false,
@@ -79,7 +79,18 @@ class GamesStatusCommand extends Command
             return Command::SUCCESS;
         }
 
-        $statuses = $this->collector->collect($profiles, $section !== [] ? array_values($section) : null, $fresh);
+        // Without --section, the sections of the compact view: endgames cost one battle record call per mode
+        $sections = $section !== [] ? array_values($section) : $this->collector->getSummarySectionKeys();
+        $statuses = $this->collector->collect($profiles, $sections, $fresh);
+        if ($section !== []) {
+            // Sections asked by name: the profiles of games without any of them have nothing to show
+            $statuses = array_values(array_filter($statuses, static fn (GameProfileStatus $status): bool => $status->sections !== [] || $status->error !== null));
+            if ($statuses === []) {
+                $io->warning('No profile of this user has these sections.');
+
+                return Command::SUCCESS;
+            }
+        }
         foreach ($statuses as $status) {
             $full ? $this->renderFull($io, $status) : $this->renderEmbed($io, $this->summaryPresenter->present($status));
             if ($io->isVerbose()) {
@@ -160,7 +171,9 @@ class GamesStatusCommand extends Command
         }
         $fields = [];
         foreach ($embed->getFields() as $field) {
-            $fields[] = [trim(($field->getIcon() ?? '') . ' ' . $field->getName()) => $field->getValue()];
+            // Without U+FE0F (⚔️, ⚠️...): the console tables count such an emoji one column narrow and misalign the label
+            $icon = str_replace("\u{FE0F}", '', $field->getIcon() ?? '');
+            $fields[] = [trim($icon . ' ' . $field->getName()) => $field->getValue()];
         }
         if ($fields !== []) {
             $io->definitionList(...$fields);

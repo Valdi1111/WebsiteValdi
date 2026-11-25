@@ -2,20 +2,70 @@
 
 namespace App\GryphlineBundle\Model\Game;
 
+use App\GamesBundle\Model\Game\CachedProfileData;
+use App\GamesBundle\Model\Game\CheckInStatus;
+use App\GamesBundle\Model\Game\HasCheckInStatusInterface;
+use App\GamesBundle\Model\Game\RuntimeAccountDataInterface;
 use App\GryphlineBundle\Exception\SkportApiException;
 use App\GamesBundle\Model\Game\AwardData;
 use App\GamesBundle\Model\Game\CheckInResult;
 use App\GryphlineBundle\Model\RuntimeAccountData;
 use App\GryphlineBundle\Model\SkportSessionCredentials;
+use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Contracts\Cache\CacheInterface;
+use Symfony\Contracts\Service\Attribute\Required;
 
 /**
+ * The check-in status reads the fetch time with the notes clock ($notesClock of CachedNotesTrait, through NotesTrait),
+ * so the class using this trait uses NotesTrait too.
+ *
  * @mixin GameInterface
  * @mixin HasCheckInInterface
+ * @mixin HasCheckInStatusInterface
  */
 trait CheckInTrait
 {
+    private ?CacheInterface $checkInStatusCache = null;
+
+    public function getCheckInStatusCache(): ?CacheInterface
+    {
+        return $this->checkInStatusCache;
+    }
+
+    #[Required]
+    public function setCheckInStatusCache(
+        #[Target('gryphline.check_in_status.cache')]
+        CacheInterface $cache
+    ): void
+    {
+        $this->checkInStatusCache = $cache;
+    }
+
+    public function getCheckInStatus(RuntimeAccountDataInterface $account, bool $fresh = false): CheckInStatus
+    {
+        if (!$account instanceof RuntimeAccountData) {
+            throw new \InvalidArgumentException(sprintf('Expected %s, got %s', RuntimeAccountData::class, get_debug_type($account)));
+        }
+
+        $entry = CachedProfileData::get(
+            $this->checkInStatusCache,
+            $this->getCheckInStatusKey($account),
+            $fresh,
+            fn (): array => $this->fetchCheckInStatusData($account),
+            $this->notesClock
+        );
+        $data = $entry['data'];
+
+        return new CheckInStatus(
+            // Same reading as checkIn(): the flag of today, and the done records of the calendar
+            signedToday: (bool) ($data['hasToday'] ?? false),
+            totalDays: count(self::getDoneAttendanceRecords($data)),
+            fetchedAt: CachedProfileData::fetchedAt($entry, $this->notesClock),
+        );
+    }
+
     public function checkIn(RuntimeAccountData $account, bool $retryOn401 = true): CheckInResult
     {
         $profile = $account->getGameProfile();
@@ -41,13 +91,13 @@ trait CheckInTrait
         }
 
         $hasToday = (bool) ($attendanceData['hasToday'] ?? false);
-        $calendar = $attendanceData['calendar'] ?? [];
         $resourceMap = $attendanceData['resourceInfoMap'] ?? [];
 
-        $doneRecords = array_values(array_filter($calendar, static fn(array $c): bool => !empty($c['done'])));
+        $doneRecords = self::getDoneAttendanceRecords($attendanceData);
         $totalSignDay = count($doneRecords);
 
         if ($hasToday) {
+            $this->forgetCheckInStatus($account);
             $this->getLogger()->info(sprintf(
                 'Account %s has already signed in today (Total: %d days).',
                 $profile->getNickname() ?? $profile->getGameUid(),
@@ -88,6 +138,8 @@ trait CheckInTrait
             throw $e;
         }
 
+        // Right after the claim, before anything else can fail: the status must not keep showing "not signed"
+        $this->forgetCheckInStatus($account);
         $totalSignDay++;
 
         $awardIds = $claimData['awardIds'] ?? [];
@@ -192,5 +244,66 @@ trait CheckInTrait
         }
 
         return $body['data'] ?? [];
+    }
+
+    /**
+     * Read-only attendance request (GET, never the claim), with one forced OAuth refresh on an expired session.
+     * The failed attempt throws inside the fetch, so only the answer of the retry can reach the cache.
+     *
+     * @return array{0: array<string, mixed>, 1: bool} the attendance payload, and whether it may be cached
+     */
+    private function fetchCheckInStatusData(RuntimeAccountData $account, bool $retryOn401 = true): array
+    {
+        try {
+            $data = $this->getAttendanceData($account, $this->ensureCredentials($account));
+        } catch (SkportApiException $e) {
+            if ($e->getApiStatusCode() === Response::HTTP_UNAUTHORIZED && $retryOn401) {
+                $this->getLogger()->warning('SKPort session expired during check-in status request, forcing OAuth refresh...');
+                $this->ensureCredentials($account, force: true);
+
+                return $this->fetchCheckInStatusData($account, retryOn401: false);
+            }
+            throw $e;
+        }
+
+        // getAttendanceData() answers [] when the payload has no data: used as not signed, never cached
+        return [$data, $data !== []];
+    }
+
+    /**
+     * Claimed days of the attendance calendar, in calendar order.
+     *
+     * @param array<string, mixed> $attendanceData
+     * @return list<array<string, mixed>>
+     */
+    private static function getDoneAttendanceRecords(array $attendanceData): array
+    {
+        $calendar = $attendanceData['calendar'] ?? [];
+        if (!is_array($calendar)) {
+            return [];
+        }
+
+        return array_values(array_filter($calendar, static fn(mixed $c): bool => is_array($c) && !empty($c['done'])));
+    }
+
+    /**
+     * Drops the cached check-in status of the profile, so the next read shows the claim at once.
+     */
+    private function forgetCheckInStatus(RuntimeAccountData $account): void
+    {
+        $key = $this->getCheckInStatusKey($account);
+        if ($key !== null) {
+            $this->checkInStatusCache?->delete($key);
+        }
+    }
+
+    /**
+     * Cache key of the profile, null for an unsaved profile (one shared key would mix several profiles).
+     */
+    private function getCheckInStatusKey(RuntimeAccountData $account): ?string
+    {
+        $profileId = $account->getGameProfile()->getId();
+
+        return $profileId !== null ? 'check_in_' . $profileId : null;
     }
 }

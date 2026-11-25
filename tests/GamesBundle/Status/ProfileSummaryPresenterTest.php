@@ -116,7 +116,7 @@ class ProfileSummaryPresenterTest extends TestCase
     {
         $embed = $this->presenter()->present(self::profileStatus([]));
 
-        $this->assertSame('No live data for this game.', $embed->getDescription());
+        $this->assertSame('Nothing to show for this game.', $embed->getDescription());
         $this->assertEquals($this->clock->now(), $embed->getTimestamp());
     }
 

@@ -17,7 +17,6 @@ use App\HoyoverseBundle\Model\Endgame\StygianOnslaughtType;
 use App\HoyoverseBundle\Model\Endgame\TheaterLobbyData;
 use App\HoyoverseBundle\Model\Endgame\TheaterStat;
 use Psr\Clock\ClockInterface;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Contracts\Service\Attribute\Required;
 
 /**
@@ -26,6 +25,8 @@ use Symfony\Contracts\Service\Attribute\Required;
  */
 trait GenshinImpactEndgamesTrait
 {
+    use CachedEndgameRequestTrait;
+
     public const string ENDGAMES_CONFIG_KEY = 'gi';
 
     public const string ENDGAME_SPIRAL_ABYSS = 'spiral_abyss';
@@ -72,13 +73,16 @@ trait GenshinImpactEndgamesTrait
         ];
     }
 
-    public function fetchEndgame(EndgameDefinition $definition, RuntimeAccountDataInterface $account): array
+    public function fetchEndgame(EndgameDefinition $definition, RuntimeAccountDataInterface $account, bool $fresh = false): array
     {
-        return match ($definition->key) {
-            self::ENDGAME_SPIRAL_ABYSS => $this->readSpiralAbyssEndgames($definition, $account),
-            self::ENDGAME_IMAGINARIUM_THEATER => $this->readImaginariumTheaterEndgames($definition, $account),
-            self::ENDGAME_STYGIAN_ONSLAUGHT => $this->readStygianOnslaughtEndgames($definition, $account),
-        };
+        // One response per mode, whose fetch time every result of the mode carries
+        $entry = $this->requestEndgameMode($definition->key, $account, $fresh);
+
+        return $this->withEndgameFetchTime(match ($definition->key) {
+            self::ENDGAME_SPIRAL_ABYSS => $this->readSpiralAbyssEndgames($definition, $this->denormalizeSpiralAbyss($entry['data'])),
+            self::ENDGAME_IMAGINARIUM_THEATER => $this->readImaginariumTheaterEndgames($definition, $account, $this->denormalizeTheaterLobby($entry['data'])),
+            self::ENDGAME_STYGIAN_ONSLAUGHT => $this->readStygianOnslaughtEndgames($definition, $account, $this->denormalizeStygianOnslaught($entry['data'])),
+        }, $entry);
     }
 
     public function getUrlSpiralAbyss(): string
@@ -88,25 +92,12 @@ trait GenshinImpactEndgamesTrait
 
     /**
      * Spiral Abyss of the current period (schedule_type 1; 2 = the previous one).
+     *
+     * @param bool $fresh skip the endgames cache (the new response replaces the cached one)
      */
-    public function getSpiralAbyss(RuntimeAccountDataInterface $account): SpiralAbyssData
+    public function getSpiralAbyss(RuntimeAccountDataInterface $account, bool $fresh = false): SpiralAbyssData
     {
-        $body = $this->requestHoyolab(
-            method: Request::METHOD_GET,
-            url: $this->getUrlSpiralAbyss(),
-            auth: $account,
-            query: [
-                'role_id' => $account->getGameProfile()->getGameUid(),
-                'server' => $account->getGameProfile()->getRegion(),
-                'schedule_type' => 1,
-            ],
-            exceptionClass: RetrieveSpiralAbyssDataException::class
-        );
-
-        return $this->getDenormalizer()->denormalize(
-            is_array($body['data'] ?? null) ? self::withoutEmptyEpochs($body['data']) : [],
-            SpiralAbyssData::class
-        );
+        return $this->denormalizeSpiralAbyss($this->requestEndgameMode(self::ENDGAME_SPIRAL_ABYSS, $account, $fresh)['data']);
     }
 
     public function getUrlTheaterLobby(): string
@@ -117,25 +108,12 @@ trait GenshinImpactEndgamesTrait
     /**
      * Imaginarium Theater, current and previous period (no period parameter), without the per-act detail: the stat
      * block is there anyway.
+     *
+     * @param bool $fresh skip the endgames cache (the new response replaces the cached one)
      */
-    public function getTheaterLobby(RuntimeAccountDataInterface $account): TheaterLobbyData
+    public function getTheaterLobby(RuntimeAccountDataInterface $account, bool $fresh = false): TheaterLobbyData
     {
-        $body = $this->requestHoyolab(
-            method: Request::METHOD_GET,
-            url: $this->getUrlTheaterLobby(),
-            auth: $account,
-            query: [
-                'role_id' => $account->getGameProfile()->getGameUid(),
-                'server' => $account->getGameProfile()->getRegion(),
-                'need_detail' => "false",
-            ],
-            exceptionClass: RetrieveTheaterLobbyDataException::class
-        );
-
-        return $this->getDenormalizer()->denormalize(
-            self::withoutEmptyPeriodEpochs($body['data'] ?? null),
-            TheaterLobbyData::class
-        );
+        return $this->denormalizeTheaterLobby($this->requestEndgameMode(self::ENDGAME_IMAGINARIUM_THEATER, $account, $fresh)['data']);
     }
 
     public function getUrlStygianOnslaught(): string
@@ -145,33 +123,65 @@ trait GenshinImpactEndgamesTrait
 
     /**
      * Stygian Onslaught, current and previous period (no period parameter; need_detail does not change the bests).
+     *
+     * @param bool $fresh skip the endgames cache (the new response replaces the cached one)
      */
-    public function getStygianOnslaught(RuntimeAccountDataInterface $account): StygianOnslaughtData
+    public function getStygianOnslaught(RuntimeAccountDataInterface $account, bool $fresh = false): StygianOnslaughtData
     {
-        $body = $this->requestHoyolab(
-            method: Request::METHOD_GET,
-            url: $this->getUrlStygianOnslaught(),
-            auth: $account,
-            query: [
-                'role_id' => $account->getGameProfile()->getGameUid(),
-                'server' => $account->getGameProfile()->getRegion(),
-            ],
-            exceptionClass: RetrieveStygianOnslaughtDataException::class
-        );
+        return $this->denormalizeStygianOnslaught($this->requestEndgameMode(self::ENDGAME_STYGIAN_ONSLAUGHT, $account, $fresh)['data']);
+    }
 
-        return $this->getDenormalizer()->denormalize(
-            self::withoutEmptyPeriodEpochs($body['data'] ?? null),
-            StygianOnslaughtData::class
-        );
+    /**
+     * The battle record request of a mode, through the endgames cache.
+     *
+     * @return array{fetchedAt: int, data: array<string, mixed>}
+     */
+    private function requestEndgameMode(string $mode, RuntimeAccountDataInterface $account, bool $fresh): array
+    {
+        $profile = $account->getGameProfile();
+        $player = [
+            'role_id' => $profile->getGameUid(),
+            'server' => $profile->getRegion(),
+        ];
+
+        [$url, $query, $exceptionClass] = match ($mode) {
+            self::ENDGAME_SPIRAL_ABYSS => [$this->getUrlSpiralAbyss(), $player + ['schedule_type' => 1], RetrieveSpiralAbyssDataException::class],
+            self::ENDGAME_IMAGINARIUM_THEATER => [$this->getUrlTheaterLobby(), $player + ['need_detail' => 'false'], RetrieveTheaterLobbyDataException::class],
+            self::ENDGAME_STYGIAN_ONSLAUGHT => [$this->getUrlStygianOnslaught(), $player, RetrieveStygianOnslaughtDataException::class],
+        };
+
+        return $this->requestCachedEndgame($account, $url, $query, $exceptionClass, $fresh);
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function denormalizeSpiralAbyss(array $data): SpiralAbyssData
+    {
+        return $this->getDenormalizer()->denormalize(self::withoutEmptyEpochs($data), SpiralAbyssData::class);
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function denormalizeTheaterLobby(array $data): TheaterLobbyData
+    {
+        return $this->getDenormalizer()->denormalize(self::withoutEmptyPeriodEpochs($data), TheaterLobbyData::class);
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function denormalizeStygianOnslaught(array $data): StygianOnslaughtData
+    {
+        return $this->getDenormalizer()->denormalize(self::withoutEmptyPeriodEpochs($data), StygianOnslaughtData::class);
     }
 
     /**
      * @return list<GameEndgame>
      */
-    private function readSpiralAbyssEndgames(EndgameDefinition $definition, RuntimeAccountDataInterface $account): array
+    private function readSpiralAbyssEndgames(EndgameDefinition $definition, SpiralAbyssData $spiralAbyss): array
     {
-        $spiralAbyss = $this->getSpiralAbyss($account);
-
         $endgame = new GameEndgame()
             ->setName($definition->name)
             ->setUnlocked($spiralAbyss->isUnlocked())
@@ -191,10 +201,8 @@ trait GenshinImpactEndgamesTrait
     /**
      * @return list<GameEndgame>
      */
-    private function readImaginariumTheaterEndgames(EndgameDefinition $definition, RuntimeAccountDataInterface $account): array
+    private function readImaginariumTheaterEndgames(EndgameDefinition $definition, RuntimeAccountDataInterface $account, TheaterLobbyData $theater): array
     {
-        $theater = $this->getTheaterLobby($account);
-
         $endgame = new GameEndgame()
             ->setName($definition->name)
             ->setUnlocked($theater->isUnlocked());
@@ -238,10 +246,8 @@ trait GenshinImpactEndgamesTrait
     /**
      * @return list<GameEndgame>
      */
-    private function readStygianOnslaughtEndgames(EndgameDefinition $definition, RuntimeAccountDataInterface $account): array
+    private function readStygianOnslaughtEndgames(EndgameDefinition $definition, RuntimeAccountDataInterface $account, StygianOnslaughtData $stygianOnslaught): array
     {
-        $stygianOnslaught = $this->getStygianOnslaught($account);
-
         $endgame = new GameEndgame()
             ->setName($definition->name)
             ->setUnlocked($stygianOnslaught->isUnlocked());

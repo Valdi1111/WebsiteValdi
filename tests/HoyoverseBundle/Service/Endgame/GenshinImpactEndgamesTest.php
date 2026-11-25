@@ -13,6 +13,7 @@ use App\GamesBundle\Model\Endgame\GameEndgame;
 use App\GamesBundle\Presenter\EndgamesPresenter;
 use App\GamesBundle\Presenter\GameProfileEmbedFactory;
 use App\GamesBundle\Service\DurationFormatter;
+use App\GamesBundle\Service\Endgame\EndgameStatusBuilder;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Exception\RetrieveTheaterLobbyDataException;
@@ -176,6 +177,7 @@ class GenshinImpactEndgamesTest extends KernelTestCase
         $clock = new MockClock($now, 'Europe/Paris');
         $handler->setClock($clock);
         $handler->setEndgamesPresenter(new EndgamesPresenter(new GameProfileEmbedFactory($clock), new DurationFormatter()));
+        $handler->setEndgameStatusBuilder(new EndgameStatusBuilder());
 
         return $handler;
     }

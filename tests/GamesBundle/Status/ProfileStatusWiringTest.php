@@ -49,9 +49,16 @@ class ProfileStatusWiringTest extends KernelTestCase
     {
         self::bootKernel();
 
+        $collector = static::getContainer()->get(GameProfileStatusCollector::class);
+
         $this->assertSame(
-            ['stamina', 'dailies', 'weeklies', 'expeditions', 'realm_currency', 'shop_status'],
-            array_keys(static::getContainer()->get(GameProfileStatusCollector::class)->getSections())
+            ['stamina', 'dailies', 'weeklies', 'expeditions', 'realm_currency', 'shop_status', 'check_in', 'endgames'],
+            array_keys($collector->getSections())
+        );
+        // Endgames cost one battle record call per mode: not in the compact view
+        $this->assertSame(
+            ['stamina', 'dailies', 'weeklies', 'expeditions', 'realm_currency', 'shop_status', 'check_in'],
+            $collector->getSummarySectionKeys()
         );
     }
 

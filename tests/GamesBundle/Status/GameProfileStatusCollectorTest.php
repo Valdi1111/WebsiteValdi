@@ -7,6 +7,7 @@ use App\CoreBundle\Service\UserRoleResolver;
 use App\GamesBundle\Model\Game\GameProfileInterface;
 use App\GamesBundle\Model\Profile\AccountHealth;
 use App\GamesBundle\Model\Profile\GameProfileContext;
+use App\GamesBundle\Model\Status\FetchedDataInterface;
 use App\GamesBundle\Model\Status\GameProfileStatus;
 use App\GamesBundle\Model\Status\ProfileSectionInterface;
 use App\GamesBundle\Model\Status\SummaryLine;
@@ -42,7 +43,10 @@ class GameProfileStatusCollectorTest extends TestCase
         $this->provider->services = ['fake_game' => $this->service];
     }
 
-    private function collector(): GameProfileStatusCollector
+    /**
+     * @param list<ProfileSectionInterface> $extraSections
+     */
+    private function collector(array $extraSections = []): GameProfileStatusCollector
     {
         $clock = new MockClock(self::NOW);
         $factory = new GameProfileEmbedFactory($clock);
@@ -63,6 +67,7 @@ class GameProfileStatusCollectorTest extends TestCase
             new StaminaSection(new StaminaPresenter($factory, new DurationFormatter()), new DurationFormatter(), $clock),
             new DailiesSection(new DailiesPresenter($factory)),
             self::accountSection(),
+            ...$extraSections,
         ], $logger);
     }
 
@@ -93,6 +98,11 @@ class GameProfileStatusCollectorTest extends TestCase
             }
 
             public function usesNotes(): bool
+            {
+                return false;
+            }
+
+            public function inSummary(): bool
             {
                 return false;
             }
@@ -159,6 +169,9 @@ class GameProfileStatusCollectorTest extends TestCase
         $this->assertFalse($status->isSuccessful());
         $this->assertCount(1, $this->logs);
         $this->assertSame('fake:1', $this->logs[0][1]['profile']);
+        // Class only: provider messages can carry account data
+        $this->assertSame(\RuntimeException::class, $this->logs[0][1]['error']);
+        $this->assertStringNotContainsString('Please login', json_encode($this->logs, JSON_THROW_ON_ERROR));
     }
 
     public function testFailedSectionDoesNotStopTheOthers(): void
@@ -219,5 +232,72 @@ class GameProfileStatusCollectorTest extends TestCase
 
         $this->assertFalse($status->accountHealth->ok);
         $this->assertSame('Log in again.', $status->accountHealth->problem);
+    }
+
+    public function testTheOldestFetchTimeOfTheSectionsIsKept(): void
+    {
+        $aged = new class implements ProfileSectionInterface {
+            public function getKey(): string
+            {
+                return 'aged';
+            }
+
+            public function getLabel(): string
+            {
+                return 'Aged';
+            }
+
+            public function getIcon(): string
+            {
+                return '🕰';
+            }
+
+            public function supports(GameProfileContext $context): bool
+            {
+                return true;
+            }
+
+            public function usesNotes(): bool
+            {
+                return false;
+            }
+
+            public function inSummary(): bool
+            {
+                return true;
+            }
+
+            public function collect(GameProfileContext $context): object
+            {
+                return new class implements FetchedDataInterface {
+                    public function getFetchedAt(): ?\DateTimeImmutable
+                    {
+                        return new \DateTimeImmutable('2026-11-22 09:40:00');
+                    }
+                };
+            }
+
+            public function present(GameProfileInterface $profile, object $data): UniversalEmbed
+            {
+                return new UniversalEmbed();
+            }
+
+            public function summarize(GameProfileInterface $profile, object $data): SummaryLine
+            {
+                return new SummaryLine('Aged', '', '🕰');
+            }
+        };
+
+        [$status] = $this->collector([$aged])->collect([$this->profile()]);
+
+        // Notes fetched at 09:56, the aged section at 09:40
+        $this->assertEquals(new \DateTimeImmutable('2026-11-22 09:40:00'), $status->fetchedAt);
+        $this->assertSame(['stamina', 'dailies', 'aged'], $this->collector([$aged])->getSummarySectionKeys());
+    }
+
+    public function testSummarySectionsLeaveOutTheCostlyOnes(): void
+    {
+        // The account section of these tests is not in the summary
+        $this->assertSame(['stamina', 'dailies'], $this->collector()->getSummarySectionKeys());
     }
 }

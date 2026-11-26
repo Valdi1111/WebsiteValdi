@@ -36,4 +36,9 @@ final class Version20261121140308 extends AbstractMigration
         $this->addSql('DROP TABLE perfectworld_game_profile');
         $this->addSql('DROP TABLE perfectworld_pull');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

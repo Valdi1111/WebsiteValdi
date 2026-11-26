@@ -38,4 +38,9 @@ final class Version20250210201600 extends AbstractMigration
         $this->addSql('DROP TABLE rememberme_token');
         $this->addSql('DROP TABLE sessions');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

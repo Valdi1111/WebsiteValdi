@@ -50,4 +50,9 @@ final class Version20250928111805 extends AbstractMigration
         $this->addSql('DROP TABLE user_role');
         $this->addSql('ALTER TABLE user ADD roles JSON NOT NULL');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

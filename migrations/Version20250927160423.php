@@ -32,4 +32,9 @@ final class Version20250927160423 extends AbstractMigration
         $this->addSql('DROP INDEX IDX_state ON episode_download');
         $this->addSql('DROP INDEX IDX_provider ON episode_download');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

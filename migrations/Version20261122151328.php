@@ -32,4 +32,9 @@ final class Version20261122151328 extends AbstractMigration
         $this->addSql('ALTER TABLE hoyoverse_pull DROP is_up, DROP pull_number');
         $this->addSql('ALTER TABLE perfectworld_pull DROP is_up');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

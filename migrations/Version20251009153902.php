@@ -28,4 +28,9 @@ final class Version20251009153902 extends AbstractMigration
         // this down() migration is auto-generated, please modify it to your needs
         $this->addSql('ALTER TABLE season_folder DROP episode_offset');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

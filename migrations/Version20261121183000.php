@@ -28,4 +28,9 @@ final class Version20261121183000 extends AbstractMigration
     {
         $this->addSql('ALTER TABLE gryphline_account CHANGE session_cred session_cred VARCHAR(255) DEFAULT NULL, CHANGE session_salt session_salt VARCHAR(255) DEFAULT NULL');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

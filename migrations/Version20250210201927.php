@@ -48,4 +48,9 @@ final class Version20250210201927 extends AbstractMigration
         $this->addSql('DROP TABLE library');
         $this->addSql('DROP TABLE shelf');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

@@ -28,4 +28,9 @@ final class Version20250221161036 extends AbstractMigration
         // this down() migration is auto-generated, please modify it to your needs
         $this->addSql('ALTER TABLE episode_download DROP provider');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

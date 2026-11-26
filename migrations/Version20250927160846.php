@@ -32,4 +32,9 @@ final class Version20250927160846 extends AbstractMigration
         $this->addSql('ALTER TABLE token DROP class, DROP username, CHANGE id id INT NOT NULL');
         $this->addSql('ALTER TABLE token ADD CONSTRAINT FK_token_user FOREIGN KEY (id) REFERENCES user (id) ON UPDATE NO ACTION ON DELETE CASCADE');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

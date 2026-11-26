@@ -34,4 +34,9 @@ final class Version20250210201924 extends AbstractMigration
         $this->addSql('DROP TABLE list_manga');
         $this->addSql('DROP TABLE season_folder');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

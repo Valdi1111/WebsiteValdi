@@ -30,4 +30,9 @@ final class Version20261010221337 extends AbstractMigration
         $this->addSql('ALTER TABLE episode_download_tracker DROP FOREIGN KEY FK_episode_download');
         $this->addSql('DROP TABLE episode_download_tracker');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

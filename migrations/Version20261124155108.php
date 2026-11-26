@@ -29,4 +29,9 @@ final class Version20261124155108 extends AbstractMigration
         $this->addSql('DROP INDEX IDX_discord_user_id ON user');
         $this->addSql('ALTER TABLE user DROP discord_username, DROP discord_global_name, DROP discord_avatar');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

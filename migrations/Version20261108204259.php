@@ -37,4 +37,9 @@ final class Version20261108204259 extends AbstractMigration
         $this->addSql('ALTER TABLE gryphline_game_profile DROP sync_pulls');
         $this->addSql('ALTER TABLE hoyoverse_game_profile DROP sync_pulls');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

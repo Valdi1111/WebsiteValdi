@@ -41,4 +41,9 @@ final class Version20261123180127 extends AbstractMigration
         $this->addSql('ALTER TABLE token DROP token_hash, DROP description, CHANGE access_token access_token VARCHAR(255) NOT NULL');
         $this->addSql('CREATE UNIQUE INDEX IDX_access_token ON token (access_token)');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

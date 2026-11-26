@@ -34,4 +34,9 @@ final class Version20261126173559 extends AbstractMigration
         $this->addSql("DELETE FROM gryphline_pull WHERE kind <> 'draw'");
         $this->addSql('ALTER TABLE gryphline_pull DROP kind, DROP is_free, DROP pool_version, CHANGE rarity rarity SMALLINT NOT NULL');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

@@ -28,4 +28,9 @@ final class Version20261118192557 extends AbstractMigration
         // this down() migration is auto-generated, please modify it to your needs
         $this->addSql('ALTER TABLE hoyoverse_account DROP device_id');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

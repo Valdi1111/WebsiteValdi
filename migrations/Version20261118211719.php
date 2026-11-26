@@ -34,4 +34,9 @@ final class Version20261118211719 extends AbstractMigration
         $this->addSql('DROP INDEX IDX_hoyoverse_account_user_uid ON hoyoverse_account');
         $this->addSql('ALTER TABLE hoyoverse_account DROP account_uid');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

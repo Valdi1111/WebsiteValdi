@@ -30,4 +30,9 @@ final class Version20260915211841 extends AbstractMigration
         $this->addSql('ALTER TABLE hoyoverse_diary_entry DROP FOREIGN KEY FK_hoyoverse_diary_entry_hoyoverse_game_profile');
         $this->addSql('DROP TABLE hoyoverse_diary_entry');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

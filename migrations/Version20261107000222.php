@@ -28,4 +28,9 @@ final class Version20261107000222 extends AbstractMigration
         // this down() migration is auto-generated, please modify it to your needs
         $this->addSql('ALTER TABLE gryphline_game_profile DROP skport_missed_check_in');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

@@ -145,6 +145,14 @@ sudo supervisorctl tail -f website-valdi:website-messenger-core
 
 After the first deploy also run `php bin/console perfectworld:nte-catalog:update` once to build the NTE item catalog (then refreshed weekly by the `perfectworld` schedule).
 
+The HoYoverse banner catalogs (rate-up flags and banner phases, from irminsul.gg) are built the same way, once, then refreshed weekly by the `hoyoverse` schedule:
+
+```bash
+php bin/console hoyoverse:gi-catalog:update
+php bin/console hoyoverse:hsr-catalog:update
+php bin/console hoyoverse:zzz-catalog:update
+```
+
 ---
 
 ## 3. Updates & Deployment

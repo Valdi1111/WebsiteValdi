@@ -8,11 +8,15 @@ use App\GamesBundle\Model\Pull\PullOrigin;
 use App\GamesBundle\Model\Pull\PullTimelineEntry;
 use App\GamesBundle\Service\Pull\PullGapPlanner;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
+use App\HoyoverseBundle\Service\Catalog\AbstractIrminsulCatalog;
+use App\HoyoverseBundle\Service\Catalog\GiCatalog;
 use App\HoyoverseBundle\Service\GenshinImpactService;
 use App\HoyoverseBundle\Service\Pull\HoyoversePullStatsCalculator;
+use App\HoyoverseBundle\Service\Pull\HoyoverseRateUpLookup;
 use App\HoyoverseBundle\Service\ZenlessZoneZeroService;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
 class HoyoversePullStatsCalculatorTest extends TestCase
 {
@@ -666,5 +670,160 @@ class HoyoversePullStatsCalculatorTest extends TestCase
         $result = $calculator->compute($applied, self::genshinGroup('301'), $rarity);
         $this->assertSame(50, self::itemById($result['items'], 3)['pity']);
         $this->assertSame('2026-01-01 11:59:59', $result['items'][0]['pulled_at']);
+    }
+
+    // ---- Rate-up catalog (irminsul.gg) ----
+
+    /**
+     * Genshin rate-up lookup of a European profile: 7.1.2 (server-local limits) then 7.2.1, which opens at
+     * 11:00 UTC+8, i.e. 04:00 on the European server.
+     */
+    private static function genshinRateUp(): HoyoverseRateUpLookup
+    {
+        $item = static fn (string $id, string $name, int $rarity, string $category = AbstractIrminsulCatalog::CATEGORY_CHARACTER): array => [
+            'id' => $id, 'name' => $name, 'display_name' => $name, 'rarity' => $rarity, 'category' => $category,
+        ];
+        $phase = static fn (int $id, string $version, array $start, array $end, array $up, array $upA): array => [
+            'id' => $id,
+            'category' => AbstractIrminsulCatalog::CATEGORY_CHARACTER,
+            'version' => $version,
+            'title' => null,
+            'start' => ['at' => $start[0], 'offset' => $start[1]],
+            'end' => ['at' => $end[0], 'offset' => $end[1]],
+            'up' => $up,
+            'up_a' => $upA,
+        ];
+
+        $catalog = new GiCatalog(new ArrayAdapter());
+        $catalog->save([
+            'fetched_at' => '2026-11-23T06:00:00+00:00',
+            'items' => [
+                '10000003' => $item('10000003', 'Jean', 5),
+                '10000089' => $item('10000089', 'Furina', 5),
+                '10000136' => $item('10000136', 'Mitya', 5),
+                '10000114' => $item('10000114', 'Skirk', 5),
+                '10000032' => $item('10000032', 'Bennett', 4),
+                '10000045' => $item('10000045', 'Rosaria', 4),
+            ],
+            'phases' => [
+                $phase(10106, '7.1.2', ['2026-10-13 18:00:00', null], ['2026-11-03 14:59:59', null], ['10000114'], ['10000032']),
+                $phase(10107, '7.2.1', ['2026-11-04 11:00:00', 8], ['2026-11-24 17:59:59', null], ['10000136', '10000089'], ['10000045']),
+            ],
+        ]);
+
+        return new HoyoverseRateUpLookup($catalog, new \DateTimeZone('+01:00'), HoyoverseRateUpLookup::GAME_GI);
+    }
+
+    public function testTheCatalogFlagsSAndARowsWithoutAStoredValue(): void
+    {
+        $rows = [
+            self::pull(1, '2026-11-10 10:00:00', 3, 'Cool Steel'),
+            self::pull(2, '2026-11-10 10:00:01', 4, 'Rosaria'),
+            self::pull(3, '2026-11-10 10:00:02', 4, 'Bennett'),
+            self::pull(4, '2026-11-10 10:00:03', 5, 'Jean'),
+            self::pull(5, '2026-11-10 10:00:04', 0, 'Unknown', PullOrigin::Filler),
+            self::pull(6, '2026-11-10 10:00:05', 5, 'Furina', gachaType: '400'),
+            self::pull(7, '2026-11-10 10:00:06', 5, 'Mitya'),
+            self::pull(8, '2026-11-10 10:00:07', 4, 'Rosaria'),
+            self::pull(9, '2026-11-10 10:00:08', 5, 'Unknown Hero'),
+        ];
+        $rows[6]['isUp'] = false;
+        $rows[7]['isUp'] = false;
+
+        $calculator = self::calculator();
+        $result = $calculator->compute($rows, self::genshinGroup('301'), self::genshinRarity(), null, self::genshinRateUp());
+
+        // B and fillers stay unknown, the stored value wins, an item missing from the catalog stays unknown
+        $this->assertSame([null, true, false, false, null, true, false, false, null], array_column($result['items'], 'is_up'));
+        $this->assertSame([null, false, true, false], array_column($result['summary']['recent_s_pulls'], 'is_up'), 'Newest first');
+        $this->assertFalse($result['summary']['oldest_s']['is_up']);
+
+        // Without the catalog only the stored values are exposed
+        $plain = $calculator->compute($rows, self::genshinGroup('301'), self::genshinRarity());
+        $this->assertSame([null, null, null, null, null, null, false, false, null], array_column($plain['items'], 'is_up'));
+        $this->assertArrayNotHasKey('pools', $plain['summary']);
+    }
+
+    public function testTheLimitedBannersListTheirPhasesWithTheirWindows(): void
+    {
+        $rows = [
+            self::pull(1, '2026-10-01 10:00:00', 3),
+            self::pull(2, '2026-10-20 10:00:00', 3),
+            self::pull(3, '2026-10-20 10:00:01', 5, 'Skirk', gachaType: '400'),
+            self::pull(4, '2026-11-04 03:59:59', 3),
+            self::pull(5, '2026-11-04 04:00:00', 0, 'Unknown', PullOrigin::Filler),
+            self::pull(6, '2026-11-10 10:00:00', 4, 'Rosaria'),
+            self::pull(7, '2026-11-10 10:00:01', 5, 'Furina'),
+            self::pull(8, '2026-11-30 10:00:00', 3),
+        ];
+
+        $summary = self::calculator()->compute($rows, self::genshinGroup('301'), self::genshinRarity(), null, self::genshinRateUp())['summary'];
+
+        $this->assertSame('pools', array_key_last($summary), 'Appended after the existing keys');
+        $this->assertSame([
+            [
+                'pool_id' => null,
+                'pool_name' => 'Character Event Wish',
+                'pool_version' => null,
+                'total_pulls' => 3,
+                's_count' => 0,
+                's_pity' => null,
+                'a_pity' => null,
+                'first_pulled_at' => '2026-10-01 10:00:00',
+                'last_pulled_at' => '2026-11-30 10:00:00',
+                'start_at' => null,
+                'end_at' => null,
+                'featured' => [],
+            ],
+            [
+                'pool_id' => '10106',
+                'pool_name' => '7.1.2 · Skirk',
+                'pool_version' => null,
+                'total_pulls' => 2,
+                's_count' => 1,
+                's_pity' => null,
+                'a_pity' => null,
+                'first_pulled_at' => '2026-10-20 10:00:00',
+                'last_pulled_at' => '2026-10-20 10:00:01',
+                'start_at' => '2026-10-13 18:00:00',
+                'end_at' => '2026-11-03 14:59:59',
+                'featured' => [['item_id' => null, 'name' => 'Skirk', 'item_type' => 'Character', 'rarity' => 5]],
+            ],
+            [
+                'pool_id' => '10107',
+                'pool_name' => '7.2.1 · Mitya, Furina',
+                'pool_version' => null,
+                'total_pulls' => 3,
+                's_count' => 1,
+                's_pity' => null,
+                'a_pity' => null,
+                'first_pulled_at' => '2026-11-04 04:00:00',
+                'last_pulled_at' => '2026-11-10 10:00:01',
+                'start_at' => '2026-11-04 04:00:00',
+                'end_at' => '2026-11-24 17:59:59',
+                // Genshin records carry no item id: the icons are matched by name, like the pulls
+                'featured' => [
+                    ['item_id' => null, 'name' => 'Mitya', 'item_type' => 'Character', 'rarity' => 5],
+                    ['item_id' => null, 'name' => 'Furina', 'item_type' => 'Character', 'rarity' => 5],
+                ],
+            ],
+        ], $summary['pools'], 'Ordered by first pull; rows outside every phase share the entry named after the banner');
+        $this->assertSame(8, $summary['total_pulls']);
+    }
+
+    public function testNoPoolsWhenNoRowFallsInAPhase(): void
+    {
+        $standard = [
+            self::pull(1, '2026-11-10 10:00:00', 3, gachaType: '200'),
+            self::pull(2, '2026-11-10 10:00:01', 5, 'Jean', gachaType: '200'),
+        ];
+        $result = self::calculator()->compute($standard, self::genshinGroup('200'), self::genshinRarity(), null, self::genshinRateUp());
+        $this->assertArrayNotHasKey('pools', $result['summary'], 'The standard banner has no phases');
+        $this->assertSame([null, null], array_column($result['items'], 'is_up'));
+
+        $outside = [self::pull(1, '2026-12-30 10:00:00', 5, 'Furina')];
+        $result = self::calculator()->compute($outside, self::genshinGroup('301'), self::genshinRarity(), null, self::genshinRateUp());
+        $this->assertArrayNotHasKey('pools', $result['summary'], 'After the last known phase');
+        $this->assertNull($result['items'][0]['is_up']);
     }
 }

@@ -52,6 +52,13 @@ hoyoverse:
             cron: '0 1 * * *'
         update_cookie:
             cron: '0 */4 * * *'
+        # Weekly rebuild of the banner catalogs from irminsul.gg (phases and rate-ups of new versions)
+        gi_catalog_update:
+            cron: '0 6 * * 1'
+        hsr_catalog_update:
+            cron: '5 6 * * 1'
+        zzz_catalog_update:
+            cron: '10 6 * * 1'
         dailies_reminder:
             cron: '0 21 * * *'
         weeklies_reminder:

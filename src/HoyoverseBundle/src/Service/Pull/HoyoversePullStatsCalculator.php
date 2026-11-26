@@ -22,6 +22,10 @@ use App\GamesBundle\Service\Pull\PullGapPlanner;
  * PHP's default timezone, so toTimelineEntries() re-tags the same digits as UTC (the convention of
  * HoyoverseServerTimezoneResolver), which keeps the planner's arithmetic free of DST shifts.
  *
+ * Rate-up: with a HoyoverseRateUpLookup (the game's irminsul.gg catalog), the S and A rows without a stored flag get
+ * the catalog's verdict, and the limited banners list the catalog phases their pulls fall in ("pools"): pity is shared
+ * across phases, so the breakdown only counts pulls and S per phase. Without a lookup only stored flags are exposed.
+ *
  * @phpstan-type BannerGroup array{key: string, name: string, gacha_types: list<string>, s_max_pity: int, a_max_pity: int}
  */
 class HoyoversePullStatsCalculator
@@ -96,6 +100,7 @@ class HoyoversePullStatsCalculator
      * @param BannerGroup                $bannerGroup
      * @param \DateTimeImmutable|null    $now         Server wall-clock "now" tagged as UTC (upper limit of the
      *                                                suggested dates); null uses the current UTC time
+     * @param HoyoverseRateUpLookup|null $rateUp      Catalog of the profile's game: rate-up flags and "pools"
      *
      * @return array{
      *     summary: array<string, mixed>,
@@ -103,7 +108,7 @@ class HoyoversePullStatsCalculator
      *     monthly: array<string, array{month: string, total: int, s_count: int, a_count: int}>
      * }
      */
-    public function compute(array $rows, array $bannerGroup, RarityConfig $rarityConfig, ?\DateTimeImmutable $now = null): array
+    public function compute(array $rows, array $bannerGroup, RarityConfig $rarityConfig, ?\DateTimeImmutable $now = null, ?HoyoverseRateUpLookup $rateUp = null): array
     {
         $aRarity = $rarityConfig->getA()->getRarity();
         $sResetsAPity = $rarityConfig->isSResetsAPity();
@@ -125,6 +130,8 @@ class HoyoversePullStatsCalculator
         $oldestS = null;
         $items = [];
         $monthly = [];
+        $pools = [];
+        $hasPhase = false;
 
         foreach ($rows as $row) {
             $countsAsPull = $this->countsAsPull($row);
@@ -140,8 +147,10 @@ class HoyoversePullStatsCalculator
             $isS = !$isFiller && $this->isS($row, $rarityConfig);
             $isA = !$isFiller && !$isS && $rarity === $aRarity;
             $declaredPity = isset($row['declaredPity']) ? (int) $row['declaredPity'] : null;
-            // Rate-up flag of an S when a source gives it (null = unknown, never a lost 50/50)
-            $isUp = isset($row['isUp']) ? (bool) $row['isUp'] : null;
+            // Rate-up flag: the stored one, else the catalog's for an S or an A (null = unknown, never a lost 50/50)
+            $isUp = $rateUp !== null
+                ? $rateUp->isUp($row, $isS, $isA)
+                : (isset($row['isUp']) ? (bool) $row['isUp'] : null);
             $storedPullNumber = isset($row['pullNumber']) ? (int) $row['pullNumber'] : null;
 
             /** @var \DateTimeInterface|string|null $pulledAt */
@@ -213,6 +222,15 @@ class HoyoversePullStatsCalculator
                 $oldestS ??= $item;
             }
 
+            if ($rateUp !== null) {
+                // Only the wall-clock digits matter: a hydrated date is used as it is
+                $phase = $pulledAt !== null
+                    ? $rateUp->phaseFor((string) $row['gachaType'], $pulledAt instanceof \DateTimeInterface ? $pulledAt : self::wallClockOf($pulledAt))
+                    : null;
+                $hasPhase = $hasPhase || $phase !== null;
+                self::addToPool($pools, $rateUp, $phase, $bannerGroup, $countsAsPull, $isS, $pulledAtFormatted);
+            }
+
             if ($pulledAt instanceof \DateTimeInterface) {
                 $month = $pulledAt->format('Y-m');
                 $monthly[$month] ??= ['month' => $month, 'total' => 0, 's_count' => 0, 'a_count' => 0];
@@ -245,7 +263,7 @@ class HoyoversePullStatsCalculator
                 'open_window' => $windows['open']->toArray(),
                 // First S of the banner (with its window): anchor of a missing S older than every recorded one
                 'oldest_s' => $oldestS,
-            ],
+            ] + ($hasPhase ? ['pools' => array_values($pools)] : []),
             'items' => $items,
             'monthly' => $monthly,
         ];
@@ -356,6 +374,45 @@ class HoyoversePullStatsCalculator
             \is_string($origin) => PullOrigin::from($origin),
             default => PullOrigin::Recorded,
         };
+    }
+
+    /**
+     * Adds a row to the per-phase breakdown, in the shape of the other providers' "pools" plus the phase limits
+     * (server wall clock). Rows outside every phase share one entry named after the banner group, without limits.
+     *
+     * @param array<string, array<string, mixed>> $pools
+     * @param array<string, mixed>|null           $phase       HoyoverseRateUpLookup::phaseFor() of the row
+     * @param BannerGroup                         $bannerGroup
+     */
+    private static function addToPool(array &$pools, HoyoverseRateUpLookup $rateUp, ?array $phase, array $bannerGroup, bool $countsAsPull, bool $isS, string $pulledAt): void
+    {
+        // Phase ids are only unique within a category
+        $key = $phase !== null ? $phase['category'].':'.$phase['id'] : '';
+        if (!isset($pools[$key])) {
+            $window = $phase !== null ? $rateUp->phaseWindow($phase) : ['start_at' => null, 'end_at' => null];
+            $pools[$key] = [
+                'pool_id' => $phase !== null ? (string) $phase['id'] : null,
+                'pool_name' => $phase !== null ? $rateUp->phaseLabel($phase) : $bannerGroup['name'],
+                'pool_version' => null,
+                'total_pulls' => 0,
+                's_count' => 0,
+                's_pity' => null,
+                'a_pity' => null,
+                'first_pulled_at' => $pulledAt,
+                'last_pulled_at' => $pulledAt,
+                'start_at' => $window['start_at'],
+                'end_at' => $window['end_at'],
+                // S rate-ups of the phase (icons added by the controller)
+                'featured' => $phase !== null ? $rateUp->phaseFeatured($phase) : [],
+            ];
+        }
+        if ($countsAsPull) {
+            ++$pools[$key]['total_pulls'];
+        }
+        if ($isS) {
+            ++$pools[$key]['s_count'];
+        }
+        $pools[$key]['last_pulled_at'] = $pulledAt;
     }
 
     /**

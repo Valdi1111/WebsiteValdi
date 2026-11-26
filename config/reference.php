@@ -302,6 +302,27 @@ use Symfony\Component\Config\Loader\ParamConfigurator as Param;
  *             regional?: bool|Param, // Default: false
  *             jitter?: int|Param, // Default: null
  *         },
+ *         gi_catalog_update?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\Batch\\GiCatalogUpdateMessage"
+ *             cron?: string|Param, // Default: null
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *         hsr_catalog_update?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\Batch\\HsrCatalogUpdateMessage"
+ *             cron?: string|Param, // Default: null
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: null
+ *         },
+ *         zzz_catalog_update?: array{
+ *             enabled?: bool|Param, // Default: true
+ *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\Batch\\ZzzCatalogUpdateMessage"
+ *             cron?: string|Param, // Default: null
+ *             regional?: bool|Param, // Default: false
+ *             jitter?: int|Param, // Default: null
+ *         },
  *         dailies_reminder?: array{
  *             enabled?: bool|Param, // Default: true
  *             message_class?: string|Param, // Default: "App\\HoyoverseBundle\\Message\\Batch\\DailiesReminderBatchMessage"

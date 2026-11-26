@@ -16,9 +16,13 @@ use App\HoyoverseBundle\Message\Profile\ImportPullsBackupMessage;
 use App\HoyoverseBundle\Model\Pull\PullBackupImporterInterface;
 use App\GamesBundle\Model\Pull\PullBackupValidationResult;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
+use App\HoyoverseBundle\Service\Catalog\GiCatalog;
+use App\HoyoverseBundle\Service\Catalog\HsrCatalog;
+use App\HoyoverseBundle\Service\Catalog\ZzzCatalog;
 use App\HoyoverseBundle\Service\GenshinImpactService;
 use App\HoyoverseBundle\Service\HonkaiStarRailService;
 use App\HoyoverseBundle\Service\Pull\HoyoversePullStatsCalculator;
+use App\HoyoverseBundle\Service\Pull\HoyoverseRateUpLookupFactory;
 use App\HoyoverseBundle\Service\Pull\HoyoverseServerTimezoneResolver;
 use App\HoyoverseBundle\Service\Pull\ManualPullService;
 use App\HoyoverseBundle\Service\Pull\ManualPullSuggestionProvider;
@@ -332,7 +336,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $mercureAuth = new Authorization(new \Symfony\Component\Mercure\HubRegistry($hub));
 
         $req = Request::create('https://hoyoverse.test/api/accounts/1/gameProfiles/10/pulls/overview', 'GET');
-        $res = $controller->apiGameProfilePullsOverview($req, $account, $profile, $pullRepo, self::calculator(), $iconBuilder, $importerManager, $tracker, $mercureAuth, self::timezoneResolver());
+        $res = $controller->apiGameProfilePullsOverview($req, $account, $profile, $pullRepo, self::calculator(), $iconBuilder, $importerManager, $tracker, $mercureAuth, self::timezoneResolver(), self::rateUpLookups());
 
         $this->assertSame(Response::HTTP_OK, $res->getStatusCode());
         $data = json_decode((string) $res->getContent(), true, 512, JSON_THROW_ON_ERROR);
@@ -371,6 +375,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
             new PullOperationTracker(new ArrayAdapter(), $this->createMercureHub(), 'games.test'),
             new Authorization(new \Symfony\Component\Mercure\HubRegistry($this->createMercureHub())),
             self::timezoneResolver(),
+            self::rateUpLookups(),
         );
 
         $this->assertSame(Response::HTTP_OK, $res->getStatusCode());
@@ -420,7 +425,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         ]);
 
         $req = Request::create('/api/accounts/1/gameProfiles/10/pulls', 'GET', ['banner' => '301', 'rarities' => '5, 4', 'page' => '1', 'limit' => '1']);
-        $res = $controller->apiGameProfilePullsList($req, $account, $profile, $pullRepo, self::calculator(), $this->createIconBuilder(), self::timezoneResolver());
+        $res = $controller->apiGameProfilePullsList($req, $account, $profile, $pullRepo, self::calculator(), $this->createIconBuilder(), self::timezoneResolver(), self::rateUpLookups());
 
         $this->assertSame(Response::HTTP_OK, $res->getStatusCode());
         $data = json_decode((string) $res->getContent(), true, 512, JSON_THROW_ON_ERROR);
@@ -452,7 +457,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
 
         // 400 is a gacha type of the 301 group, not a banner key
         $req = Request::create('/api/accounts/1/gameProfiles/10/pulls', 'GET', ['banner' => '400']);
-        $res = $controller->apiGameProfilePullsList($req, $account, $profile, $pullRepo, self::calculator(), $this->createIconBuilder(), self::timezoneResolver());
+        $res = $controller->apiGameProfilePullsList($req, $account, $profile, $pullRepo, self::calculator(), $this->createIconBuilder(), self::timezoneResolver(), self::rateUpLookups());
 
         $data = json_decode((string) $res->getContent(), true, 512, JSON_THROW_ON_ERROR);
         $this->assertSame('301', $data['banner']['key']);
@@ -478,7 +483,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
 
         $list = function (string $rarities) use ($controller, $account, $profile, $pullRepo): array {
             $req = Request::create('/api/accounts/1/gameProfiles/10/pulls', 'GET', ['banner' => '301', 'rarities' => $rarities]);
-            $res = $controller->apiGameProfilePullsList($req, $account, $profile, $pullRepo, self::calculator(), $this->createIconBuilder(), self::timezoneResolver());
+            $res = $controller->apiGameProfilePullsList($req, $account, $profile, $pullRepo, self::calculator(), $this->createIconBuilder(), self::timezoneResolver(), self::rateUpLookups());
 
             return json_decode((string) $res->getContent(), true, 512, JSON_THROW_ON_ERROR);
         };
@@ -496,6 +501,68 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $this->assertSame(1, $data['items'][0]['recorded_pity']);
         $this->assertArrayHasKey('has_room', $data['items'][0]);
         $this->assertArrayHasKey('open_window', $data['banner']);
+    }
+
+    public function testPullsListFlagsRateUpsAndListsThePhasesFromTheCatalog(): void
+    {
+        $user = $this->createUser(1);
+        [$account, $profile] = $this->createAccountAndProfile($user, 10, GenshinImpactService::GAME_ID);
+        $profile->setRegion('os_euro');
+        $controller = $this->createController();
+
+        $catalog = new GiCatalog(new ArrayAdapter());
+        $catalog->save([
+            'fetched_at' => '2026-11-23T06:00:00+00:00',
+            'items' => [
+                '10000089' => ['id' => '10000089', 'name' => 'Furina', 'display_name' => 'Furina', 'rarity' => 5, 'category' => 'character'],
+                '10000136' => ['id' => '10000136', 'name' => 'Mitya', 'display_name' => 'Mitya', 'rarity' => 5, 'category' => 'character'],
+                '10000003' => ['id' => '10000003', 'name' => 'Jean', 'display_name' => 'Jean', 'rarity' => 5, 'category' => 'character'],
+                '10000032' => ['id' => '10000032', 'name' => 'Bennett', 'display_name' => 'Bennett', 'rarity' => 4, 'category' => 'character'],
+                '10000045' => ['id' => '10000045', 'name' => 'Rosaria', 'display_name' => 'Rosaria', 'rarity' => 4, 'category' => 'character'],
+            ],
+            'phases' => [[
+                'id' => 10107,
+                'category' => 'character',
+                'version' => '7.2.1',
+                'title' => null,
+                'start' => ['at' => '2026-11-04 11:00:00', 'offset' => 8],
+                'end' => ['at' => '2026-11-24 17:59:59', 'offset' => null],
+                'up' => ['10000136', '10000089'],
+                'up_a' => ['10000045'],
+            ]],
+        ]);
+
+        // Genshin rows carry no catalog id: the items are found by name
+        $pullRepo = $this->createStub(HoyoversePullRepository::class);
+        $pullRepo->method('findBannerRows')->willReturn([
+            $this->pullRow(1, '301', 3, 'Cool Steel', '2026-11-04 03:59:59'),
+            $this->pullRow(2, '301', 4, 'Rosaria', '2026-11-04 04:00:00'),
+            $this->pullRow(3, '400', 5, 'Furina', '2026-11-05 10:00:00'),
+            $this->pullRow(4, '301', 4, 'Bennett', '2026-11-06 10:00:00'),
+            $this->pullRow(5, '301', 5, 'Jean', '2026-11-07 10:00:00'),
+        ]);
+
+        $req = Request::create('/api/accounts/1/gameProfiles/10/pulls', 'GET', ['banner' => '301']);
+        $res = $controller->apiGameProfilePullsList($req, $account, $profile, $pullRepo, self::calculator(), $this->createIconBuilder(), self::timezoneResolver(), self::rateUpLookups($catalog));
+
+        $this->assertSame(Response::HTTP_OK, $res->getStatusCode());
+        $data = json_decode((string) $res->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertSame(['Jean', 'Bennett', 'Furina', 'Rosaria', 'Cool Steel'], array_column($data['items'], 'name'));
+        $this->assertSame([false, false, true, true, null], array_column($data['items'], 'is_up'));
+        $this->assertSame([false, true], array_column($data['banner']['recent_s_pulls'], 'is_up'));
+
+        // The phase opens at 11:00 UTC+8, 04:00 on the European server
+        $this->assertSame([null, '10107'], array_column($data['banner']['pools'], 'pool_id'));
+        $this->assertSame(['Character Event Wish', '7.2.1 · Mitya, Furina'], array_column($data['banner']['pools'], 'pool_name'));
+        $this->assertSame([1, 4], array_column($data['banner']['pools'], 'total_pulls'));
+        $this->assertSame([0, 2], array_column($data['banner']['pools'], 's_count'));
+        $this->assertSame([null, '2026-11-04 04:00:00'], array_column($data['banner']['pools'], 'start_at'));
+        $this->assertSame([null, '2026-11-24 17:59:59'], array_column($data['banner']['pools'], 'end_at'));
+        // The featured items of a phase go through the icon pipeline like the pulls
+        $this->assertSame([], $data['banner']['pools'][0]['featured'], 'No featured items outside every phase');
+        $this->assertSame(['Mitya', 'Furina'], array_column($data['banner']['pools'][1]['featured'], 'name'));
+        $this->assertCount(2, array_column($data['banner']['pools'][1]['featured'], 'icon_url'), 'Each featured item gets its icon');
     }
 
     public function testManualSuggestionsShape(): void
@@ -613,6 +680,19 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
     private static function timezoneResolver(): HoyoverseServerTimezoneResolver
     {
         return new HoyoverseServerTimezoneResolver(new MockClock('2026-11-22 12:00:00 UTC'));
+    }
+
+    /**
+     * Rate-up lookups over the given Genshin catalog; the default empty catalogs give no lookup (flags stay as stored).
+     */
+    private static function rateUpLookups(?GiCatalog $giCatalog = null): HoyoverseRateUpLookupFactory
+    {
+        return new HoyoverseRateUpLookupFactory(
+            $giCatalog ?? new GiCatalog(new ArrayAdapter()),
+            new HsrCatalog(new ArrayAdapter()),
+            new ZzzCatalog(new ArrayAdapter()),
+            self::timezoneResolver(),
+        );
     }
 
     /**

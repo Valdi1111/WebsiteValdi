@@ -108,9 +108,10 @@ class HoyoverseRateUpLookup
      * gave one, else what the catalog says. Null means unknown, never a lost 50/50.
      *
      * An S is up when it is an S rate-up of a running phase. An A is up when it is an A rate-up of a running phase,
-     * except where the catalog cannot tell: ZZZ phases since 3.1 (the player picks the A rate-ups) and A light cones
-     * of the HSR light cone warp (irminsul's A light cone lists are incomplete), where an A missing from the lists
-     * stays unknown.
+     * except where the catalog cannot tell: an A of the channel's own type in ZZZ phases since 3.1 (the player picks
+     * those A rate-ups) and A light cones of the HSR light cone warp (irminsul's A light cone lists are incomplete),
+     * which stay unknown. An A of the other type (a weapon on a character banner or the reverse) is never featured,
+     * so it is a miss.
      *
      * @param array<string, mixed> $row
      */
@@ -144,7 +145,10 @@ class HoyoverseRateUpLookup
             return \in_array($item['id'], self::union($phases, 'up'), true);
         }
 
-        if ($this->game === self::GAME_ZZZ) {
+        // ZZZ since 3.1: the player picks the A rate-ups of the channel's own type, which the catalog cannot tell.
+        // An A of the other type (a W-Engine on the agent channel, an agent on the W-Engine channel) is never
+        // featured there, so it stays a definite miss below
+        if ($this->game === self::GAME_ZZZ && $item['category'] === $category) {
             foreach ($phases as $phase) {
                 if (self::isVersionAtLeast($phase['version'], self::ZZZ_CHOSEN_A_SINCE)) {
                     return null;

@@ -607,11 +607,17 @@ export default function PullsBannerDetail({
     // Only the S card grows with the pity banner line: stretch the KPI cards to keep the row even
     const kpiCardStyle = pityPoolName ? { height: "100%" } : undefined;
 
-    // Per-banner counters of a group (Endfield, NTE): one row per pool, the same pool may come back as a rerun
-    const poolRows = (Array.isArray(banner?.pools) ? banner.pools : []).map((pool, index) => ({
+    // Per-banner counters of a group (Endfield, NTE, HoYoverse phases): one row per pool, the same pool may come back as a rerun.
+    // The backend sends them oldest first: shown newest first, as long histories (Genshin) reach dozens of phases.
+    // The entry without a pool (pulls outside every known banner) aggregates any time, so it always goes last
+    const allPoolRows = (Array.isArray(banner?.pools) ? banner.pools : []).map((pool, index) => ({
         ...pool,
         key: `${pool?.pool_id ?? "pool"}-${pool?.pool_version ?? 0}-${index}`,
-    }));
+    })).reverse();
+    const poolRows = [
+        ...allPoolRows.filter((pool) => hasValue(pool.pool_id)),
+        ...allPoolRows.filter((pool) => !hasValue(pool.pool_id)),
+    ];
     const poolsHaveSPity = poolRows.some((pool) => hasValue(pool.s_pity));
     const poolsHaveAPity = poolRows.some((pool) => hasValue(pool.a_pity));
     const formatCount = (value) => (typeof value === "number" ? value.toLocaleString() : "—");
@@ -620,7 +626,29 @@ export default function PullsBannerDetail({
             title: "Banner",
             dataIndex: "pool_name",
             key: "pool_name",
-            render: (name, pool) => <Text strong>{formatPoolName(name, pool.pool_version) || "—"}</Text>,
+            render: (name, pool) => {
+                const label = <Text strong>{formatPoolName(name, pool.pool_version) || "—"}</Text>;
+                // Featured (rate-up) items of the banner, with the same icons as the pulls
+                const featured = Array.isArray(pool.featured) ? pool.featured : [];
+                if (featured.length === 0) {
+                    return label;
+                }
+
+                return (
+                    <Space size={10} align="center">
+                        <Space size={4} align="center">
+                            {featured.map((item, index) => (
+                                <Tooltip key={`${item?.item_id ?? item?.name ?? "item"}-${index}`} title={item?.name}>
+                                    <span>
+                                        <PullItemThumbnail iconUrl={item?.icon_url} name={item?.name ?? ""} borderColor="#fa8c16" />
+                                    </span>
+                                </Tooltip>
+                            ))}
+                        </Space>
+                        {label}
+                    </Space>
+                );
+            },
         },
         {
             title: pullLabel,
@@ -654,6 +682,16 @@ export default function PullsBannerDetail({
             title: "Period",
             key: "period",
             render: (_, pool) => {
+                // Banner dates when the backend knows them (HoYoverse phases), else the first and last pull
+                const start = formatPoolDate(pool.start_at);
+                const end = formatPoolDate(pool.end_at);
+                if (start && end) {
+                    return (
+                        <Text type="secondary" style={{ fontSize: 13, whiteSpace: "nowrap" }}>
+                            {`${start} → ${end}`}
+                        </Text>
+                    );
+                }
                 const first = formatPoolDate(pool.first_pulled_at);
                 const last = formatPoolDate(pool.last_pulled_at);
                 if (!first && !last) {
@@ -818,7 +856,7 @@ export default function PullsBannerDetail({
                         size="small"
                         columns={poolColumns}
                         dataSource={poolRows}
-                        pagination={false}
+                        pagination={{ pageSize: 10, hideOnSinglePage: true, showSizeChanger: false, size: "small" }}
                         scroll={{ x: isMobile ? 520 : undefined }}
                     />
                 </Card>

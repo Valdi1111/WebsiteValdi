@@ -46,7 +46,7 @@ use Symfony\Contracts\Service\ServiceCollectionInterface;
  */
 #[AsCommand(
     name: 'hoyoverse:task',
-    description: 'Run a HoYoverse scheduled task now (check-in, codes, reminders, diary and pulls sync, cookie renewal), for every eligible profile or for given profiles'
+    description: 'Run a HoYoverse scheduled task now (check-in, codes, reminders, diary and pulls sync, cookie renewal, banner catalogs), for every eligible profile or for given profiles'
 )]
 class HoyoverseTaskCommand extends AbstractTaskCommand
 {
@@ -168,6 +168,18 @@ class HoyoverseTaskCommand extends AbstractTaskCommand
             'update_cookie' => new ManualTask(
                 'Renew the cookies of every account with an stoken_v2',
                 note: 'Per account: batch only',
+            ),
+            'gi_catalog_update' => new ManualTask(
+                'Rebuild the Genshin Impact banner catalog (phases and rate-ups) from irminsul.gg',
+                note: 'Same as hoyoverse:gi-catalog:update',
+            ),
+            'hsr_catalog_update' => new ManualTask(
+                'Rebuild the Honkai: Star Rail banner catalog (phases and rate-ups) from irminsul.gg',
+                note: 'Same as hoyoverse:hsr-catalog:update',
+            ),
+            'zzz_catalog_update' => new ManualTask(
+                'Rebuild the Zenless Zone Zero banner catalog (phases and rate-ups) from irminsul.gg',
+                note: 'Same as hoyoverse:zzz-catalog:update',
             ),
             'dailies_reminder' => new ManualTask(
                 'Dailies reminder: notifies when dailies are left',

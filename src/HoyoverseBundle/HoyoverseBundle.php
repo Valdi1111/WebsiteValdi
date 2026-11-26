@@ -8,9 +8,11 @@ use App\HoyoverseBundle\Message\Batch\CodeRedeemBatchMessage;
 use App\HoyoverseBundle\Message\Batch\DailiesReminderBatchMessage;
 use App\HoyoverseBundle\Message\Batch\EndgamesReminderBatchMessage;
 use App\HoyoverseBundle\Message\Batch\ExpeditionsCheckBatchMessage;
+use App\HoyoverseBundle\Message\Batch\GiCatalogUpdateMessage;
 use App\HoyoverseBundle\Message\Batch\HilichurlCheckBatchMessage;
 use App\HoyoverseBundle\Message\Batch\HoyolabCheckInBatchMessage;
 use App\HoyoverseBundle\Message\Batch\HoyolabMissedCheckInBatchMessage;
+use App\HoyoverseBundle\Message\Batch\HsrCatalogUpdateMessage;
 use App\HoyoverseBundle\Message\Batch\MimoCheckBatchMessage;
 use App\HoyoverseBundle\Message\Batch\RealmCurrencyCheckBatchMessage;
 use App\HoyoverseBundle\Message\Batch\ShopStatusCheckBatchMessage;
@@ -18,6 +20,7 @@ use App\HoyoverseBundle\Message\Batch\StaminaCheckBatchMessage;
 use App\HoyoverseBundle\Message\Batch\SyncDiaryBatchMessage;
 use App\HoyoverseBundle\Message\Batch\SyncPullsBatchMessage;
 use App\HoyoverseBundle\Message\Batch\WeekliesReminderBatchMessage;
+use App\HoyoverseBundle\Message\Batch\ZzzCatalogUpdateMessage;
 use App\HoyoverseBundle\Message\UpdateCookieMessage;
 use Symfony\Component\Config\Definition\Builder\NodeBuilder;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
@@ -98,6 +101,10 @@ class HoyoverseBundle extends AbstractBundle
         GameTasksConfiguration::addTaskNode($tasksNode, 'sync_diary', SyncDiaryBatchMessage::class);
         GameTasksConfiguration::addTaskNode($tasksNode, 'sync_pulls', SyncPullsBatchMessage::class);
         GameTasksConfiguration::addTaskNode($tasksNode, 'update_cookie', UpdateCookieMessage::class);
+        // Banner catalogs from irminsul.gg, one per game
+        GameTasksConfiguration::addTaskNode($tasksNode, 'gi_catalog_update', GiCatalogUpdateMessage::class);
+        GameTasksConfiguration::addTaskNode($tasksNode, 'hsr_catalog_update', HsrCatalogUpdateMessage::class);
+        GameTasksConfiguration::addTaskNode($tasksNode, 'zzz_catalog_update', ZzzCatalogUpdateMessage::class);
 
         // 2. Regional tasks (regional = true)
         GameTasksConfiguration::addTaskNode($tasksNode, 'dailies_reminder', DailiesReminderBatchMessage::class, regional: true);

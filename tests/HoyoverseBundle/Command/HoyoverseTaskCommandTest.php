@@ -5,6 +5,9 @@ namespace App\Tests\HoyoverseBundle\Command;
 use App\HoyoverseBundle\Command\HoyoverseTaskCommand;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Message\Batch\EndgamesReminderBatchMessage;
+use App\HoyoverseBundle\Message\Batch\GiCatalogUpdateMessage;
+use App\HoyoverseBundle\Message\Batch\HsrCatalogUpdateMessage;
+use App\HoyoverseBundle\Message\Batch\ZzzCatalogUpdateMessage;
 use App\HoyoverseBundle\Message\Profile\RealmCurrencyCheckProfileMessage;
 use App\HoyoverseBundle\Message\Profile\SyncDiaryPageProfileMessage;
 use App\HoyoverseBundle\Message\Profile\SyncPullsPageProfileMessage;
@@ -151,6 +154,23 @@ class HoyoverseTaskCommandTest extends KernelTestCase
         self::assertNotEmpty($delays);
         self::assertSame(range(0, (\count($delays) - 1) * 15000, 15000), $delays);
         self::assertStringContainsString('Skipped, the task does not apply to their game: #3 (Honkai Impact 3rd).', self::display($tester));
+    }
+
+    public function testCatalogUpdatesQueueTheirScheduleMessageAndRefuseProfiles(): void
+    {
+        $tester = $this->createTester();
+
+        foreach (['gi_catalog_update' => GiCatalogUpdateMessage::class, 'hsr_catalog_update' => HsrCatalogUpdateMessage::class, 'zzz_catalog_update' => ZzzCatalogUpdateMessage::class] as $task => $messageClass) {
+            $this->dispatched = [];
+
+            self::assertSame(Command::SUCCESS, $tester->execute(['task' => $task]), $task);
+            self::assertCount(1, $this->dispatched);
+            self::assertInstanceOf($messageClass, $this->dispatched[0]->getMessage());
+            self::assertStringContainsString('queued on hoyoverse', $tester->getDisplay());
+
+            self::assertSame(Command::FAILURE, $tester->execute(['task' => $task, '--profile-id' => [(string) self::GENSHIN_PROFILE]]), $task);
+            self::assertCount(1, $this->dispatched);
+        }
     }
 
     public function testBatchOnlyTaskRefusesProfiles(): void

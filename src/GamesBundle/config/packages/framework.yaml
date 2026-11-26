@@ -10,3 +10,14 @@ framework:
                     http_codes: [ 429, 500, 502, 503, 504 ]
                 headers:
                     'User-Agent': 'WebsiteValdi/1.0'
+            # irminsul.gg public data API (banner phases and items of the gacha games), read by the catalog updates
+            games.irminsul.client:
+                base_uri: 'https://api.irminsul.gg'
+                timeout: 15
+                retry_failed:
+                    max_retries: 1
+                    delay: 500
+                    http_codes: [ 429, 500, 502, 503, 504 ]
+                headers:
+                    'Accept': 'application/json'
+                    'User-Agent': 'WebsiteValdi/1.0'

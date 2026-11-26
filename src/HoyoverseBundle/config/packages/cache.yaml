@@ -25,5 +25,15 @@ framework:
             hoyoverse.check_in_status.cache:
                 adapter: cache.adapter.filesystem
                 default_lifetime: 600
+            # Banner catalogs from irminsul.gg, one per game: rebuilt by hoyoverse:<game>-catalog:update, never expire
+            hoyoverse.gi_catalog.cache:
+                adapter: cache.adapter.filesystem
+                default_lifetime: 0
+            hoyoverse.hsr_catalog.cache:
+                adapter: cache.adapter.filesystem
+                default_lifetime: 0
+            hoyoverse.zzz_catalog.cache:
+                adapter: cache.adapter.filesystem
+                default_lifetime: 0
 
 

@@ -111,7 +111,7 @@ Two scheduled tasks ensure no HoYoLAB daily check-in is missed:
 
 **Status read**: `HasCheckInStatusInterface::getCheckInStatus()` (all five games, through `GameService`) reads the `info` endpoint only, never `sign`, for the status views; the answer is cached 10 minutes per profile (`hoyoverse.check_in_status.cache`) and deleted by `checkIn()` once the reward is claimed or found claimed. A failed or captcha-blocked claim keeps the entry, which still reads "not signed".
 
-**Run a task now**: `php bin/console hoyoverse:task [<task>]` runs any scheduled task by hand (check-in, codes, reminders, diary and pulls sync, cookie renewal), as the scheduler does for every eligible profile or, with `--profile-id`, for given profiles whatever their settings. `--list` shows the tasks, `--region` limits a regional task, `--sync` handles the messages in the console instead of queuing them (shared flow: [`AbstractTaskCommand`](../GamesBundle/README.md#1-backend)).
+**Run a task now**: `php bin/console hoyoverse:task [<task>]` runs any scheduled task by hand (check-in, codes, reminders, diary and pulls sync, cookie renewal, banner catalogs), as the scheduler does for every eligible profile or, with `--profile-id`, for given profiles whatever their settings. `--list` shows the tasks, `--region` limits a regional task, `--sync` handles the messages in the console instead of queuing them (shared flow: [`AbstractTaskCommand`](../GamesBundle/README.md#1-backend)).
 
 ---
 
@@ -329,7 +329,7 @@ All asynchronous pull operations — **Backup Import**, **PowerShell Import**, *
   - Upon transitioning to `completed` or `failed`, the page automatically refreshes the overview and selected banner view (a failed operation may have written part of its pulls).
 
 ### 7.7 Missing Pulls (Manual S Pulls, Declared Pity, Filler Rows)
-- **Rows**: `hoyoverse_pull.origin` (`PullOrigin`: `recorded` / `manual` / `official` / `filler`; `official` rows come from the S-rank history import, § 7.8) and `declared_pity` (real pity declared on an S). A manual S has `pull_id = manual_<uuid>`, an official S `official_<uuid>`; a filler (unknown pull) has `pull_id = filler_<uuid>`, rarity `0`, name `Unknown`, type `Unknown`. All use the group's first gacha type (`301` for the Character Event Wish). `is_up` (nullable) says whether an S was the rate-up item when a source gives it; `pull_number` (nullable) is the pull number in the banner, only on official S rows and on the fillers between two of them in one second, never on recorded rows: it only orders the rows of one second.
+- **Rows**: `hoyoverse_pull.origin` (`PullOrigin`: `recorded` / `manual` / `official` / `filler`; `official` rows come from the S-rank history import, § 7.8) and `declared_pity` (real pity declared on an S). A manual S has `pull_id = manual_<uuid>`, an official S `official_<uuid>`; a filler (unknown pull) has `pull_id = filler_<uuid>`, rarity `0`, name `Unknown`, type `Unknown`. All use the group's first gacha type (`301` for the Character Event Wish). `is_up` (nullable) says whether an S was the rate-up item when a source gives it (rows expose it, or the banner catalog's answer: § 7.9); `pull_number` (nullable) is the pull number in the banner, only on official S rows and on the fillers between two of them in one second, never on recorded rows: it only orders the rows of one second.
 - **Order** (`HoyoversePullRepository::findBannerRows()`, used by the stats, the lists and the realign): `pulled_at`, then `pull_number` (`NULL` first), then `pull_id` as a string, so inside one second: game ids < `filler_*` < `manual_*`, then the numbered rows by number. `HoyoversePullRepository::compareRows()` is the same order in PHP.
 - **Counting** (`HoyoversePullStatsCalculator`): fillers count as pulls (pity S, `pull_number`, totals, currency, monthly) but go to `unknown_count` instead of `b_count`, show `pity: null`, and reset the A pity. Rows expose `origin`, `declared_pity`, `is_up` and the stored pull number as `official_pull_number` (`HoyoversePullStatsCalculator::STORED_PULL_NUMBER_FIELD`; `pull_number` in the API stays the computed position); S rows also `recorded_pity`, `insert_after`, `insert_before`, `suggested_at`, `has_room`; summaries `unknown_count` and `open_window`. The list accepts rarity `0`.
 - **Writes** (`ManualPullService`, profile lock taken non-blocking, `409` when busy): add an S (`createManualS`), declare a pity (`declarePity`, stored as `null` when equal to the recorded pity on a recorded S), delete a manual S. Each write runs `realign()` for its banner (`PullGapPlanner`: merges a manual or official S into the recorded S that arrives later, then creates, moves or deletes fillers).
@@ -355,6 +355,35 @@ The "Signal Search" statistics of the HoYoLAB battle record list every S-rank of
   ```
   The command fails (exit code 1) when a banner is, or in a dry run would be, skipped or rolled back.
 - Out of scope: `next_s_cur_times` (current pity after the last S) is read but not used; Genshin Impact and Honkai: Star Rail have no equivalent endpoint implemented.
+
+### 7.9 Banner Catalogs & Rate-Up (irminsul.gg)
+The gacha logs say neither which banner (phase) a pull belongs to nor whether an item was on rate-up, and a fixed list of standard items is not enough: games move old limited items into the standard pool (Seele, Fu Xuan and Argenti in HSR 4.x, Caesar in ZZZ 3.1 were lost 50/50s). The banner schedule of the public [irminsul.gg](https://irminsul.gg) data API (`api.irminsul.gg/v2/{genshin,hsr,zzz}/banner-{characters,weapons}.json`, item cards in `characters.json` / `weapons.json`; client in GamesBundle § 1) gives every phase since launch with its start, end and featured items.
+
+- **Catalogs** (`Service/Catalog/`): `GiCatalog`, `HsrCatalog` and `ZzzCatalog` (read side, `AbstractIrminsulCatalog`), built by `{Gi,Hsr,Zzz}CatalogBuilder` and saved by `{Gi,Hsr,Zzz}CatalogUpdater`. Each lives in its own pool (`hoyoverse.{gi,hsr,zzz}_catalog.cache`, no expiry) and is never built on demand: without it nothing changes.
+  - **Content:** items (irminsul id, name, display name, rarity 5 = S / 4 = A, category) and phases (version, optional title, start, end, S rate-up ids `up`, A rate-up ids `up_a`). The item ids are the game ids for HSR and ZZZ.
+  - **Build:** the four files of the game are read, and every featured name is resolved to an item of its category; an unknown or ambiguous name is left out with a warning. A failed download, an empty file or a category without items or phases aborts the build, and the previous catalog stays. Every build replaces the whole catalog (the API gives the full history).
+- **Phase times** (`IrminsulPhaseNormalizer`, `IrminsulTimeRules::hoyoverse()`):
+  - The first-half start is written in UTC+8. Every other time is the local time of the player's server, the convention of `pulled_at` (`HoyoverseServerTimezoneResolver`).
+  - The second half starts at a fixed server time: 18:00 on Genshin, 12:00 on HSR and ZZZ. A second-half start without zone is rewritten to it, and a first-half end on that date to one second before. irminsul has a few 18:00 starts on HSR and ZZZ, e.g. ZZZ 1.2.2, where a pull at 12:04 proves the 12:00 start.
+- **Rate-up at read time** (`Service/Pull/HoyoverseRateUpLookup`, one per profile from `HoyoverseRateUpLookupFactory`, passed to `HoyoversePullStatsCalculator::compute()` by the overview and list endpoints):
+  - **Stored value first:** a stored `is_up` (official ZZZ S, manual merge) always wins.
+  - **Phases:** the limited banners map to a category: Genshin 301/400 and 302; HSR 11 and 12; ZZZ 2 and 12 (Exclusive Rescreening), 3 and 13 (W-Engine Reverberation). The phases running at the pull time are united: concurrent banners, reruns. Other banners (standard, beginner, Genshin Chronicled Wish, HSR collaborations) and times outside every phase give null.
+  - **Item:** found by `item_id` (HSR, ZZZ), else by normalized name (Genshin records carry no id). An unknown item gives null, never a lost 50/50.
+  - **S:** an S is up when it is an S rate-up of a running phase, otherwise it is a lost 50/50.
+  - **A:** an A is up when it is an A rate-up of a running phase, otherwise false, with two exceptions:
+    - ZZZ phases since 3.1 are always null, because the player picks the A rate-ups;
+    - an HSR light cone missing from the lists is null, because irminsul's A light-cone lists are incomplete when several light-cone banners run together.
+  - **Nothing is written,** and pity never reads the flag. "UP" shows on S cards and on S and A rows.
+- **Per-phase breakdown:** with a lookup, the limited banners add `pools` (GamesBundle § 2): one entry per phase with its label (`<version> · <title> · <S rate-ups>`, names as in the records), pulls, S count, the phase limits `start_at` / `end_at` in server time and its S rate-ups (`featured`, shaped like pull rows so the controllers add their `icon_url`: game id on HSR and ZZZ, name on Genshin); pulls outside every phase share one entry named after the banner. A pull belongs to the running phase that started last (lowest id on equal starts); on ZZZ the rerun banners prefer the titled rescreening phases and the other banners the untitled ones.
+- **Updates:** tasks `gi_catalog_update`, `hsr_catalog_update` and `zzz_catalog_update` (Mondays 06:00, 06:05 and 06:10; messages `{Gi,Hsr,Zzz}CatalogUpdateMessage` on the `hoyoverse` transport; an aborted build is retried within the transport's retry policy and the previous catalog stays) and the commands below. A build returning fewer phases than the stored catalog is refused the same way, as a truncated file would otherwise replace the history.
+  ```bash
+  php bin/console hoyoverse:gi-catalog:update
+  php bin/console hoyoverse:hsr-catalog:update
+  php bin/console hoyoverse:zzz-catalog:update
+  ```
+- **Checked on real data** (EU profiles): the 239 S pulls of the limited banners of the three games all fall in a phase, and no S follows a lost one without being featured.
+  - The A pulls (2,079) keep the guarantee too. The exceptions are the null cases above, plus one Genshin weapon pair (two Favonius Warbow in Luna II.1).
+- **Not covered:** HSR collaboration warps (not in irminsul), Genshin Chronicled Wish (the rate-up is the player's choice), servers other than EU (the UTC+8 conversion is generic, but only EU data was checked).
 
 ---
 

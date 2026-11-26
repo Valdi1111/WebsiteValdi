@@ -23,6 +23,7 @@ use App\GamesBundle\Model\Pull\PullOperationKind;
 use App\HoyoverseBundle\Repository\HoyoverseDiaryEntryRepository;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
 use App\HoyoverseBundle\Service\Pull\HoyoversePullStatsCalculator;
+use App\HoyoverseBundle\Service\Pull\HoyoverseRateUpLookupFactory;
 use App\HoyoverseBundle\Service\Pull\HoyoverseServerTimezoneResolver;
 use App\HoyoverseBundle\Service\Pull\ManualPullService;
 use App\HoyoverseBundle\Service\Pull\ManualPullSuggestionProvider;
@@ -543,6 +544,7 @@ class ApiGameProfilesController extends AbstractController
         PullOperationTracker $operationTracker,
         Authorization $mercureAuthorization,
         HoyoverseServerTimezoneResolver $timezoneResolver,
+        HoyoverseRateUpLookupFactory $rateUpLookups,
     ): Response {
         $this->assertProfileOfAccount($account, $gameProfile);
 
@@ -560,6 +562,7 @@ class ApiGameProfilesController extends AbstractController
 
         $rarityConfig = $gameService->getRarityConfig();
         $now = $timezoneResolver->getServerWallClockNow($gameProfile);
+        $rateUp = $rateUpLookups->forProfile($gameProfile);
         // One query for the whole profile: gacha types missing from the config become dynamic groups
         $groupedRows = $statsCalculator->groupRowsByBanner(
             $pullRepo->findProfileRows($gameProfile),
@@ -570,7 +573,7 @@ class ApiGameProfilesController extends AbstractController
         $monthly = [];
         $totalPulls = 0;
         foreach ($groupedRows as ['group' => $bannerGroup, 'rows' => $rows]) {
-            $computed = $statsCalculator->compute($rows, $bannerGroup, $rarityConfig, $now);
+            $computed = $statsCalculator->compute($rows, $bannerGroup, $rarityConfig, $now, $rateUp);
 
             $summary = self::enrichSummaryIcons($iconUrlBuilder, $gameService, $computed['summary']);
             $banners[] = $summary;
@@ -606,6 +609,7 @@ class ApiGameProfilesController extends AbstractController
         HoyoversePullStatsCalculator $statsCalculator,
         PullItemIconUrlBuilder $iconUrlBuilder,
         HoyoverseServerTimezoneResolver $timezoneResolver,
+        HoyoverseRateUpLookupFactory $rateUpLookups,
     ): Response {
         $this->assertProfileOfAccount($account, $gameProfile);
 
@@ -648,6 +652,7 @@ class ApiGameProfilesController extends AbstractController
             $bannerGroup,
             $rarityConfig,
             $timezoneResolver->getServerWallClockNow($gameProfile),
+            $rateUpLookups->forProfile($gameProfile),
         );
         $result = $statsCalculator->filterAndPaginate($computed['items'], $rarities, $search ?: null, $page, $limit);
 
@@ -749,6 +754,12 @@ class ApiGameProfilesController extends AbstractController
         }
         if (isset($summary['oldest_s'])) {
             $summary['oldest_s'] = $iconUrlBuilder->enrichPullRows($gameService, [$summary['oldest_s']])[0];
+        }
+        // Featured items of each phase in the per-phase breakdown
+        foreach ($summary['pools'] ?? [] as $index => $pool) {
+            if (!empty($pool['featured'])) {
+                $summary['pools'][$index]['featured'] = $iconUrlBuilder->enrichPullRows($gameService, $pool['featured']);
+            }
         }
 
         return $summary;

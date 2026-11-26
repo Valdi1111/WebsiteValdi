@@ -28,4 +28,9 @@ final class Version20260915233147 extends AbstractMigration
         // this down() migration is auto-generated, please modify it to your needs
         $this->addSql('ALTER TABLE hoyoverse_account DROP last_cookie_refreshed_at, DROP cookie_refresh_failed');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

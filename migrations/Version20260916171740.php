@@ -28,4 +28,9 @@ final class Version20260916171740 extends AbstractMigration
         // this down() migration is auto-generated, please modify it to your needs
         $this->addSql('ALTER TABLE hoyoverse_game_profile DROP sync_diary');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

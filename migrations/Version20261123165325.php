@@ -30,4 +30,9 @@ final class Version20261123165325 extends AbstractMigration
         $this->addSql('ALTER TABLE reset_password_request DROP FOREIGN KEY FK_7CE748AA76ED395');
         $this->addSql('DROP TABLE reset_password_request');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

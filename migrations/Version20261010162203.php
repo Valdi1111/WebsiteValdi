@@ -44,4 +44,9 @@ final class Version20261010162203 extends AbstractMigration
         $this->addSql('DROP INDEX IDX_tracker ON season_folder');
         $this->addSql('ALTER TABLE season_folder DROP tracker, DROP PRIMARY KEY, ADD PRIMARY KEY (id)');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

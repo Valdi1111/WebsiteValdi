@@ -28,4 +28,9 @@ final class Version20250210215106 extends AbstractMigration
         // this down() migration is auto-generated, please modify it to your needs
         $this->addSql('DROP TABLE credential');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

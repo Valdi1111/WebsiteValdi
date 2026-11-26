@@ -26,4 +26,9 @@ final class Version20261124220118 extends AbstractMigration
     {
         $this->addSql('ALTER TABLE user DROP disabled_at');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

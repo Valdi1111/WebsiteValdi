@@ -34,4 +34,9 @@ final class Version20260911192920 extends AbstractMigration
         $this->addSql('DROP TABLE hoyoverse_account');
         $this->addSql('DROP TABLE hoyoverse_game_profile');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

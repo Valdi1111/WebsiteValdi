@@ -26,4 +26,9 @@ final class Version20261124210115 extends AbstractMigration
         $this->addSql('DROP INDEX IDX_telegram_chat_id ON user');
         $this->addSql('ALTER TABLE user DROP telegram_username, DROP telegram_name');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

@@ -23,4 +23,9 @@ final class Version20261124224000 extends AbstractMigration
     {
         $this->addSql('ALTER TABLE user DROP telegram_picture');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

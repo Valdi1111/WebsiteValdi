@@ -34,4 +34,9 @@ final class Version20261106185302 extends AbstractMigration
         $this->addSql('DROP TABLE gryphline_account');
         $this->addSql('DROP TABLE gryphline_game_profile');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

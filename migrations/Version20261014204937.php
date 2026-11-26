@@ -38,4 +38,9 @@ final class Version20261014204937 extends AbstractMigration
         $this->addSql('DROP TABLE book_bookmark');
         $this->addSql('DROP TABLE book_note');
     }
+
+    public function isTransactional(): bool
+    {
+        return false;
+    }
 }

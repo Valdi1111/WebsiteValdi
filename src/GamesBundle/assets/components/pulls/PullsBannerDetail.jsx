@@ -682,7 +682,7 @@ export default function PullsBannerDetail({
             title: "Period",
             key: "period",
             render: (_, pool) => {
-                // Banner dates when the backend knows them (HoYoverse phases), else the first and last pull
+                // Banner dates when the backend knows them (irminsul.gg schedules), else the first and last pull
                 const start = formatPoolDate(pool.start_at);
                 const end = formatPoolDate(pool.end_at);
                 if (start && end) {

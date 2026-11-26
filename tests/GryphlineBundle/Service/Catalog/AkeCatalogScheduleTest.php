@@ -6,7 +6,6 @@ use App\GryphlineBundle\Message\Batch\AkeCatalogUpdateMessage;
 use App\GryphlineBundle\MessageHandler\Batch\AkeCatalogUpdateHandler;
 use App\GryphlineBundle\Scheduler\ScheduleProvider;
 use App\GryphlineBundle\Service\Catalog\AkeCatalog;
-use App\GryphlineBundle\Service\Catalog\AkeCatalogBuilder;
 use App\GryphlineBundle\Service\Catalog\AkeCatalogUpdater;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -71,6 +70,6 @@ class AkeCatalogScheduleTest extends KernelTestCase
 
     private function createUpdater(AkeDataFixture $fixture, AkeCatalog $catalog): AkeCatalogUpdater
     {
-        return new AkeCatalogUpdater(new AkeCatalogBuilder($fixture->client(), new NullLogger()), $catalog, new NullLogger());
+        return new AkeCatalogUpdater($fixture->builder(previous: $catalog), $catalog, new NullLogger());
     }
 }

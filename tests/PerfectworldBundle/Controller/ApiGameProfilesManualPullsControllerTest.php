@@ -19,6 +19,8 @@ use App\PerfectworldBundle\Service\Catalog\NteCatalog;
 use App\PerfectworldBundle\Service\NevernessToEvernessService;
 use App\PerfectworldBundle\Service\Pull\ManualPullService;
 use App\PerfectworldBundle\Service\Pull\PerfectworldPullStatsCalculator;
+use App\PerfectworldBundle\Service\Pull\PullBackupImporterManager;
+use App\PerfectworldBundle\Service\Pull\PullOperationTracker;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
@@ -33,10 +35,15 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\Store\InMemoryStore;
+use Symfony\Component\Mercure\Authorization;
+use Symfony\Component\Mercure\HubInterface;
+use Symfony\Component\Mercure\HubRegistry;
+use Symfony\Component\Mercure\Jwt\TokenFactoryInterface;
 use Symfony\Component\Serializer\SerializerInterface;
 
 /**
- * Manual pull endpoints (suggestions, create, declared pity, delete) and the rarity filter of the list.
+ * Manual pull endpoints (suggestions, create, declared pity, delete), the rarity filter of the list and the
+ * rotation breakdown of the list and overview summaries.
  */
 #[AllowMockObjectsWithoutExpectations]
 class ApiGameProfilesManualPullsControllerTest extends TestCase
@@ -339,5 +346,83 @@ class ApiGameProfilesManualPullsControllerTest extends TestCase
             [['Arc Research Program', 1, 1], ['Echo Special', 2, 1]],
             array_map(static fn (array $pool): array => [$pool['pool_name'], $pool['total_pulls'], $pool['s_count']], $data['banner']['pools']),
         );
+        // The featured items of a rotation go through the icon pipeline like the pulls
+        $this->assertSame([], $data['banner']['pools'][0]['featured'], 'No featured item without a pool id');
+        $this->assertSame(
+            [['item_id' => 'fork_elyms', 'name' => 'Echoes on Hold', 'item_type' => 'arc', 'rarity' => 5, 'icon_url' => 'https://icons.test/fork_elyms.png']],
+            $data['banner']['pools'][1]['featured'],
+        );
+    }
+
+    public function testTheOverviewGivesTheFeaturedItemsOfEachRotationTheirIcon(): void
+    {
+        $this->catalog->save([
+            'sha' => '0123456789abcdef0123456789abcdef01234567',
+            'items' => [
+                'fork_elyms' => ['id' => 'fork_elyms', 'name' => 'Echoes on Hold', 'rank' => 'S', 'type' => 'arc', 'icon_path' => null],
+                '1090' => ['id' => '1090', 'name' => 'Elyms', 'rank' => 'S', 'type' => 'character', 'icon_path' => null],
+            ],
+            'pools' => ['forklottery_yeermu' => 'Echo Special', 'lottery_yeermu' => 'Android Dreams'],
+            'banners' => [
+                'forklottery_yeermu' => ['id' => 'ForkLottery_YeErMu', 'category' => 'arc', 'name' => 'Echo Special', 'up' => ['fork_elyms'], 'others' => [], 'up_guarantee' => 80],
+                'lottery_yeermu' => ['id' => 'Lottery_YeErMu', 'category' => 'board', 'name' => 'Android Dreams', 'up' => ['1090'], 'others' => [], 'up_guarantee' => null],
+            ],
+        ]);
+        $row = static fn (int $id, string $bannerKey, string $kind, string $rewardType, string $rewardId, ?string $poolId): array => [
+            'id' => $id,
+            'bannerKey' => $bannerKey,
+            'poolId' => $poolId,
+            'pulledAt' => WallClockDateTimeImmutableType::fromString('2026-11-11 16:00:00'),
+            'groupPosition' => 0,
+            'kind' => $kind,
+            'rollResult' => $kind === PerfectworldPull::KIND_ROLL ? 3 : null,
+            'rewardType' => $rewardType,
+            'rewardId' => $rewardId,
+            'name' => $rewardId,
+            'rarity' => 3,
+            'quantity' => 1,
+            'origin' => PullOrigin::Recorded,
+            'declaredPity' => null,
+        ];
+        $rowsByBanner = [
+            NevernessToEvernessService::BANNER_LIMITED => [$row(1, NevernessToEvernessService::BANNER_LIMITED, PerfectworldPull::KIND_ROLL, 'arc', 'fork_banshu01', 'Lottery_YeErMu')],
+            NevernessToEvernessService::BANNER_ARC => [
+                $row(2, NevernessToEvernessService::BANNER_ARC, PerfectworldPull::KIND_DRAW, 'arc', 'fork_banshu01', null),
+                $row(3, NevernessToEvernessService::BANNER_ARC, PerfectworldPull::KIND_DRAW, 'arc', 'fork_banshu01', 'ForkLottery_YeErMu'),
+            ],
+            NevernessToEvernessService::BANNER_STANDARD => [$row(4, NevernessToEvernessService::BANNER_STANDARD, PerfectworldPull::KIND_ROLL, 'arc', 'fork_banshu01', 'Lottery_Permanent')],
+        ];
+        $repository = $this->createStub(PerfectworldPullRepository::class);
+        $repository->method('findBannerRows')->willReturnCallback(static fn (object $profile, string $bannerKey): array => $rowsByBanner[$bannerKey] ?? []);
+
+        $tokenFactory = $this->createStub(TokenFactoryInterface::class);
+        $tokenFactory->method('create')->willReturn('fake-jwt');
+        $hub = $this->createStub(HubInterface::class);
+        $hub->method('getPublicUrl')->willReturn('https://games.test/.well-known/mercure');
+        $hub->method('getFactory')->willReturn($tokenFactory);
+
+        $data = self::decode($this->createController()->apiGameProfilePullsOverview(
+            Request::create('https://games.test/api/perfectworld/accounts/1/gameProfiles/5/pulls/overview'),
+            $this->account,
+            $this->profile,
+            $repository,
+            new PerfectworldPullStatsCalculator(new PullGapPlanner(), $this->catalog),
+            $this->createIconUrlBuilder(),
+            new PullBackupImporterManager([]),
+            new PullOperationTracker(new ArrayAdapter(), $hub, 'games.test'),
+            new Authorization(new HubRegistry($hub)),
+            $this->catalog,
+        ));
+
+        $banners = array_column($data['banners'], null, 'key');
+        $featured = static fn (array $pools): array => array_map(static fn (array $pool): array => [$pool['pool_id'], $pool['featured']], $pools);
+        $this->assertSame([
+            [null, []],
+            ['ForkLottery_YeErMu', [['item_id' => 'fork_elyms', 'name' => 'Echoes on Hold', 'item_type' => 'arc', 'rarity' => 5, 'icon_url' => 'https://icons.test/fork_elyms.png']]],
+        ], $featured($banners[NevernessToEvernessService::BANNER_ARC]['pools']));
+        $this->assertSame([
+            ['Lottery_YeErMu', [['item_id' => '1090', 'name' => 'Elyms', 'item_type' => 'character', 'rarity' => 5, 'icon_url' => 'https://icons.test/1090.png']]],
+        ], $featured($banners[NevernessToEvernessService::BANNER_LIMITED]['pools']));
+        $this->assertArrayNotHasKey('pools', $banners[NevernessToEvernessService::BANNER_STANDARD], 'The standard board has no rotations');
     }
 }

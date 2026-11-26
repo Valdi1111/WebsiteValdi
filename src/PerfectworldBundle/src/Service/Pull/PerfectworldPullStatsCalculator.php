@@ -25,7 +25,8 @@ use App\PerfectworldBundle\Service\NevernessToEvernessService;
  * Rate-up: an S Arc is "UP" when the catalog banners say so (NteCatalog::isArcUp(), stored is_up first);
  * boards have no lost 50/50 (their S is always the featured character), so their rows stay null.
  * The Arc banner and the limited boards also list their rotations ("pools"): pity is shared, so the
- * breakdown only counts pulls and S per rotation.
+ * breakdown only counts pulls and S per rotation and catalog run (a rerun is its own entry), with the
+ * run limits and the featured items from the catalog.
  *
  * Pure: the window info of the missing pulls feature comes from PullGapPlanner::describe().
  */
@@ -150,6 +151,8 @@ class PerfectworldPullStatsCalculator
         $items = [];
         $monthly = [];
         $pools = [];
+        // Catalog runs per normalized pool id, read once per compute()
+        $poolRuns = [];
         $listPools = in_array($bannerGroup['key'], self::POOLS_BREAKDOWN_BANNERS, true);
 
         foreach ($rows as $row) {
@@ -212,7 +215,7 @@ class PerfectworldPullStatsCalculator
 
             $item = $this->mapItem($row, $bannerGroup, $isBoard, $countsAsS, $pullNumber, $pity, $pulledAt, $poolNameResolver);
             if ($listPools) {
-                $this->addToPool($pools, $item, $bannerGroup, $isCountedUnit, $countsAsS);
+                $this->addToPool($pools, $poolRuns, $item, $bannerGroup, $isCountedUnit, $countsAsS);
             }
             if ($countsAsS) {
                 // Limits of the manual pull forms (the S item already carries declared_pity)
@@ -407,28 +410,51 @@ class PerfectworldPullStatsCalculator
     /**
      * Adds a row to the per-rotation breakdown, in the shape of the other providers' "pools" (the pity is
      * shared by the rotations, so it is not split). Rows without a pool id (old exports, manual and
-     * filler rows) share one entry named after the banner group.
+     * filler rows) share one entry named after the banner group, without run or featured item.
+     *
+     * A rotation has one entry per catalog run holding its pulls (see findRunIndex()), so the pulls of a
+     * launch and of its rerun are counted apart: "start_at"/"end_at" are the UTC limits of that run and
+     * "pool_version" its 1-based number when the rotation has more than one run (shown as "Name #2"), else
+     * null. Pulls in no run of their rotation (unknown pool, pool without runs, pull before its first run)
+     * share one entry of the rotation without dates or number. "featured" holds the featured S items of the
+     * rotation (see featuredOf()).
      *
      * @param array<string, array<string, mixed>> $pools
+     * @param array<string, list<array{start_at: string, end_at: string}>> $poolRuns Catalog runs by normalized pool id (memo of the compute() call)
      * @param array<string, mixed> $item Mapped item (pool_id, pool_name, pulled_at)
      * @param array{name: string} $bannerGroup
      */
-    private function addToPool(array &$pools, array $item, array $bannerGroup, bool $countsAsPull, bool $isS): void
+    private function addToPool(array &$pools, array &$poolRuns, array $item, array $bannerGroup, bool $countsAsPull, bool $isS): void
     {
         $poolId = is_string($item['pool_id']) && trim($item['pool_id']) !== '' ? $item['pool_id'] : null;
-        $key = $poolId !== null ? NteCatalog::normalizeId($poolId) : '';
+        $key = '';
+        $runs = [];
+        $runIndex = null;
+        if ($poolId !== null) {
+            $poolKey = NteCatalog::normalizeId($poolId);
+            $runs = $poolRuns[$poolKey] ??= $this->catalog?->findPool($poolId)['runs'] ?? [];
+            $runIndex = self::findRunIndex($runs, (string) $item['pulled_at']);
+            // "#" alone: the pulls of the rotation in none of its runs
+            $key = $poolKey . '#' . ($runIndex ?? '');
+        }
 
-        $pools[$key] ??= [
-            'pool_id' => $poolId,
-            'pool_name' => $poolId !== null ? (string) $item['pool_name'] : $bannerGroup['name'],
-            'pool_version' => null,
-            'total_pulls' => 0,
-            's_count' => 0,
-            's_pity' => null,
-            'a_pity' => null,
-            'first_pulled_at' => $item['pulled_at'],
-            'last_pulled_at' => $item['pulled_at'],
-        ];
+        if (!isset($pools[$key])) {
+            $run = $runIndex !== null ? $runs[$runIndex] : null;
+            $pools[$key] = [
+                'pool_id' => $poolId,
+                'pool_name' => $poolId !== null ? (string) $item['pool_name'] : $bannerGroup['name'],
+                'pool_version' => $runIndex !== null && count($runs) > 1 ? $runIndex + 1 : null,
+                'total_pulls' => 0,
+                's_count' => 0,
+                's_pity' => null,
+                'a_pity' => null,
+                'first_pulled_at' => $item['pulled_at'],
+                'last_pulled_at' => $item['pulled_at'],
+                'start_at' => $run['start_at'] ?? null,
+                'end_at' => $run['end_at'] ?? null,
+                'featured' => $poolId !== null ? $this->featuredOf($poolId) : [],
+            ];
+        }
         if ($countsAsPull) {
             $pools[$key]['total_pulls']++;
         }
@@ -436,5 +462,59 @@ class PerfectworldPullStatsCalculator
             $pools[$key]['s_count']++;
         }
         $pools[$key]['last_pulled_at'] = $item['pulled_at'];
+    }
+
+    /**
+     * Featured S items of a rotation (the "up" of its catalog banner: the rate-up Arc of an Arc issue, the
+     * featured character of a limited board), in catalog order, as pull-row-like entries so the shared icon
+     * pipeline resolves them like the pulls. Ids the catalog items do not know are skipped; an unknown pool,
+     * a pool without featured item or a missing catalog give none.
+     *
+     * @return list<array{item_id: string, name: string, item_type: string, rarity: int}>
+     */
+    private function featuredOf(string $poolId): array
+    {
+        $featured = [];
+        foreach ($this->catalog?->findPool($poolId)['up'] ?? [] as $id) {
+            $item = $this->catalog?->find($id);
+            if ($item === null) {
+                continue;
+            }
+            $featured[] = [
+                // Catalog id in its original case (the banner may spell it differently)
+                'item_id' => $item['id'],
+                'name' => $item['name'],
+                'item_type' => $item['type'],
+                'rarity' => NevernessToEvernessService::RARITY_S,
+            ];
+        }
+
+        return $featured;
+    }
+
+    /**
+     * Index of the catalog run holding a pull among the runs of its rotation: the one containing it, else the
+     * latest one started before it, else null. The stored pulled_at is the exported wall clock (not guaranteed
+     * UTC), so it is compared as digits with the UTC run limits, without tolerance: runs last weeks, so only a
+     * pull within hours of a run limit can be misplaced, and one just after the end (a zone ahead of UTC) still
+     * falls back to its run.
+     *
+     * @param list<array{start_at: string, end_at: string}> $runs Runs of the rotation, sorted by start
+     */
+    private static function findRunIndex(array $runs, string $pulledAt): ?int
+    {
+        $latestStarted = null;
+        // The fixed-width "Y-m-d H:i:s" strings sort chronologically
+        foreach ($runs as $index => $run) {
+            if (strcmp($run['start_at'], $pulledAt) > 0) {
+                break;
+            }
+            if (strcmp($pulledAt, $run['end_at']) <= 0) {
+                return $index;
+            }
+            $latestStarted = $index;
+        }
+
+        return $latestStarted;
     }
 }

@@ -147,15 +147,16 @@ class GryphlinePullStatsCalculatorTest extends TestCase
 
     /**
      * Stored catalog with the given pools (save() adds an empty pool list when $pools is null, so a catalog
-     * stored before the pools is written raw).
+     * stored before the pools is written raw) and items besides Ember.
      *
      * @param array<string, array<string, mixed>>|null $pools
+     * @param array<string, array{id: string, name: string, rarity: ?int, type: string}> $items
      */
-    private static function catalog(?array $pools): AkeCatalog
+    private static function catalog(?array $pools, array $items = []): AkeCatalog
     {
         $stored = ['version' => '1.6.4@11944529-13', 'built_at' => '2026-11-23T06:00:00+01:00', 'items' => [
             'chr_0009_azrila' => ['id' => 'chr_0009_azrila', 'name' => 'Ember', 'rarity' => 6, 'type' => 'char'],
-        ]];
+        ] + $items];
         $adapter = new ArrayAdapter();
         if ($pools === null) {
             $adapter->save($adapter->getItem(AkeCatalog::CACHE_KEY)->set($stored));
@@ -1153,6 +1154,9 @@ class GryphlinePullStatsCalculatorTest extends TestCase
                 'a_pity' => 2,
                 'first_pulled_at' => '2026-06-01 10:00:00',
                 'last_pulled_at' => '2026-06-01 10:07:00',
+                'start_at' => null,
+                'end_at' => null,
+                'featured' => [],
             ],
             [
                 'pool_id' => 'pool_b',
@@ -1164,6 +1168,9 @@ class GryphlinePullStatsCalculatorTest extends TestCase
                 'a_pity' => 1,
                 'first_pulled_at' => '2026-06-01 10:02:00',
                 'last_pulled_at' => '2026-06-01 10:08:00',
+                'start_at' => null,
+                'end_at' => null,
+                'featured' => [],
             ],
         ], $summary['pools']);
 
@@ -1219,6 +1226,9 @@ class GryphlinePullStatsCalculatorTest extends TestCase
                 'a_pity' => 1,
                 'first_pulled_at' => '2026-06-01 10:00:00',
                 'last_pulled_at' => '2026-06-01 10:03:00',
+                'start_at' => null,
+                'end_at' => null,
+                'featured' => [],
             ],
             [
                 'pool_id' => 'rerun_wpn_y',
@@ -1230,6 +1240,9 @@ class GryphlinePullStatsCalculatorTest extends TestCase
                 'a_pity' => 0,
                 'first_pulled_at' => '2026-06-01 10:04:00',
                 'last_pulled_at' => '2026-06-01 10:08:00',
+                'start_at' => null,
+                'end_at' => null,
+                'featured' => [],
             ],
             [
                 'pool_id' => 'rerun_wpn_x',
@@ -1241,6 +1254,9 @@ class GryphlinePullStatsCalculatorTest extends TestCase
                 'a_pity' => 1,
                 'first_pulled_at' => '2026-06-01 10:06:00',
                 'last_pulled_at' => '2026-06-01 10:09:00',
+                'start_at' => null,
+                'end_at' => null,
+                'featured' => [],
             ],
         ], $summary['pools']);
 
@@ -1249,6 +1265,155 @@ class GryphlinePullStatsCalculatorTest extends TestCase
         $this->assertSame('rerun_wpn_x', GryphlinePullStatsCalculator::pityPoolKey(['poolId' => 'rerun_wpn_x', 'poolVersion' => null]));
         $this->assertSame('rerun_wpn_x', GryphlinePullStatsCalculator::pityPoolKey(['poolId' => 'rerun_wpn_x', 'poolVersion' => 0]), 'Version 0 means no rerun number');
         $this->assertSame('', GryphlinePullStatsCalculator::pityPoolKey(['poolId' => null]));
+    }
+
+    public function testPoolsCarryTheRunOfTheirBannerFromTheCatalog(): void
+    {
+        $run1 = ['start_at' => '2026-09-24 17:00:00', 'end_at' => '2026-10-14 16:59:59'];
+        $run2 = ['start_at' => '2026-11-25 03:00:00', 'end_at' => '2026-12-16 16:59:59'];
+        $catalog = self::catalog([
+            // Stored out of order: the catalog sorts the runs by start
+            'rerun_wpn_aglina' => ['id' => 'rerun_wpn_aglina', 'category' => 'weapon', 'type' => 1, 'up' => ['wpn_funnel_0011'], 'up_source' => 'irminsul', 'runs' => [$run2, $run1]],
+            'weponbox_1_0_3' => ['id' => 'weponbox_1_0_3', 'category' => 'weapon', 'type' => 0, 'up' => ['wpn_pistol_0010'], 'up_source' => 'irminsul', 'runs' => [$run1]],
+            // Stored before the irminsul.gg banners
+            'weponbox_1_0_1' => ['id' => 'weponbox_1_0_1', 'category' => 'weapon', 'type' => 0, 'up' => ['wpn_sword_0006']],
+        ]);
+
+        $groupKey = 'E_WeaponGachaPoolType_Rerun';
+        $rerun = ['poolType' => $groupKey, 'poolCategory' => 'weapon', 'poolId' => 'rerun_wpn_aglina', 'poolName' => 'Aglina Issue'];
+        $rows = [
+            $this->row(4, ...$rerun, pulledAt: '2026-09-25 10:00:00', poolVersion: 1),
+            $this->row(4, ...$rerun, pulledAt: '2026-11-26 10:00:00', poolVersion: 2),
+            // Rerun #3 is not in the catalog yet
+            $this->row(4, ...$rerun, pulledAt: '2027-05-01 10:00:00', poolVersion: 3),
+            // Without rerun number: the first run
+            $this->row(4, ...$rerun, pulledAt: '2027-05-02 10:00:00'),
+            $this->row(4, poolType: $groupKey, pulledAt: '2027-05-03 10:00:00', poolCategory: 'weapon', poolId: 'rerun_wpn_unknown'),
+            $this->row(4, poolType: $groupKey, pulledAt: '2027-05-04 10:00:00', poolCategory: 'weapon', poolId: null),
+        ];
+
+        $pools = $this->calculator($catalog)->compute($rows, $this->bannerGroups()[$groupKey], $this->rarityConfig())['summary']['pools'];
+
+        $this->assertSame(['pool_id', 'pool_name', 'pool_version', 'total_pulls', 's_count', 's_pity', 'a_pity', 'first_pulled_at', 'last_pulled_at', 'start_at', 'end_at', 'featured'], array_keys($pools[0]));
+        $this->assertSame([
+            ['rerun_wpn_aglina', 1, $run1['start_at'], $run1['end_at']],
+            ['rerun_wpn_aglina', 2, $run2['start_at'], $run2['end_at']],
+            ['rerun_wpn_aglina', 3, null, null],
+            ['rerun_wpn_aglina', null, $run1['start_at'], $run1['end_at']],
+            ['rerun_wpn_unknown', null, null, null],
+            [null, null, null, null],
+        ], array_map(static fn (array $pool): array => [$pool['pool_id'], $pool['pool_version'], $pool['start_at'], $pool['end_at']], $pools));
+
+        // Other pools: their only run, whatever the rerun number of the row
+        $groupKey = self::WEAPON;
+        $rows = [
+            $this->row(4, poolType: $groupKey, pulledAt: '2026-02-25 10:00:00', poolCategory: 'weapon', poolId: 'weponbox_1_0_3', poolVersion: 2),
+            $this->row(4, poolType: $groupKey, pulledAt: '2026-02-26 10:00:00', poolCategory: 'weapon', poolId: 'weponbox_1_0_1'),
+        ];
+
+        $pools = $this->calculator($catalog)->compute($rows, $this->bannerGroups()[$groupKey], $this->rarityConfig())['summary']['pools'];
+
+        $this->assertSame([
+            ['weponbox_1_0_3', $run1['start_at'], $run1['end_at']],
+            ['weponbox_1_0_1', null, null],
+        ], array_map(static fn (array $pool): array => [$pool['pool_id'], $pool['start_at'], $pool['end_at']], $pools));
+
+        // RE-Factor Headhunting (one pity across its pools) has the per-banner breakdown too
+        $catalog = self::catalog([
+            'rerun_chr_aglina' => ['id' => 'rerun_chr_aglina', 'category' => 'char', 'type' => 4, 'up' => ['chr_0013_aglina'], 'up_source' => 'irminsul', 'runs' => [$run1, $run2]],
+        ]);
+        $rows = [$this->row(4, poolType: 'E_CharacterGachaPoolType_Rerun', pulledAt: '2026-11-26 10:00:00', poolId: 'rerun_chr_aglina', poolVersion: 2)];
+
+        $pool = $this->calculator($catalog)->compute($rows, $this->bannerGroups()['E_CharacterGachaPoolType_Rerun'], $this->rarityConfig())['summary']['pools'][0];
+
+        $this->assertSame([$run2['start_at'], $run2['end_at']], [$pool['start_at'], $pool['end_at']]);
+    }
+
+    public function testPoolsTakeTheRunContainingTheirFirstPull(): void
+    {
+        // irminsul.gg lacks run #1 of this rerun pool: its only run is run #2
+        $run2 = ['start_at' => '2026-11-25 03:00:00', 'end_at' => '2026-12-16 16:59:59'];
+        $catalog = self::catalog([
+            'rerun_wpn_aglina' => ['id' => 'rerun_wpn_aglina', 'category' => 'weapon', 'type' => 1, 'up' => ['wpn_funnel_0011'], 'up_source' => 'irminsul', 'runs' => [$run2]],
+        ]);
+
+        $groupKey = 'E_WeaponGachaPoolType_Rerun';
+        $rerun = ['poolType' => $groupKey, 'poolCategory' => 'weapon', 'poolId' => 'rerun_wpn_aglina', 'poolName' => 'Aglina Issue'];
+        $rows = [
+            // Outside every run: the run of its rerun number, the first one
+            $this->row(4, ...$rerun, pulledAt: '2026-09-25 10:00:00', poolVersion: 1),
+            // Half an hour into the only run (UTC wall clock): that run, whatever its rerun number says
+            $this->row(4, ...$rerun, pulledAt: '2026-11-25 03:30:00', poolVersion: 2),
+            // Only the first pull of the entry is looked up
+            $this->row(4, ...$rerun, pulledAt: '2026-12-20 10:00:00', poolVersion: 2),
+            // Outside every run, rerun number beyond the stored runs: no run
+            $this->row(4, ...$rerun, pulledAt: '2027-05-01 10:00:00', poolVersion: 3),
+            // Outside every run, no rerun number: the first run
+            $this->row(4, ...$rerun, pulledAt: '2027-05-02 10:00:00'),
+        ];
+
+        $pools = $this->calculator($catalog)->compute($rows, $this->bannerGroups()[$groupKey], $this->rarityConfig())['summary']['pools'];
+
+        $this->assertSame([
+            [1, $run2['start_at'], $run2['end_at']],
+            [2, $run2['start_at'], $run2['end_at']],
+            [3, null, null],
+            [null, $run2['start_at'], $run2['end_at']],
+        ], array_map(static fn (array $pool): array => [$pool['pool_version'], $pool['start_at'], $pool['end_at']], $pools));
+    }
+
+    public function testPoolsListTheRateUpItemsOfTheirBannerFromTheCatalog(): void
+    {
+        $catalog = self::catalog([
+            // Unknown ids are skipped, the others keep the catalog order
+            'joint_1_2_2' => ['id' => 'joint_1_2_2', 'category' => 'char', 'type' => 3, 'up' => ['chr_0016_laevat', 'chr_0099_unknown', 'chr_0013_aglina', 'chr_0025_ardelia'], 'up_source' => 'irminsul', 'runs' => []],
+            'joint_1_3_1' => ['id' => 'joint_1_3_1', 'category' => 'char', 'type' => 3, 'up' => [], 'up_source' => 'akedata', 'runs' => []],
+            'rerun_wpn_aglina' => ['id' => 'rerun_wpn_aglina', 'category' => 'weapon', 'type' => 1, 'up' => ['wpn_funnel_0011'], 'up_source' => 'irminsul', 'runs' => []],
+        ], [
+            'chr_0013_aglina' => ['id' => 'chr_0013_aglina', 'name' => 'Gilberta', 'rarity' => 6, 'type' => 'char'],
+            'chr_0016_laevat' => ['id' => 'chr_0016_laevat', 'name' => 'Laevatain', 'rarity' => 6, 'type' => 'char'],
+            // No rarity in the catalog: the rate-up items of a banner are its 6★
+            'chr_0025_ardelia' => ['id' => 'chr_0025_ardelia', 'name' => 'Ardelia', 'rarity' => null, 'type' => 'char'],
+            'wpn_funnel_0011' => ['id' => 'wpn_funnel_0011', 'name' => 'Delivery Guaranteed', 'rarity' => 6, 'type' => 'weapon'],
+        ]);
+
+        $groupKey = 'E_CharacterGachaPoolType_Joint';
+        $rows = [
+            $this->row(4, poolType: $groupKey, pulledAt: '2026-05-15 10:00:00', poolId: 'joint_1_2_2'),
+            $this->row(6, 'Gilberta', poolType: $groupKey, pulledAt: '2026-05-15 10:01:00', poolId: 'joint_1_2_2', itemId: 'chr_0013_aglina'),
+            $this->row(4, poolType: $groupKey, pulledAt: '2026-06-15 10:00:00', poolId: 'joint_1_3_1'),
+            $this->row(4, poolType: $groupKey, pulledAt: '2026-07-15 10:00:00', poolId: 'joint_9_9_9'),
+            $this->row(4, poolType: $groupKey, pulledAt: '2026-08-15 10:00:00', poolId: null),
+        ];
+
+        $pools = $this->calculator($catalog)->compute($rows, $this->bannerGroups()[$groupKey], $this->rarityConfig())['summary']['pools'];
+
+        $this->assertSame(['joint_1_2_2', 'joint_1_3_1', 'joint_9_9_9', null], array_column($pools, 'pool_id'));
+        $this->assertSame([
+            ['item_id' => 'chr_0016_laevat', 'name' => 'Laevatain', 'item_type' => 'char', 'rarity' => 6],
+            ['item_id' => 'chr_0013_aglina', 'name' => 'Gilberta', 'item_type' => 'char', 'rarity' => 6],
+            ['item_id' => 'chr_0025_ardelia', 'name' => 'Ardelia', 'item_type' => 'char', 'rarity' => 6],
+        ], $pools[0]['featured']);
+        $this->assertSame([], $pools[1]['featured'], 'Pool without rate-up items');
+        $this->assertSame([], $pools[2]['featured'], 'Unknown pool');
+        $this->assertSame([], $pools[3]['featured'], 'Entry without pool id');
+
+        // Every run of a rerun pool features the same items; the weapon type is the catalog one
+        $groupKey = 'E_WeaponGachaPoolType_Rerun';
+        $rerun = ['poolType' => $groupKey, 'poolCategory' => 'weapon', 'poolId' => 'rerun_wpn_aglina', 'poolName' => 'Aglina Issue'];
+        $rows = [
+            $this->row(4, ...$rerun, pulledAt: '2026-09-25 10:00:00', poolVersion: 1),
+            $this->row(4, ...$rerun, pulledAt: '2026-11-26 10:00:00', poolVersion: 2),
+        ];
+
+        $pools = $this->calculator($catalog)->compute($rows, $this->bannerGroups()[$groupKey], $this->rarityConfig())['summary']['pools'];
+
+        $deliveryGuaranteed = [['item_id' => 'wpn_funnel_0011', 'name' => 'Delivery Guaranteed', 'item_type' => 'weapon', 'rarity' => 6]];
+        $this->assertSame([$deliveryGuaranteed, $deliveryGuaranteed], array_column($pools, 'featured'));
+
+        // Without a catalog (or before any catalog was stored) no pool features anything
+        $this->assertSame([[], []], array_column($this->calculator()->compute($rows, $this->bannerGroups()[$groupKey], $this->rarityConfig())['summary']['pools'], 'featured'));
+        $this->assertSame([[], []], array_column($this->calculator(new AkeCatalog(new ArrayAdapter()))->compute($rows, $this->bannerGroups()[$groupKey], $this->rarityConfig())['summary']['pools'], 'featured'));
     }
 
     public function testOnlyThePerBannerPityGroupsArePartitionedByPool(): void
@@ -1318,6 +1483,9 @@ class GryphlinePullStatsCalculatorTest extends TestCase
                 'a_pity' => null,
                 'first_pulled_at' => '2026-06-01 10:00:00',
                 'last_pulled_at' => '2026-06-01 10:05:00',
+                'start_at' => null,
+                'end_at' => null,
+                'featured' => [],
             ],
             [
                 'pool_id' => 'rerun_b',
@@ -1329,6 +1497,9 @@ class GryphlinePullStatsCalculatorTest extends TestCase
                 'a_pity' => null,
                 'first_pulled_at' => '2026-06-01 10:06:00',
                 'last_pulled_at' => '2026-06-01 10:10:00',
+                'start_at' => null,
+                'end_at' => null,
+                'featured' => [],
             ],
         ], $summary['pools']);
 
@@ -1341,7 +1512,6 @@ class GryphlinePullStatsCalculatorTest extends TestCase
      */
     public static function sharedPityGroups(): iterable
     {
-        yield 'Chartered Headhunting' => [self::SPECIAL];
         yield 'Basic Headhunting' => ['E_CharacterGachaPoolType_Standard'];
         yield 'Beginner Headhunting' => ['E_CharacterGachaPoolType_Beginner'];
     }
@@ -1364,6 +1534,28 @@ class GryphlinePullStatsCalculatorTest extends TestCase
         $this->assertSame([], $summary['pools']);
         $this->assertNull($summary['pity_pool_name']);
         $this->assertTrue($summary['allow_add_s']);
+    }
+
+    public function testCharteredListsItsBannersWithTheSharedPity(): void
+    {
+        $rows = [
+            $this->row(4, poolType: self::SPECIAL, poolId: 'pool_a'),
+            $this->row(4, poolType: self::SPECIAL, poolId: 'pool_a'),
+            $this->row(4, poolType: self::SPECIAL, poolId: 'pool_b'),
+            $this->row(6, 'Liino', poolType: self::SPECIAL, poolId: 'pool_b'),
+            $this->row(4, poolType: self::SPECIAL, poolId: 'pool_b'),
+        ];
+
+        $summary = $this->calculator()->compute($rows, $this->bannerGroups()[self::SPECIAL], $this->rarityConfig())['summary'];
+
+        $this->assertSame([4], array_column($summary['recent_s_pulls'], 'pity'), 'One pity across the banners');
+        $this->assertSame(1, $summary['s_pity']);
+        $this->assertSame(['pool_a', 'pool_b'], array_column($summary['pools'], 'pool_id'), 'Each banner listed, oldest first');
+        $this->assertSame([2, 3], array_column($summary['pools'], 'total_pulls'));
+        $this->assertSame([0, 1], array_column($summary['pools'], 's_count'));
+        $this->assertSame([null, null], array_column($summary['pools'], 's_pity'), 'The pity is shared, never per banner');
+        $this->assertNull($summary['pity_pool_name']);
+        $this->assertTrue($summary['allow_add_s'], 'Earlier S can still be added: the pity is shared');
     }
 
     public function testRateUpFlagOfAnSComesFromTheCatalogWhenNotStored(): void

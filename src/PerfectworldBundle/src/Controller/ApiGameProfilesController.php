@@ -400,7 +400,8 @@ class ApiGameProfilesController extends AbstractController
     }
 
     /**
-     * Icons of the S pulls of a banner summary (recent_s_pulls and oldest_s).
+     * Icons of the S pulls of a banner summary (recent_s_pulls and oldest_s) and of the featured items of its
+     * rotations (pools[].featured; the standard board has no rotations).
      *
      * @param array<string, mixed> $summary
      * @return array<string, mixed>
@@ -410,6 +411,11 @@ class ApiGameProfilesController extends AbstractController
         $summary['recent_s_pulls'] = $iconUrlBuilder->enrichPullRows($gameService, $summary['recent_s_pulls']);
         if (isset($summary['oldest_s'])) {
             $summary['oldest_s'] = $iconUrlBuilder->enrichPullRows($gameService, [$summary['oldest_s']])[0];
+        }
+        foreach ($summary['pools'] ?? [] as $index => $pool) {
+            if (!empty($pool['featured'])) {
+                $summary['pools'][$index]['featured'] = $iconUrlBuilder->enrichPullRows($gameService, $pool['featured']);
+            }
         }
 
         return $summary;

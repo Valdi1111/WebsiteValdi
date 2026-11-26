@@ -668,14 +668,18 @@ class PerfectworldPullStatsCalculatorTest extends TestCase
             [
                 'pool_id' => null, 'pool_name' => 'Arc Research Program', 'pool_version' => null, 'total_pulls' => 2, 's_count' => 1,
                 's_pity' => null, 'a_pity' => null, 'first_pulled_at' => '2026-04-30 14:00:00', 'last_pulled_at' => '2026-04-30 14:01:00',
+                'start_at' => null, 'end_at' => null, 'featured' => [],
             ],
             [
                 'pool_id' => 'ForkLottery_Nanali', 'pool_name' => 'Tiger Special', 'pool_version' => null, 'total_pulls' => 1, 's_count' => 0,
                 's_pity' => null, 'a_pity' => null, 'first_pulled_at' => '2026-05-13 16:00:00', 'last_pulled_at' => '2026-05-13 16:00:00',
+                'start_at' => null, 'end_at' => null, 'featured' => [],
             ],
             [
                 'pool_id' => 'ForkLottery_YeErMu', 'pool_name' => 'Echo Special', 'pool_version' => null, 'total_pulls' => 2, 's_count' => 1,
                 's_pity' => null, 'a_pity' => null, 'first_pulled_at' => '2026-11-11 16:00:00', 'last_pulled_at' => '2026-11-11 16:01:00',
+                // No catalog: no run, no featured item
+                'start_at' => null, 'end_at' => null, 'featured' => [],
             ],
         ], $summary['pools']);
 
@@ -696,5 +700,196 @@ class PerfectworldPullStatsCalculatorTest extends TestCase
             self::labels(NevernessToEvernessService::BANNER_STANDARD),
         )['summary'];
         $this->assertArrayNotHasKey('pools', $standard, 'The standard board has a single pool');
+    }
+
+    public function testRotationsCarryTheirRun(): void
+    {
+        $sha = str_repeat('a', 40);
+        $firstRun = ['start_at' => '2026-04-29 03:00:00', 'end_at' => '2026-05-12 21:59:59'];
+        $rerun = ['start_at' => '2026-08-19 03:00:00', 'end_at' => '2026-09-08 21:59:59'];
+        $catalog = new NteCatalog(new ArrayAdapter());
+        $catalog->save([
+            'sha' => $sha,
+            'banners' => [
+                'forklottery_nanali' => ['id' => 'ForkLottery_Nanali', 'category' => NteCatalog::BANNER_ARC, 'up' => ['fork_TigerTally'], 'runs' => [$firstRun, $rerun]],
+                'forklottery_xun' => ['id' => 'ForkLottery_Xun', 'category' => NteCatalog::BANNER_ARC, 'up' => ['fork_Time'], 'runs' => [['start_at' => '2026-05-13 03:00:00', 'end_at' => '2026-06-02 21:59:59']]],
+                'forklottery_kaesi' => ['id' => 'ForkLottery_Kaesi', 'category' => NteCatalog::BANNER_ARC, 'up' => ['fork_GoldWool'], 'runs' => [['start_at' => '2026-06-24 03:00:00', 'end_at' => '2026-07-07 21:59:59']]],
+                'lottery_nanali' => ['id' => 'Lottery_Nanali', 'category' => NteCatalog::BANNER_BOARD, 'up' => ['1010'], 'runs' => [$firstRun, $rerun]],
+            ],
+        ]);
+        $calculator = new PerfectworldPullStatsCalculator(new PullGapPlanner(), $catalog);
+
+        $rows = [
+            // No pool id: no run
+            self::inPool(self::dbRow(1, '2026-04-29 12:00:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_B, 'fork_banshu01'), null),
+            // Before every run of its pool
+            self::inPool(self::dbRow(6, '2026-06-01 10:00:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_B, 'fork_banshu01'), 'ForkLottery_Kaesi'),
+            // Exported in UTC+8 a few hours before the UTC end of its only run, so after it as digits: the latest run started before it
+            self::inPool(self::dbRow(4, '2026-06-03 05:30:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_B, 'fork_banshu01'), 'ForkLottery_Xun'),
+            // Second run of the pool, exported in UTC+8
+            self::inPool(self::dbRow(2, '2026-08-19 11:05:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_B, 'fork_banshu01'), 'ForkLottery_Nanali'),
+            // After the end of the rerun: the latest run started before it
+            self::inPool(self::dbRow(3, '2026-09-20 10:00:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_S, 'fork_TigerTally'), 'forklottery_nanali'),
+            // A pool the catalog does not know
+            self::inPool(self::dbRow(5, '2026-09-21 06:00:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_B, 'fork_banshu01'), 'ForkLottery_Unknown'),
+        ];
+
+        $pools = $calculator->compute($rows, self::bannerGroup(NevernessToEvernessService::BANNER_ARC), self::labels(NevernessToEvernessService::BANNER_ARC))['summary']['pools'];
+        $fields = static fn (array $pool): array => [$pool['pool_id'], $pool['start_at'], $pool['end_at'], $pool['pool_version']];
+
+        // The run number only for a pool with more than one run
+        $this->assertSame([
+            [null, null, null, null],
+            ['ForkLottery_Kaesi', null, null, null],
+            ['ForkLottery_Xun', '2026-05-13 03:00:00', '2026-06-02 21:59:59', null],
+            ['ForkLottery_Nanali', '2026-08-19 03:00:00', '2026-09-08 21:59:59', 2],
+            ['ForkLottery_Unknown', null, null, null],
+        ], array_map($fields, $pools));
+        // Existing keys unchanged
+        $this->assertSame(2, $pools[3]['total_pulls']);
+        $this->assertSame('2026-08-19 11:05:00', $pools[3]['first_pulled_at']);
+
+        // Boards: one entry per run
+        $board = [
+            self::inPool(self::boardRoll(1, '2026-05-01 09:00:00'), 'Lottery_Nanali'),
+            self::inPool(self::boardRoll(2, '2026-08-25 09:00:00'), 'Lottery_Nanali'),
+        ];
+        $pools = $calculator->compute($board, self::bannerGroup(NevernessToEvernessService::BANNER_LIMITED), self::labels(NevernessToEvernessService::BANNER_LIMITED))['summary']['pools'];
+        $this->assertSame([
+            ['Lottery_Nanali', '2026-04-29 03:00:00', '2026-05-12 21:59:59', 1],
+            ['Lottery_Nanali', '2026-08-19 03:00:00', '2026-09-08 21:59:59', 2],
+        ], array_map($fields, $pools));
+    }
+
+    public function testRerunPullsAreCountedApartFromTheLaunch(): void
+    {
+        $firstRun = ['start_at' => '2026-04-29 03:00:00', 'end_at' => '2026-05-12 21:59:59'];
+        $rerun = ['start_at' => '2026-08-19 03:00:00', 'end_at' => '2026-09-08 21:59:59'];
+        $catalog = new NteCatalog(new ArrayAdapter());
+        $catalog->save([
+            'sha' => str_repeat('a', 40),
+            'items' => [
+                'fork_tigertally' => ['id' => 'fork_TigerTally', 'name' => 'Ready-Ready', 'rank' => 'S', 'type' => NteCatalog::TYPE_ARC, 'icon_path' => null],
+            ],
+            'pools' => ['forklottery_nanali' => 'Tiger Special'],
+            'banners' => [
+                'forklottery_nanali' => ['id' => 'ForkLottery_Nanali', 'category' => NteCatalog::BANNER_ARC, 'up' => ['fork_TigerTally'], 'runs' => [$firstRun, $rerun]],
+            ],
+        ]);
+        $poolNames = static fn (?string $poolId): ?string => $catalog->findPoolName($poolId);
+
+        $rows = [
+            // Before every run of its pool
+            self::inPool(self::dbRow(1, '2026-04-20 10:00:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_B, 'fork_banshu01'), 'ForkLottery_Nanali'),
+            // Launch
+            self::inPool(self::dbRow(2, '2026-04-30 14:00:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_B, 'fork_banshu01'), 'ForkLottery_Nanali'),
+            self::inPool(self::dbRow(3, '2026-04-30 14:01:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_S, 'fork_TigerTally'), 'ForkLottery_Nanali'),
+            // No pool id, between the runs
+            self::inPool(self::dbRow(4, '2026-05-13 16:00:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_B, 'fork_banshu01'), null),
+            // Rerun, one pull spelled with another case by an export
+            self::inPool(self::dbRow(5, '2026-08-20 12:00:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_B, 'fork_banshu01'), 'ForkLottery_Nanali'),
+            self::inPool(self::dbRow(6, '2026-08-20 12:01:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_A, 'fork_qiaoqiao'), 'ForkLottery_Nanali'),
+            self::inPool(self::dbRow(7, '2026-08-20 12:02:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_S, 'fork_TigerTally'), 'FORKLOTTERY_NANALI'),
+        ];
+
+        $result = (new PerfectworldPullStatsCalculator(new PullGapPlanner(), $catalog))->compute(
+            $rows,
+            self::bannerGroup(NevernessToEvernessService::BANNER_ARC),
+            self::labels(NevernessToEvernessService::BANNER_ARC),
+            $poolNames,
+            WallClockDateTimeImmutableType::fromString('2026-12-31 00:00:00'),
+        );
+
+        $featured = [['item_id' => 'fork_TigerTally', 'name' => 'Ready-Ready', 'item_type' => 'arc', 'rarity' => 5]];
+        $this->assertSame([
+            [
+                'pool_id' => 'ForkLottery_Nanali', 'pool_name' => 'Tiger Special', 'pool_version' => null, 'total_pulls' => 1, 's_count' => 0,
+                's_pity' => null, 'a_pity' => null, 'first_pulled_at' => '2026-04-20 10:00:00', 'last_pulled_at' => '2026-04-20 10:00:00',
+                // In no run: no dates, no run number
+                'start_at' => null, 'end_at' => null, 'featured' => $featured,
+            ],
+            [
+                'pool_id' => 'ForkLottery_Nanali', 'pool_name' => 'Tiger Special', 'pool_version' => 1, 'total_pulls' => 2, 's_count' => 1,
+                's_pity' => null, 'a_pity' => null, 'first_pulled_at' => '2026-04-30 14:00:00', 'last_pulled_at' => '2026-04-30 14:01:00',
+                'start_at' => '2026-04-29 03:00:00', 'end_at' => '2026-05-12 21:59:59', 'featured' => $featured,
+            ],
+            [
+                'pool_id' => null, 'pool_name' => 'Arc Research Program', 'pool_version' => null, 'total_pulls' => 1, 's_count' => 0,
+                's_pity' => null, 'a_pity' => null, 'first_pulled_at' => '2026-05-13 16:00:00', 'last_pulled_at' => '2026-05-13 16:00:00',
+                'start_at' => null, 'end_at' => null, 'featured' => [],
+            ],
+            [
+                'pool_id' => 'ForkLottery_Nanali', 'pool_name' => 'Tiger Special', 'pool_version' => 2, 'total_pulls' => 3, 's_count' => 1,
+                's_pity' => null, 'a_pity' => null, 'first_pulled_at' => '2026-08-20 12:00:00', 'last_pulled_at' => '2026-08-20 12:02:00',
+                'start_at' => '2026-08-19 03:00:00', 'end_at' => '2026-09-08 21:59:59', 'featured' => $featured,
+            ],
+        ], $result['summary']['pools']);
+        // The banner totals still count every pull
+        $this->assertSame([7, 2], [$result['summary']['total_pulls'], $result['summary']['s_count']]);
+    }
+
+    public function testRotationsListTheirFeaturedItems(): void
+    {
+        $catalog = new NteCatalog(new ArrayAdapter());
+        $catalog->save([
+            'sha' => str_repeat('a', 40),
+            'items' => [
+                'fork_tigertally' => ['id' => 'fork_TigerTally', 'name' => 'Ready-Ready', 'rank' => 'S', 'type' => NteCatalog::TYPE_ARC, 'icon_path' => 'UI_Icon/Fork/fork_TigerTally_256.png'],
+                'fork_time' => ['id' => 'fork_Time', 'name' => 'Marching Beyond Time', 'rank' => 'S', 'type' => NteCatalog::TYPE_ARC, 'icon_path' => null],
+                '1010' => ['id' => '1010', 'name' => 'Nanally', 'rank' => 'S', 'type' => NteCatalog::TYPE_CHARACTER, 'icon_path' => null],
+                '1052' => ['id' => '1052', 'name' => 'Hotori', 'rank' => 'S', 'type' => NteCatalog::TYPE_CHARACTER, 'icon_path' => null],
+            ],
+            'banners' => [
+                // Spelled in another case than the item; an id the items do not know is skipped
+                'forklottery_nanali' => ['id' => 'ForkLottery_Nanali', 'category' => NteCatalog::BANNER_ARC, 'up' => ['FORK_TIGERTALLY', 'fork_Unknown']],
+                'forklottery_kaesi' => ['id' => 'ForkLottery_Kaesi', 'category' => NteCatalog::BANNER_ARC, 'up' => []],
+                // Rerun board: both featured characters, in catalog order
+                'lottery_xun' => ['id' => 'Lottery_Xun', 'category' => NteCatalog::BANNER_BOARD, 'up' => ['1052', '1010']],
+                'lottery_kaesi' => ['id' => 'Lottery_Kaesi', 'category' => NteCatalog::BANNER_BOARD],
+            ],
+        ]);
+        $calculator = new PerfectworldPullStatsCalculator(new PullGapPlanner(), $catalog);
+        // By pool id, the entry without one under ""
+        $featured = static fn (array $pools): array => array_combine(
+            array_map(static fn (array $pool): string => $pool['pool_id'] ?? '', $pools),
+            array_column($pools, 'featured'),
+        );
+
+        $arc = [
+            // No pool id
+            self::inPool(self::dbRow(1, '2026-04-29 12:00:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_B, 'fork_banshu01'), null),
+            self::inPool(self::dbRow(2, '2026-05-01 12:00:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_B, 'fork_banshu01'), 'ForkLottery_Nanali'),
+            // A pool without featured item
+            self::inPool(self::dbRow(3, '2026-06-25 12:00:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_B, 'fork_banshu01'), 'ForkLottery_Kaesi'),
+            // A pool the catalog does not know
+            self::inPool(self::dbRow(4, '2026-09-21 06:00:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_B, 'fork_banshu01'), 'ForkLottery_Unknown'),
+        ];
+        $pools = $calculator->compute($arc, self::bannerGroup(NevernessToEvernessService::BANNER_ARC), self::labels(NevernessToEvernessService::BANNER_ARC))['summary']['pools'];
+        $this->assertSame([
+            '' => [],
+            'ForkLottery_Nanali' => [['item_id' => 'fork_TigerTally', 'name' => 'Ready-Ready', 'item_type' => 'arc', 'rarity' => 5]],
+            'ForkLottery_Kaesi' => [],
+            'ForkLottery_Unknown' => [],
+        ], $featured($pools));
+        // Existing keys unchanged
+        $this->assertSame(['ForkLottery_Nanali', 1, 0], [$pools[1]['pool_id'], $pools[1]['total_pulls'], $pools[1]['s_count']]);
+
+        $board = [
+            self::inPool(self::boardRoll(1, '2026-08-25 09:00:00'), 'Lottery_Xun'),
+            // A board banner without "up"
+            self::inPool(self::boardRoll(2, '2026-08-26 09:00:00'), 'Lottery_Kaesi'),
+        ];
+        $pools = $calculator->compute($board, self::bannerGroup(NevernessToEvernessService::BANNER_LIMITED), self::labels(NevernessToEvernessService::BANNER_LIMITED))['summary']['pools'];
+        $this->assertSame([
+            'Lottery_Xun' => [
+                ['item_id' => '1052', 'name' => 'Hotori', 'item_type' => 'character', 'rarity' => 5],
+                ['item_id' => '1010', 'name' => 'Nanally', 'item_type' => 'character', 'rarity' => 5],
+            ],
+            'Lottery_Kaesi' => [],
+        ], $featured($pools));
+
+        // Without a catalog: none
+        $pools = self::calculator()->compute($board, self::bannerGroup(NevernessToEvernessService::BANNER_LIMITED), self::labels(NevernessToEvernessService::BANNER_LIMITED))['summary']['pools'];
+        $this->assertSame(['Lottery_Xun' => [], 'Lottery_Kaesi' => []], $featured($pools));
     }
 }

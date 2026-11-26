@@ -87,27 +87,30 @@ class NteCatalogTest extends TestCase
         $this->assertNull($catalog->findPoolName(null));
     }
 
+    /** Fields of a banner of a catalog built before the runs */
+    private const array NO_RUN = ['up_source' => 'nte_assets', 'runs' => []];
+
     public function testFindPool(): void
     {
         $catalog = $this->createCatalog(self::CATALOG);
 
         $this->assertSame(
-            ['id' => 'ForkLottery_HeiYu', 'category' => 'arc', 'name' => 'Foretold Special', 'up' => ['fork_twinbirds'], 'others' => ['fork_Butterfly', 'fork_BlackBook'], 'up_guarantee' => 80],
+            ['id' => 'ForkLottery_HeiYu', 'category' => 'arc', 'name' => 'Foretold Special', 'up' => ['fork_twinbirds'], 'others' => ['fork_Butterfly', 'fork_BlackBook'], 'up_guarantee' => 80] + self::NO_RUN,
             $catalog->findPool(' forklottery_HEIYU '),
         );
         $this->assertSame(
-            ['id' => 'Lottery_HeiYu', 'category' => 'board', 'name' => 'Foretold Finale', 'up' => ['1042', 'fork_BoardOnly'], 'others' => [], 'up_guarantee' => null],
+            ['id' => 'Lottery_HeiYu', 'category' => 'board', 'name' => 'Foretold Finale', 'up' => ['1042', 'fork_BoardOnly'], 'others' => [], 'up_guarantee' => null] + self::NO_RUN,
             $catalog->findPool('Lottery_HeiYu'),
         );
 
         // List fields keep non-empty strings only, blank name and non-int guarantee are null
         $this->assertSame(
-            ['id' => 'ForkLottery_MingYin', 'category' => 'arc', 'name' => null, 'up' => ['fork_prism'], 'others' => ['fork_Butterfly', 'fork_Shared'], 'up_guarantee' => null],
+            ['id' => 'ForkLottery_MingYin', 'category' => 'arc', 'name' => null, 'up' => ['fork_prism'], 'others' => ['fork_Butterfly', 'fork_Shared'], 'up_guarantee' => null] + self::NO_RUN,
             $catalog->findPool('ForkLottery_MingYin'),
         );
         // Missing id: the requested one, trimmed; list fields that are not lists are empty
         $this->assertSame(
-            ['id' => 'ForkLottery_NoId', 'category' => 'arc', 'name' => null, 'up' => [], 'others' => [], 'up_guarantee' => null],
+            ['id' => 'ForkLottery_NoId', 'category' => 'arc', 'name' => null, 'up' => [], 'others' => [], 'up_guarantee' => null] + self::NO_RUN,
             $catalog->findPool(' ForkLottery_NoId '),
         );
 
@@ -116,6 +119,45 @@ class NteCatalogTest extends TestCase
         $this->assertNull($catalog->findPool('Lottery_Unknown'));
         $this->assertNull($catalog->findPool(' '));
         $this->assertNull($catalog->findPool(null));
+    }
+
+    public function testFindPoolReturnsTheRuns(): void
+    {
+        $stored = self::CATALOG;
+        $stored['banners']['forklottery_nanali'] = [
+            'id' => 'ForkLottery_Nanali',
+            'category' => 'arc',
+            'name' => 'Tiger Special',
+            'up' => ['fork_TigerTally'],
+            'others' => [],
+            'up_guarantee' => 80,
+            'up_source' => 'nte_assets',
+            // Unsorted, duplicated and unusable runs
+            'runs' => [
+                ['start_at' => '2026-08-19 03:00:00', 'end_at' => '2026-09-08 21:59:59'],
+                ['start_at' => '2026-04-29 03:00:00', 'end_at' => '2026-05-12 21:59:59'],
+                ['start_at' => '2026-08-19 03:00:00', 'end_at' => '2026-09-08 21:59:59'],
+                ['start_at' => '2026-05-12 21:59:59', 'end_at' => '2026-04-29 03:00:00'],
+                ['start_at' => '2026-02-30 03:00:00', 'end_at' => '2026-03-08 21:59:59'],
+                ['start_at' => '2026-06-01T03:00:00Z', 'end_at' => '2026-06-08 21:59:59'],
+                ['start_at' => '2026-06-01 03:00:00'],
+                'broken',
+            ],
+        ];
+        $stored['banners']['lottery_nanali'] = ['id' => 'Lottery_Nanali', 'category' => 'board', 'up' => ['1010'], 'up_source' => '', 'runs' => 'broken'];
+        $catalog = $this->createCatalog($stored);
+
+        $pool = $catalog->findPool('forklottery_NANALI');
+        $this->assertSame([
+            ['start_at' => '2026-04-29 03:00:00', 'end_at' => '2026-05-12 21:59:59'],
+            ['start_at' => '2026-08-19 03:00:00', 'end_at' => '2026-09-08 21:59:59'],
+        ], $pool['runs']);
+        $this->assertSame('nte_assets', $pool['up_source']);
+        $this->assertSame(['id', 'category', 'name', 'up', 'others', 'up_guarantee', 'up_source', 'runs'], array_keys($pool));
+
+        // Unusable values read as without them
+        $board = $catalog->findPool('Lottery_Nanali');
+        $this->assertSame(self::NO_RUN, ['up_source' => $board['up_source'], 'runs' => $board['runs']]);
     }
 
     public function testIsArcUpFollowsTheKnownArcPool(): void

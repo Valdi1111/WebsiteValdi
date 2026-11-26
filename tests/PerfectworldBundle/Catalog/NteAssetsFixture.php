@@ -116,6 +116,88 @@ final class NteAssetsFixture
     }
 
     /**
+     * Banner tables of the real 1.5.4 Global datamine (c457cb6), reduced to what the banners are built from:
+     * the 12 Arc pools (rate-up Arc, name), the 13 board pools with the guarantee texts naming the
+     * featured characters, and the featured S characters and Arcs. Merge it over the default files.
+     *
+     * @return array<string, mixed>
+     */
+    public static function realBannerFiles(): array
+    {
+        // Pool suffix => [Arc pool name, rate-up Arc id, Arc name, board featured id, character name, guarantee key suffix, board name]
+        $rotations = [
+            'Nanali' => ['Tiger Special', 'fork_TigerTally', 'Ready-Ready', '1010', 'Nanally', '', 'The Ichi-daime'],
+            'Xun' => ['Bright Moon Special', 'fork_Time', 'Marching Beyond Time', '1052', 'Hotori', 'Xun', 'Misty Tipsy Style'],
+            'AnHunQu' => ['Nocturne Special', 'fork_Rose', 'The Last Rose', '1004', 'Lacrimosa', 'AnHunQu', 'Fading Reverie'],
+            'Kaesi' => ['Pursuit Special', 'fork_GoldWool', "What's Desired", '1071', 'Chaos', 'Kaesi', 'Forsaken Path'],
+            'Zhenhong' => ['Resolve Special', 'fork_LunarPhase', 'Blushing Mirage', '1076', 'Shinku', 'ZhenHong', 'Before the Dawn'],
+            'Yiluoyi' => ['Dreamgate Special', 'fork_Door', 'The Wrong Gate', '1075', 'Iroi', 'Yiluoyi', 'The Lifeline'],
+            'Canhong' => ['Spellbound Special', 'fork_DemonBlade', 'Ravenous Blade', '1036', 'Zankou', 'CanHong', 'Alluring Shadows'],
+            'LingKe' => ['Soundscape Special', 'fork_GoldRecord', 'Voice of the Voyager', '1072', 'Linko', 'LingKe', 'Surfing All Channels!'],
+            'HeiYu' => ['Roostfeather Special', 'fork_twinbirds', 'Crime and Punishment', '1042', 'Blackbird', 'HeiYu', 'Foretold Finale'],
+            'MingYin' => ['Celestial Special', 'fork_prism', 'Far Side of the Moon', '1057', 'Akane Rin', 'MingYin', 'Dazzling Star'],
+            'YeErMu' => ['Echo Special', 'fork_elyms', 'Echoes on Hold', '1090', 'Elyms', 'YeErMu', 'Android Dreams'],
+            'Exe' => ['Encryption Special', 'fork_exe', 'Dotted Horizon', '1074', 'Exe', 'Exe', 'Offline Equations'],
+        ];
+        // The board pool ids do not always share the case of the Arc pool ids
+        $boardIds = ['Zhenhong' => 'Lottery_ZhenHong'];
+
+        $defaults = self::defaultFiles();
+        $localization = $defaults['Localization/en/game.json'];
+        $characters = $defaults['DataTable/Character/DT_Character.json'][0]['Rows'];
+        $arcs = $defaults['DataTable/Fork/DT_ForkItemData.json'][0]['Rows'];
+        $arcPools = [];
+        $poolDrops = [self::poolDrop('Lottery_Permanent')];
+        $localization['ST_Ui']['BPUI_LotteryModuleEntrance_BigGurantten_Changzhu'] = 'Guaranteed <Orange>S-Class</> Character within roll ×<Blue>{0}</>';
+
+        foreach ($rotations as $suffix => [$arcPoolName, $arcId, $arcName, $characterId, $characterName, $guaranteeSuffix, $boardName]) {
+            $nameKey = sprintf('Role_Name_%03d', (int) $characterId - 1000);
+            $localization['ST_Player'][$nameKey] = $characterName;
+            $characters[$characterId] = self::itemRow(self::text('/Game/Text/ST_Player.ST_Player', $nameKey), 'ORANGE', sprintf('/Game/UI/UI_Icon/AvatarImage/200/player_%1$s.player_%1$s', strtolower($suffix)), 'EItemType::ITEM_TYPE_CHARACTER') + ['bIsInvite' => true];
+
+            $localization['ST_Fork'][$arcId . '_name'] = $arcName;
+            $arcs[$arcId] = self::itemRow(self::text('/Game/Text/ST_Fork.ST_Fork', $arcId . '_name'), 'ORANGE', sprintf('/Game/UI/UI_Icon/Fork/%1$s_256.%1$s_256', $arcId), 'EItemType::ITEM_TYPE_FORK');
+
+            $arcPools['ForkLottery_' . $suffix] = [
+                'Name' => self::text('/Game/Text/ST_Ui.ST_Ui', 'ui_forkshop_24', 'Miracle Box'),
+                'ShowText1' => self::text('/Game/Text/ST_Ui.ST_Ui', sprintf('ui_forklottery_up_%s_01', strtolower($suffix)), $arcPoolName),
+                'UpList' => [$arcId],
+                'UpGuaranteeCnt' => 80,
+                'ShowRewards' => [['ItemID' => $arcId, 'IsUp' => true], ['ItemID' => 'fork_Butterfly', 'IsUp' => false]],
+            ];
+
+            $poolDrops[] = self::poolDrop($boardIds[$suffix] ?? 'Lottery_' . $suffix);
+            $guaranteeKey = 'BPUI_LotteryModuleEntrance_BigGurantten' . ($guaranteeSuffix !== '' ? '_' . $guaranteeSuffix : '');
+            $localization['ST_Ui'][$guaranteeKey] = sprintf('Guaranteed <Orange>S-Class</> Character <Red>%s</> within roll ×<Blue>{0}</>', $characterName);
+            $localization['ST_Ui']['Lottery_Kachimingcheng_' . strtolower($suffix)] = $boardName;
+        }
+
+        // A standard S Arc of every Arc pool
+        $localization['ST_Fork']['fork_Butterfly_name'] = 'Reality Refuge';
+        $arcs['fork_Butterfly'] = self::itemRow(self::text('/Game/Text/ST_Fork.ST_Fork', 'fork_Butterfly_name'), 'ORANGE', '/Game/UI/UI_Icon/Fork/fork_Butterfly_256.fork_Butterfly_256', 'EItemType::ITEM_TYPE_FORK');
+        // Row "1" repeats the launch pool
+        $arcPools['1'] = $arcPools['ForkLottery_Nanali'];
+
+        return [
+            'Localization/en/game.json' => $localization,
+            'DataTable/Character/DT_Character.json' => self::table('DT_Character', $characters),
+            'DataTable/Fork/DT_ForkItemData.json' => self::table('DT_ForkItemData', $arcs),
+            'DataTable/Fork/DT_ForkLotteryPoolData.json' => self::table('DT_ForkLotteryPoolData', $arcPools),
+            'DataTable/Monopoly/DT_MonopolyCellDataTable.json' => self::table('DT_MonopolyCellDataTable', [
+                '9' => ['CellID' => '9', 'PoolDropDatas' => $poolDrops],
+            ]),
+        ];
+    }
+
+    /**
+     * @return array{Key: string, Value: array<string, mixed>}
+     */
+    public static function poolDrop(string $poolId): array
+    {
+        return ['Key' => $poolId, 'Value' => ['MapDropDatas' => [['Key' => 'EMonopolyMapType::EMMT_Base_Map', 'Value' => 'Board_Chess_LessMiDie']]]];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public static function defaultFiles(): array

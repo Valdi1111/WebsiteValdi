@@ -3,7 +3,6 @@
 namespace App\Tests\GryphlineBundle\Service\Catalog;
 
 use App\GryphlineBundle\Service\Catalog\AkeCatalog;
-use App\GryphlineBundle\Service\Catalog\AkeCatalogBuilder;
 use App\GryphlineBundle\Service\Catalog\AkeCatalogUpdater;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -38,7 +37,10 @@ class AkeCatalogUpdaterTest extends TestCase
         $this->assertSame('Delivery Guaranteed', $reader->find('wpn_funnel_0011')['name']);
         $this->assertNull($reader->find('wpn_old_0001'));
         $this->assertSame(
-            ['id' => 'rerun_chr_aglina', 'category' => 'char', 'type' => AkeCatalog::CHAR_POOL_TYPE_RERUN, 'up' => ['chr_0013_aglina']],
+            [
+                'id' => 'rerun_chr_aglina', 'category' => 'char', 'type' => AkeCatalog::CHAR_POOL_TYPE_RERUN, 'up' => ['chr_0013_aglina'], 'up_source' => 'irminsul',
+                'runs' => [['start_at' => '2026-11-25 03:00:00', 'end_at' => '2026-12-16 16:59:59']],
+            ],
             $reader->findPool('rerun_chr_aglina'),
         );
         $this->assertSame(AkeCatalog::WEAPON_POOL_TYPE_NORMAL, $reader->findPool('weaponbox_constant_1')['type']);
@@ -75,8 +77,25 @@ class AkeCatalogUpdaterTest extends TestCase
         $this->assertSame(self::PREVIOUS_CATALOG + ['pools' => []], new AkeCatalog($pool)->all());
     }
 
-    private function createUpdater(AkeDataFixture $fixture, AkeCatalog $catalog): AkeCatalogUpdater
+    public function testIrminsulDownStillSavesTheCatalogWithThePreviousRuns(): void
     {
-        return new AkeCatalogUpdater(new AkeCatalogBuilder($fixture->client(), new NullLogger()), $catalog, new NullLogger());
+        $pool = new ArrayAdapter();
+        $catalog = new AkeCatalog($pool);
+        $this->createUpdater(new AkeDataFixture(), $catalog)->update();
+        $saved = $catalog->findPool('rerun_chr_aglina');
+        $this->assertSame('irminsul', $saved['up_source']);
+        $this->assertCount(1, $saved['runs']);
+
+        // The next week irminsul.gg is down: the new build keeps the stored runs and rate-ups
+        $result = $this->createUpdater(new AkeDataFixture(), $catalog, EndfieldIrminsulFixture::down())->update();
+
+        $this->assertSame(AkeDataFixture::LATEST, $result['catalog']['version']);
+        $this->assertSame($saved, new AkeCatalog($pool)->findPool('rerun_chr_aglina'));
+        $this->assertSame([], new AkeCatalog($pool)->findPool('standard')['runs']);
+    }
+
+    private function createUpdater(AkeDataFixture $fixture, AkeCatalog $catalog, ?EndfieldIrminsulFixture $irminsul = null): AkeCatalogUpdater
+    {
+        return new AkeCatalogUpdater($fixture->builder(irminsul: $irminsul, previous: $catalog), $catalog, new NullLogger());
     }
 }

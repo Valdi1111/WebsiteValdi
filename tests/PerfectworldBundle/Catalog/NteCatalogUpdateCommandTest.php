@@ -45,13 +45,47 @@ class NteCatalogUpdateCommandTest extends TestCase
         $this->assertStringContainsString('1.5.4', $display);
         $this->assertMatchesRegularExpression('/Backfilled pulls\s+1/', $display);
         $this->assertMatchesRegularExpression('/arc\s+2/', $display);
-        $this->assertMatchesRegularExpression('/Banners\s+1/', $display);
+        $this->assertMatchesRegularExpression('/Banners\s+1 *$/m', $display);
+        // The only banner features no Arc
+        $this->assertMatchesRegularExpression('/Banner runs\s+0 *$/m', $display);
 
         // Saved in the pool: a fresh reader sees it
         $reader = new NteCatalog($pool);
         $this->assertSame(NteAssetsFixture::SHA, $reader->getSha());
         $this->assertSame('Crime and Punishment', $pull->getName());
         $this->assertSame(5, $pull->getRarity());
+    }
+
+    public function testShowsTheBannerRunsFromIrminsul(): void
+    {
+        $repository = $this->createStub(PerfectworldPullRepository::class);
+        $repository->method('findBy')->willReturn([]);
+        $catalog = new NteCatalog(new ArrayAdapter());
+
+        $tester = new CommandTester($this->createCommand(new NteAssetsFixture(NteAssetsFixture::realBannerFiles()), $catalog, $repository));
+
+        $this->assertSame(Command::SUCCESS, $tester->execute([]), $tester->getDisplay());
+        $display = $tester->getDisplay();
+        // 12 Arc pools and 13 boards (the standard one never runs); 12 + 12 phases, five of each with a rerun
+        $this->assertMatchesRegularExpression('/Banners\s+25 *$/m', $display);
+        $this->assertMatchesRegularExpression('/Banner runs\s+34 *$/m', $display);
+        $this->assertSame(
+            [['start_at' => '2026-04-29 03:00:00', 'end_at' => '2026-05-12 21:59:59'], ['start_at' => '2026-08-19 03:00:00', 'end_at' => '2026-09-08 21:59:59']],
+            $catalog->findPool('Lottery_Nanali')['runs'],
+        );
+    }
+
+    public function testIrminsulDownStillSavesTheCatalog(): void
+    {
+        $repository = $this->createStub(PerfectworldPullRepository::class);
+        $repository->method('findBy')->willReturn([]);
+        $catalog = new NteCatalog(new ArrayAdapter());
+
+        $tester = new CommandTester($this->createCommand(new NteAssetsFixture(NteAssetsFixture::realBannerFiles()), $catalog, $repository, NteIrminsulFixture::down()));
+
+        $this->assertSame(Command::SUCCESS, $tester->execute([]), $tester->getDisplay());
+        $this->assertMatchesRegularExpression('/Banner runs\s+0 *$/m', $tester->getDisplay());
+        $this->assertSame(NteAssetsFixture::SHA, $catalog->getSha());
     }
 
     public function testAbortedBuildKeepsPreviousCatalogAndFails(): void
@@ -74,10 +108,10 @@ class NteCatalogUpdateCommandTest extends TestCase
         $this->assertSame('ffffffffffffffffffffffffffffffffffffffff', $catalog->getSha());
     }
 
-    private function createCommand(NteAssetsFixture $fixture, NteCatalog $catalog, PerfectworldPullRepository $repository): NteCatalogUpdateCommand
+    private function createCommand(NteAssetsFixture $fixture, NteCatalog $catalog, PerfectworldPullRepository $repository, ?NteIrminsulFixture $irminsul = null): NteCatalogUpdateCommand
     {
         return new NteCatalogUpdateCommand(new NteCatalogUpdater(
-            new NteCatalogBuilder($fixture->client(), $catalog, new NullLogger()),
+            new NteCatalogBuilder($fixture->client(), $catalog, ($irminsul ?? new NteIrminsulFixture())->irminsulClient(), NteIrminsulFixture::normalizer(), new NullLogger()),
             $catalog,
             new NteCatalogBackfiller($catalog, $repository, $this->createStub(EntityManagerInterface::class), $this->createStub(ManualPullService::class), new LockFactory(new InMemoryStore()), new ServiceLocator([]), new NullLogger()),
             new NullLogger(),

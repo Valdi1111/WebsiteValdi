@@ -6,6 +6,9 @@ use App\PerfectworldBundle\Service\Catalog\NteCatalog;
 use App\PerfectworldBundle\Service\Catalog\NteCatalogBuilder;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\AbstractLogger;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
@@ -21,7 +24,18 @@ class NteCatalogBuilderTest extends TestCase
         ],
         'avatars' => ['old_avatar' => 'UI_Icon/AvatarImage/256/old_256.png'],
         'pools' => ['lottery_old' => 'Old Board'],
+        'banners' => [
+            'lottery_old' => ['id' => 'Lottery_Old', 'category' => 'board', 'name' => 'Old Board', 'up' => ['1001'], 'others' => [], 'up_guarantee' => null],
+            'forklottery_heiyu' => ['id' => 'ForkLottery_HeiYu', 'category' => 'arc', 'name' => 'Outdated Special', 'up' => ['fork_old'], 'others' => [], 'up_guarantee' => 60],
+        ],
     ];
+
+    private const string FEATURED_KEY = 'BPUI_LotteryModuleEntrance_BigGurantten';
+    private const string POOL_TABLE = 'DataTable/Fork/DT_ForkLotteryPoolData.json';
+    private const string BOARD_CELL_TABLE = 'DataTable/Monopoly/DT_MonopolyCellDataTable.json';
+
+    /** @var list<array{level: string, message: string, context: array<string, mixed>}> */
+    private array $logs = [];
 
     public function testBuildsCompactCatalogFromTablesAtTheCommit(): void
     {
@@ -151,6 +165,7 @@ class NteCatalogBuilderTest extends TestCase
         $this->assertSame([], $catalog['avatars']);
         $this->assertArrayNotHasKey('forklottery_heiyu', $catalog['pools']);
         $this->assertSame('Foretold Finale', $catalog['pools']['lottery_heiyu']);
+        $this->assertSame([], $catalog['banners']);
     }
 
     public function testMergeKeepsIdsMissingFromTheNewDatamine(): void
@@ -166,13 +181,264 @@ class NteCatalogBuilderTest extends TestCase
         $this->assertSame('Old Board', $catalog['pools']['lottery_old']);
         $this->assertSame(NteAssetsFixture::SHA, $catalog['sha']);
 
+        // Ended banners stay, current ones are rebuilt
+        $this->assertSame(self::PREVIOUS_CATALOG['banners']['lottery_old'], $catalog['banners']['lottery_old']);
+        $this->assertSame(
+            ['id' => 'ForkLottery_HeiYu', 'category' => 'arc', 'name' => 'Foretold Special', 'up' => [], 'others' => [], 'up_guarantee' => null],
+            $catalog['banners']['forklottery_heiyu'],
+        );
+
         // build() does not persist: the command saves the result
         $this->assertSame(self::PREVIOUS_CATALOG['sha'], $nteCatalog->getSha());
     }
 
-    private function createBuilder(NteAssetsFixture $fixture, ?NteCatalog $catalog = null): NteCatalogBuilder
+    public function testBuildsArcBannersFromThePoolTable(): void
     {
-        return new NteCatalogBuilder($fixture->client(), $catalog ?? $this->createCatalog(), new NullLogger());
+        $fixture = self::bannerFixture();
+        $catalog = $this->createBuilder($fixture, null, $this->createLogger())->build();
+
+        // Rate-up from UpList (blank and non-string ids dropped), other S from the show rewards
+        $this->assertSame([
+            'id' => 'ForkLottery_HeiYu',
+            'category' => NteCatalog::BANNER_ARC,
+            'name' => 'Foretold Special',
+            'up' => ['fork_twinbirds'],
+            'others' => ['fork_Butterfly', 'fork_BlackBook'],
+            'up_guarantee' => 80,
+        ], $catalog['banners']['forklottery_heiyu']);
+
+        // Without UpList the "IsUp" show rewards are the rate-up; no name and no positive guarantee
+        $this->assertSame([
+            'id' => 'ForkLottery_Zhenhong',
+            'category' => NteCatalog::BANNER_ARC,
+            'name' => null,
+            'up' => ['fork_LunarPhase'],
+            'others' => ['fork_Butterfly'],
+            'up_guarantee' => null,
+        ], $catalog['banners']['forklottery_zhenhong']);
+
+        // Row "1" repeats the launch pool
+        $this->assertArrayNotHasKey('1', $catalog['banners']);
+
+        // Pools keep their shape: named Arc pools only
+        $this->assertSame('Foretold Special', $catalog['pools']['forklottery_heiyu']);
+        $this->assertArrayNotHasKey('forklottery_zhenhong', $catalog['pools']);
+        $this->assertArrayNotHasKey('1', $catalog['pools']);
+
+        // The pool table and the character table are downloaded once
+        $downloads = array_count_values($fixture->requestedRawPaths());
+        $this->assertSame(1, $downloads[self::POOL_TABLE]);
+        $this->assertSame(1, $downloads['DataTable/Character/DT_Character.json']);
+
+        $built = array_values(array_filter($this->logs, static fn (array $log): bool => $log['message'] === 'NTE catalog built'));
+        $this->assertCount(1, $built);
+        $this->assertSame(10, $built[0]['context']['banners']);
+    }
+
+    public function testBuildsBoardBannersWithTheirFeaturedCharacter(): void
+    {
+        $catalog = $this->createBuilder(self::bannerFixture(), null, $this->createLogger())->build();
+
+        $boards = array_filter($catalog['banners'], static fn (array $banner): bool => $banner['category'] === NteCatalog::BANNER_BOARD);
+        $board = static fn (string $id, ?string $name, array $up): array => [
+            'id' => $id,
+            'category' => NteCatalog::BANNER_BOARD,
+            'name' => $name,
+            'up' => $up,
+            'others' => [],
+            'up_guarantee' => null,
+        ];
+
+        $this->assertSame([
+            // Guarantee key without suffix
+            'lottery_nanali' => $board('Lottery_Nanali', null, ['1010']),
+            'lottery_heiyu' => $board('Lottery_HeiYu', 'Foretold Finale', ['1042']),
+            // "_Changzhu" names no featured character
+            'lottery_permanent' => $board('Lottery_Permanent', 'Strange Encounters', []),
+            // Only the pullable one of the three S "Lacrimosa" rows
+            'lottery_anhunqu' => $board('Lottery_AnHunQu', 'Fading Reverie', ['1004']),
+            // "_CanHong" key, the A character 1024 is also named "Zankou"
+            'lottery_canhong' => $board('Lottery_Canhong', null, ['1036']),
+            // Unknown and ambiguous names
+            'lottery_kaesi' => $board('Lottery_Kaesi', null, []),
+            'lottery_exe' => $board('Lottery_Exe', null, []),
+            // No guarantee text
+            'lottery_xun' => $board('Lottery_Xun', null, []),
+        ], $boards);
+
+        $warnings = array_values(array_map(
+            static fn (array $log): array => $log['context'],
+            array_filter($this->logs, static fn (array $log): bool => $log['level'] === LogLevel::WARNING && isset($log['context']['pool'])),
+        ));
+        $this->assertSame([
+            ['pool' => 'Lottery_Kaesi', 'name' => 'Chaos', 'matches' => []],
+            ['pool' => 'Lottery_Exe', 'name' => 'Exe', 'matches' => ['1074', '1075']],
+            // A limited board without guarantee text is flagged; the standard board is not
+            ['pool' => 'Lottery_Xun'],
+        ], $warnings);
+    }
+
+    public function testMissingBoardTableLeavesOnlyArcBanners(): void
+    {
+        $catalog = $this->createBuilder(self::bannerFixture([self::BOARD_CELL_TABLE => null]), null, $this->createLogger())->build();
+
+        $this->assertSame(['forklottery_heiyu', 'forklottery_zhenhong'], array_keys($catalog['banners']));
+        $this->assertSame('Foretold Finale', $catalog['pools']['lottery_heiyu']);
+
+        $skipped = array_column(array_filter($this->logs, static fn (array $log): bool => $log['level'] === LogLevel::WARNING), 'context');
+        $this->assertSame([['path' => self::BOARD_CELL_TABLE, 'sha' => NteAssetsFixture::SHA]], $skipped);
+    }
+
+    /**
+     * Default repository plus Arc pool rows, board cells, guarantee texts and pullable S characters.
+     *
+     * @param array<string, mixed> $files repository path => content, replacing the banner files
+     */
+    private static function bannerFixture(array $files = []): NteAssetsFixture
+    {
+        $defaults = NteAssetsFixture::defaultFiles();
+
+        $localization = $defaults['Localization/en/game.json'];
+        $localization['ST_Player'] += [
+            'Role_Name_004' => 'Lacrimosa',
+            'Role_Name_010' => 'Nanally',
+            'Role_Name_036' => 'Zankou',
+            'Role_Name_074' => 'Exe',
+        ];
+        // Blank in an earlier namespace: the first non-blank text wins
+        $localization['ST_Other'][self::FEATURED_KEY . '_HeiYu'] = ' ';
+        $localization['ST_Ui'] += [
+            self::FEATURED_KEY => self::featuredText('Nanally'),
+            self::FEATURED_KEY . '_HeiYu' => self::featuredText('Blackbird'),
+            self::FEATURED_KEY . '_AnHunQu' => self::featuredText('Lacrimosa'),
+            self::FEATURED_KEY . '_CanHong' => self::featuredText('Zankou'),
+            self::FEATURED_KEY . '_Kaesi' => 'Get <Orange>S-Class</> <Red>Chaos</> after roll ×<Blue>{0}</>',
+            self::FEATURED_KEY . '_Exe' => self::featuredText('Exe'),
+            self::FEATURED_KEY . '_Changzhu' => 'Guaranteed <Orange>S-Class</> Character within roll ×<Blue>{0}</>',
+        ];
+        // The same text repeated in another namespace
+        $localization['ST_UI_hpy'] = [self::FEATURED_KEY . '_HeiYu' => self::featuredText('Blackbird')];
+
+        $characters = $defaults['DataTable/Character/DT_Character.json'][0]['Rows'];
+        $characters['1042']['bIsInvite'] = true;
+        // A character: never featured
+        $characters['1024']['bIsInvite'] = true;
+        $characters += [
+            '1010' => self::character('Role_Name_010', true),
+            '1036' => self::character('Role_Name_036', true),
+            // Three S rows named "Lacrimosa", only one can be pulled
+            '1004' => self::character('Role_Name_004', true),
+            '1056' => self::character('Role_Name_004', false),
+            '1091' => self::character('Role_Name_004', null),
+            // Two pullable S characters with the same name
+            '1074' => self::character('Role_Name_074', true),
+            '1075' => self::character('Role_Name_074', true),
+        ];
+
+        return new NteAssetsFixture(array_replace([
+            'Localization/en/game.json' => $localization,
+            'DataTable/Character/DT_Character.json' => NteAssetsFixture::table('DT_Character', $characters),
+            self::POOL_TABLE => NteAssetsFixture::table('DT_ForkLotteryPoolData', [
+                'ForkLottery_HeiYu' => [
+                    'Name' => NteAssetsFixture::text('/Game/Text/ST_Ui.ST_Ui', 'ui_forkshop_24', 'Miracle Box'),
+                    'ShowText1' => NteAssetsFixture::text('/Game/Text/ST_Ui.ST_Ui', 'ui_forklottery_up_heiyu_01'),
+                    'UpList' => ['fork_twinbirds', '', 7],
+                    'UpGuaranteeCnt' => 80,
+                    'ShowRewards' => [
+                        ['ItemID' => 'fork_twinbirds', 'IsUp' => true],
+                        ['ItemID' => 'fork_Butterfly', 'IsUp' => false],
+                        ['ItemID' => 'fork_BlackBook', 'IsUp' => false],
+                        ['ItemID' => '', 'IsUp' => false],
+                        ['ItemID' => 'fork_NoFlag'],
+                    ],
+                ],
+                'ForkLottery_Zhenhong' => [
+                    'UpGuaranteeCnt' => 0,
+                    'ShowRewards' => [
+                        ['ItemID' => 'fork_LunarPhase', 'IsUp' => true],
+                        ['ItemID' => 'fork_Butterfly', 'IsUp' => false],
+                    ],
+                ],
+                '1' => [
+                    'Name' => NteAssetsFixture::text('/Game/Text/ST_Ui.ST_Ui', 'ui_forkshop_24', 'Miracle Box'),
+                    'UpList' => ['fork_TigerTally'],
+                    'UpGuaranteeCnt' => 80,
+                    'ShowRewards' => [['ItemID' => 'fork_TigerTally', 'IsUp' => true]],
+                ],
+            ]),
+            self::BOARD_CELL_TABLE => NteAssetsFixture::table('DT_MonopolyCellDataTable', [
+                '9' => ['CellID' => '9', 'PoolDropDatas' => [
+                    self::poolDrop('Lottery_Nanali'),
+                    self::poolDrop('Lottery_HeiYu'),
+                    self::poolDrop('Lottery_Permanent'),
+                    self::poolDrop('Lottery_AnHunQu'),
+                ]],
+                '10' => ['CellID' => '10', 'PoolDropDatas' => [
+                    self::poolDrop('Lottery_Nanali'),
+                    self::poolDrop('Lottery_Canhong'),
+                    self::poolDrop('Lottery_Kaesi'),
+                    self::poolDrop('Lottery_Exe'),
+                    self::poolDrop('Lottery_Xun'),
+                    ['Key' => ' '],
+                    'broken',
+                ]],
+                '11' => ['CellID' => '11', 'PoolDropDatas' => []],
+                '12' => ['CellID' => '12'],
+            ]),
+        ], $files));
+    }
+
+    private static function featuredText(string $name): string
+    {
+        return sprintf('Guaranteed <Orange>S-Class</> Character <Red>%s</> within roll ×<Blue>{0}</>', $name);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function character(string $nameKey, ?bool $invite): array
+    {
+        $row = NteAssetsFixture::itemRow(
+            NteAssetsFixture::text('/Game/Text/ST_Player.ST_Player', $nameKey),
+            'ORANGE',
+            sprintf('/Game/UI/UI_Icon/AvatarImage/200/%1$s.%1$s', strtolower($nameKey)),
+            'EItemType::ITEM_TYPE_CHARACTER',
+        );
+        if ($invite !== null) {
+            $row['bIsInvite'] = $invite;
+        }
+
+        return $row;
+    }
+
+    /**
+     * @return array{Key: string, Value: array<string, mixed>}
+     */
+    private static function poolDrop(string $poolId): array
+    {
+        return ['Key' => $poolId, 'Value' => ['MapDropDatas' => [['Key' => 'EMonopolyMapType::EMMT_Base_Map', 'Value' => 'Board_Chess_LessMiDie']]]];
+    }
+
+    private function createLogger(): LoggerInterface
+    {
+        return new class($this->logs) extends AbstractLogger {
+            /**
+             * @param list<array{level: string, message: string, context: array<string, mixed>}> $logs
+             */
+            public function __construct(private array &$logs)
+            {
+            }
+
+            public function log($level, \Stringable|string $message, array $context = []): void
+            {
+                $this->logs[] = ['level' => (string) $level, 'message' => (string) $message, 'context' => $context];
+            }
+        };
+    }
+
+    private function createBuilder(NteAssetsFixture $fixture, ?NteCatalog $catalog = null, ?LoggerInterface $logger = null): NteCatalogBuilder
+    {
+        return new NteCatalogBuilder($fixture->client(), $catalog ?? $this->createCatalog(), $logger ?? new NullLogger());
     }
 
     /**

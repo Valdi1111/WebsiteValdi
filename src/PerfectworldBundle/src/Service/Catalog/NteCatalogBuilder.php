@@ -2,6 +2,7 @@
 
 namespace App\PerfectworldBundle\Service\Catalog;
 
+use App\PerfectworldBundle\Service\NevernessToEvernessService;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -26,6 +27,7 @@ class NteCatalogBuilder
     private const string LOCALIZATION_PATH = 'Localization/en/game.json';
     private const string AVATAR_TABLE_PATH = 'DataTable/Avarta/AvatarDataTable.json';
     private const string ARC_POOL_TABLE_PATH = 'DataTable/Fork/DT_ForkLotteryPoolData.json';
+    private const string BOARD_CELL_TABLE_PATH = 'DataTable/Monopoly/DT_MonopolyCellDataTable.json';
 
     /**
      * Item tables in precedence order: the first table defining an id sets its type, later tables only
@@ -70,6 +72,19 @@ class NteCatalogBuilder
         'permanent' => 'changzhu',
     ];
 
+    /**
+     * Localization keys of the board guarantee texts, which name the featured S character
+     * ("Guaranteed <Orange>S-Class</> Character <Red>Blackbird</> within roll ×<Blue>{0}</>").
+     */
+    private const string BOARD_FEATURED_KEY_PATTERN = '/^BPUI_LotteryModuleEntrance_BigGurantten(?:_(.+))?$/i';
+    private const string BOARD_FEATURED_NAME_PATTERN = '#<Red>(.+?)</>#i';
+
+    /** Export pool suffixes whose guarantee text key uses a different suffix ('' = the key without suffix). */
+    private const array BOARD_FEATURED_KEY_ALIASES = [
+        'nanali' => '',
+        'permanent' => 'changzhu',
+    ];
+
     public function __construct(
         #[Target('perfectworld.nte_assets.client')]
         private readonly HttpClientInterface $httpClient,
@@ -83,7 +98,7 @@ class NteCatalogBuilder
      * Builds the catalog at the given ref (branch, tag or commit) and merges it over the stored one.
      * The result is not saved: callers persist it with NteCatalog::save().
      *
-     * @return array{sha: string, version: string, built_at: string, items: array<string, array{id: string, name: string, rank: ?string, type: string, icon_path: ?string}>, avatars: array<string, string>, pools: array<string, string>}
+     * @return array{sha: string, version: string, built_at: string, items: array<string, array{id: string, name: string, rank: ?string, type: string, icon_path: ?string}>, avatars: array<string, string>, pools: array<string, string>, banners: array<string, array{id: string, category: string, name: ?string, up: list<string>, others: list<string>, up_guarantee: ?int}>}
      *
      * @throws \RuntimeException when the build is aborted (the previous catalog must be kept)
      */
@@ -98,6 +113,8 @@ class NteCatalogBuilder
         }
 
         $items = [];
+        // Lowercased name => ids of the S characters that can be pulled, to resolve the featured board characters
+        $pullableCharacters = [];
         foreach (self::ITEM_TABLES as $table) {
             $rows = $this->fetchTableRows($sha, $table['path'], $table['required']);
             if ($rows === null) {
@@ -110,6 +127,9 @@ class NteCatalogBuilder
                     continue;
                 }
                 $usable += $this->addItem($items, (string) $rowId, $this->resolveItemType($table['type'], (string) $rowId, $row), $row, $localization) ? 1 : 0;
+                if ($table['type'] === NteCatalog::TYPE_CHARACTER) {
+                    $this->addPullableCharacter($pullableCharacters, (string) $rowId, $row, $localization);
+                }
             }
 
             if ($table['required'] && $usable === 0) {
@@ -122,8 +142,15 @@ class NteCatalogBuilder
         $items = array_filter($items, static fn (array $entry): bool => $entry['name'] !== null);
 
         $avatars = $this->buildAvatars($sha);
-        $pools = $this->buildPools($sha, $localization);
-        unset($localization);
+
+        // Read once: it names the Arc pools and lists their featured Arcs
+        $arcPoolRows = $this->fetchTableRows($sha, self::ARC_POOL_TABLE_PATH, false) ?? [];
+        $pools = $this->buildPools($arcPoolRows, $localization);
+        $banners = array_replace(
+            $this->buildArcBanners($arcPoolRows, $pools),
+            $this->buildBoardBanners($sha, $localization, $pools, $pullableCharacters),
+        );
+        unset($localization, $arcPoolRows);
 
         $previous = $this->catalog->all();
         $catalog = [
@@ -133,6 +160,7 @@ class NteCatalogBuilder
             'items' => array_replace($previous['items'], $items),
             'avatars' => array_replace($previous['avatars'], $avatars),
             'pools' => array_replace($previous['pools'], $pools),
+            'banners' => array_replace($previous['banners'], $banners),
         ];
 
         $this->logger->info('NTE catalog built', [
@@ -142,6 +170,7 @@ class NteCatalogBuilder
             'merged_items' => count($catalog['items']),
             'avatars' => count($avatars),
             'pools' => count($pools),
+            'banners' => count($banners),
         ]);
 
         return $catalog;
@@ -236,6 +265,26 @@ class NteCatalogBuilder
     }
 
     /**
+     * Collects the S characters that can be pulled ("bIsInvite") by lowercased name: other S rows reuse
+     * the same names (three "Lacrimosa" rows, only 1004 can be pulled).
+     *
+     * @param array<string, list<string>> $characters
+     * @param array<string, mixed> $row
+     * @param array<string, mixed> $localization
+     */
+    private function addPullableCharacter(array &$characters, string $rowId, array $row, array $localization): void
+    {
+        if (($row['bIsInvite'] ?? null) !== true || $this->resolveRank($row['ItemQuality'] ?? null) !== 'S') {
+            return;
+        }
+
+        $name = $this->resolveText($row['ItemName'] ?? null, $localization);
+        if ($name !== null) {
+            $characters[mb_strtolower($name)][] = $rowId;
+        }
+    }
+
+    /**
      * Profile avatars (SDK "avatar" field, e.g. "Fashion_1042_1") live in AvatarDataTable.
      *
      * @return array<string, string>
@@ -262,16 +311,17 @@ class NteCatalogBuilder
      * Arc pools come from DT_ForkLotteryPoolData ("ShowText1", e.g. "Bright Moon Special"); boards have
      * no table, so their names come from the "Lottery_Kachimingcheng_<suffix>" localization keys.
      *
+     * @param array<int|string, mixed> $arcPoolRows rows of DT_ForkLotteryPoolData
      * @param array<string, mixed> $localization
      *
      * @return array<string, string>
      */
-    private function buildPools(string $sha, array $localization): array
+    private function buildPools(array $arcPoolRows, array $localization): array
     {
         $pools = [];
 
-        foreach ($this->fetchTableRows($sha, self::ARC_POOL_TABLE_PATH, false) ?? [] as $poolId => $row) {
-            if (!is_array($row) || !str_starts_with(strtolower((string) $poolId), 'forklottery_')) {
+        foreach ($arcPoolRows as $poolId => $row) {
+            if (!$this->isArcPoolRow($poolId, $row)) {
                 continue;
             }
             $name = $this->resolveText($row['ShowText1'] ?? null, $localization) ?? $this->resolveText($row['Name'] ?? null, $localization);
@@ -302,6 +352,196 @@ class NteCatalogBuilder
         }
 
         return $pools;
+    }
+
+    /**
+     * Arc banners: the rate-up Arc ("UpList", or the "IsUp" show rewards of rows without it), the other S
+     * Arcs shown by the banner and the guarantee of the rate-up Arc.
+     *
+     * @param array<int|string, mixed> $arcPoolRows rows of DT_ForkLotteryPoolData
+     * @param array<string, string> $pools
+     *
+     * @return array<string, array{id: string, category: string, name: ?string, up: list<string>, others: list<string>, up_guarantee: ?int}>
+     */
+    private function buildArcBanners(array $arcPoolRows, array $pools): array
+    {
+        $banners = [];
+
+        foreach ($arcPoolRows as $poolId => $row) {
+            if (!$this->isArcPoolRow($poolId, $row)) {
+                continue;
+            }
+            $showRewards = is_array($row['ShowRewards'] ?? null) ? $row['ShowRewards'] : [];
+            $guarantee = $row['UpGuaranteeCnt'] ?? null;
+            $key = NteCatalog::normalizeId((string) $poolId);
+
+            $banners[$key] = [
+                'id' => (string) $poolId,
+                'category' => NteCatalog::BANNER_ARC,
+                'name' => $pools[$key] ?? null,
+                'up' => is_array($row['UpList'] ?? null) ? $this->stringList($row['UpList']) : $this->showRewardIds($showRewards, true),
+                'others' => $this->showRewardIds($showRewards, false),
+                'up_guarantee' => is_int($guarantee) && $guarantee > 0 ? $guarantee : null,
+            ];
+        }
+
+        return $banners;
+    }
+
+    /**
+     * Board banners. Boards have no pool table: the pools are the "PoolDropDatas" keys of the board cells,
+     * and the featured S character is only named by the guarantee text of each board.
+     *
+     * @param array<string, mixed> $localization
+     * @param array<string, string> $pools
+     * @param array<string, list<string>> $pullableCharacters lowercased name => S character ids
+     *
+     * @return array<string, array{id: string, category: string, name: ?string, up: list<string>, others: list<string>, up_guarantee: ?int}>
+     */
+    private function buildBoardBanners(string $sha, array $localization, array $pools, array $pullableCharacters): array
+    {
+        $poolIds = [];
+        foreach ($this->fetchTableRows($sha, self::BOARD_CELL_TABLE_PATH, false) ?? [] as $cell) {
+            if (!is_array($cell) || !is_array($cell['PoolDropDatas'] ?? null)) {
+                continue;
+            }
+            foreach ($cell['PoolDropDatas'] as $poolDrop) {
+                $poolId = is_array($poolDrop) ? $this->nonBlank($poolDrop['Key'] ?? null) : null;
+                if ($poolId !== null) {
+                    $poolIds[NteCatalog::normalizeId($poolId)] ??= $poolId;
+                }
+            }
+        }
+
+        if ($poolIds === []) {
+            return [];
+        }
+
+        $featuredNames = $this->findBoardFeaturedNames($localization);
+
+        $banners = [];
+        foreach ($poolIds as $key => $poolId) {
+            $key = (string) $key;
+            $suffix = str_starts_with($key, 'lottery_') ? substr($key, strlen('lottery_')) : $key;
+            $keySuffix = array_key_exists($suffix, $featuredNames) ? $suffix : (self::BOARD_FEATURED_KEY_ALIASES[$suffix] ?? $suffix);
+            $featuredName = $featuredNames[$keySuffix] ?? null;
+            if ($featuredName === null && $key !== NteCatalog::normalizeId(NevernessToEvernessService::BANNER_STANDARD)) {
+                // A limited board whose guarantee text key changed: flag it rather than lose its featured character silently
+                $this->logger->warning('No featured character text for an NTE limited board, banner kept without it', ['pool' => $poolId]);
+            }
+
+            $banners[$key] = [
+                'id' => $poolId,
+                'category' => NteCatalog::BANNER_BOARD,
+                'name' => $pools[$key] ?? null,
+                'up' => $featuredName !== null ? $this->resolveFeaturedCharacter($poolId, $featuredName, $pullableCharacters) : [],
+                'others' => [],
+                'up_guarantee' => null,
+            ];
+        }
+
+        return $banners;
+    }
+
+    /**
+     * Featured S character named by each board guarantee text ("… Character <Red>Blackbird</> …"), by
+     * lowercased key suffix ('' for the key without suffix); null when the text names none (standard
+     * board). The same key may repeat in another namespace: the first non-blank text wins.
+     *
+     * @param array<string, mixed> $localization
+     *
+     * @return array<string, ?string>
+     */
+    private function findBoardFeaturedNames(array $localization): array
+    {
+        $texts = [];
+        foreach ($localization as $strings) {
+            if (!is_array($strings)) {
+                continue;
+            }
+            foreach ($strings as $key => $value) {
+                if (is_string($value) && trim($value) !== '' && preg_match(self::BOARD_FEATURED_KEY_PATTERN, (string) $key, $matches)) {
+                    $texts[strtolower($matches[1] ?? '')] ??= $value;
+                }
+            }
+        }
+
+        return array_map(
+            fn (string $text): ?string => preg_match(self::BOARD_FEATURED_NAME_PATTERN, $text, $matches) ? $this->nonBlank($matches[1]) : null,
+            $texts,
+        );
+    }
+
+    /**
+     * The featured character is matched by name, so it must match exactly one pullable S character.
+     *
+     * @param array<string, list<string>> $pullableCharacters
+     *
+     * @return list<string>
+     */
+    private function resolveFeaturedCharacter(string $poolId, string $name, array $pullableCharacters): array
+    {
+        $ids = $pullableCharacters[mb_strtolower($name)] ?? [];
+        if (count($ids) === 1) {
+            return $ids;
+        }
+
+        $this->logger->warning('Featured character of an NTE board not resolved, banner kept without it', [
+            'pool' => $poolId,
+            'name' => $name,
+            'matches' => $ids,
+        ]);
+
+        return [];
+    }
+
+    /**
+     * Rotation rows of DT_ForkLotteryPoolData ("ForkLottery_<suffix>"); row "1" repeats the launch pool.
+     *
+     * @phpstan-assert-if-true array<string, mixed> $row
+     */
+    private function isArcPoolRow(int|string $poolId, mixed $row): bool
+    {
+        return is_array($row) && str_starts_with(strtolower((string) $poolId), 'forklottery_');
+    }
+
+    /**
+     * Item ids of the banner show rewards with the given "IsUp" flag.
+     *
+     * @param array<int|string, mixed> $showRewards
+     *
+     * @return list<string>
+     */
+    private function showRewardIds(array $showRewards, bool $isUp): array
+    {
+        $ids = [];
+        foreach ($showRewards as $reward) {
+            if (is_array($reward) && ($reward['IsUp'] ?? null) === $isUp) {
+                $ids[] = $reward['ItemID'] ?? null;
+            }
+        }
+
+        return $this->stringList($ids);
+    }
+
+    /**
+     * Distinct non-blank strings of a list, trimmed.
+     *
+     * @param array<int|string, mixed> $values
+     *
+     * @return list<string>
+     */
+    private function stringList(array $values): array
+    {
+        $strings = [];
+        foreach ($values as $value) {
+            $value = $this->nonBlank($value);
+            if ($value !== null && !in_array($value, $strings, true)) {
+                $strings[] = $value;
+            }
+        }
+
+        return $strings;
     }
 
     /**

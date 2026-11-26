@@ -22,6 +22,11 @@ use App\PerfectworldBundle\Service\NevernessToEvernessService;
  * the pull numbers and the monthly totals, but are never B ("unknown_count"), carry no pity and
  * restart the A pity (the gap held As that are not known).
  *
+ * Rate-up: an S Arc is "UP" when the catalog banners say so (NteCatalog::isArcUp(), stored is_up first);
+ * boards have no lost 50/50 (their S is always the featured character), so their rows stay null.
+ * The Arc banner and the limited boards also list their rotations ("pools"): pity is shared, so the
+ * breakdown only counts pulls and S per rotation.
+ *
  * Pure: the window info of the missing pulls feature comes from PullGapPlanner::describe().
  */
 class PerfectworldPullStatsCalculator
@@ -35,8 +40,15 @@ class PerfectworldPullStatsCalculator
         'cosmetic' => 'Cosmetic',
     ];
 
+    /** Banner groups whose summary lists their rotations (the standard board has a single pool). */
+    private const array POOLS_BREAKDOWN_BANNERS = [
+        NevernessToEvernessService::BANNER_LIMITED,
+        NevernessToEvernessService::BANNER_ARC,
+    ];
+
     public function __construct(
         private readonly PullGapPlanner $planner,
+        private readonly ?NteCatalog $catalog = null,
     ) {
     }
 
@@ -137,6 +149,8 @@ class PerfectworldPullStatsCalculator
         $sPulls = [];
         $items = [];
         $monthly = [];
+        $pools = [];
+        $listPools = in_array($bannerGroup['key'], self::POOLS_BREAKDOWN_BANNERS, true);
 
         foreach ($rows as $row) {
             $kind = (string) $row['kind'];
@@ -196,7 +210,10 @@ class PerfectworldPullStatsCalculator
                 ? $row['pulledAt']->format('Y-m-d H:i:s')
                 : (string) $row['pulledAt'];
 
-            $item = $this->mapItem($row, $bannerGroup, $isBoard, $pullNumber, $pity, $pulledAt, $poolNameResolver);
+            $item = $this->mapItem($row, $bannerGroup, $isBoard, $countsAsS, $pullNumber, $pity, $pulledAt, $poolNameResolver);
+            if ($listPools) {
+                $this->addToPool($pools, $item, $bannerGroup, $isCountedUnit, $countsAsS);
+            }
             if ($countsAsS) {
                 // Limits of the manual pull forms (the S item already carries declared_pity)
                 $window = $description['windows'][(int) $row['id']] ?? null;
@@ -251,7 +268,7 @@ class PerfectworldPullStatsCalculator
                 'open_window' => $description['open']->toArray(),
                 // recent_s_pulls is capped: the anchor of "add a missing S" is the oldest S of all
                 'oldest_s' => $sPulls[0] ?? null,
-            ],
+            ] + ($listPools ? ['pools' => array_values($pools)] : []),
             'items' => $items,
             'monthly' => $monthly,
         ];
@@ -325,7 +342,7 @@ class PerfectworldPullStatsCalculator
      * @param array{key: string, name: string} $bannerGroup
      * @return array<string, mixed>
      */
-    private function mapItem(array $row, array $bannerGroup, bool $isBoard, ?int $pullNumber, ?int $pity, string $pulledAt, ?callable $poolNameResolver): array
+    private function mapItem(array $row, array $bannerGroup, bool $isBoard, bool $isS, ?int $pullNumber, ?int $pity, string $pulledAt, ?callable $poolNameResolver): array
     {
         $quantity = (int) ($row['quantity'] ?? 1);
         $poolId = $row['poolId'] ?? null;
@@ -360,9 +377,64 @@ class PerfectworldPullStatsCalculator
 
         $item['origin'] = self::getOrigin($row)->value;
         $item['declared_pity'] = isset($row['declaredPity']) ? (int) $row['declaredPity'] : null;
-        // Rate-up flag of an S when a source gives it (null = unknown, never a lost 50/50)
-        $item['is_up'] = isset($row['isUp']) ? (bool) $row['isUp'] : null;
+        // Rate-up flag of an S (null = unknown or not applicable)
+        $item['is_up'] = $this->isUpOf($row, $isBoard, $isS);
 
         return $item;
+    }
+
+    /**
+     * Rate-up flag of a row: the stored one (sources, manual pulls), else for an S Arc the catalog banners.
+     * Board rows stay null: a limited board's S is always its featured character.
+     *
+     * @param array<string, mixed> $row
+     */
+    private function isUpOf(array $row, bool $isBoard, bool $isS): ?bool
+    {
+        if (isset($row['isUp'])) {
+            return (bool) $row['isUp'];
+        }
+        if ($isBoard || !$isS || $this->catalog === null) {
+            return null;
+        }
+
+        $rewardId = isset($row['rewardId']) ? trim((string) $row['rewardId']) : '';
+        $poolId = isset($row['poolId']) && trim((string) $row['poolId']) !== '' ? (string) $row['poolId'] : null;
+
+        return $rewardId !== '' ? $this->catalog->isArcUp($rewardId, $poolId) : null;
+    }
+
+    /**
+     * Adds a row to the per-rotation breakdown, in the shape of the other providers' "pools" (the pity is
+     * shared by the rotations, so it is not split). Rows without a pool id (old exports, manual and
+     * filler rows) share one entry named after the banner group.
+     *
+     * @param array<string, array<string, mixed>> $pools
+     * @param array<string, mixed> $item Mapped item (pool_id, pool_name, pulled_at)
+     * @param array{name: string} $bannerGroup
+     */
+    private function addToPool(array &$pools, array $item, array $bannerGroup, bool $countsAsPull, bool $isS): void
+    {
+        $poolId = is_string($item['pool_id']) && trim($item['pool_id']) !== '' ? $item['pool_id'] : null;
+        $key = $poolId !== null ? NteCatalog::normalizeId($poolId) : '';
+
+        $pools[$key] ??= [
+            'pool_id' => $poolId,
+            'pool_name' => $poolId !== null ? (string) $item['pool_name'] : $bannerGroup['name'],
+            'pool_version' => null,
+            'total_pulls' => 0,
+            's_count' => 0,
+            's_pity' => null,
+            'a_pity' => null,
+            'first_pulled_at' => $item['pulled_at'],
+            'last_pulled_at' => $item['pulled_at'],
+        ];
+        if ($countsAsPull) {
+            $pools[$key]['total_pulls']++;
+        }
+        if ($isS) {
+            $pools[$key]['s_count']++;
+        }
+        $pools[$key]['last_pulled_at'] = $item['pulled_at'];
     }
 }

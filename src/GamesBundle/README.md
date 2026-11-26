@@ -124,7 +124,8 @@ Optional fields understood by the shared pulls pages:
 | `roll_label` | pull rows | extra "Roll" column in `PullsBannerDetail` (NTE: dice value, Points Gift, Slumberland) |
 | `pity` / `pull_number` = `null` | pull rows | shown as "—" (bonus rows, rewards that do not reset pity) |
 | `origin`, `declared_pity` | pull rows, `recent_s_pulls` | `filler` rows render as "?" (thumbnail, tag, "Unknown pull", estimated date); `manual` S get a tag and a dashed badge; a declared pity gets an indicator, and a warning when the computed pity differs. `official` S get the provider's `officialPullLabel` tag, an "official pity" indicator and no row actions; "Add missing S" is disabled when the oldest S is official |
-| `is_up` | pull rows, `recent_s_pulls` | not shown yet: whether an S was the rate-up item, `null` = unknown (no source said so), never a lost 50/50 |
+| `is_up` | pull rows, `recent_s_pulls` | "UP" tag on a rate-up S (the stored value, or the provider's catalog: Endfield, NTE Arcs); `null` = unknown or not applicable, never a lost 50/50 |
+| `pools` | banner summary | "Banners (n)" table, one row per rotation (`pool_name`, `pool_version` as "#N", `total_pulls`, `s_count`, per-pool `s_pity`/`a_pity` when not `null`): Endfield, NTE Arc banner and limited boards |
 | `recorded_pity`, `insert_after`, `insert_before`, `suggested_at`, `has_room` | S rows | bounds and defaults of the "Correct pity" / "Add earlier S" modals; rows without `has_room` get no actions |
 | `unknown_count`, `open_window`, `oldest_s` | banner summary | number of filler rows; window used by "Add missing S" when the banner has no S; the chronologically first S (with its window fields and `icon_url`), anchor of "Add missing S" even when `recent_s_pulls` is capped (NTE: 50) |
 | rarity `0` | `rarities` filter of `GET .../pulls` | the "?" pill (filler rows), off by default like B |

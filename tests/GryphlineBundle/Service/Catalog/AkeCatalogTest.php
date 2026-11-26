@@ -17,12 +17,22 @@ class AkeCatalogTest extends TestCase
             'wpn_funnel_0011' => ['id' => 'wpn_funnel_0011', 'name' => 'Delivery Guaranteed', 'rarity' => 6, 'type' => 'weapon'],
         ],
         'pools' => [
+            // Stored before the irminsul.gg banners: no up_source or runs
             'joint_1_2_2' => ['id' => 'joint_1_2_2', 'category' => 'char', 'type' => 3, 'up' => ['chr_0016_laevat', 'chr_0013_aglina']],
-            'rerun_wpn_aglina' => ['id' => 'rerun_wpn_aglina', 'category' => 'weapon', 'type' => 1, 'up' => ['wpn_funnel_0011']],
-            'special_1_0_3' => ['id' => 'special_1_0_3', 'category' => 'char', 'type' => 0, 'up' => ['chr_0013_aglina']],
-            'standard' => ['id' => 'standard', 'category' => 'char', 'type' => 2, 'up' => []],
+            'rerun_wpn_aglina' => [
+                'id' => 'rerun_wpn_aglina', 'category' => 'weapon', 'type' => 1, 'up' => ['wpn_funnel_0011'], 'up_source' => 'irminsul',
+                'runs' => [self::RUN_1_5_2, self::RUN_1_7_2],
+            ],
+            'special_1_0_3' => [
+                'id' => 'special_1_0_3', 'category' => 'char', 'type' => 0, 'up' => ['chr_0017_yvonne'], 'up_source' => 'irminsul',
+                'runs' => [['start_at' => '2026-02-24 17:00:00', 'end_at' => '2026-03-11 16:59:59']],
+            ],
+            'standard' => ['id' => 'standard', 'category' => 'char', 'type' => 2, 'up' => [], 'up_source' => 'akedata', 'runs' => []],
         ],
     ];
+
+    private const array RUN_1_5_2 = ['start_at' => '2026-09-24 17:00:00', 'end_at' => '2026-10-14 16:59:59'];
+    private const array RUN_1_7_2 = ['start_at' => '2026-11-25 03:00:00', 'end_at' => '2026-12-16 16:59:59'];
 
     public function testFindReturnsTheItemShape(): void
     {
@@ -43,19 +53,23 @@ class AkeCatalogTest extends TestCase
         $catalog = $this->createCatalog(self::CATALOG);
 
         $this->assertSame(
-            ['id' => 'special_1_0_3', 'category' => 'char', 'type' => AkeCatalog::CHAR_POOL_TYPE_SPECIAL, 'up' => ['chr_0013_aglina']],
+            [
+                'id' => 'special_1_0_3', 'category' => 'char', 'type' => AkeCatalog::CHAR_POOL_TYPE_SPECIAL, 'up' => ['chr_0017_yvonne'], 'up_source' => 'irminsul',
+                'runs' => [['start_at' => '2026-02-24 17:00:00', 'end_at' => '2026-03-11 16:59:59']],
+            ],
             $catalog->findPool('special_1_0_3'),
         );
+        // Stored before the irminsul.gg banners: AkeData rate-ups, no run
         $this->assertSame(
-            ['id' => 'joint_1_2_2', 'category' => 'char', 'type' => AkeCatalog::CHAR_POOL_TYPE_JOINT, 'up' => ['chr_0016_laevat', 'chr_0013_aglina']],
+            ['id' => 'joint_1_2_2', 'category' => 'char', 'type' => AkeCatalog::CHAR_POOL_TYPE_JOINT, 'up' => ['chr_0016_laevat', 'chr_0013_aglina'], 'up_source' => 'akedata', 'runs' => []],
             $catalog->findPool('joint_1_2_2'),
         );
         $this->assertSame(
-            ['id' => 'standard', 'category' => 'char', 'type' => AkeCatalog::CHAR_POOL_TYPE_STANDARD, 'up' => []],
+            ['id' => 'standard', 'category' => 'char', 'type' => AkeCatalog::CHAR_POOL_TYPE_STANDARD, 'up' => [], 'up_source' => 'akedata', 'runs' => []],
             $catalog->findPool('standard'),
         );
         $this->assertSame(
-            ['id' => 'rerun_wpn_aglina', 'category' => 'weapon', 'type' => AkeCatalog::WEAPON_POOL_TYPE_RERUN, 'up' => ['wpn_funnel_0011']],
+            ['id' => 'rerun_wpn_aglina', 'category' => 'weapon', 'type' => AkeCatalog::WEAPON_POOL_TYPE_RERUN, 'up' => ['wpn_funnel_0011'], 'up_source' => 'irminsul', 'runs' => [self::RUN_1_5_2, self::RUN_1_7_2]],
             $catalog->findPool(' rerun_wpn_aglina '),
         );
 
@@ -71,13 +85,33 @@ class AkeCatalogTest extends TestCase
             'unknown_category' => ['id' => 'unknown_category', 'category' => 'item', 'type' => 0, 'up' => []],
             'dirty_up' => ['id' => 'other_id', 'category' => 'weapon', 'type' => 0, 'up' => ['wpn_funnel_0011', 42, '', null]],
             'no_up' => ['id' => 'no_up', 'category' => 'char', 'type' => 2],
+            'dirty_irminsul_fields' => [
+                'id' => 'dirty_irminsul_fields', 'category' => 'weapon', 'type' => 1, 'up' => ['wpn_funnel_0011'], 'up_source' => 'nte_assets',
+                'runs' => [
+                    self::RUN_1_7_2,
+                    'not a run',
+                    ['start_at' => '2026-09-24', 'end_at' => '2026-10-14 16:59:59'],
+                    ['start_at' => '2026-02-30 17:00:00', 'end_at' => '2026-03-11 16:59:59'],
+                    ['start_at' => '2026-10-14 16:59:59', 'end_at' => '2026-09-24 17:00:00'],
+                    ['start_at' => '2026-09-24 17:00:00'],
+                    self::RUN_1_5_2,
+                ],
+            ],
+            'runs_not_a_list' => ['id' => 'runs_not_a_list', 'category' => 'char', 'type' => 0, 'up' => [], 'up_source' => 'irminsul', 'runs' => 'none'],
         ]] + self::CATALOG);
 
         $this->assertNull($catalog->findPool('no_type'));
         $this->assertNull($catalog->findPool('string_type'));
         $this->assertNull($catalog->findPool('unknown_category'));
-        $this->assertSame(['id' => 'dirty_up', 'category' => 'weapon', 'type' => 0, 'up' => ['wpn_funnel_0011']], $catalog->findPool('dirty_up'));
-        $this->assertSame(['id' => 'no_up', 'category' => 'char', 'type' => 2, 'up' => []], $catalog->findPool('no_up'));
+        $this->assertSame(['id' => 'dirty_up', 'category' => 'weapon', 'type' => 0, 'up' => ['wpn_funnel_0011'], 'up_source' => 'akedata', 'runs' => []], $catalog->findPool('dirty_up'));
+        $this->assertSame(['id' => 'no_up', 'category' => 'char', 'type' => 2, 'up' => [], 'up_source' => 'akedata', 'runs' => []], $catalog->findPool('no_up'));
+
+        // Unknown up source and invalid runs (dropped, the others sorted by start)
+        $this->assertSame(
+            ['id' => 'dirty_irminsul_fields', 'category' => 'weapon', 'type' => 1, 'up' => ['wpn_funnel_0011'], 'up_source' => 'akedata', 'runs' => [self::RUN_1_5_2, self::RUN_1_7_2]],
+            $catalog->findPool('dirty_irminsul_fields'),
+        );
+        $this->assertSame(['up_source' => 'irminsul', 'runs' => []], array_slice($catalog->findPool('runs_not_a_list') ?? [], 4));
     }
 
     public function testCatalogStoredBeforeThePoolsHasNoPool(): void
@@ -132,7 +166,7 @@ class AkeCatalogTest extends TestCase
         $reader->reset();
         $this->assertTrue($reader->isLoaded());
         $this->assertSame('Ember', $reader->find('chr_0009_azrila')['name']);
-        $this->assertSame(['chr_0013_aglina'], $reader->findPool('special_1_0_3')['up']);
+        $this->assertSame(['chr_0017_yvonne'], $reader->findPool('special_1_0_3')['up']);
     }
 
     public function testTypeFromItemIdMatchesThePoolCategories(): void

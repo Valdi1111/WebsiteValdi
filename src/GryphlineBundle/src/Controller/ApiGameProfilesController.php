@@ -478,7 +478,8 @@ class ApiGameProfilesController extends AbstractController
     }
 
     /**
-     * Adds icon_url to the S items of a banner summary (recent_s_pulls and oldest_s).
+     * Adds icon_url to the S items of a banner summary (recent_s_pulls, oldest_s) and to the rate-up items
+     * of each banner in its per-banner breakdown (pools[].featured).
      *
      * @param array<string, mixed> $summary
      * @return array<string, mixed>
@@ -490,6 +491,11 @@ class ApiGameProfilesController extends AbstractController
         }
         if (isset($summary['oldest_s'])) {
             $summary['oldest_s'] = $iconUrlBuilder->enrichPullRows($gameService, [$summary['oldest_s']])[0];
+        }
+        foreach ($summary['pools'] ?? [] as $index => $pool) {
+            if (!empty($pool['featured'])) {
+                $summary['pools'][$index]['featured'] = $iconUrlBuilder->enrichPullRows($gameService, $pool['featured']);
+            }
         }
 
         return $summary;

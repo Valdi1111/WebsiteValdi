@@ -4,7 +4,6 @@ namespace App\Tests\GryphlineBundle\Service\Catalog;
 
 use App\GryphlineBundle\Command\AkeCatalogUpdateCommand;
 use App\GryphlineBundle\Service\Catalog\AkeCatalog;
-use App\GryphlineBundle\Service\Catalog\AkeCatalogBuilder;
 use App\GryphlineBundle\Service\Catalog\AkeCatalogUpdater;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -29,7 +28,9 @@ class AkeCatalogUpdateCommandTest extends TestCase
         $this->assertMatchesRegularExpression('/6★\s+4 \(3 operators, 1 weapons\)/', $display);
         $this->assertMatchesRegularExpression('/Operator pools\s+6/', $display);
         $this->assertMatchesRegularExpression('/Weapon pools\s+3/', $display);
+        $this->assertMatchesRegularExpression('/Banner runs\s+4/', $display);
         $this->assertStringNotContainsString('pool was stored', $display);
+        $this->assertStringNotContainsString('No banner run', $display);
 
         $this->assertSame(AkeDataFixture::LATEST, new AkeCatalog($pool)->getVersion());
     }
@@ -58,6 +59,7 @@ class AkeCatalogUpdateCommandTest extends TestCase
         $this->assertMatchesRegularExpression('/Items\s+6 \(6 new\)/', $display);
         $this->assertMatchesRegularExpression('/Operator pools\s+6/', $display);
         $this->assertMatchesRegularExpression('/Weapon pools\s+0/', $display);
+        $this->assertMatchesRegularExpression('/Banner runs\s+2/', $display);
         $this->assertStringContainsString('No weapon pool was stored', $display);
         $this->assertStringNotContainsString('No operator pool was stored', $display);
 
@@ -82,10 +84,23 @@ class AkeCatalogUpdateCommandTest extends TestCase
         $this->assertSame(AkeDataFixture::OLDER, $catalog->getVersion());
     }
 
-    private function createCommand(AkeDataFixture $fixture, AkeCatalog $catalog): AkeCatalogUpdateCommand
+    public function testIrminsulDownWithoutPreviousRunsWarns(): void
+    {
+        $catalog = new AkeCatalog(new ArrayAdapter());
+        $tester = new CommandTester($this->createCommand(new AkeDataFixture(), $catalog, EndfieldIrminsulFixture::down()));
+
+        $this->assertSame(Command::SUCCESS, $tester->execute([]), $tester->getDisplay());
+
+        $display = $tester->getDisplay();
+        $this->assertMatchesRegularExpression('/Banner runs\s+0/', $display);
+        $this->assertStringContainsString('No banner run was stored', $display);
+        $this->assertSame(AkeDataFixture::LATEST, $catalog->getVersion());
+    }
+
+    private function createCommand(AkeDataFixture $fixture, AkeCatalog $catalog, ?EndfieldIrminsulFixture $irminsul = null): AkeCatalogUpdateCommand
     {
         return new AkeCatalogUpdateCommand(new AkeCatalogUpdater(
-            new AkeCatalogBuilder($fixture->client(), new NullLogger()),
+            $fixture->builder(irminsul: $irminsul, previous: $catalog),
             $catalog,
             new NullLogger(),
         ));

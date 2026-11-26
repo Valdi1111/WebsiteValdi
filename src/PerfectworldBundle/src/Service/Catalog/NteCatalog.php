@@ -19,10 +19,13 @@ use Symfony\Contracts\Service\ResetInterface;
  *   items:   [lowercased id => [id, name, rank (S|A|B|null), type (character|arc|item|cosmetic), icon_path]],
  *   avatars: [lowercased avatar id => icon_path],
  *   pools:   [lowercased pool id => display name],
- *   banners: [lowercased pool id => [id, category (arc|board), name, up, others, up_guarantee]]: the rotation
- *            banners with their featured items ("up": the rate-up Arc of an Arc pool, the featured S
- *            character of a limited board), the other S Arcs of an Arc pool ("others") and the featured
- *            guarantee of the Arc pools (in Arcs).
+ *   banners: [lowercased pool id => [id, category (arc|board), name, up, others, up_guarantee, up_source, runs]]:
+ *            the rotation banners with their featured items ("up": the rate-up Arc of an Arc pool, the
+ *            featured S character of a limited board, always decided by NTE_Assets: "up_source" is
+ *            "nte_assets"), the other S Arcs of an Arc pool ("others"), the featured guarantee of the Arc
+ *            pools (in Arcs) and the periods the banner was open ("runs": [start_at, end_at] in UTC,
+ *            "Y-m-d H:i:s", sorted by start; a banner can come back, so it may have several; empty when
+ *            unknown).
  *
  * Lookups are case-insensitive (exports contain e.g. "Fashion_Glide_1075" for "Fashion_glide_1075").
  * The decoded catalog is memoised until reset(), which the kernel calls between worker messages.
@@ -40,6 +43,12 @@ class NteCatalog implements ResetInterface
     /** Banner categories of the "banners" section. */
     public const string BANNER_ARC = 'arc';
     public const string BANNER_BOARD = 'board';
+
+    /** Source of the featured items of a banner ("up_source"): the NTE_Assets datamine. */
+    public const string UP_SOURCE_NTE_ASSETS = 'nte_assets';
+
+    /** Format of the run limits, in UTC. */
+    public const string RUN_DATE_FORMAT = 'Y-m-d H:i:s';
 
     public const array RANK_TO_RARITY = [
         'S' => NevernessToEvernessService::RARITY_S,
@@ -118,9 +127,10 @@ class NteCatalog implements ResetInterface
     }
 
     /**
-     * Rotation banner of an export pool id (e.g. "ForkLottery_HeiYu", "Lottery_HeiYu"), with its featured items.
+     * Rotation banner of an export pool id (e.g. "ForkLottery_HeiYu", "Lottery_HeiYu"), with its featured items
+     * and runs. Catalogs built before the runs read as without them; stored keys outside this shape are ignored.
      *
-     * @return array{id: string, category: string, name: ?string, up: list<string>, others: list<string>, up_guarantee: ?int}|null
+     * @return array{id: string, category: string, name: ?string, up: list<string>, others: list<string>, up_guarantee: ?int, up_source: string, runs: list<array{start_at: string, end_at: string}>}|null
      */
     public function findPool(?string $poolId): ?array
     {
@@ -144,6 +154,8 @@ class NteCatalog implements ResetInterface
             'up' => $ids($entry['up'] ?? null),
             'others' => $ids($entry['others'] ?? null),
             'up_guarantee' => is_int($entry['up_guarantee'] ?? null) ? $entry['up_guarantee'] : null,
+            'up_source' => is_string($entry['up_source'] ?? null) && $entry['up_source'] !== '' ? $entry['up_source'] : self::UP_SOURCE_NTE_ASSETS,
+            'runs' => self::normalizeRuns($entry['runs'] ?? null),
         ];
     }
 
@@ -263,6 +275,43 @@ class NteCatalog implements ResetInterface
     public static function normalizeId(string $id): string
     {
         return strtolower(trim($id));
+    }
+
+    /**
+     * Runs of a banner: the valid [start_at, end_at] pairs ("Y-m-d H:i:s", end not before start), without
+     * duplicates, sorted by start then end. Anything that is not a list of runs reads as no run.
+     *
+     * @return list<array{start_at: string, end_at: string}>
+     */
+    public static function normalizeRuns(mixed $runs): array
+    {
+        if (!is_array($runs)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($runs as $run) {
+            $startAt = is_array($run) ? self::runDate($run['start_at'] ?? null) : null;
+            $endAt = is_array($run) ? self::runDate($run['end_at'] ?? null) : null;
+            // Same fixed-width format: the string order is the chronological one
+            if ($startAt !== null && $endAt !== null && strcmp($startAt, $endAt) <= 0) {
+                $normalized[$startAt . '|' . $endAt] = ['start_at' => $startAt, 'end_at' => $endAt];
+            }
+        }
+        ksort($normalized, \SORT_STRING);
+
+        return array_values($normalized);
+    }
+
+    private static function runDate(mixed $value): ?string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $date = \DateTimeImmutable::createFromFormat('!' . self::RUN_DATE_FORMAT, $value, new \DateTimeZone('UTC'));
+
+        return $date !== false && $date->format(self::RUN_DATE_FORMAT) === $value ? $value : null;
     }
 
     /**

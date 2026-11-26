@@ -20,7 +20,7 @@ class AkeCatalogUpdater
     }
 
     /**
-     * @return array{catalog: array{version: string, built_at: string, items: array<string, array{id: string, name: string, rarity: ?int, type: string}>, pools: array<string, array{id: string, category: string, type: int, up: list<string>}>}, new_items: int}
+     * @return array{catalog: array{version: string, built_at: string, items: array<string, array{id: string, name: string, rarity: ?int, type: string}>, pools: array<string, array{id: string, category: string, type: int, up: list<string>, up_source: string, runs: list<array{start_at: string, end_at: string}>}>}, new_items: int}
      *
      * @throws \RuntimeException when the build is aborted (the previous catalog is kept)
      */

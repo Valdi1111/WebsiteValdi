@@ -461,6 +461,71 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $this->assertSame('icon/item_3', $banner['oldest_s']['icon_url']);
     }
 
+    public function testPullsOverviewAndListGiveTheFeaturedItemsOfEachBannerTheirIcons(): void
+    {
+        $user = $this->createUser(1);
+        [$account, $profile] = $this->createAccountAndProfile($user, 10);
+        $controller = $this->createController();
+
+        $catalog = new AkeCatalog(new ArrayAdapter());
+        $catalog->save([
+            'version' => 'v1',
+            'built_at' => 'now',
+            'items' => [
+                'chr_0013_aglina' => ['id' => 'chr_0013_aglina', 'name' => 'Gilberta', 'rarity' => 6, 'type' => 'char'],
+            ],
+            'pools' => [
+                'special_1_0_3' => ['id' => 'special_1_0_3', 'category' => 'char', 'type' => 0, 'up' => ['chr_0013_aglina'], 'up_source' => 'irminsul', 'runs' => []],
+            ],
+        ]);
+        $calculator = new GryphlinePullStatsCalculator(new PullGapPlanner(), $catalog);
+        // Chartered Headhunting lists its banners: one in the catalog, one unknown (pool_1)
+        $rows = [
+            ['poolId' => 'special_1_0_3'] + $this->pullRow(1, 'E_CharacterGachaPoolType_Special', '2026-06-01 10:00:00', 4, 'Item'),
+            $this->pullRow(2, 'E_CharacterGachaPoolType_Special', '2026-06-20 10:00:00', 4, 'Item'),
+        ];
+        $pullRepo = $this->createStub(GryphlinePullRepository::class);
+        $pullRepo->method('findProfileRows')->willReturn($rows);
+        $pullRepo->method('findBannerRows')->willReturn($rows);
+
+        $hub = $this->createStub(HubInterface::class);
+        $hub->method('getPublicUrl')->willReturn('https://gryphline.test/.well-known/mercure');
+        $hub->method('getFactory')->willReturn($this->createStub(TokenFactoryInterface::class));
+
+        $overview = $controller->apiGameProfilePullsOverview(
+            Request::create('https://gryphline.test/api/accounts/1/gameProfiles/10/pulls/overview', 'GET'),
+            $account,
+            $profile,
+            $pullRepo,
+            $calculator,
+            $this->createIconUrlBuilder(),
+            new PullBackupImporterManager([]),
+            new PullOperationTracker(new ArrayAdapter(), $hub, 'games.test'),
+            new Authorization(new HubRegistry($hub)),
+        );
+        $list = $controller->apiGameProfilePullsList(
+            Request::create('/api/accounts/1/gameProfiles/10/pulls', 'GET', ['banner' => 'E_CharacterGachaPoolType_Special']),
+            $account,
+            $profile,
+            $pullRepo,
+            $calculator,
+            $this->createIconUrlBuilder(),
+        );
+
+        $overviewBanner = json_decode((string) $overview->getContent(), true, 512, JSON_THROW_ON_ERROR)['banners'][0];
+        $listBanner = json_decode((string) $list->getContent(), true, 512, JSON_THROW_ON_ERROR)['banner'];
+        $this->assertSame('E_CharacterGachaPoolType_Special', $overviewBanner['key']);
+        foreach (['overview' => $overviewBanner, 'list' => $listBanner] as $endpoint => $banner) {
+            $this->assertSame(['special_1_0_3', 'pool_1'], array_column($banner['pools'], 'pool_id'), $endpoint);
+            $this->assertSame(
+                [['item_id' => 'chr_0013_aglina', 'name' => 'Gilberta', 'item_type' => 'char', 'rarity' => 6, 'icon_url' => 'icon/chr_0013_aglina']],
+                $banner['pools'][0]['featured'],
+                $endpoint . ': the featured items go through the icon pipeline like the pulls',
+            );
+            $this->assertSame([], $banner['pools'][1]['featured'], $endpoint . ': nothing featured by an unknown banner');
+        }
+    }
+
     public function testPullsListAcceptsRarityZeroForUnknownPulls(): void
     {
         $user = $this->createUser(1);

@@ -52,7 +52,7 @@ class NteCatalogScheduleTest extends TestCase
         $repository = $this->createStub(PerfectworldPullRepository::class);
         $repository->method('findBy')->willReturn([]);
         $updater = new NteCatalogUpdater(
-            new NteCatalogBuilder((new NteAssetsFixture())->client(), $catalog, new NullLogger()),
+            new NteCatalogBuilder((new NteAssetsFixture())->client(), $catalog, (new NteIrminsulFixture())->irminsulClient(), NteIrminsulFixture::normalizer(), new NullLogger()),
             $catalog,
             new NteCatalogBackfiller($catalog, $repository, $this->createStub(EntityManagerInterface::class), $this->createStub(ManualPullService::class), new LockFactory(new InMemoryStore()), new ServiceLocator([]), new NullLogger()),
             new NullLogger(),
@@ -67,7 +67,7 @@ class NteCatalogScheduleTest extends TestCase
     {
         $catalog = new NteCatalog(new ArrayAdapter());
         $updater = new NteCatalogUpdater(
-            new NteCatalogBuilder((new NteAssetsFixture(['README.md' => "> Version: 1.6.0 (CN)\n"]))->client(), $catalog, new NullLogger()),
+            new NteCatalogBuilder((new NteAssetsFixture(['README.md' => "> Version: 1.6.0 (CN)\n"]))->client(), $catalog, (new NteIrminsulFixture())->irminsulClient(), NteIrminsulFixture::normalizer(), new NullLogger()),
             $catalog,
             new NteCatalogBackfiller($catalog, $this->createStub(PerfectworldPullRepository::class), $this->createStub(EntityManagerInterface::class), $this->createStub(ManualPullService::class), new LockFactory(new InMemoryStore()), new ServiceLocator([]), new NullLogger()),
             new NullLogger(),

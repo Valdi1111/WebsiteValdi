@@ -17,11 +17,17 @@ use Symfony\Contracts\Service\ResetInterface;
  *   version (AkeData manifest version id, e.g. "1.6.4@11944529-13"), built_at,
  *   items: [item id => [id, name, rarity (1-6|null), type (char|weapon)]],
  *   pools: [pool id => [id, category (char|weapon), type (int, see the *_POOL_TYPE_* constants),
- *           up (list of rate-up item ids, empty for the standard and beginner pools)]].
+ *           up (list of rate-up item ids, empty for the standard and beginner pools),
+ *           up_source (irminsul when "up" holds the 6★ featured by the irminsul.gg banner of the pool,
+ *                      akedata when it is the AkeData list),
+ *           runs (list of [start_at, end_at] in UTC, "Y-m-d H:i:s", sorted by start: one per irminsul.gg
+ *                 banner of the pool, several for a RE-Factor pool that came back, empty when unknown)]].
  *
  * Item ids are kept verbatim: they equal gryphline_pull.item_id, and the types match its pool_category.
  * Pool ids equal gryphline_pull.pool_id and the pool categories match its pool_category too. Catalogs
- * stored before the pools were added have no "pools" entry: they read as an empty pool list.
+ * stored before the pools were added have no "pools" entry: they read as an empty pool list. Pools
+ * stored before the irminsul.gg banners read as runs [] and up_source "akedata"; stored pool keys outside
+ * this shape (e.g. from an older build) are ignored.
  * The decoded catalog is memoised until reset(), which the kernel calls between worker messages.
  */
 class AkeCatalog implements ResetInterface
@@ -42,13 +48,20 @@ class AkeCatalog implements ResetInterface
     public const int WEAPON_POOL_TYPE_NORMAL = 0;
     public const int WEAPON_POOL_TYPE_RERUN = 1;
 
+    /** Origin of the rate-up items of a pool. */
+    public const string UP_SOURCE_IRMINSUL = 'irminsul';
+    public const string UP_SOURCE_AKEDATA = 'akedata';
+
+    /** Format of the run limits (UTC). */
+    public const string RUN_DATE_FORMAT = 'Y-m-d H:i:s';
+
     /** Item id prefix => catalog type. */
     public const array ID_PREFIX_TO_TYPE = [
         'chr_' => self::TYPE_CHAR,
         'wpn_' => self::TYPE_WEAPON,
     ];
 
-    /** @var array{version: ?string, built_at: ?string, items: array<string, array{id: string, name: string, rarity: ?int, type: string}>, pools: array<string, array{id: string, category: string, type: int, up: list<string>}>}|null */
+    /** @var array{version: ?string, built_at: ?string, items: array<string, array{id: string, name: string, rarity: ?int, type: string}>, pools: array<string, array{id: string, category: string, type: int, up: list<string>, up_source?: string, runs?: list<array{start_at: string, end_at: string}>}>}|null */
     private ?array $catalog = null;
 
     public function __construct(
@@ -89,7 +102,7 @@ class AkeCatalog implements ResetInterface
      * Gacha pool by id, null when no catalog is stored, when the stored catalog predates the pools or
      * when the pool is unknown.
      *
-     * @return array{id: string, category: string, type: int, up: list<string>}|null
+     * @return array{id: string, category: string, type: int, up: list<string>, up_source: string, runs: list<array{start_at: string, end_at: string}>}|null
      */
     public function findPool(string $poolId): ?array
     {
@@ -115,6 +128,8 @@ class AkeCatalog implements ResetInterface
             'category' => $category,
             'type' => $entry['type'],
             'up' => array_values(array_filter($up, static fn (mixed $itemId): bool => is_string($itemId) && $itemId !== '')),
+            'up_source' => ($entry['up_source'] ?? null) === self::UP_SOURCE_IRMINSUL ? self::UP_SOURCE_IRMINSUL : self::UP_SOURCE_AKEDATA,
+            'runs' => self::normalizeRuns($entry['runs'] ?? null),
         ];
     }
 
@@ -142,7 +157,7 @@ class AkeCatalog implements ResetInterface
      * Whole stored catalog (no items when nothing has been built yet, no pools when nothing has been
      * built yet or the stored catalog predates them).
      *
-     * @return array{version: ?string, built_at: ?string, items: array<string, array{id: string, name: string, rarity: ?int, type: string}>, pools: array<string, array{id: string, category: string, type: int, up: list<string>}>}
+     * @return array{version: ?string, built_at: ?string, items: array<string, array{id: string, name: string, rarity: ?int, type: string}>, pools: array<string, array{id: string, category: string, type: int, up: list<string>, up_source?: string, runs?: list<array{start_at: string, end_at: string}>}>}
      */
     public function all(): array
     {
@@ -196,9 +211,43 @@ class AkeCatalog implements ResetInterface
     }
 
     /**
+     * Runs with valid "Y-m-d H:i:s" limits (start not after end), sorted by start.
+     *
+     * @return list<array{start_at: string, end_at: string}>
+     */
+    private static function normalizeRuns(mixed $runs): array
+    {
+        if (!is_array($runs)) {
+            return [];
+        }
+
+        $isTime = static function (mixed $value): bool {
+            if (!is_string($value)) {
+                return false;
+            }
+            $parsed = \DateTimeImmutable::createFromFormat('!' . self::RUN_DATE_FORMAT, $value, new \DateTimeZone('UTC'));
+
+            return $parsed !== false && $parsed->format(self::RUN_DATE_FORMAT) === $value;
+        };
+
+        $normalized = [];
+        foreach ($runs as $run) {
+            $startAt = is_array($run) ? ($run['start_at'] ?? null) : null;
+            $endAt = is_array($run) ? ($run['end_at'] ?? null) : null;
+            if ($isTime($startAt) && $isTime($endAt) && $startAt <= $endAt) {
+                $normalized[] = ['start_at' => $startAt, 'end_at' => $endAt];
+            }
+        }
+        // The fixed-width format sorts chronologically as a string
+        usort($normalized, static fn (array $a, array $b): int => $a['start_at'] <=> $b['start_at']);
+
+        return $normalized;
+    }
+
+    /**
      * @param array<string, mixed> $catalog
      *
-     * @return array{version: ?string, built_at: ?string, items: array<string, array{id: string, name: string, rarity: ?int, type: string}>, pools: array<string, array{id: string, category: string, type: int, up: list<string>}>}
+     * @return array{version: ?string, built_at: ?string, items: array<string, array{id: string, name: string, rarity: ?int, type: string}>, pools: array<string, array{id: string, category: string, type: int, up: list<string>, up_source?: string, runs?: list<array{start_at: string, end_at: string}>}>}
      */
     private static function normalizeCatalog(array $catalog): array
     {

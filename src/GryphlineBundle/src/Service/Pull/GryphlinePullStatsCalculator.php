@@ -36,15 +36,22 @@ class GryphlinePullStatsCalculator
     private const int DYNAMIC_S_MAX_PITY = 80;
     private const int DYNAMIC_A_MAX_PITY = 10;
 
-    /** Banners with a per-banner breakdown in the summary: RE-Factor Headhunting and the per-banner pity ones */
+    /** Rarity of a featured item whose catalog entry has none: the rate-up items of a banner are its 6★ */
+    private const int FEATURED_FALLBACK_RARITY = 6;
+
+    /**
+     * Banners with a per-banner breakdown in the summary: Chartered and RE-Factor Headhunting (pity shared across
+     * their banners, so the breakdown only counts) and the per-banner pity ones
+     */
     private const array POOLS_BREAKDOWN_BANNERS = [
+        ArknightsEndfieldService::POOL_CHARTERED,
         ArknightsEndfieldService::POOL_RERUN,
         ...ArknightsEndfieldService::POOL_PITY_BANNERS,
     ];
 
     public function __construct(
         private readonly PullGapPlanner $planner,
-        /** Rate-up items of each banner (is_up of the recorded S); optional so tests can leave it out */
+        /** Rate-up items and runs of each banner; optional so tests can leave it out */
         private readonly ?AkeCatalog $catalog = null,
     ) {
     }
@@ -511,7 +518,9 @@ class GryphlinePullStatsCalculator
     }
 
     /**
-     * Adds a pull to the per-banner breakdown.
+     * Adds a pull to the per-banner breakdown. A new entry also gets the run of its banner (start_at, end_at in
+     * UTC, the pull wall clock, null when unknown), looked up with its first pull, and its rate-up items
+     * (featured) from the catalog.
      *
      * @param array<string, array<string, mixed>> $pools
      * @param array<string, mixed> $row
@@ -530,7 +539,7 @@ class GryphlinePullStatsCalculator
             'a_pity' => null,
             'first_pulled_at' => $pulledAt,
             'last_pulled_at' => $pulledAt,
-        ];
+        ] + $this->poolCatalogFields($row, $pulledAt);
         if ($countsAsPull) {
             $pools[$key]['total_pulls']++;
         }
@@ -538,6 +547,78 @@ class GryphlinePullStatsCalculator
             $pools[$key]['s_count']++;
         }
         $pools[$key]['last_pulled_at'] = $pulledAt;
+    }
+
+    /**
+     * Run and rate-up items of the banner of a row. The run: the one containing the pull time; when none does
+     * (run missing from the catalog, pull without a usable time), for a rerun pool the one of the row's rerun
+     * number (#1 is the first run, none when the catalog has fewer runs), for any other pool (or a rerun row
+     * without number) its first run. The rate-up items (the same for every run): the catalog "up" list of the
+     * pool, in order, as pull-row-like entries so the shared icon pipeline resolves them like the pulls; ids the
+     * catalog does not know are skipped.
+     *
+     * @param array<string, mixed> $row
+     * @param string               $pulledAt Pull wall clock (UTC, "Y-m-d H:i:s")
+     * @return array{start_at: ?string, end_at: ?string, featured: list<array{item_id: string, name: string, item_type: string, rarity: int}>}
+     */
+    private function poolCatalogFields(array $row, string $pulledAt): array
+    {
+        $poolId = (string) ($row['poolId'] ?? '');
+        $catalog = $this->catalog;
+        $pool = $catalog !== null && $poolId !== '' ? $catalog->findPool($poolId) : null;
+        if ($catalog === null || $pool === null) {
+            return ['start_at' => null, 'end_at' => null, 'featured' => []];
+        }
+
+        $run = self::runContaining($pool['runs'], $pulledAt);
+        if ($run === null) {
+            $isRerunPool = $pool['type'] === ($pool['category'] === AkeCatalog::TYPE_WEAPON ? AkeCatalog::WEAPON_POOL_TYPE_RERUN : AkeCatalog::CHAR_POOL_TYPE_RERUN);
+            $version = self::poolVersionOf($row);
+            $run = $pool['runs'][$isRerunPool && $version !== null ? $version - 1 : 0] ?? null;
+        }
+
+        $featured = [];
+        foreach ($pool['up'] as $itemId) {
+            $item = $catalog->find($itemId);
+            if ($item === null) {
+                continue;
+            }
+            $featured[] = [
+                'item_id' => $item['id'],
+                'name' => $item['name'],
+                // Catalog type (char|weapon): the pool_category of the pulls, which the icon resolver reads
+                'item_type' => $item['type'],
+                'rarity' => $item['rarity'] ?? self::FEATURED_FALLBACK_RARITY,
+            ];
+        }
+
+        return [
+            'start_at' => $run['start_at'] ?? null,
+            'end_at' => $run['end_at'] ?? null,
+            'featured' => $featured,
+        ];
+    }
+
+    /**
+     * First run whose limits (inclusive) contain the pull wall clock, null when none does or the time is not a
+     * "Y-m-d H:i:s" string. Both are UTC in that fixed-width format, so they compare as strings.
+     *
+     * @param list<array{start_at: string, end_at: string}> $runs
+     * @return array{start_at: string, end_at: string}|null
+     */
+    private static function runContaining(array $runs, string $pulledAt): ?array
+    {
+        if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $pulledAt)) {
+            return null;
+        }
+
+        foreach ($runs as $run) {
+            if ($run['start_at'] <= $pulledAt && $pulledAt <= $run['end_at']) {
+                return $run;
+            }
+        }
+
+        return null;
     }
 
     /**

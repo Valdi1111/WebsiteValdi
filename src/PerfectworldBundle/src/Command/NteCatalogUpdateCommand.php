@@ -48,6 +48,11 @@ class NteCatalogUpdateCommand extends Command
         $rows[] = ['Avatars' => (string) count($catalog['avatars'])];
         $rows[] = ['Pools' => (string) count($catalog['pools'])];
         $rows[] = ['Banners' => (string) count($catalog['banners'])];
+        // Periods the banners were open, from irminsul.gg (a banner that came back has several)
+        $rows[] = ['Banner runs' => (string) array_sum(array_map(
+            static fn (mixed $banner): int => is_array($banner) && is_array($banner['runs'] ?? null) ? count($banner['runs']) : 0,
+            $catalog['banners'],
+        ))];
         $rows[] = ['Backfilled pulls' => (string) $backfilled];
 
         $io->title('NTE catalog updated');

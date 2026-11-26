@@ -153,6 +153,13 @@ php bin/console hoyoverse:hsr-catalog:update
 php bin/console hoyoverse:zzz-catalog:update
 ```
 
+The Endfield and NTE catalogs also read the irminsul.gg banner schedule (banner dates, Endfield rate-up items): after deploying that change, rebuild both once instead of waiting for their weekly task:
+
+```bash
+php bin/console gryphline:ake-catalog:update
+php bin/console perfectworld:nte-catalog:update
+```
+
 ---
 
 ## 3. Updates & Deployment

@@ -2,6 +2,10 @@
 
 namespace App\PerfectworldBundle\Service\Catalog;
 
+use App\GamesBundle\Service\Irminsul\IrminsulClient;
+use App\GamesBundle\Service\Irminsul\IrminsulException;
+use App\GamesBundle\Service\Irminsul\IrminsulPhaseNormalizer;
+use App\GamesBundle\Service\Irminsul\IrminsulTimeRules;
 use App\PerfectworldBundle\Service\NevernessToEvernessService;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Target;
@@ -17,6 +21,12 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  *
  * The result is merged over the previous catalog: ids are never reused by the game, so entries that
  * a partial datamine no longer contains are kept.
+ *
+ * The datamine has no banner schedule: the runs of each banner come from the irminsul.gg phases, mapped by
+ * their featured S items (a character phase to the boards featuring its characters, an Arc phase to the Arc
+ * pools featuring its Arcs). irminsul being unavailable does not abort the build: the runs of the previous
+ * catalog are kept. The featured items stay those of the datamine, which agree with irminsul on every
+ * mapped banner by construction.
  */
 class NteCatalogBuilder
 {
@@ -28,6 +38,12 @@ class NteCatalogBuilder
     private const string AVATAR_TABLE_PATH = 'DataTable/Avarta/AvatarDataTable.json';
     private const string ARC_POOL_TABLE_PATH = 'DataTable/Fork/DT_ForkLotteryPoolData.json';
     private const string BOARD_CELL_TABLE_PATH = 'DataTable/Monopoly/DT_MonopolyCellDataTable.json';
+
+    /** Game slug of the irminsul.gg data API. */
+    private const string IRMINSUL_GAME = 'nte';
+
+    /** irminsul.gg rarity of the S items. */
+    private const int IRMINSUL_RARITY_S = 5;
 
     /**
      * Item tables in precedence order: the first table defining an id sets its type, later tables only
@@ -89,6 +105,8 @@ class NteCatalogBuilder
         #[Target('perfectworld.nte_assets.client')]
         private readonly HttpClientInterface $httpClient,
         private readonly NteCatalog $catalog,
+        private readonly IrminsulClient $irminsulClient,
+        private readonly IrminsulPhaseNormalizer $phaseNormalizer,
         #[Target('perfectworld')]
         private readonly LoggerInterface $logger,
     ) {
@@ -98,7 +116,7 @@ class NteCatalogBuilder
      * Builds the catalog at the given ref (branch, tag or commit) and merges it over the stored one.
      * The result is not saved: callers persist it with NteCatalog::save().
      *
-     * @return array{sha: string, version: string, built_at: string, items: array<string, array{id: string, name: string, rank: ?string, type: string, icon_path: ?string}>, avatars: array<string, string>, pools: array<string, string>, banners: array<string, array{id: string, category: string, name: ?string, up: list<string>, others: list<string>, up_guarantee: ?int}>}
+     * @return array{sha: string, version: string, built_at: string, items: array<string, array{id: string, name: string, rank: ?string, type: string, icon_path: ?string}>, avatars: array<string, string>, pools: array<string, string>, banners: array<string, array{id: string, category: string, name: ?string, up: list<string>, others: list<string>, up_guarantee: ?int, up_source: string, runs: list<array{start_at: string, end_at: string}>}>}
      *
      * @throws \RuntimeException when the build is aborted (the previous catalog must be kept)
      */
@@ -153,14 +171,16 @@ class NteCatalogBuilder
         unset($localization, $arcPoolRows);
 
         $previous = $this->catalog->all();
+        $mergedItems = array_replace($previous['items'], $items);
         $catalog = [
             'sha' => $sha,
             'version' => $version,
             'built_at' => new \DateTimeImmutable()->format(\DateTimeInterface::ATOM),
-            'items' => array_replace($previous['items'], $items),
+            'items' => $mergedItems,
             'avatars' => array_replace($previous['avatars'], $avatars),
             'pools' => array_replace($previous['pools'], $pools),
-            'banners' => array_replace($previous['banners'], $banners),
+            // Ended banners kept from the previous catalog get their runs too
+            'banners' => $this->addBannerRuns(array_replace($previous['banners'], $banners), $mergedItems),
         ];
 
         $this->logger->info('NTE catalog built', [
@@ -171,9 +191,197 @@ class NteCatalogBuilder
             'avatars' => count($avatars),
             'pools' => count($pools),
             'banners' => count($banners),
+            'banner_runs' => array_sum(array_map(static fn (mixed $banner): int => is_array($banner) ? count($banner['runs'] ?? []) : 0, $catalog['banners'])),
         ]);
 
         return $catalog;
+    }
+
+    /**
+     * Sets the runs of every banner from irminsul.gg (recomputed from the whole history, never appended), or
+     * keeps those of the previous catalog when irminsul cannot be read.
+     *
+     * @param array<string, mixed> $banners merged banners, by lowercased pool id
+     * @param array<string, array<string, mixed>> $items merged catalog items
+     *
+     * @return array<string, mixed>
+     */
+    private function addBannerRuns(array $banners, array $items): array
+    {
+        try {
+            $runs = $this->fetchBannerRuns($banners, $items);
+        } catch (IrminsulException $e) {
+            $this->logger->warning('irminsul.gg banners unavailable, NTE banner runs kept from the previous catalog', ['error' => $e->getMessage()]);
+            $runs = null;
+        }
+
+        foreach ($banners as $key => $banner) {
+            if (!is_array($banner)) {
+                continue;
+            }
+
+            $banners[$key] = array_merge($banner, [
+                // NTE_Assets decides the featured items, irminsul agrees with it on every mapped banner by construction
+                'up_source' => NteCatalog::UP_SOURCE_NTE_ASSETS,
+                'runs' => $runs !== null ? ($runs[$key] ?? []) : ($this->catalog->findPool((string) $key)['runs'] ?? []),
+            ]);
+        }
+
+        return $banners;
+    }
+
+    /**
+     * Runs of the banners from the irminsul.gg phases, mapped by their featured S items: the S characters of a
+     * character phase (by exact irminsul name, whose id is the game id) to the boards featuring them, the S Arcs
+     * of an Arc phase (by case-insensitive name among the S Arcs of the catalog) to the Arc pools featuring
+     * them. A phase with a rerun features two S, so it adds a run to two banners. Unmatched names are logged.
+     *
+     * Every file is read before anything is mapped, so a failure leaves all runs to the previous catalog.
+     *
+     * @param array<string, mixed> $banners merged banners, by lowercased pool id
+     * @param array<string, array<string, mixed>> $items merged catalog items
+     *
+     * @return array<string, list<array{start_at: string, end_at: string}>> by lowercased pool id
+     *
+     * @throws IrminsulException when a file cannot be read or has no usable phase
+     */
+    private function fetchBannerRuns(array $banners, array $items): array
+    {
+        $characters = $this->irminsulClient->fetch(self::IRMINSUL_GAME, IrminsulClient::FILE_CHARACTERS);
+        $phasesByCategory = [];
+        foreach ([NteCatalog::BANNER_BOARD => IrminsulClient::FILE_BANNER_CHARACTERS, NteCatalog::BANNER_ARC => IrminsulClient::FILE_BANNER_WEAPONS] as $category => $file) {
+            $phases = $this->phaseNormalizer->normalize($this->irminsulClient->fetch(self::IRMINSUL_GAME, $file), $category, IrminsulTimeRules::nte(), $this->logger);
+            if ($phases === []) {
+                throw new IrminsulException(sprintf('irminsul.gg %s/%s.json has no usable phase.', self::IRMINSUL_GAME, $file));
+            }
+            $phasesByCategory[$category] = $phases;
+        }
+
+        // Exact irminsul name => [game id, rarity] of every character entry
+        $charactersByName = [];
+        foreach ($characters as $character) {
+            $id = $character['id'] ?? null;
+            $name = $this->nonBlank($character['name'] ?? null);
+            if ((is_int($id) || (is_string($id) && ctype_digit($id))) && $name !== null) {
+                $charactersByName[$name][] = ['id' => (string) $id, 'rarity' => $character['rarity'] ?? null];
+            }
+        }
+
+        // Lowercased name => ids of the S Arcs of the catalog
+        $arcIdsByName = [];
+        foreach ($items as $item) {
+            if (is_array($item) && ($item['type'] ?? null) === NteCatalog::TYPE_ARC && ($item['rank'] ?? null) === 'S' && is_string($item['name'] ?? null) && is_string($item['id'] ?? null)) {
+                $arcIdsByName[mb_strtolower(trim($item['name']))][] = $item['id'];
+            }
+        }
+
+        // Category => lowercased featured item id => lowercased pool ids of the banners featuring it
+        $bannersByFeatured = [];
+        foreach ($banners as $key => $banner) {
+            $category = is_array($banner) ? ($banner['category'] ?? null) : null;
+            if (!in_array($category, [NteCatalog::BANNER_ARC, NteCatalog::BANNER_BOARD], true) || !is_array($banner['up'] ?? null)) {
+                continue;
+            }
+            foreach ($banner['up'] as $featuredId) {
+                if (is_string($featuredId) && trim($featuredId) !== '') {
+                    $bannersByFeatured[$category][NteCatalog::normalizeId($featuredId)][] = (string) $key;
+                }
+            }
+        }
+
+        $runs = [];
+        $mappedPhases = 0;
+        foreach ($phasesByCategory as $category => $phases) {
+            foreach ($phases as $phase) {
+                $context = ['category' => $category, 'version' => $phase['version']];
+                $phaseBannerKeys = [];
+                foreach ($phase['rate_ups'] as $name) {
+                    $featuredId = $category === NteCatalog::BANNER_BOARD
+                        ? $this->resolveIrminsulCharacter($name, $charactersByName, $context)
+                        : $this->resolveIrminsulArc($name, $arcIdsByName, $context);
+                    if ($featuredId === null) {
+                        continue;
+                    }
+
+                    $bannerKeys = $bannersByFeatured[$category][NteCatalog::normalizeId($featuredId)] ?? [];
+                    if ($bannerKeys === []) {
+                        $this->logger->warning('irminsul.gg NTE rate-up featured by no catalog banner, no run added', $context + ['name' => $name, 'item' => $featuredId]);
+                        continue;
+                    }
+                    array_push($phaseBannerKeys, ...$bannerKeys);
+                }
+
+                $run = [
+                    'start_at' => self::toUtc($phase['start']),
+                    'end_at' => self::toUtc($phase['end']),
+                ];
+                foreach (array_unique($phaseBannerKeys) as $bannerKey) {
+                    $runs[$bannerKey][] = $run;
+                }
+                $mappedPhases += $phaseBannerKeys !== [] ? 1 : 0;
+            }
+        }
+
+        $runs = array_map(NteCatalog::normalizeRuns(...), $runs);
+
+        $this->logger->info('NTE banner runs read from irminsul.gg', [
+            'phases' => array_sum(array_map('count', $phasesByCategory)),
+            'mapped_phases' => $mappedPhases,
+            'banners' => count($runs),
+            'runs' => array_sum(array_map('count', $runs)),
+        ]);
+
+        return $runs;
+    }
+
+    /**
+     * Game id of the S character an irminsul rate-up names (exact irminsul name); null for an A character, or
+     * with a warning for an unknown or ambiguous name.
+     *
+     * @param array<string, list<array{id: string, rarity: mixed}>> $charactersByName
+     * @param array<string, mixed> $context
+     */
+    private function resolveIrminsulCharacter(string $name, array $charactersByName, array $context): ?string
+    {
+        $matches = $charactersByName[$name] ?? [];
+        if (count($matches) !== 1) {
+            $this->logger->warning('irminsul.gg NTE rate-up character not resolved, no run added', $context + ['name' => $name, 'matches' => array_column($matches, 'id')]);
+
+            return null;
+        }
+
+        return $matches[0]['rarity'] === self::IRMINSUL_RARITY_S ? $matches[0]['id'] : null;
+    }
+
+    /**
+     * Id of the catalog S Arc an irminsul rate-up names (case-insensitive exact name), with a warning when no
+     * S Arc or several have it.
+     *
+     * @param array<string, list<string>> $arcIdsByName
+     * @param array<string, mixed> $context
+     */
+    private function resolveIrminsulArc(string $name, array $arcIdsByName, array $context): ?string
+    {
+        $ids = $arcIdsByName[mb_strtolower(trim($name))] ?? [];
+        if (count($ids) !== 1) {
+            $this->logger->warning('irminsul.gg NTE rate-up Arc not resolved, no run added', $context + ['name' => $name, 'matches' => $ids]);
+
+            return null;
+        }
+
+        return $ids[0];
+    }
+
+    /**
+     * UTC "Y-m-d H:i:s" of a normalized irminsul time (NTE times carry UTC+8; one without zone is read as UTC+8).
+     *
+     * @param array{at: string, offset: ?int} $time
+     */
+    private static function toUtc(array $time): string
+    {
+        return IrminsulPhaseNormalizer::toInstant($time, new \DateTimeZone('+08:00'))
+            ->setTimezone(new \DateTimeZone('UTC'))
+            ->format(NteCatalog::RUN_DATE_FORMAT);
     }
 
     private function resolveSha(string $ref): string
@@ -356,12 +564,12 @@ class NteCatalogBuilder
 
     /**
      * Arc banners: the rate-up Arc ("UpList", or the "IsUp" show rewards of rows without it), the other S
-     * Arcs shown by the banner and the guarantee of the rate-up Arc.
+     * Arcs shown by the banner and the guarantee of the rate-up Arc. The runs are set later, from irminsul.gg.
      *
      * @param array<int|string, mixed> $arcPoolRows rows of DT_ForkLotteryPoolData
      * @param array<string, string> $pools
      *
-     * @return array<string, array{id: string, category: string, name: ?string, up: list<string>, others: list<string>, up_guarantee: ?int}>
+     * @return array<string, array{id: string, category: string, name: ?string, up: list<string>, others: list<string>, up_guarantee: ?int, up_source: string, runs: list<array{start_at: string, end_at: string}>}>
      */
     private function buildArcBanners(array $arcPoolRows, array $pools): array
     {
@@ -382,6 +590,8 @@ class NteCatalogBuilder
                 'up' => is_array($row['UpList'] ?? null) ? $this->stringList($row['UpList']) : $this->showRewardIds($showRewards, true),
                 'others' => $this->showRewardIds($showRewards, false),
                 'up_guarantee' => is_int($guarantee) && $guarantee > 0 ? $guarantee : null,
+                'up_source' => NteCatalog::UP_SOURCE_NTE_ASSETS,
+                'runs' => [],
             ];
         }
 
@@ -390,13 +600,14 @@ class NteCatalogBuilder
 
     /**
      * Board banners. Boards have no pool table: the pools are the "PoolDropDatas" keys of the board cells,
-     * and the featured S character is only named by the guarantee text of each board.
+     * and the featured S character is only named by the guarantee text of each board. The runs are set
+     * later, from irminsul.gg.
      *
      * @param array<string, mixed> $localization
      * @param array<string, string> $pools
      * @param array<string, list<string>> $pullableCharacters lowercased name => S character ids
      *
-     * @return array<string, array{id: string, category: string, name: ?string, up: list<string>, others: list<string>, up_guarantee: ?int}>
+     * @return array<string, array{id: string, category: string, name: ?string, up: list<string>, others: list<string>, up_guarantee: ?int, up_source: string, runs: list<array{start_at: string, end_at: string}>}>
      */
     private function buildBoardBanners(string $sha, array $localization, array $pools, array $pullableCharacters): array
     {
@@ -437,6 +648,8 @@ class NteCatalogBuilder
                 'up' => $featuredName !== null ? $this->resolveFeaturedCharacter($poolId, $featuredName, $pullableCharacters) : [],
                 'others' => [],
                 'up_guarantee' => null,
+                'up_source' => NteCatalog::UP_SOURCE_NTE_ASSETS,
+                'runs' => [],
             ];
         }
 

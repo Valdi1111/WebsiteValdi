@@ -2,6 +2,7 @@
 
 namespace App\Tests\PerfectworldBundle\Catalog;
 
+use App\GamesBundle\Service\Irminsul\IrminsulPhaseNormalizer;
 use App\PerfectworldBundle\Service\Catalog\NteCatalog;
 use App\PerfectworldBundle\Service\Catalog\NteCatalogBuilder;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -28,6 +29,22 @@ class NteCatalogBuilderTest extends TestCase
             'lottery_old' => ['id' => 'Lottery_Old', 'category' => 'board', 'name' => 'Old Board', 'up' => ['1001'], 'others' => [], 'up_guarantee' => null],
             'forklottery_heiyu' => ['id' => 'ForkLottery_HeiYu', 'category' => 'arc', 'name' => 'Outdated Special', 'up' => ['fork_old'], 'others' => [], 'up_guarantee' => 60],
         ],
+    ];
+
+    /** UTC runs of the irminsul.gg phases (11:00 to 05:59:59 UTC+8), by version */
+    private const array RUNS = [
+        '1.0.1' => ['start_at' => '2026-04-29 03:00:00', 'end_at' => '2026-05-12 21:59:59'],
+        '1.0.2' => ['start_at' => '2026-05-13 03:00:00', 'end_at' => '2026-06-02 21:59:59'],
+        '1.1.1' => ['start_at' => '2026-06-03 03:00:00', 'end_at' => '2026-06-23 21:59:59'],
+        '1.1.2' => ['start_at' => '2026-06-24 03:00:00', 'end_at' => '2026-07-07 21:59:59'],
+        '1.2.1' => ['start_at' => '2026-07-08 03:00:00', 'end_at' => '2026-07-28 21:59:59'],
+        '1.2.2' => ['start_at' => '2026-07-29 03:00:00', 'end_at' => '2026-08-18 21:59:59'],
+        '1.3.1' => ['start_at' => '2026-08-19 03:00:00', 'end_at' => '2026-09-08 21:59:59'],
+        '1.3.2' => ['start_at' => '2026-09-09 03:00:00', 'end_at' => '2026-09-29 21:59:59'],
+        '1.4.1' => ['start_at' => '2026-09-30 03:00:00', 'end_at' => '2026-10-20 21:59:59'],
+        '1.4.2' => ['start_at' => '2026-10-21 03:00:00', 'end_at' => '2026-11-10 21:59:59'],
+        '1.5.1' => ['start_at' => '2026-11-11 03:00:00', 'end_at' => '2026-12-01 21:59:59'],
+        '1.5.2' => ['start_at' => '2026-12-02 03:00:00', 'end_at' => '2026-12-22 21:59:59'],
     ];
 
     private const string FEATURED_KEY = 'BPUI_LotteryModuleEntrance_BigGurantten';
@@ -181,10 +198,13 @@ class NteCatalogBuilderTest extends TestCase
         $this->assertSame('Old Board', $catalog['pools']['lottery_old']);
         $this->assertSame(NteAssetsFixture::SHA, $catalog['sha']);
 
-        // Ended banners stay, current ones are rebuilt
-        $this->assertSame(self::PREVIOUS_CATALOG['banners']['lottery_old'], $catalog['banners']['lottery_old']);
+        // Ended banners stay (with the fields added since), current ones are rebuilt
         $this->assertSame(
-            ['id' => 'ForkLottery_HeiYu', 'category' => 'arc', 'name' => 'Foretold Special', 'up' => [], 'others' => [], 'up_guarantee' => null],
+            self::PREVIOUS_CATALOG['banners']['lottery_old'] + ['up_source' => 'nte_assets', 'runs' => []],
+            $catalog['banners']['lottery_old'],
+        );
+        $this->assertSame(
+            ['id' => 'ForkLottery_HeiYu', 'category' => 'arc', 'name' => 'Foretold Special', 'up' => [], 'others' => [], 'up_guarantee' => null, 'up_source' => 'nte_assets', 'runs' => []],
             $catalog['banners']['forklottery_heiyu'],
         );
 
@@ -197,7 +217,8 @@ class NteCatalogBuilderTest extends TestCase
         $fixture = self::bannerFixture();
         $catalog = $this->createBuilder($fixture, null, $this->createLogger())->build();
 
-        // Rate-up from UpList (blank and non-string ids dropped), other S from the show rewards
+        // Rate-up from UpList (blank and non-string ids dropped), other S from the show rewards; its rate-up
+        // Arc "Crime and Punishment" is the irminsul 1.4.1 Arc phase
         $this->assertSame([
             'id' => 'ForkLottery_HeiYu',
             'category' => NteCatalog::BANNER_ARC,
@@ -205,9 +226,12 @@ class NteCatalogBuilderTest extends TestCase
             'up' => ['fork_twinbirds'],
             'others' => ['fork_Butterfly', 'fork_BlackBook'],
             'up_guarantee' => 80,
+            'up_source' => NteCatalog::UP_SOURCE_NTE_ASSETS,
+            'runs' => [self::RUNS['1.4.1']],
         ], $catalog['banners']['forklottery_heiyu']);
 
-        // Without UpList the "IsUp" show rewards are the rate-up; no name and no positive guarantee
+        // Without UpList the "IsUp" show rewards are the rate-up; no name, no positive guarantee and no run
+        // (its rate-up Arc is not in the catalog)
         $this->assertSame([
             'id' => 'ForkLottery_Zhenhong',
             'category' => NteCatalog::BANNER_ARC,
@@ -215,6 +239,8 @@ class NteCatalogBuilderTest extends TestCase
             'up' => ['fork_LunarPhase'],
             'others' => ['fork_Butterfly'],
             'up_guarantee' => null,
+            'up_source' => NteCatalog::UP_SOURCE_NTE_ASSETS,
+            'runs' => [],
         ], $catalog['banners']['forklottery_zhenhong']);
 
         // Row "1" repeats the launch pool
@@ -240,25 +266,28 @@ class NteCatalogBuilderTest extends TestCase
         $catalog = $this->createBuilder(self::bannerFixture(), null, $this->createLogger())->build();
 
         $boards = array_filter($catalog['banners'], static fn (array $banner): bool => $banner['category'] === NteCatalog::BANNER_BOARD);
-        $board = static fn (string $id, ?string $name, array $up): array => [
+        // Runs from the irminsul character phases featuring the board character
+        $board = static fn (string $id, ?string $name, array $up, array $runs = []): array => [
             'id' => $id,
             'category' => NteCatalog::BANNER_BOARD,
             'name' => $name,
             'up' => $up,
             'others' => [],
             'up_guarantee' => null,
+            'up_source' => NteCatalog::UP_SOURCE_NTE_ASSETS,
+            'runs' => $runs,
         ];
 
         $this->assertSame([
-            // Guarantee key without suffix
-            'lottery_nanali' => $board('Lottery_Nanali', null, ['1010']),
-            'lottery_heiyu' => $board('Lottery_HeiYu', 'Foretold Finale', ['1042']),
+            // Guarantee key without suffix; rerun in 1.3.1
+            'lottery_nanali' => $board('Lottery_Nanali', null, ['1010'], [self::RUNS['1.0.1'], self::RUNS['1.3.1']]),
+            'lottery_heiyu' => $board('Lottery_HeiYu', 'Foretold Finale', ['1042'], [self::RUNS['1.4.1']]),
             // "_Changzhu" names no featured character
             'lottery_permanent' => $board('Lottery_Permanent', 'Strange Encounters', []),
             // Only the pullable one of the three S "Lacrimosa" rows
-            'lottery_anhunqu' => $board('Lottery_AnHunQu', 'Fading Reverie', ['1004']),
+            'lottery_anhunqu' => $board('Lottery_AnHunQu', 'Fading Reverie', ['1004'], [self::RUNS['1.1.1'], self::RUNS['1.4.1']]),
             // "_CanHong" key, the A character 1024 is also named "Zankou"
-            'lottery_canhong' => $board('Lottery_Canhong', null, ['1036']),
+            'lottery_canhong' => $board('Lottery_Canhong', null, ['1036'], [self::RUNS['1.3.1']]),
             // Unknown and ambiguous names
             'lottery_kaesi' => $board('Lottery_Kaesi', null, []),
             'lottery_exe' => $board('Lottery_Exe', null, []),
@@ -285,8 +314,200 @@ class NteCatalogBuilderTest extends TestCase
         $this->assertSame(['forklottery_heiyu', 'forklottery_zhenhong'], array_keys($catalog['banners']));
         $this->assertSame('Foretold Finale', $catalog['pools']['lottery_heiyu']);
 
-        $skipped = array_column(array_filter($this->logs, static fn (array $log): bool => $log['level'] === LogLevel::WARNING), 'context');
+        $skipped = array_column(array_filter($this->logs, static fn (array $log): bool => $log['level'] === LogLevel::WARNING && isset($log['context']['path'])), 'context');
         $this->assertSame([['path' => self::BOARD_CELL_TABLE, 'sha' => NteAssetsFixture::SHA]], $skipped);
+    }
+
+    public function testRealIrminsulPhasesGiveEveryBannerItsRuns(): void
+    {
+        $irminsul = new NteIrminsulFixture();
+        $catalog = $this->createBuilder(new NteAssetsFixture(NteAssetsFixture::realBannerFiles()), null, $this->createLogger(), $irminsul)->build();
+        $banners = $catalog['banners'];
+
+        // Every phase maps by its featured S; a rerun phase (1.3.1 on) adds a run to two boards and two Arc pools
+        $versions = [
+            'nanali' => ['1.0.1', '1.3.1'],
+            'xun' => ['1.0.2', '1.3.2'],
+            'anhunqu' => ['1.1.1', '1.4.1'],
+            'kaesi' => ['1.1.2', '1.5.2'],
+            'zhenhong' => ['1.2.1', '1.5.1'],
+            'yiluoyi' => ['1.2.2'],
+            'canhong' => ['1.3.1'],
+            'lingke' => ['1.3.2'],
+            'heiyu' => ['1.4.1'],
+            'mingyin' => ['1.4.2'],
+            'yeermu' => ['1.5.1'],
+            'exe' => ['1.5.2'],
+        ];
+        $expected = ['lottery_permanent' => []];
+        foreach ($versions as $suffix => $phaseVersions) {
+            $runs = array_map(static fn (string $version): array => self::RUNS[$version], $phaseVersions);
+            $expected['forklottery_' . $suffix] = $runs;
+            $expected['lottery_' . $suffix] = $runs;
+        }
+        $actual = array_map(static fn (array $banner): array => $banner['runs'], $banners);
+        ksort($expected);
+        ksort($actual);
+        $this->assertSame($expected, $actual);
+        $this->assertSame(34, array_sum(array_map('count', $actual)));
+
+        // NTE_Assets keeps the featured items
+        $this->assertSame(['fork_TigerTally'], $banners['forklottery_nanali']['up']);
+        $this->assertSame(['1010'], $banners['lottery_nanali']['up']);
+        foreach ($banners as $banner) {
+            $this->assertSame(NteCatalog::UP_SOURCE_NTE_ASSETS, $banner['up_source']);
+        }
+
+        $this->assertSame([], array_values(array_filter($this->logs, static fn (array $log): bool => $log['level'] === LogLevel::WARNING)), 'Every rate-up is matched');
+        $this->assertSame(['phases' => 24, 'mapped_phases' => 24, 'banners' => 24, 'runs' => 34], $this->logContext('NTE banner runs read from irminsul.gg'));
+        $this->assertSame(34, $this->logContext('NTE catalog built')['banner_runs']);
+        // The weapon items are not needed: Arcs are matched against the catalog
+        $this->assertSame([NteIrminsulFixture::CHARACTERS, NteIrminsulFixture::BANNER_CHARACTERS, NteIrminsulFixture::BANNER_WEAPONS], $irminsul->requestedPaths);
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>}>
+     */
+    public static function irminsulFailureProvider(): iterable
+    {
+        yield 'every file down' => [NteIrminsulFixture::down()->files];
+        // Character phases readable: still nothing is taken from irminsul
+        yield 'Arc phases down' => [[NteIrminsulFixture::BANNER_WEAPONS => null]];
+        yield 'invalid JSON' => [[NteIrminsulFixture::BANNER_CHARACTERS => '{"broken']];
+        yield 'no usable phase' => [[NteIrminsulFixture::BANNER_WEAPONS => [['id' => 1, 'version' => '1.0.1', 'rateUps' => ['Ready-Ready']]]]];
+    }
+
+    /**
+     * @param array<string, mixed> $irminsulFiles
+     */
+    #[DataProvider('irminsulFailureProvider')]
+    public function testIrminsulFailureKeepsThePreviousRuns(array $irminsulFiles): void
+    {
+        $previous = self::PREVIOUS_CATALOG;
+        $previous['banners']['lottery_heiyu'] = ['id' => 'Lottery_HeiYu', 'category' => 'board', 'name' => 'Foretold Finale', 'up' => ['1042'], 'others' => [], 'up_guarantee' => null, 'up_source' => 'nte_assets', 'runs' => [self::RUNS['1.4.1']]];
+        // Ended banner, no longer in the datamine
+        $previous['banners']['forklottery_old'] = ['id' => 'ForkLottery_Old', 'category' => 'arc', 'name' => 'Old Special', 'up' => ['fork_old'], 'others' => [], 'up_guarantee' => 80, 'up_source' => 'nte_assets', 'runs' => [self::RUNS['1.0.1']]];
+
+        $catalog = $this->createBuilder(
+            new NteAssetsFixture(NteAssetsFixture::realBannerFiles()),
+            $this->createCatalog($previous),
+            $this->createLogger(),
+            new NteIrminsulFixture($irminsulFiles),
+        )->build();
+        $banners = $catalog['banners'];
+
+        // The build goes on with the datamine
+        $this->assertSame(NteAssetsFixture::SHA, $catalog['sha']);
+        $this->assertSame(['fork_TigerTally'], $banners['forklottery_nanali']['up']);
+
+        // Runs of the previous catalog, banner by banner, none from irminsul
+        $this->assertSame([self::RUNS['1.4.1']], $banners['lottery_heiyu']['runs']);
+        $this->assertSame([self::RUNS['1.0.1']], $banners['forklottery_old']['runs']);
+        $this->assertSame([], $banners['lottery_nanali']['runs']);
+        $this->assertSame([], $banners['forklottery_heiyu']['runs']);
+        // An ended banner of a catalog built before the runs reads as without them
+        $this->assertSame(['up_source' => 'nte_assets', 'runs' => []], array_intersect_key($banners['lottery_old'], ['up_source' => 0, 'runs' => 0]));
+
+        // One warning for the build (the phase normalizer may add its own about malformed entries), nothing mapped
+        $warnings = array_values(array_filter($this->logs, static fn (array $log): bool => $log['level'] === LogLevel::WARNING && !str_starts_with($log['message'], 'irminsul banner entry skipped')));
+        $this->assertCount(1, $warnings);
+        $this->assertSame('irminsul.gg banners unavailable, NTE banner runs kept from the previous catalog', $warnings[0]['message']);
+        $this->assertNotSame('', $warnings[0]['context']['error']);
+    }
+
+    public function testRunsAreRecomputedFromTheWholeHistory(): void
+    {
+        $previous = self::PREVIOUS_CATALOG;
+        // Stale run, replaced rather than completed
+        $previous['banners']['lottery_heiyu'] = ['id' => 'Lottery_HeiYu', 'category' => 'board', 'name' => 'Foretold Finale', 'up' => ['1042'], 'others' => [], 'up_guarantee' => null, 'runs' => [['start_at' => '2026-01-01 00:00:00', 'end_at' => '2026-01-02 00:00:00']]];
+        // Ended board no longer in the datamine, featuring the S character Sakiri (1003)
+        $previous['banners']['lottery_old']['up'] = ['1003'];
+        $nteCatalog = $this->createCatalog($previous);
+
+        $files = (new NteIrminsulFixture())->files;
+        $files[NteIrminsulFixture::BANNER_CHARACTERS][] = NteIrminsulFixture::banner(10099, '0.9.1', '2026-03-01 11:00:00 UTC+8', '2026-03-15 05:59:59 UTC+8', ['Sakiri']);
+        $irminsul = new NteIrminsulFixture($files);
+        $fixture = new NteAssetsFixture(NteAssetsFixture::realBannerFiles());
+
+        $first = $this->createBuilder($fixture, $nteCatalog, null, $irminsul)->build();
+        $nteCatalog->save($first);
+        $second = $this->createBuilder($fixture, $nteCatalog, null, $irminsul)->build();
+
+        foreach ([$first, $second] as $catalog) {
+            $this->assertSame([self::RUNS['1.4.1']], $catalog['banners']['lottery_heiyu']['runs']);
+            $this->assertSame([['start_at' => '2026-03-01 03:00:00', 'end_at' => '2026-03-14 21:59:59']], $catalog['banners']['lottery_old']['runs']);
+            $this->assertSame([self::RUNS['1.0.1'], self::RUNS['1.3.1']], $catalog['banners']['lottery_nanali']['runs']);
+        }
+        $this->assertSame($first['banners'], $second['banners']);
+    }
+
+    public function testUnmatchedRateUpsAreLoggedAndSkipped(): void
+    {
+        $irminsul = new NteIrminsulFixture([
+            NteIrminsulFixture::CHARACTERS => array_merge((new NteIrminsulFixture())->files[NteIrminsulFixture::CHARACTERS], [
+                NteIrminsulFixture::character(1100, 'Twin', 5),
+                NteIrminsulFixture::character(1101, 'Twin', 5),
+            ]),
+            // A character: skipped without warning; unknown, ambiguous, or featured by no board: warning
+            NteIrminsulFixture::BANNER_CHARACTERS => [
+                NteIrminsulFixture::banner(10008, '1.4.1', '2026-09-30 11:00:00 UTC+8', '2026-10-21 05:59:59 UTC+8', ['Blackbird', 'Mint', 'Nobody', 'Twin', 'Sakiri']),
+            ],
+            // Arc names are case-insensitive; unknown and non-S Arcs: warning
+            NteIrminsulFixture::BANNER_WEAPONS => [
+                NteIrminsulFixture::banner(20008, '1.4.1', '2026-09-30 11:00:00 UTC+8', '2026-10-21 05:59:59 UTC+8', ['crime AND punishment', 'Unknown Arc', 'Be Happy']),
+            ],
+        ]);
+
+        $catalog = $this->createBuilder(new NteAssetsFixture(NteAssetsFixture::realBannerFiles()), null, $this->createLogger(), $irminsul)->build();
+
+        $withRuns = array_filter($catalog['banners'], static fn (array $banner): bool => $banner['runs'] !== []);
+        $this->assertSame(['forklottery_heiyu', 'lottery_heiyu'], array_keys($withRuns));
+        $this->assertSame([self::RUNS['1.4.1']], $withRuns['forklottery_heiyu']['runs']);
+        $this->assertSame([self::RUNS['1.4.1']], $withRuns['lottery_heiyu']['runs']);
+
+        $warnings = array_values(array_map(
+            static fn (array $log): array => [$log['message'], $log['context']],
+            array_filter($this->logs, static fn (array $log): bool => $log['level'] === LogLevel::WARNING),
+        ));
+        $board = ['category' => 'board', 'version' => '1.4.1'];
+        $arc = ['category' => 'arc', 'version' => '1.4.1'];
+        $this->assertSame([
+            ['irminsul.gg NTE rate-up character not resolved, no run added', $board + ['name' => 'Nobody', 'matches' => []]],
+            ['irminsul.gg NTE rate-up character not resolved, no run added', $board + ['name' => 'Twin', 'matches' => ['1100', '1101']]],
+            ['irminsul.gg NTE rate-up featured by no catalog banner, no run added', $board + ['name' => 'Sakiri', 'item' => '1003']],
+            ['irminsul.gg NTE rate-up Arc not resolved, no run added', $arc + ['name' => 'Unknown Arc', 'matches' => []]],
+            ['irminsul.gg NTE rate-up Arc not resolved, no run added', $arc + ['name' => 'Be Happy', 'matches' => []]],
+        ], $warnings);
+    }
+
+    public function testPhaseNormalizerLogsOnTheBuilderChannel(): void
+    {
+        $files = (new NteIrminsulFixture())->files;
+        $index = count($files[NteIrminsulFixture::BANNER_WEAPONS]);
+        // No start nor end: skipped by the phase normalizer
+        $files[NteIrminsulFixture::BANNER_WEAPONS][] = ['id' => 20099, 'version' => '1.5.2', 'rateUps' => ['Ready-Ready']];
+
+        $this->createBuilder(new NteAssetsFixture(NteAssetsFixture::realBannerFiles()), null, $this->createLogger(), new NteIrminsulFixture($files))->build();
+
+        $this->assertSame(
+            ['category' => NteCatalog::BANNER_ARC, 'index' => $index, 'id' => 20099, 'version' => '1.5.2'],
+            $this->logContext('irminsul banner entry skipped: malformed'),
+        );
+        // The other phases are mapped as usual
+        $this->assertSame(34, $this->logContext('NTE banner runs read from irminsul.gg')['runs']);
+    }
+
+    /**
+     * Context of the single log entry with the given message.
+     *
+     * @return array<string, mixed>
+     */
+    private function logContext(string $message): array
+    {
+        $entries = array_values(array_filter($this->logs, static fn (array $log): bool => $log['message'] === $message));
+        $this->assertCount(1, $entries, $message);
+
+        return $entries[0]['context'];
     }
 
     /**
@@ -368,17 +589,17 @@ class NteCatalogBuilderTest extends TestCase
             ]),
             self::BOARD_CELL_TABLE => NteAssetsFixture::table('DT_MonopolyCellDataTable', [
                 '9' => ['CellID' => '9', 'PoolDropDatas' => [
-                    self::poolDrop('Lottery_Nanali'),
-                    self::poolDrop('Lottery_HeiYu'),
-                    self::poolDrop('Lottery_Permanent'),
-                    self::poolDrop('Lottery_AnHunQu'),
+                    NteAssetsFixture::poolDrop('Lottery_Nanali'),
+                    NteAssetsFixture::poolDrop('Lottery_HeiYu'),
+                    NteAssetsFixture::poolDrop('Lottery_Permanent'),
+                    NteAssetsFixture::poolDrop('Lottery_AnHunQu'),
                 ]],
                 '10' => ['CellID' => '10', 'PoolDropDatas' => [
-                    self::poolDrop('Lottery_Nanali'),
-                    self::poolDrop('Lottery_Canhong'),
-                    self::poolDrop('Lottery_Kaesi'),
-                    self::poolDrop('Lottery_Exe'),
-                    self::poolDrop('Lottery_Xun'),
+                    NteAssetsFixture::poolDrop('Lottery_Nanali'),
+                    NteAssetsFixture::poolDrop('Lottery_Canhong'),
+                    NteAssetsFixture::poolDrop('Lottery_Kaesi'),
+                    NteAssetsFixture::poolDrop('Lottery_Exe'),
+                    NteAssetsFixture::poolDrop('Lottery_Xun'),
                     ['Key' => ' '],
                     'broken',
                 ]],
@@ -411,14 +632,6 @@ class NteCatalogBuilderTest extends TestCase
         return $row;
     }
 
-    /**
-     * @return array{Key: string, Value: array<string, mixed>}
-     */
-    private static function poolDrop(string $poolId): array
-    {
-        return ['Key' => $poolId, 'Value' => ['MapDropDatas' => [['Key' => 'EMonopolyMapType::EMMT_Base_Map', 'Value' => 'Board_Chess_LessMiDie']]]];
-    }
-
     private function createLogger(): LoggerInterface
     {
         return new class($this->logs) extends AbstractLogger {
@@ -436,9 +649,16 @@ class NteCatalogBuilderTest extends TestCase
         };
     }
 
-    private function createBuilder(NteAssetsFixture $fixture, ?NteCatalog $catalog = null, ?LoggerInterface $logger = null): NteCatalogBuilder
+    private function createBuilder(NteAssetsFixture $fixture, ?NteCatalog $catalog = null, ?LoggerInterface $logger = null, ?NteIrminsulFixture $irminsul = null): NteCatalogBuilder
     {
-        return new NteCatalogBuilder($fixture->client(), $catalog ?? $this->createCatalog(), $logger ?? new NullLogger());
+        return new NteCatalogBuilder(
+            $fixture->client(),
+            $catalog ?? $this->createCatalog(),
+            ($irminsul ?? new NteIrminsulFixture())->irminsulClient(),
+            // Silent default channel: the normalizer logs reach $logger only through the builder
+            new IrminsulPhaseNormalizer(new NullLogger()),
+            $logger ?? new NullLogger(),
+        );
     }
 
     /**

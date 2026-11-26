@@ -92,6 +92,7 @@ Implementation:
   - Board rows stay null: a limited board's S is always its featured character, so there is no lost 50/50 to show.
 - **Rotations**: the Arc banner and the limited boards list their rotations in `pools`, the same shape as the other providers.
   - Each rotation has its pool id and name, pulls, S count and first and last pull. `s_pity`/`a_pity` are null because the pity is shared.
+  - Each run of a rotation is its own entry: a rerun (the same board or Arc issue coming back) is listed apart, numbered `#2`… (`pool_version`) when the pool has several runs, with `start_at` / `end_at` (UTC) of that run from the irminsul.gg schedule (below). A pull belongs to the latest run started before it; pulls before the first known run of a pool, or of a pool without runs, share one entry without dates. `featured` lists the featured item (character or Arc) with its `icon_url`.
   - Rows without a pool id share one entry named after the banner group. The standard board has a single pool, so it has no `pools`.
 
 ### Export format (`nte-history-export` v1)
@@ -154,6 +155,11 @@ Shared feature (design and rules in [GamesBundle § 4.1](../GamesBundle/README.m
   - **Boards**: the pool list comes from the optional `DataTable/Monopoly/DT_MonopolyCellDataTable` (`PoolDropDatas[].Key`). The featured character exists only as text, in the `BPUI_LotteryModuleEntrance_BigGurantten_<suffix>` localization strings (`<Red>name</>`; no suffix = the launch board Nanali, `Changzhu` = the standard board).
   - That name is matched to the recruitable S characters of `DT_Character` (`bIsInvite`): several rows share some names (e.g. three "Lacrimosa"). An unknown or ambiguous name leaves the board without a featured character and logs a warning.
   - The datamine has no banner schedule, so rows without `pool_id` are never given a pool by date.
+  - **Runs** (`runs`, UTC): the banner dates come from the public [irminsul.gg](https://irminsul.gg) data API (`api.irminsul.gg/v2/nte/banner-{characters,weapons}.json`; times in UTC+8, client in GamesBundle § 1).
+    - Each phase is matched by its featured S. The character id (the game id) gives the board whose featured character it is; the Arc name gives the issue whose featured Arc it is.
+    - A phase with a rerun (two S, e.g. 1.3.1 Zankou + Nanally) adds a run to two boards and two issues.
+    - The featured items stay those of the datamine, which agree with irminsul by construction (`up_source: nte_assets`).
+    - irminsul.gg being unreachable never fails the build: the previous runs are kept.
 - Rank comes from `ItemQuality` (ORANGE = S, PURPLE = A, BLUE = B; other qualities have no rank and the exporter's rank is kept), type from the source table, icon from `ItemIcon.AssetPathName` (`/Game/UI/<path>.<object>` → `<path>.png`; the file name cannot be derived from the id).
 - The catalog lives in the `perfectworld.nte_catalog.cache` pool (no expiry, under `var/share`, kept across `cache:clear`).
 - Imports take names, ranks and types from the catalog first, then from the file, otherwise `Unknown #<id>` with a warning: exporter name tables are compiled into each release and miss items added by later game patches.

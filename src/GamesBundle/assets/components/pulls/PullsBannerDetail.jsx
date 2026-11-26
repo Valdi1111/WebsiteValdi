@@ -607,7 +607,7 @@ export default function PullsBannerDetail({
     // Only the S card grows with the pity banner line: stretch the KPI cards to keep the row even
     const kpiCardStyle = pityPoolName ? { height: "100%" } : undefined;
 
-    // Per-banner counters of a group (Endfield): one row per pool, the same pool may come back as a rerun
+    // Per-banner counters of a group (Endfield, NTE): one row per pool, the same pool may come back as a rerun
     const poolRows = (Array.isArray(banner?.pools) ? banner.pools : []).map((pool, index) => ({
         ...pool,
         key: `${pool?.pool_id ?? "pool"}-${pool?.pool_version ?? 0}-${index}`,

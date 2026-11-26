@@ -7,11 +7,13 @@ use App\GamesBundle\Model\Pull\PullOrigin;
 use App\GamesBundle\Service\Pull\PullGapPlanner;
 use App\CoreBundle\Doctrine\WallClockDateTimeImmutableType;
 use App\PerfectworldBundle\Entity\PerfectworldPull;
+use App\PerfectworldBundle\Service\Catalog\NteCatalog;
 use App\PerfectworldBundle\Service\NevernessToEvernessService;
 use App\PerfectworldBundle\Service\Pull\ManualPullService;
 use App\PerfectworldBundle\Service\Pull\PerfectworldPullStatsCalculator;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
 
 class PerfectworldPullStatsCalculatorTest extends TestCase
 {
@@ -409,7 +411,7 @@ class PerfectworldPullStatsCalculatorTest extends TestCase
         );
         $summary = $result['summary'];
 
-        $this->assertSame([...self::SUMMARY_KEYS, 'unknown_count', 'open_window', 'oldest_s'], array_keys($summary));
+        $this->assertSame([...self::SUMMARY_KEYS, 'unknown_count', 'open_window', 'oldest_s', 'pools'], array_keys($summary));
         $this->assertSame([...self::ITEM_KEYS, 'roll_label', 'origin', 'declared_pity', 'is_up'], array_keys($result['items'][0]));
         $this->assertSame([...self::ITEM_KEYS, 'roll_label', 'origin', 'declared_pity', 'is_up', ...self::WINDOW_KEYS], array_keys($result['items'][1]));
         $this->assertSame(0, $summary['unknown_count']);
@@ -559,5 +561,140 @@ class PerfectworldPullStatsCalculatorTest extends TestCase
         $this->assertSame(3, $filler['pull_number']);
         $this->assertNull($filler['pity']);
         $this->assertArrayNotHasKey('roll_label', $filler);
+    }
+
+    /**
+     * Catalog with two Arc pools (featured + standard S) and one limited board, like the NTE_Assets data.
+     */
+    private static function catalogWithBanners(): NteCatalog
+    {
+        $catalog = new NteCatalog(new ArrayAdapter());
+        $catalog->save([
+            'sha' => str_repeat('a', 40),
+            'pools' => ['forklottery_yeermu' => 'Echo Special', 'forklottery_nanali' => 'Tiger Special', 'lottery_yeermu' => 'Android Dreams'],
+            'banners' => [
+                'forklottery_yeermu' => ['id' => 'ForkLottery_YeErMu', 'category' => NteCatalog::BANNER_ARC, 'name' => 'Echo Special', 'up' => ['fork_elyms'], 'others' => ['fork_BlackBook', 'fork_wushoutieyu'], 'up_guarantee' => 80],
+                'forklottery_nanali' => ['id' => 'ForkLottery_Nanali', 'category' => NteCatalog::BANNER_ARC, 'name' => 'Tiger Special', 'up' => ['fork_TigerTally'], 'others' => ['fork_BlackBook', 'fork_wushoutieyu'], 'up_guarantee' => 80],
+                'lottery_yeermu' => ['id' => 'Lottery_YeErMu', 'category' => NteCatalog::BANNER_BOARD, 'name' => 'Android Dreams', 'up' => ['1090'], 'others' => [], 'up_guarantee' => null],
+            ],
+        ]);
+
+        return $catalog;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>
+     */
+    private static function inPool(array $row, ?string $poolId): array
+    {
+        $row['poolId'] = $poolId;
+
+        return $row;
+    }
+
+    public function testSArcRateUpComesFromTheCatalogBanners(): void
+    {
+        $rows = [
+            self::inPool(self::dbRow(1, '2026-04-30 14:00:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_S, 'fork_TigerTally'), null),
+            self::inPool(self::dbRow(2, '2026-04-30 14:01:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_S, 'fork_wushoutieyu'), null),
+            self::inPool(self::dbRow(3, '2026-11-11 16:00:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_S, 'fork_BlackBook'), 'ForkLottery_YeErMu'),
+            self::inPool(self::dbRow(4, '2026-11-11 16:01:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_A, 'fork_qiaoqiao'), 'ForkLottery_YeErMu'),
+            self::inPool(self::dbRow(5, '2026-11-11 16:02:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_S, 'fork_elyms'), 'ForkLottery_YeErMu'),
+            // Featured elsewhere, but not in its own pool: the pool decides
+            self::inPool(self::dbRow(6, '2026-11-11 16:03:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_S, 'fork_TigerTally'), 'ForkLottery_YeErMu'),
+            // An Arc the catalog does not know, in a pool it does not know yet
+            self::inPool(self::dbRow(7, '2026-12-02 10:00:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_S, 'fork_exe'), 'ForkLottery_Exe'),
+            // A pool newer than the catalog: every Arc banner decides
+            self::inPool(self::dbRow(8, '2026-12-02 10:01:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_S, 'fork_BlackBook'), 'ForkLottery_Exe'),
+        ];
+        $stored = self::inPool(self::dbRow(9, '2026-12-02 10:02:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_S, 'fork_elyms'), 'ForkLottery_YeErMu');
+        $stored['isUp'] = false;
+        $rows[] = $stored;
+
+        $result = (new PerfectworldPullStatsCalculator(new PullGapPlanner(), self::catalogWithBanners()))->compute(
+            $rows,
+            self::bannerGroup(NevernessToEvernessService::BANNER_ARC),
+            self::labels(NevernessToEvernessService::BANNER_ARC),
+            now: WallClockDateTimeImmutableType::fromString('2026-12-31 00:00:00'),
+        );
+
+        $this->assertSame(
+            [1 => true, 2 => false, 3 => false, 4 => null, 5 => true, 6 => false, 7 => null, 8 => false, 9 => false],
+            array_column($result['items'], 'is_up', 'id'),
+            'Pool first, then every Arc banner without a known pool; A Arcs and unknown Arcs stay null; a stored value wins',
+        );
+        $this->assertSame(
+            [9 => false, 8 => false, 7 => null, 6 => false, 5 => true, 3 => false, 2 => false, 1 => true],
+            array_column($result['summary']['recent_s_pulls'], 'is_up', 'id'),
+            'The S cards carry the flag',
+        );
+    }
+
+    public function testBoardsAndAMissingCatalogLeaveTheRateUpUnknown(): void
+    {
+        $board = [
+            self::inPool(self::boardRoll(1, '2026-11-11 16:00:00'), 'Lottery_YeErMu'),
+            self::inPool(self::boardRoll(2, '2026-11-11 16:05:00', 'character', NevernessToEvernessService::RARITY_S, '1090'), 'Lottery_YeErMu'),
+        ];
+        $result = (new PerfectworldPullStatsCalculator(new PullGapPlanner(), self::catalogWithBanners()))->compute(
+            $board,
+            self::bannerGroup(NevernessToEvernessService::BANNER_LIMITED),
+            self::labels(NevernessToEvernessService::BANNER_LIMITED),
+        );
+        $this->assertSame([null, null], array_column($result['items'], 'is_up'), 'A limited board S is always its featured character');
+
+        $arc = [self::inPool(self::dbRow(1, '2026-11-11 16:00:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_S, 'fork_elyms'), 'ForkLottery_YeErMu')];
+        $result = self::calculator()->compute($arc, self::bannerGroup(NevernessToEvernessService::BANNER_ARC), self::labels(NevernessToEvernessService::BANNER_ARC));
+        $this->assertNull($result['items'][0]['is_up'], 'No catalog: unknown');
+    }
+
+    public function testArcAndLimitedBoardsListTheirRotations(): void
+    {
+        $poolNames = static fn (?string $poolId): ?string => self::catalogWithBanners()->findPoolName($poolId);
+
+        $rows = [
+            self::inPool(self::dbRow(1, '2026-04-30 14:00:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_S, 'fork_TigerTally'), null),
+            self::inPool(self::dbRow(2, '2026-04-30 14:01:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_B, 'fork_banshu01'), null),
+            self::inPool(self::dbRow(3, '2026-05-13 16:00:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_B, 'fork_banshu01'), 'ForkLottery_Nanali'),
+            self::inPool(self::dbRow(4, '2026-11-11 16:00:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_A, 'fork_qiaoqiao'), 'ForkLottery_YeErMu'),
+            // Same rotation spelled with another case by an export
+            self::inPool(self::dbRow(5, '2026-11-11 16:01:00', PerfectworldPull::KIND_DRAW, 'arc', NevernessToEvernessService::RARITY_S, 'fork_elyms'), 'forklottery_yeermu'),
+        ];
+
+        $summary = self::calculator()->compute($rows, self::bannerGroup(NevernessToEvernessService::BANNER_ARC), self::labels(NevernessToEvernessService::BANNER_ARC), $poolNames)['summary'];
+
+        $this->assertSame([
+            [
+                'pool_id' => null, 'pool_name' => 'Arc Research Program', 'pool_version' => null, 'total_pulls' => 2, 's_count' => 1,
+                's_pity' => null, 'a_pity' => null, 'first_pulled_at' => '2026-04-30 14:00:00', 'last_pulled_at' => '2026-04-30 14:01:00',
+            ],
+            [
+                'pool_id' => 'ForkLottery_Nanali', 'pool_name' => 'Tiger Special', 'pool_version' => null, 'total_pulls' => 1, 's_count' => 0,
+                's_pity' => null, 'a_pity' => null, 'first_pulled_at' => '2026-05-13 16:00:00', 'last_pulled_at' => '2026-05-13 16:00:00',
+            ],
+            [
+                'pool_id' => 'ForkLottery_YeErMu', 'pool_name' => 'Echo Special', 'pool_version' => null, 'total_pulls' => 2, 's_count' => 1,
+                's_pity' => null, 'a_pity' => null, 'first_pulled_at' => '2026-11-11 16:00:00', 'last_pulled_at' => '2026-11-11 16:01:00',
+            ],
+        ], $summary['pools']);
+
+        // Boards: only rolls count, only S characters are S; Points Gifts stay in the rotation without counting
+        $board = [
+            self::inPool(self::boardRoll(1, '2026-11-11 16:00:00'), 'Lottery_YeErMu'),
+            self::inPool(self::dbRow(2, '2026-11-11 16:00:30', PerfectworldPull::KIND_POINTS_GIFT, 'character', NevernessToEvernessService::RARITY_A, 'Hathor'), 'Lottery_YeErMu'),
+            self::inPool(self::boardRoll(3, '2026-11-11 16:01:00', 'item', NevernessToEvernessService::RARITY_S, 'Dicelimite'), 'Lottery_YeErMu'),
+            self::inPool(self::boardRoll(4, '2026-11-11 16:02:00', 'character', NevernessToEvernessService::RARITY_S, '1090'), 'Lottery_YeErMu'),
+        ];
+        $pools = self::calculator()->compute($board, self::bannerGroup(NevernessToEvernessService::BANNER_LIMITED), self::labels(NevernessToEvernessService::BANNER_LIMITED), $poolNames)['summary']['pools'];
+        $this->assertCount(1, $pools);
+        $this->assertSame(['Android Dreams', 3, 1], [$pools[0]['pool_name'], $pools[0]['total_pulls'], $pools[0]['s_count']]);
+
+        $standard = self::calculator()->compute(
+            [self::inPool(self::boardRoll(1, '2026-11-11 16:00:00'), 'Lottery_Permanent')],
+            self::bannerGroup(NevernessToEvernessService::BANNER_STANDARD),
+            self::labels(NevernessToEvernessService::BANNER_STANDARD),
+        )['summary'];
+        $this->assertArrayNotHasKey('pools', $standard, 'The standard board has a single pool');
     }
 }

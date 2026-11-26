@@ -24,6 +24,19 @@ class NteCatalogTest extends TestCase
         ],
         'avatars' => ['1042' => 'UI_Icon/AvatarImage/256/player_heiyu_256.png'],
         'pools' => ['lottery_heiyu' => 'Foretold Finale', 'forklottery_heiyu' => 'Foretold Special'],
+        'banners' => [
+            'forklottery_heiyu' => ['id' => 'ForkLottery_HeiYu', 'category' => 'arc', 'name' => 'Foretold Special', 'up' => ['fork_twinbirds'], 'others' => ['fork_Butterfly', 'fork_BlackBook'], 'up_guarantee' => 80],
+            // Unusable values are dropped
+            'forklottery_mingyin' => ['id' => 'ForkLottery_MingYin', 'category' => 'arc', 'name' => '', 'up' => ['fork_prism', '', 42, null], 'others' => ['fork_Butterfly', 'fork_Shared'], 'up_guarantee' => '80'],
+            // Ended pool: "fork_Shared" was featured here and is standard in ForkLottery_MingYin
+            'forklottery_old' => ['id' => 'ForkLottery_Old', 'category' => 'arc', 'name' => 'Old Special', 'up' => ['fork_Shared'], 'others' => [], 'up_guarantee' => 80],
+            'forklottery_noup' => ['id' => 'ForkLottery_NoUp', 'category' => 'arc', 'name' => null, 'up' => [], 'others' => ['fork_BlackBook'], 'up_guarantee' => null],
+            'forklottery_noid' => ['category' => 'arc', 'up' => 'fork_twinbirds', 'others' => null],
+            // Boards never decide whether an Arc is featured
+            'lottery_heiyu' => ['id' => 'Lottery_HeiYu', 'category' => 'board', 'name' => 'Foretold Finale', 'up' => ['1042', 'fork_BoardOnly'], 'others' => [], 'up_guarantee' => null],
+            'lottery_event' => ['id' => 'Lottery_Event', 'category' => 'event', 'name' => 'Event', 'up' => ['fork_twinbirds'], 'others' => [], 'up_guarantee' => null],
+            'lottery_scalar' => 'Foretold Finale',
+        ],
     ];
 
     public function testLookupsAreCaseInsensitive(): void
@@ -74,6 +87,82 @@ class NteCatalogTest extends TestCase
         $this->assertNull($catalog->findPoolName(null));
     }
 
+    public function testFindPool(): void
+    {
+        $catalog = $this->createCatalog(self::CATALOG);
+
+        $this->assertSame(
+            ['id' => 'ForkLottery_HeiYu', 'category' => 'arc', 'name' => 'Foretold Special', 'up' => ['fork_twinbirds'], 'others' => ['fork_Butterfly', 'fork_BlackBook'], 'up_guarantee' => 80],
+            $catalog->findPool(' forklottery_HEIYU '),
+        );
+        $this->assertSame(
+            ['id' => 'Lottery_HeiYu', 'category' => 'board', 'name' => 'Foretold Finale', 'up' => ['1042', 'fork_BoardOnly'], 'others' => [], 'up_guarantee' => null],
+            $catalog->findPool('Lottery_HeiYu'),
+        );
+
+        // List fields keep non-empty strings only, blank name and non-int guarantee are null
+        $this->assertSame(
+            ['id' => 'ForkLottery_MingYin', 'category' => 'arc', 'name' => null, 'up' => ['fork_prism'], 'others' => ['fork_Butterfly', 'fork_Shared'], 'up_guarantee' => null],
+            $catalog->findPool('ForkLottery_MingYin'),
+        );
+        // Missing id: the requested one, trimmed; list fields that are not lists are empty
+        $this->assertSame(
+            ['id' => 'ForkLottery_NoId', 'category' => 'arc', 'name' => null, 'up' => [], 'others' => [], 'up_guarantee' => null],
+            $catalog->findPool(' ForkLottery_NoId '),
+        );
+
+        $this->assertNull($catalog->findPool('Lottery_Event'));
+        $this->assertNull($catalog->findPool('Lottery_Scalar'));
+        $this->assertNull($catalog->findPool('Lottery_Unknown'));
+        $this->assertNull($catalog->findPool(' '));
+        $this->assertNull($catalog->findPool(null));
+    }
+
+    public function testIsArcUpFollowsTheKnownArcPool(): void
+    {
+        $catalog = $this->createCatalog(self::CATALOG);
+
+        $this->assertTrue($catalog->isArcUp('FORK_TWINBIRDS', 'forklottery_heiyu'));
+        $this->assertFalse($catalog->isArcUp('fork_butterfly', 'ForkLottery_HeiYu'));
+        // Featured in another pool: lost the rate-up of this one
+        $this->assertFalse($catalog->isArcUp('fork_prism', 'ForkLottery_HeiYu'));
+        $this->assertTrue($catalog->isArcUp('fork_shared', 'ForkLottery_Old'));
+        $this->assertFalse($catalog->isArcUp('fork_shared', 'ForkLottery_MingYin'));
+        $this->assertNull($catalog->isArcUp(' ', 'ForkLottery_HeiYu'));
+    }
+
+    public function testIsArcUpWithoutAKnownArcPoolChecksEveryArcBanner(): void
+    {
+        $catalog = $this->createCatalog(self::CATALOG);
+
+        foreach ([null, 'ForkLottery_Unknown', 'Lottery_HeiYu', 'ForkLottery_NoUp', 'Lottery_Event'] as $poolId) {
+            // Only ever featured: limited Arc
+            $this->assertTrue($catalog->isArcUp('fork_twinbirds', $poolId));
+            $this->assertTrue($catalog->isArcUp('Fork_Prism', $poolId));
+            // Only ever among the other S Arcs: standard Arc
+            $this->assertFalse($catalog->isArcUp('FORK_BUTTERFLY', $poolId));
+            $this->assertFalse($catalog->isArcUp('fork_BlackBook', $poolId));
+            // Featured in one pool, standard in another, unknown or only on a board
+            $this->assertNull($catalog->isArcUp('fork_Shared', $poolId));
+            $this->assertNull($catalog->isArcUp('fork_unknown', $poolId));
+            $this->assertNull($catalog->isArcUp('fork_BoardOnly', $poolId));
+        }
+    }
+
+    public function testCatalogBuiltBeforeBannersHasNoBanner(): void
+    {
+        $stored = self::CATALOG;
+        unset($stored['banners']);
+        $catalog = $this->createCatalog($stored);
+
+        $this->assertSame([], $catalog->all()['banners']);
+        $this->assertNull($catalog->findPool('ForkLottery_HeiYu'));
+        $this->assertNull($catalog->isArcUp('fork_twinbirds', 'ForkLottery_HeiYu'));
+        $this->assertNull($catalog->isArcUp('fork_twinbirds'));
+        // Pool names are unaffected
+        $this->assertSame('Foretold Special', $catalog->findPoolName('ForkLottery_HeiYu'));
+    }
+
     public function testEmptyPoolMeansNotLoaded(): void
     {
         $catalog = new NteCatalog(new ArrayAdapter());
@@ -85,7 +174,10 @@ class NteCatalogTest extends TestCase
         $this->assertNull($catalog->getIconUrl('1042'));
         $this->assertNull($catalog->findAvatarIconUrl('1042'));
         $this->assertNull($catalog->findPoolName('Lottery_HeiYu'));
+        $this->assertNull($catalog->findPool('Lottery_HeiYu'));
+        $this->assertNull($catalog->isArcUp('fork_twinbirds'));
         $this->assertSame([], $catalog->all()['items']);
+        $this->assertSame([], $catalog->all()['banners']);
     }
 
     public function testSaveRefreshesTheMemoAndResetRereadsThePool(): void

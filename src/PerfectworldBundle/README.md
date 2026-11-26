@@ -79,13 +79,20 @@ Game rules behind the table:
 - **Points Gift**: a bonus earned with every tenth cumulative roll (A character 20%, A Arc 80%). It is not a roll; limited boards share its progress.
 - **Slumberland**: landing on that tile starts a chase whose reward (30 Warp Pieces) is not a roll; the tile itself is reached with a normal 1-6 roll.
 - S items (Solid Dice, Warp Pieces, liveries) never reset pity: only an S character does.
-- **Arc Research Program** (Miracle Box): Arcs are bought in "Limited Issues" of 10; an S is guaranteed every 60 Arcs (the featured S every 80) and an A or better every 10. Pity is shared by all issues.
+- **Arc Research Program** (Miracle Box): Arcs are bought in "Limited Issues" of 10; an S is guaranteed every 60 Arcs (the featured S every 80) and an A or better every 10. Pity, featured guarantee included, is shared by all issues. Each issue's S Arcs are its featured (rate-up) Arc and 5 standard ones; a limited Arc is never a non-featured S of another issue.
 
 Implementation:
 - `Service/Pull/PerfectworldPullStatsCalculator` produces the same JSON as the other providers' pull repositories, plus `pull_label`/`pull_singular_label` per banner and `roll_label` per row (see the shared fields in the [GamesBundle guide](../GamesBundle/README.md#2-frontend-assets)).
 - On boards only S characters carry a pity value (on the Arc banner S and A Arcs do); other rows show "—". Points Gifts and Slumberland rows have no pull number.
 - Board summaries: `s_count` = S characters, `a_count` = A characters/Arcs obtained (gifts included), `avg_a_pity` = rolls per A obtained (unknown rolls excluded).
 - The predicates are public (`countsAsPull()`, `isS()`, taking the banner group) and also build the entries of the shared missing pulls logic (`toTimelineEntries()`).
+- **Rate-up (`is_up`)**: the stored value first, else for an S Arc `NteCatalog::isArcUp()` at read time (nothing is written, and the pity does not use it).
+  - With a pool the catalog knows, it is whether the Arc is that pool's featured Arc.
+  - Otherwise it is decided from every Arc banner: true for an Arc only ever featured, false for one only ever a standard S, null for anything else. This covers exports older than nte-exporter 0.5 (no `pool_id`), manual S and pools newer than the catalog.
+  - Board rows stay null: a limited board's S is always its featured character, so there is no lost 50/50 to show.
+- **Rotations**: the Arc banner and the limited boards list their rotations in `pools`, the same shape as the other providers.
+  - Each rotation has its pool id and name, pulls, S count and first and last pull. `s_pity`/`a_pity` are null because the pity is shared.
+  - Rows without a pool id share one entry named after the banner group. The standard board has a single pool, so it has no `pools`.
 
 ### Export format (`nte-history-export` v1)
 
@@ -129,7 +136,7 @@ Shared feature (design and rules in [GamesBundle § 4.1](../GamesBundle/README.m
 | `PATCH …/pulls/{pull}/declared-pity` | `pulls_declared_pity` | Real pity of an S; the recorded value is stored as `null` on a recorded S |
 | `DELETE …/pulls/{pull}` | `pulls_manual_delete` | Manual rows only |
 
-- Rows have an `origin` (`recorded`, `manual`, `filler`), a `declared_pity` and a nullable `is_up` (whether an S was the rate-up item, when a source gives it; exposed on rows as `is_up`). There is no pull number column, so the planner never numbers a filler here. Fillers are unknown pulls created by the realign step so that each declared pity adds up; they count as pulls (S pity, pull numbers, totals, monthly chart) but go to `unknown_count` instead of B, carry no pity and restart the A pity.
+- Rows have an `origin` (`recorded`, `manual`, `filler`), a `declared_pity` and a nullable `is_up` (whether an S was the rate-up item, when a source gives it; rows expose the stored value or the catalog one, see above). There is no pull number column, so the planner never numbers a filler here. Fillers are unknown pulls created by the realign step so that each declared pity adds up; they count as pulls (S pity, pull numbers, totals, monthly chart) but go to `unknown_count` instead of B, carry no pity and restart the A pity.
 - **System rows never take a real slot**: manual and filler rows get a negative `group_position` (one less than the lowest position used at their second); imported records are always ≥ 0, so a later import never meets them on its identity. A filler that moves takes a fresh slot the same way, so a realign is a single flush that cannot hit the unique key, whatever the statement order.
 - Filler rows: `kind` `roll` (boards) or `draw` (Arc), `reward_type` `unknown`, `reward_id` `__filler__` (never a catalog id: `NteCatalogBackfiller` leaves them alone), name `Unknown`, rarity 0, `exporter_version` `manual`. Manual S rows: the catalog id, name and type (`character` on boards, `arc` on the Arc banner), rarity 5.
 - Dates use the stored wall-clock convention (`WallClockDateTimeImmutableType::fromString()`). As the game timezone is still unknown, "not in the future" accepts up to 24 hours ahead of the server clock; the suggested dates (`suggested_at`) are capped at the server clock without tolerance.
@@ -138,10 +145,15 @@ Shared feature (design and rules in [GamesBundle § 4.1](../GamesBundle/README.m
 
 ### Catalog and icons (`Service/Catalog/*`, `Service/PullIcon/NteAssetsIconResolver`)
 
-- `NteCatalogUpdater` builds a compact catalog (`id → name, rank, type, icon path`, plus profile avatars and rotation pool names) from the NTE_Assets tables at a pinned commit, aborts if the README is not a Global version or a required table is missing, merges over the previous catalog and re-resolves the stored pulls (`NteCatalogBackfiller`). A changed rarity or type can change which rows are S, so every profile with a changed row is then realigned under its profile lock, taken without waiting; a profile whose lock is held is skipped (logged at info level), as the import or manual edit holding it, or the next one, realigns it.
+- `NteCatalogUpdater` builds a compact catalog (`id → name, rank, type, icon path`, plus profile avatars, rotation pool names and rotation banners) from the NTE_Assets tables at a pinned commit, aborts if the README is not a Global version or a required table is missing, merges over the previous catalog and re-resolves the stored pulls (`NteCatalogBackfiller`). A changed rarity or type can change which rows are S, so every profile with a changed row is then realigned under its profile lock, taken without waiting; a profile whose lock is held is skipped (logged at info level), as the import or manual edit holding it, or the next one, realigns it.
 - It runs weekly as the `catalog_update` task of the `perfectworld` schedule (cron in `config/packages/perfectworld.yaml`, default Monday 06:00): `NteCatalogUpdateMessage` on the `perfectworld` transport, like the other providers' tasks. An aborted build throws, so the transport retries it; the previous catalog stays in use.
 - `perfectworld:nte-catalog:update [--ref=<sha>]` runs the same update by hand (first deploy, or right after a game patch).
 - Sources (at the pinned commit): `DataTable/Character/DT_Character` (characters), `DataTable/Fork/DT_ForkItemData` (Arcs), `DataTable/Inventory/DT_ItemConfig` (items, cosmetics) and optional appearance/vehicle/avatar/pool tables, plus `Localization/en/game.json` for names (looked up by `ItemName.Key`; the name embedded in the tables is stale).
+- **Rotation banners** (`banners` section; `NteCatalog::findPool()` and `isArcUp()`):
+  - **Arc issues**, from `DataTable/Fork/DT_ForkLotteryPoolData`: the featured Arc (`UpList`), the other S Arcs (`ShowRewards` with `IsUp: false`) and the featured guarantee (`UpGuaranteeCnt`, 80).
+  - **Boards**: the pool list comes from the optional `DataTable/Monopoly/DT_MonopolyCellDataTable` (`PoolDropDatas[].Key`). The featured character exists only as text, in the `BPUI_LotteryModuleEntrance_BigGurantten_<suffix>` localization strings (`<Red>name</>`; no suffix = the launch board Nanali, `Changzhu` = the standard board).
+  - That name is matched to the recruitable S characters of `DT_Character` (`bIsInvite`): several rows share some names (e.g. three "Lacrimosa"). An unknown or ambiguous name leaves the board without a featured character and logs a warning.
+  - The datamine has no banner schedule, so rows without `pool_id` are never given a pool by date.
 - Rank comes from `ItemQuality` (ORANGE = S, PURPLE = A, BLUE = B; other qualities have no rank and the exporter's rank is kept), type from the source table, icon from `ItemIcon.AssetPathName` (`/Game/UI/<path>.<object>` → `<path>.png`; the file name cannot be derived from the id).
 - The catalog lives in the `perfectworld.nte_catalog.cache` pool (no expiry, under `var/share`, kept across `cache:clear`).
 - Imports take names, ranks and types from the catalog first, then from the file, otherwise `Unknown #<id>` with a warning: exporter name tables are compiled into each release and miss items added by later game patches.
@@ -197,7 +209,7 @@ Shared feature (design and rules in [GamesBundle § 4.1](../GamesBundle/README.m
 
 ### Possible future work
 
-- Featured S guarantee of the Arc program (every 80 Arcs), using `pool_id`.
+- Featured S guarantee counter of the Arc program ("Arcs since the last featured Arc", out of 80): `is_up` now gives what it needs.
 - Mystery Box exports (finite prize pool, no pity).
 - A second import format (e.g. Anong0u0 `nte-gacha-export` 2.1): a new `PullBackupImporterInterface` implementation is enough.
 - Token expiry and periodic export reminders through profile notifications.
@@ -207,4 +219,4 @@ Shared feature (design and rules in [GamesBundle § 4.1](../GamesBundle/README.m
 
 ## 6. Testing
 
-`tests/PerfectworldBundle/`: SDK client (`MockHttpClient`), auth flows, profile sync, importer (fixed exports, old-export repair, truncated histories and cut oldest seconds, header checks), import service (upsert, versions, conflicts with manual/filler rows present, gap warnings, realign hook), import endpoint (validation of every file, one file per banner, temporary file cleanup, 409), stats calculator (fillers, declared pities after plan and apply, window fields), manual pull service (against an in-memory table enforcing the unique identity in Doctrine's flush order) and endpoints, catalog builder/backfill/resolver. Shared tracker behaviour is covered in `tests/GamesBundle/Service/PullOperationTrackerBackupBannersTest.php`, routes in `tests/GamesBundle/Routing/GamesRoutingTest.php` and account ownership in `tests/GamesBundle/Security/`.
+`tests/PerfectworldBundle/`: SDK client (`MockHttpClient`), auth flows, profile sync, importer (fixed exports, old-export repair, truncated histories and cut oldest seconds, header checks), import service (upsert, versions, conflicts with manual/filler rows present, gap warnings, realign hook), import endpoint (validation of every file, one file per banner, temporary file cleanup, 409), stats calculator (fillers, declared pities after plan and apply, window fields, rate-up from the catalog banners, rotations), manual pull service (against an in-memory table enforcing the unique identity in Doctrine's flush order) and endpoints, catalog builder/backfill/resolver. Shared tracker behaviour is covered in `tests/GamesBundle/Service/PullOperationTrackerBackupBannersTest.php`, routes in `tests/GamesBundle/Routing/GamesRoutingTest.php` and account ownership in `tests/GamesBundle/Security/`.

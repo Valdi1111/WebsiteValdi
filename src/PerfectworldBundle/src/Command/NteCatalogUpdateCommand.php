@@ -47,6 +47,7 @@ class NteCatalogUpdateCommand extends Command
         }
         $rows[] = ['Avatars' => (string) count($catalog['avatars'])];
         $rows[] = ['Pools' => (string) count($catalog['pools'])];
+        $rows[] = ['Banners' => (string) count($catalog['banners'])];
         $rows[] = ['Backfilled pulls' => (string) $backfilled];
 
         $io->title('NTE catalog updated');

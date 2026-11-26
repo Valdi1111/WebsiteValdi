@@ -45,6 +45,7 @@ class NteCatalogUpdateCommandTest extends TestCase
         $this->assertStringContainsString('1.5.4', $display);
         $this->assertMatchesRegularExpression('/Backfilled pulls\s+1/', $display);
         $this->assertMatchesRegularExpression('/arc\s+2/', $display);
+        $this->assertMatchesRegularExpression('/Banners\s+1/', $display);
 
         // Saved in the pool: a fresh reader sees it
         $reader = new NteCatalog($pool);

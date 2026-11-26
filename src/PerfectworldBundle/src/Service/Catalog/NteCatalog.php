@@ -18,7 +18,11 @@ use Symfony\Contracts\Service\ResetInterface;
  *   sha, version, built_at,
  *   items:   [lowercased id => [id, name, rank (S|A|B|null), type (character|arc|item|cosmetic), icon_path]],
  *   avatars: [lowercased avatar id => icon_path],
- *   pools:   [lowercased pool id => display name].
+ *   pools:   [lowercased pool id => display name],
+ *   banners: [lowercased pool id => [id, category (arc|board), name, up, others, up_guarantee]]: the rotation
+ *            banners with their featured items ("up": the rate-up Arc of an Arc pool, the featured S
+ *            character of a limited board), the other S Arcs of an Arc pool ("others") and the featured
+ *            guarantee of the Arc pools (in Arcs).
  *
  * Lookups are case-insensitive (exports contain e.g. "Fashion_Glide_1075" for "Fashion_glide_1075").
  * The decoded catalog is memoised until reset(), which the kernel calls between worker messages.
@@ -33,13 +37,17 @@ class NteCatalog implements ResetInterface
     public const string TYPE_ITEM = 'item';
     public const string TYPE_COSMETIC = 'cosmetic';
 
+    /** Banner categories of the "banners" section. */
+    public const string BANNER_ARC = 'arc';
+    public const string BANNER_BOARD = 'board';
+
     public const array RANK_TO_RARITY = [
         'S' => NevernessToEvernessService::RARITY_S,
         'A' => NevernessToEvernessService::RARITY_A,
         'B' => NevernessToEvernessService::RARITY_B,
     ];
 
-    /** @var array{sha: ?string, version: ?string, built_at: ?string, items: array<string, array<string, mixed>>, avatars: array<string, string>, pools: array<string, string>}|null */
+    /** @var array{sha: ?string, version: ?string, built_at: ?string, items: array<string, array<string, mixed>>, avatars: array<string, string>, pools: array<string, string>, banners: array<string, array<string, mixed>>}|null */
     private ?array $catalog = null;
 
     public function __construct(
@@ -109,6 +117,70 @@ class NteCatalog implements ResetInterface
         return is_string($name) && $name !== '' ? $name : null;
     }
 
+    /**
+     * Rotation banner of an export pool id (e.g. "ForkLottery_HeiYu", "Lottery_HeiYu"), with its featured items.
+     *
+     * @return array{id: string, category: string, name: ?string, up: list<string>, others: list<string>, up_guarantee: ?int}|null
+     */
+    public function findPool(?string $poolId): ?array
+    {
+        if ($poolId === null || trim($poolId) === '') {
+            return null;
+        }
+
+        $entry = $this->all()['banners'][self::normalizeId($poolId)] ?? null;
+        if (!is_array($entry) || !in_array($entry['category'] ?? null, [self::BANNER_ARC, self::BANNER_BOARD], true)) {
+            return null;
+        }
+
+        $ids = static fn (mixed $list): array => is_array($list)
+            ? array_values(array_filter($list, static fn (mixed $id): bool => is_string($id) && $id !== ''))
+            : [];
+
+        return [
+            'id' => is_string($entry['id'] ?? null) && $entry['id'] !== '' ? $entry['id'] : trim($poolId),
+            'category' => $entry['category'],
+            'name' => is_string($entry['name'] ?? null) && $entry['name'] !== '' ? $entry['name'] : null,
+            'up' => $ids($entry['up'] ?? null),
+            'others' => $ids($entry['others'] ?? null),
+            'up_guarantee' => is_int($entry['up_guarantee'] ?? null) ? $entry['up_guarantee'] : null,
+        ];
+    }
+
+    /**
+     * Whether an S Arc was the rate-up Arc of its pull.
+     *
+     * With a pool the catalog knows, the pool decides. Without one (exports older than nte-exporter 0.5,
+     * manual pulls, a pool newer than the catalog), every Arc banner does: an Arc only ever featured is
+     * a limited Arc, which drops nowhere else; one only ever listed among the other S is a standard Arc.
+     * Anything else (unknown Arc, or an Arc both featured and not) is null.
+     */
+    public function isArcUp(string $itemId, ?string $poolId = null): ?bool
+    {
+        $itemId = self::normalizeId($itemId);
+        if ($itemId === '') {
+            return null;
+        }
+
+        $pool = $this->findPool($poolId);
+        if ($pool !== null && $pool['category'] === self::BANNER_ARC && $pool['up'] !== []) {
+            return in_array($itemId, array_map(self::normalizeId(...), $pool['up']), true);
+        }
+
+        $featured = false;
+        $standard = false;
+        foreach (array_keys($this->all()['banners']) as $bannerId) {
+            $banner = $this->findPool((string) $bannerId);
+            if ($banner === null || $banner['category'] !== self::BANNER_ARC) {
+                continue;
+            }
+            $featured = $featured || in_array($itemId, array_map(self::normalizeId(...), $banner['up']), true);
+            $standard = $standard || in_array($itemId, array_map(self::normalizeId(...), $banner['others']), true);
+        }
+
+        return $featured !== $standard ? $featured : null;
+    }
+
     public function isLoaded(): bool
     {
         $catalog = $this->all();
@@ -134,7 +206,7 @@ class NteCatalog implements ResetInterface
     /**
      * Whole stored catalog (empty sections when nothing has been built yet).
      *
-     * @return array{sha: ?string, version: ?string, built_at: ?string, items: array<string, array<string, mixed>>, avatars: array<string, string>, pools: array<string, string>}
+     * @return array{sha: ?string, version: ?string, built_at: ?string, items: array<string, array<string, mixed>>, avatars: array<string, string>, pools: array<string, string>, banners: array<string, array<string, mixed>>}
      */
     public function all(): array
     {
@@ -196,7 +268,7 @@ class NteCatalog implements ResetInterface
     /**
      * @param array<string, mixed> $catalog
      *
-     * @return array{sha: ?string, version: ?string, built_at: ?string, items: array<string, array<string, mixed>>, avatars: array<string, string>, pools: array<string, string>}
+     * @return array{sha: ?string, version: ?string, built_at: ?string, items: array<string, array<string, mixed>>, avatars: array<string, string>, pools: array<string, string>, banners: array<string, array<string, mixed>>}
      */
     private static function normalizeCatalog(array $catalog): array
     {
@@ -209,6 +281,8 @@ class NteCatalog implements ResetInterface
             'items' => is_array($catalog['items'] ?? null) ? $catalog['items'] : [],
             'avatars' => is_array($catalog['avatars'] ?? null) ? $catalog['avatars'] : [],
             'pools' => is_array($catalog['pools'] ?? null) ? $catalog['pools'] : [],
+            // Missing in catalogs built before the banners were added: findPool() then finds nothing
+            'banners' => is_array($catalog['banners'] ?? null) ? $catalog['banners'] : [],
         ];
     }
 }

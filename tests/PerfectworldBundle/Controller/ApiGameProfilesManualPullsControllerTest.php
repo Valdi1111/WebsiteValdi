@@ -289,4 +289,55 @@ class ApiGameProfilesManualPullsControllerTest extends TestCase
         $this->assertSame('https://icons.test/1042.png', $data['banner']['oldest_s']['icon_url'], 'oldest_s gets its icon too');
         $this->assertSame('https://icons.test/1042.png', $data['banner']['recent_s_pulls'][0]['icon_url']);
     }
+
+    public function testTheArcListShowsTheRateUpAndTheRotations(): void
+    {
+        $this->catalog->save([
+            'sha' => '0123456789abcdef0123456789abcdef01234567',
+            'items' => ['fork_elyms' => ['id' => 'fork_elyms', 'name' => 'Echoes on Hold', 'rank' => 'S', 'type' => 'arc', 'icon_path' => null]],
+            'pools' => ['forklottery_yeermu' => 'Echo Special'],
+            'banners' => [
+                'forklottery_yeermu' => ['id' => 'ForkLottery_YeErMu', 'category' => 'arc', 'name' => 'Echo Special', 'up' => ['fork_elyms'], 'others' => ['fork_BlackBook'], 'up_guarantee' => 80],
+            ],
+        ]);
+        $row = static fn (int $id, string $at, string $rewardId, int $rarity, ?string $poolId): array => [
+            'id' => $id,
+            'bannerKey' => NevernessToEvernessService::BANNER_ARC,
+            'poolId' => $poolId,
+            'pulledAt' => WallClockDateTimeImmutableType::fromString($at),
+            'groupPosition' => 0,
+            'kind' => PerfectworldPull::KIND_DRAW,
+            'rollResult' => null,
+            'rewardType' => 'arc',
+            'rewardId' => $rewardId,
+            'name' => $rewardId,
+            'rarity' => $rarity,
+            'quantity' => 1,
+            'origin' => PullOrigin::Recorded,
+            'declaredPity' => null,
+        ];
+        $repository = $this->createStub(PerfectworldPullRepository::class);
+        $repository->method('findBannerRows')->willReturn([
+            $row(1, '2026-04-30 14:00:00', 'fork_BlackBook', 5, null),
+            $row(2, '2026-11-11 16:00:00', 'fork_banshu01', 3, 'ForkLottery_YeErMu'),
+            $row(3, '2026-11-11 16:01:00', 'fork_elyms', 5, 'ForkLottery_YeErMu'),
+        ]);
+
+        $data = self::decode($this->createController()->apiGameProfilePullsList(
+            new Request(['banner' => NevernessToEvernessService::BANNER_ARC, 'rarities' => '5,4,3']),
+            $this->account,
+            $this->profile,
+            $repository,
+            new PerfectworldPullStatsCalculator(new PullGapPlanner(), $this->catalog),
+            $this->createIconUrlBuilder(),
+            $this->catalog,
+        ));
+
+        $this->assertSame([3 => true, 2 => null, 1 => false], array_column($data['items'], 'is_up', 'id'));
+        $this->assertSame([true, false], array_column($data['banner']['recent_s_pulls'], 'is_up'));
+        $this->assertSame(
+            [['Arc Research Program', 1, 1], ['Echo Special', 2, 1]],
+            array_map(static fn (array $pool): array => [$pool['pool_name'], $pool['total_pulls'], $pool['s_count']], $data['banner']['pools']),
+        );
+    }
 }

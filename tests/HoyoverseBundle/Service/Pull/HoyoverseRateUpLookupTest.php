@@ -133,11 +133,14 @@ class HoyoverseRateUpLookupTest extends TestCase
             self::item('1121', 'Ben', 4, displayName: 'Ben Bigger'),
             self::item('1311', 'Soukaku', 4),
             self::item('1491', 'Remielle', 5),
+            self::item('14149', 'Ode of Resurrected Wings', 5, self::WEAPON),
+            self::item('13110', 'Original Transmorpher', 4, self::WEAPON),
         ], [
             self::phase(10035, self::CHARACTER, '3.0.2', ['2026-07-08 12:00:00', null], ['2026-07-28 14:59:59', null], ['1371'], ['1121']),
             // 3.1.2 and its rescreening 3.1.3 open at the same second: reruns prefer the titled phase
             self::phase(10037, self::CHARACTER, '3.1.2', ['2026-08-19 12:00:00', null], ['2026-09-08 14:59:59', null], ['1491'], ['1031']),
             self::phase(10038, self::CHARACTER, '3.1.3', ['2026-08-19 12:00:00', null], ['2026-09-08 14:59:59', null], ['1481', '1411', '1201'], ['1311'], 'Exclusive Rescreening'),
+            self::phase(20037, self::WEAPON, '3.1.2', ['2026-08-19 12:00:00', null], ['2026-09-08 14:59:59', null], ['14149'], ['13110']),
             // Same start second: the phase of a pull is the lowest id
             self::phase(10044, self::CHARACTER, '3.4.3', ['2027-01-01 12:00:00', null], ['2027-01-21 14:59:59', null], ['1651']),
             self::phase(10045, self::CHARACTER, '3.4.2', ['2027-01-01 12:00:00', null], ['2027-01-12 14:59:59', null], ['1521']),
@@ -315,6 +318,10 @@ class HoyoverseRateUpLookupTest extends TestCase
         $this->assertNull($zzz->isUp(self::row('2', '2026-08-20 12:00:00', 'Nicole', '1031', 3), false, true));
         $this->assertNull($zzz->isUp(self::row('2', '2028-01-10 12:00:00', 'Nicole', '1031', 3), false, true));
         $this->assertTrue($zzz->isUp(self::row('2', '2026-08-20 12:00:00', 'Dialyn', '1481', 4), true, false), 'S rules unchanged');
+        // The choice only covers the channel's own type: an A of the other type is never featured, a definite miss
+        $this->assertFalse($zzz->isUp(self::row('2', '2026-08-20 12:00:00', 'Original Transmorpher', '13110', 3), false, true), 'W-Engine on the agent channel');
+        $this->assertFalse($zzz->isUp(self::row('3', '2026-08-20 12:00:00', 'Nicole', '1031', 3), false, true), 'Agent on the W-Engine channel');
+        $this->assertNull($zzz->isUp(self::row('3', '2026-08-20 12:00:00', 'Original Transmorpher', '13110', 3), false, true), 'W-Engine on its channel: chosen');
         // A version without major.minor numbers is not read as 3.1 or later
         $this->assertTrue($zzz->isUp(self::row('2', '2029-01-10 12:00:00', 'Nicole', '1031', 3), false, true));
     }

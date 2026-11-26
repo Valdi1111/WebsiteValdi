@@ -371,7 +371,7 @@ The gacha logs say neither which banner (phase) a pull belongs to nor whether an
   - **Item:** found by `item_id` (HSR, ZZZ), else by normalized name (Genshin records carry no id). An unknown item gives null, never a lost 50/50.
   - **S:** an S is up when it is an S rate-up of a running phase, otherwise it is a lost 50/50.
   - **A:** an A is up when it is an A rate-up of a running phase, otherwise false, with two exceptions:
-    - ZZZ phases since 3.1 are always null, because the player picks the A rate-ups;
+    - ZZZ phases since 3.1: an A of the channel's own type is always null, because the player picks those A rate-ups; an A of the other type (a W-Engine on the agent channel, an agent on the W-Engine channel) is never featured, so it is false;
     - an HSR light cone missing from the lists is null, because irminsul's A light-cone lists are incomplete when several light-cone banners run together.
   - **Nothing is written,** and pity never reads the flag. "UP" shows on S cards and on S and A rows.
 - **Per-phase breakdown:** with a lookup, the limited banners add `pools` (GamesBundle § 2): one entry per phase with its label (`<version> · <title> · <S rate-ups>`, names as in the records), pulls, S count, the phase limits `start_at` / `end_at` in server time and its S rate-ups (`featured`, shaped like pull rows so the controllers add their `icon_url`: game id on HSR and ZZZ, name on Genshin); pulls outside every phase share one entry named after the banner. A pull belongs to the running phase that started last (lowest id on equal starts); on ZZZ the rerun banners prefer the titled rescreening phases and the other banners the untitled ones.

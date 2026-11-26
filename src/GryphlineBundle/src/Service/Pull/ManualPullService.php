@@ -63,6 +63,10 @@ class ManualPullService
     public function createManualS(GryphlineGameProfile $profile, HasAutoPullImportInterface $gameService, CreateManualPullRequest $request): GryphlinePull
     {
         $bannerGroup = $this->getBannerGroup($gameService, $request->banner);
+        if ($this->statsCalculator->isPoolPityGroup($bannerGroup)) {
+            // An earlier S belongs to a banner nothing is known about, and its pity ended with that banner
+            throw new BadRequestHttpException(sprintf('Earlier S pulls cannot be added to "%s": its pity resets with each banner.', $bannerGroup['name']));
+        }
         try {
             $pulledAt = WallClockDateTimeImmutableType::fromString($request->pulledAt);
         } catch (\InvalidArgumentException) {
@@ -126,17 +130,23 @@ class ManualPullService
     {
         $this->assertOwnPull($profile, $pull);
         $rarityConfig = $gameService->getRarityConfig();
-        if ($pull->getOrigin() === PullOrigin::Filler || (int) $pull->getRarity() < $rarityConfig->getS()->getRarity()) {
-            throw new BadRequestHttpException('Only the pity of an S pull can be declared.');
+        if ($pull->getOrigin() === PullOrigin::Filler || !$pull->isDraw() || $pull->isFree()
+            || (int) $pull->getRarity() < $rarityConfig->getS()->getRarity()) {
+            throw new BadRequestHttpException('Only the pity of a paid S pull can be declared.');
         }
         $bannerGroup = $this->getBannerGroupOfPull($gameService, $pull);
 
         $lock = $this->acquireLock($profile);
         try {
-            $entries = $this->statsCalculator->toTimelineEntries(
+            // Per-banner pity groups: only the rows of the banner of the pull count
+            $partitions = $this->statsCalculator->partitionByPityPool(
                 $this->pullRepository->findBannerRows($profile, $bannerGroup['categories']),
-                $rarityConfig,
+                $bannerGroup,
             );
+            $poolKey = $this->statsCalculator->isPoolPityGroup($bannerGroup)
+                ? GryphlinePullStatsCalculator::pityPoolKey(['poolId' => $pull->getPoolId(), 'poolVersion' => $pull->getPoolVersion()])
+                : '';
+            $entries = $this->statsCalculator->toTimelineEntries($partitions[$poolKey] ?? [], $rarityConfig);
             $pullId = (int) $pull->getId();
             $this->guard->assertCanDeclare($entries, $pullId, $pity, $bannerGroup['s_max_pity']);
 
@@ -191,19 +201,51 @@ class ManualPullService
         $bannerGroup = $gameService->getGachaConfig()->getBannerGroups('categories')[$bannerKey]
             ?? throw new \InvalidArgumentException(sprintf('Unknown banner "%s".', $bannerKey));
 
-        $entries = $this->statsCalculator->toTimelineEntries(
+        // Per-banner pity groups plan each banner on its own; the others are a single partition
+        $partitions = $this->statsCalculator->partitionByPityPool(
             $this->pullRepository->findBannerRows($profile, $bannerGroup['categories']),
-            $gameService->getRarityConfig(),
+            $bannerGroup,
         );
-        $plan = $this->planner->plan($entries);
 
-        foreach ($plan->warnings as $warning) {
-            $this->logger->warning(sprintf('Realign of banner %s for profile #%d: %s', $bannerKey, (int) $profile->getId(), $warning));
-        }
-        if ($plan->isEmpty()) {
-            return $plan;
+        $plans = [];
+        foreach ($partitions as $rows) {
+            $plan = $this->planner->plan($this->statsCalculator->toTimelineEntries($rows, $gameService->getRarityConfig()));
+            foreach ($plan->warnings as $warning) {
+                $this->logger->warning(sprintf('Realign of banner %s for profile #%d: %s', $bannerKey, (int) $profile->getId(), $warning));
+            }
+            if (!$plan->isEmpty()) {
+                $this->applyPlan($profile, $gameService, $bannerGroup, $plan, $rows[0] ?? null);
+            }
+            $plans[] = $plan;
         }
 
+        $merged = self::mergePlans($plans);
+        if (!$merged->isEmpty()) {
+            $this->entityManager->flush();
+        }
+
+        return $merged;
+    }
+
+    /**
+     * Realigns every configured banner group. The caller must hold the profile pull lock.
+     */
+    public function realignAll(GryphlineGameProfile $profile, HasAutoPullImportInterface $gameService): void
+    {
+        foreach (array_keys($gameService->getGachaConfig()->getBannerGroups('categories')) as $bannerKey) {
+            $this->realign($profile, $gameService, (string) $bannerKey);
+        }
+    }
+
+    /**
+     * Applies the plan of one partition (not flushed). Fillers of a per-banner pity group take the banner of the
+     * partition, so they stay in it.
+     *
+     * @param array{key: string, name: string} $bannerGroup
+     * @param array<string, mixed>|null $partitionRow Any row of the partition (its pool fields)
+     */
+    private function applyPlan(GryphlineGameProfile $profile, HasAutoPullImportInterface $gameService, array $bannerGroup, FillerPlan $plan, ?array $partitionRow): void
+    {
         $touchedIds = [
             ...array_keys($plan->declaredPityUpdates),
             ...array_keys($plan->merges),
@@ -235,23 +277,42 @@ class ManualPullService
         foreach ($plan->fillerDeletes as $id) {
             $this->entityManager->remove($get($id));
         }
+
+        $poolScoped = $this->statsCalculator->isPoolPityGroup($bannerGroup) && $partitionRow !== null;
         foreach ($plan->fillerCreates as $slot) {
-            $this->entityManager->persist($this->newFillerRow($profile, $gameService, $bannerGroup, $slot->pulledAt));
+            $filler = $this->newFillerRow($profile, $gameService, $bannerGroup, $slot->pulledAt);
+            if ($poolScoped) {
+                $filler->setPoolId(isset($partitionRow['poolId']) ? (string) $partitionRow['poolId'] : null)
+                    ->setPoolName(isset($partitionRow['poolName']) ? (string) $partitionRow['poolName'] : $bannerGroup['name'])
+                    ->setPoolVersion(isset($partitionRow['poolVersion']) ? (int) $partitionRow['poolVersion'] : null);
+            }
+            $this->entityManager->persist($filler);
         }
-
-        $this->entityManager->flush();
-
-        return $plan;
     }
 
     /**
-     * Realigns every configured banner group. The caller must hold the profile pull lock.
+     * @param list<FillerPlan> $plans Plans of disjoint partitions (their row ids never overlap)
      */
-    public function realignAll(GryphlineGameProfile $profile, HasAutoPullImportInterface $gameService): void
+    private static function mergePlans(array $plans): FillerPlan
     {
-        foreach (array_keys($gameService->getGachaConfig()->getBannerGroups('categories')) as $bannerKey) {
-            $this->realign($profile, $gameService, (string) $bannerKey);
+        if (\count($plans) === 1) {
+            return $plans[0];
         }
+
+        $merged = new FillerPlan();
+        foreach ($plans as $plan) {
+            $merged = new FillerPlan(
+                $merged->merges + $plan->merges,
+                $merged->declaredPityUpdates + $plan->declaredPityUpdates,
+                $merged->fillerMoves + $plan->fillerMoves,
+                [...$merged->fillerDeletes, ...$plan->fillerDeletes],
+                [...$merged->fillerCreates, ...$plan->fillerCreates],
+                [...$merged->warnings, ...$plan->warnings],
+                $merged->fillerPullNumbers + $plan->fillerPullNumbers,
+            );
+        }
+
+        return $merged;
     }
 
     /**

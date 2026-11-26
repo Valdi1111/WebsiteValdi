@@ -8,13 +8,17 @@ use App\GamesBundle\Model\Pull\Manual\FillerPlan;
 use App\GamesBundle\Model\Pull\PullOrigin;
 use App\GamesBundle\Model\Pull\PullTimelineEntry;
 use App\GamesBundle\Service\Pull\PullGapPlanner;
+use App\GryphlineBundle\Entity\GryphlinePull;
 use App\GryphlineBundle\Service\ArknightsEndfieldService;
+use App\GryphlineBundle\Service\Catalog\AkeCatalog;
 use App\GryphlineBundle\Service\Pull\GryphlinePullStatsCalculator;
 use App\GryphlineBundle\Service\SkportAuthService;
 use App\GryphlineBundle\Service\SkportSignerService;
 use App\GryphlineBundle\Service\SkportUtilsService;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\ObjectMapper\ObjectMapperInterface;
 use Symfony\Component\Serializer\Normalizer\DenormalizerInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -27,16 +31,24 @@ class GryphlinePullStatsCalculatorTest extends TestCase
     private const array SUMMARY_KEYS = [
         'key', 'name', 'categories', 'total_pulls', 'currency_spent', 's_count', 'a_count', 'b_count',
         's_pity', 's_max_pity', 'a_pity', 'a_max_pity', 'avg_s_pity', 'avg_a_pity', 'recent_s_pulls',
-        'unknown_count', 'open_window', 'oldest_s',
+        'unknown_count', 'open_window', 'oldest_s', 'pools', 'pity_pool_name', 'allow_add_s',
     ];
 
     private const array ITEM_KEYS = [
         'id', 'pull_number', 'seq_id', 'pool_type', 'pool_category', 'pool_name', 'gacha_name', 'item_type',
         'item_type_label', 'item_id', 'name', 'rarity', 'pity', 'pulled_at', 'origin', 'declared_pity', 'is_up',
+        'kind', 'is_free', 'pool_version', 'bonus_label',
     ];
 
     /** Keys only S items (and their recent_s_pulls copies) carry, after the others */
     private const array WINDOW_KEYS = ['recorded_pity', 'insert_after', 'insert_before', 'suggested_at', 'has_room'];
+
+    /** Catalog pools of the rate-up tests: one rate-up operator (and a 5★), two for the joint banner, none for the standard one */
+    private const array RATE_UP_POOLS = [
+        'special_1_0_3' => ['id' => 'special_1_0_3', 'category' => 'char', 'type' => 0, 'up' => ['chr_0013_aglina', 'chr_0005_chen']],
+        'joint_1_2_2' => ['id' => 'joint_1_2_2', 'category' => 'char', 'type' => 3, 'up' => ['chr_0016_laevat', 'chr_0013_aglina']],
+        'standard' => ['id' => 'standard', 'category' => 'char', 'type' => 2, 'up' => []],
+    ];
 
     /** Doctrine hydrates pulled_at (a UTC wall time) in the PHP default timezone: emulate a non-UTC one */
     private const string HYDRATION_TIMEZONE = 'Europe/Rome';
@@ -57,6 +69,14 @@ class GryphlinePullStatsCalculatorTest extends TestCase
         ?string $poolName = 'Winter Hunt',
         PullOrigin $origin = PullOrigin::Recorded,
         ?int $declaredPity = null,
+        string $kind = GryphlinePull::KIND_DRAW,
+        bool $isFree = false,
+        ?string $poolId = 'pool_1',
+        ?int $poolVersion = null,
+        ?string $gachaTs = null,
+        // Null: derived from the name
+        ?string $itemId = null,
+        ?bool $isUp = null,
     ): array {
         $id = $this->nextId++;
         if ($pulledAt === null) {
@@ -69,15 +89,85 @@ class GryphlinePullStatsCalculatorTest extends TestCase
             'seqId' => $seqId ?? (string) (1000 + $id),
             'poolType' => $poolType,
             'poolCategory' => $poolCategory,
-            'poolId' => 'pool_1',
+            'poolId' => $poolId,
             'poolName' => $poolName,
-            'itemId' => 'item_' . strtolower(str_replace(' ', '_', $name)),
+            'itemId' => $itemId ?? 'item_' . strtolower(str_replace(' ', '_', $name)),
             'name' => $name,
             'rarity' => $rarity,
             'pulledAt' => new \DateTimeImmutable($pulledAt, new \DateTimeZone(self::HYDRATION_TIMEZONE)),
+            'gachaTs' => $gachaTs,
             'origin' => $origin,
             'declaredPity' => $declaredPity,
+            'isUp' => $isUp,
+            'kind' => $kind,
+            'isFree' => $isFree,
+            'poolVersion' => $poolVersion,
         ];
+    }
+
+    /**
+     * Bonus entry (Headhunting Dossier, Tribute...): not a pull, with or without a rarity and an item.
+     *
+     * @return array<string, mixed>
+     */
+    private function bonus(
+        string $kind,
+        ?int $rarity = null,
+        string $name = 'Headhunting Dossier',
+        ?string $itemId = null,
+        ?string $pulledAt = null,
+        string $poolType = self::SPECIAL,
+        ?string $poolCategory = 'char',
+        ?string $poolId = 'pool_1',
+        ?string $poolName = 'Winter Hunt',
+    ): array {
+        $row = $this->row($rarity ?? 0, $name, $poolType, $pulledAt, poolCategory: $poolCategory, poolName: $poolName, kind: $kind, poolId: $poolId);
+        $row['rarity'] = $rarity;
+        $row['itemId'] = $itemId;
+
+        return $row;
+    }
+
+    /**
+     * One free Urgent Recruitment ten-pull: rows sharing pool, gachaTs and second, in seqId order.
+     *
+     * @param list<int> $rarities One per row
+     * @param array<int, string> $names Names by row index (others are "Free Item")
+     * @return list<array<string, mixed>>
+     */
+    private function freeTenPull(array $rarities, string $pulledAt, string $gachaTs, array $names = [], string $poolId = 'pool_1'): array
+    {
+        $rows = [];
+        foreach ($rarities as $index => $rarity) {
+            $rows[] = $this->row($rarity, $names[$index] ?? 'Free Item', pulledAt: $pulledAt, isFree: true, poolId: $poolId, gachaTs: $gachaTs);
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Stored catalog with the given pools (save() adds an empty pool list when $pools is null, so a catalog
+     * stored before the pools is written raw).
+     *
+     * @param array<string, array<string, mixed>>|null $pools
+     */
+    private static function catalog(?array $pools): AkeCatalog
+    {
+        $stored = ['version' => '1.6.4@11944529-13', 'built_at' => '2026-11-23T06:00:00+01:00', 'items' => [
+            'chr_0009_azrila' => ['id' => 'chr_0009_azrila', 'name' => 'Ember', 'rarity' => 6, 'type' => 'char'],
+        ]];
+        $adapter = new ArrayAdapter();
+        if ($pools === null) {
+            $adapter->save($adapter->getItem(AkeCatalog::CACHE_KEY)->set($stored));
+
+            return new AkeCatalog($adapter);
+        }
+
+        $catalog = new AkeCatalog($adapter);
+        $catalog->save($stored + ['pools' => $pools]);
+        $catalog->reset();
+
+        return $catalog;
     }
 
     /**
@@ -140,9 +230,9 @@ class GryphlinePullStatsCalculatorTest extends TestCase
         return $rows;
     }
 
-    private function calculator(): GryphlinePullStatsCalculator
+    private function calculator(?AkeCatalog $catalog = null): GryphlinePullStatsCalculator
     {
-        return new GryphlinePullStatsCalculator(new PullGapPlanner());
+        return new GryphlinePullStatsCalculator(new PullGapPlanner(), $catalog);
     }
 
     private function game(): ArknightsEndfieldService
@@ -236,6 +326,10 @@ class GryphlinePullStatsCalculatorTest extends TestCase
             'origin' => 'recorded',
             'declared_pity' => null,
             'is_up' => null,
+            'kind' => 'draw',
+            'is_free' => false,
+            'pool_version' => null,
+            'bonus_label' => null,
             'recorded_pity' => 12,
             'insert_after' => null,
             'insert_before' => '2026-06-01 00:01:00',
@@ -353,8 +447,11 @@ class GryphlinePullStatsCalculatorTest extends TestCase
         $this->assertTrue(array_is_list($list));
         $this->assertSame([
             self::SPECIAL,
+            'E_CharacterGachaPoolType_Rerun',
+            'E_CharacterGachaPoolType_Joint',
             'E_CharacterGachaPoolType_Standard',
             self::WEAPON,
+            'E_WeaponGachaPoolType_Rerun',
             'E_CharacterGachaPoolType_Beginner',
             'E_CharacterGachaPoolType_Collab',
             'weapon',
@@ -518,6 +615,10 @@ class GryphlinePullStatsCalculatorTest extends TestCase
             'origin' => 'recorded',
             'declared_pity' => null,
             'is_up' => null,
+            'kind' => 'draw',
+            'is_free' => false,
+            'pool_version' => null,
+            'bonus_label' => null,
         ], $items[1]);
         $this->assertNull(GryphlinePullStatsCalculator::getItemTypeLabel(null));
     }
@@ -742,5 +843,586 @@ class GryphlinePullStatsCalculatorTest extends TestCase
         $items = $calculator->compute($rows, $this->bannerGroups()[self::SPECIAL], $this->rarityConfig())['items'];
         $sPities = array_column(array_values(array_filter($items, static fn (array $item): bool => $item['rarity'] === 6)), 'pity');
         $this->assertSame([8, 12], $sPities, 'The numeric seqId order of the ten-pulls is kept around the fillers');
+    }
+
+    /**
+     * Pity of the named items (S and A rows), in item order.
+     *
+     * @param list<array<string, mixed>> $items
+     * @return array<string, ?int>
+     */
+    private static function pityByName(array $items, string ...$names): array
+    {
+        $pities = [];
+        foreach ($items as $item) {
+            if (\in_array($item['name'], $names, true)) {
+                $pities[$item['name']] = $item['pity'];
+            }
+        }
+
+        return $pities;
+    }
+
+    /**
+     * 3 paid B (May), two free ten-pulls (June: a 5★ at the 10th row, then a 6★ and a 5★), then paid
+     * B, B, A, S, B (July).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function paidAndFreeSequence(): array
+    {
+        return [
+            $this->row(4, pulledAt: '2026-05-31 09:00:00'),
+            $this->row(4, pulledAt: '2026-05-31 09:01:00'),
+            $this->row(4, pulledAt: '2026-05-31 09:02:00'),
+            ...$this->freeTenPull([4, 4, 4, 4, 4, 4, 4, 4, 4, 5], '2026-06-01 10:00:00', '1780308000000', [9 => 'Free Perlica']),
+            ...$this->freeTenPull([4, 4, 6, 4, 5, 4, 4, 4, 4, 4], '2026-06-01 10:05:00', '1780308300000', [2 => 'Free Liino', 4 => 'Free Alesh']),
+            $this->row(4, pulledAt: '2026-07-01 09:00:00'),
+            $this->row(4, pulledAt: '2026-07-01 09:01:00'),
+            $this->row(5, 'Perlica', pulledAt: '2026-07-01 09:02:00'),
+            $this->row(6, 'Si', pulledAt: '2026-07-01 09:03:00'),
+            $this->row(4, pulledAt: '2026-07-01 09:04:00'),
+        ];
+    }
+
+    public function testFreePullsNeverTouchThePaidCountersTotalsOrAverages(): void
+    {
+        $result = $this->calculator()->compute($this->paidAndFreeSequence(), $this->bannerGroups()[self::SPECIAL], $this->rarityConfig());
+        $summary = $result['summary'];
+        $items = $result['items'];
+
+        $this->assertSame(8, $summary['total_pulls'], 'Paid headhunts only');
+        $this->assertSame(4000, $summary['currency_spent']);
+        $this->assertSame(1, $summary['s_pity'], 'One paid headhunt since the paid S');
+        $this->assertSame(1, $summary['a_pity']);
+        $this->assertSame(7.0, $summary['avg_s_pity'], 'Paid S only');
+        $this->assertSame(6.0, $summary['avg_a_pity'], 'Paid A only');
+        $this->assertSame(
+            ['Perlica' => 6, 'Si' => 7],
+            self::pityByName($items, 'Perlica', 'Si'),
+            'The free 5★ and 6★ neither advance nor reset the paid counters',
+        );
+        $this->assertSame([1, 2, 3, ...array_fill(0, 20, null), 4, 5, 6, 7, 8], array_column($items, 'pull_number'));
+        $this->assertSame([...array_fill(0, 3, false), ...array_fill(0, 20, true), ...array_fill(0, 5, false)], array_column($items, 'is_free'));
+    }
+
+    public function testEachFreeTenPullHasItsOwnCounters(): void
+    {
+        $items = $this->calculator()->compute($this->paidAndFreeSequence(), $this->bannerGroups()[self::SPECIAL], $this->rarityConfig())['items'];
+
+        $this->assertSame(
+            ['Free Perlica' => 10, 'Free Liino' => 3, 'Free Alesh' => 2],
+            self::pityByName($items, 'Free Perlica', 'Free Liino', 'Free Alesh'),
+            'Counted from the first row of each ten-pull: not from the paid pulls, not from the previous free ten-pull',
+        );
+
+        // Same gachaTs and second, another pool: another ten-pull
+        $rows = [
+            ...$this->freeTenPull(array_fill(0, 9, 4), '2026-06-02 10:00:00', '1780394400000'),
+            ...$this->freeTenPull([5], '2026-06-02 10:00:00', '1780394400000', ['Other Pool A'], 'pool_2'),
+        ];
+        $items = $this->calculator()->compute($rows, $this->bannerGroups()[self::SPECIAL], $this->rarityConfig())['items'];
+        $this->assertSame(['Other Pool A' => 1], self::pityByName($items, 'Other Pool A'));
+    }
+
+    public function testFreeSAndACountButStayOutOfTheMonthlyTotal(): void
+    {
+        $result = $this->calculator()->compute($this->paidAndFreeSequence(), $this->bannerGroups()[self::SPECIAL], $this->rarityConfig());
+
+        $this->assertSame(2, $result['summary']['s_count'], 'Paid and free S');
+        $this->assertSame(3, $result['summary']['a_count'], 'Paid and free A');
+        $this->assertSame([
+            '2026-05' => ['month' => '2026-05', 'total' => 3, 's_count' => 0, 'a_count' => 0],
+            '2026-06' => ['month' => '2026-06', 'total' => 0, 's_count' => 1, 'a_count' => 2],
+            '2026-07' => ['month' => '2026-07', 'total' => 5, 's_count' => 1, 'a_count' => 1],
+        ], $result['monthly']);
+    }
+
+    public function testFreeSIsARecentSWithoutWindowAndNeverTheOldestS(): void
+    {
+        $summary = $this->calculator()->compute($this->paidAndFreeSequence(), $this->bannerGroups()[self::SPECIAL], $this->rarityConfig())['summary'];
+
+        $this->assertSame(['Si', 'Free Liino'], array_column($summary['recent_s_pulls'], 'name'));
+        $free = $summary['recent_s_pulls'][1];
+        $this->assertSame([
+            'id' => 16,
+            'pull_number' => null,
+            'item_id' => 'item_free_liino',
+            'name' => 'Free Liino',
+            'item_type' => 'char',
+            'rarity' => 6,
+            'pity' => 3,
+            'pulled_at' => '2026-06-01 10:05:00',
+            'origin' => 'recorded',
+            'declared_pity' => null,
+            'is_up' => null,
+            'kind' => 'draw',
+            'is_free' => true,
+            'pool_version' => null,
+            'bonus_label' => null,
+        ], $free, 'No window keys on a free S');
+        $this->assertSame([...array_keys($free), ...self::WINDOW_KEYS], array_keys($summary['recent_s_pulls'][0]), 'The paid S keeps its window');
+
+        $this->assertSame('Si', $summary['oldest_s']['name'], 'The older free S is not the anchor of "Add missing S"');
+        $this->assertSame(7, $summary['oldest_s']['recorded_pity'], 'The free 6★ does not close the window of the paid S');
+        $this->assertNull($summary['oldest_s']['insert_after']);
+
+        $onlyFree = $this->calculator()->compute(
+            $this->freeTenPull([4, 6, 4, 4, 4, 4, 4, 4, 4, 5], '2026-06-02 10:00:00', '1780394400000', [1 => 'Lone Free S']),
+            $this->bannerGroups()[self::SPECIAL],
+            $this->rarityConfig(),
+        )['summary'];
+        $this->assertNull($onlyFree['oldest_s']);
+        $this->assertSame(['Lone Free S'], array_column($onlyFree['recent_s_pulls'], 'name'));
+        $this->assertSame(0, $onlyFree['total_pulls']);
+        $this->assertSame([0, 0], [$onlyFree['s_pity'], $onlyFree['a_pity']]);
+        $this->assertSame([0.0, 0.0], [$onlyFree['avg_s_pity'], $onlyFree['avg_a_pity']]);
+    }
+
+    /**
+     * Bonus 6★ first (own month), then paid B, B, Dossier, A, unknown-kind bonus, B, S, then a bonus 6★ again.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function paidAndBonusSequence(): array
+    {
+        return [
+            $this->bonus('gift_weapon', 6, 'Delivery Guaranteed', 'wpn_funnel_0011', '2026-05-31 08:00:00', poolId: 'special_1_0_3'),
+            $this->row(4, pulledAt: '2026-06-01 09:00:00', poolId: 'special_1_0_3'),
+            $this->row(4, pulledAt: '2026-06-01 09:01:00', poolId: 'special_1_0_3'),
+            $this->bonus('gift_intel_book', pulledAt: '2026-06-01 09:02:00', poolId: 'special_1_0_3'),
+            $this->row(5, 'Perlica', pulledAt: '2026-06-01 09:03:00', poolId: 'special_1_0_3'),
+            $this->bonus('some_new_kind', name: 'Mystery Box', pulledAt: '2026-06-01 09:04:00', poolId: 'special_1_0_3'),
+            $this->row(4, pulledAt: '2026-06-01 09:05:00', poolId: 'special_1_0_3'),
+            $this->row(6, 'Aglina', pulledAt: '2026-06-01 09:06:00', poolId: 'special_1_0_3', itemId: 'chr_0013_aglina'),
+            $this->bonus('gift_weapon', 6, 'Delivery Guaranteed', 'wpn_funnel_0011', '2026-06-01 09:07:00', poolId: 'special_1_0_3'),
+        ];
+    }
+
+    public function testBonusEntriesAreListedWithALabelAndNoPity(): void
+    {
+        // The weapon of the Tribute is a rate-up item too: a bonus 6★ would read as up if it were a pull
+        $catalog = self::catalog(['special_1_0_3' => ['id' => 'special_1_0_3', 'category' => 'char', 'type' => 0, 'up' => ['chr_0013_aglina', 'wpn_funnel_0011']]]);
+        $items = $this->calculator($catalog)->compute($this->paidAndBonusSequence(), $this->bannerGroups()[self::SPECIAL], $this->rarityConfig())['items'];
+
+        $this->assertSame(['Tribute', null, null, 'Headhunting Dossier', null, 'Some new kind', null, null, 'Tribute'], array_column($items, 'bonus_label'));
+        $this->assertSame(['gift_weapon', 'draw', 'draw', 'gift_intel_book', 'draw', 'some_new_kind', 'draw', 'draw', 'gift_weapon'], array_column($items, 'kind'));
+        $this->assertSame([null, 1, 2, null, 3, null, 4, 5, null], array_column($items, 'pull_number'));
+        $this->assertSame([null, 1, 1, null, 3, null, 1, 5, null], array_column($items, 'pity'), 'The paid A and S count only the paid headhunts');
+        $this->assertSame([6, 4, 4, null, 5, null, 4, 6, 6], array_column($items, 'rarity'), 'Rarity null when the entry has none');
+        $this->assertSame([null, null, null, null, null, null, null, true, null], array_column($items, 'is_up'), 'Only the paid S reads the catalog');
+        $this->assertSame(array_fill(0, 9, false), array_column($items, 'is_free'));
+        $this->assertSame(self::ITEM_KEYS, array_keys($items[0]), 'A bonus 6★ carries no window');
+        $this->assertSame(self::ITEM_KEYS, array_keys($items[8]));
+        $this->assertNull($items[3]['item_id']);
+
+        $this->assertSame('Headhunting Dossier', GryphlinePull::getBonusLabel('gift_intel_book'));
+        $this->assertSame('Tribute', GryphlinePull::getBonusLabel('gift_weapon'));
+        $this->assertSame('Some new kind', GryphlinePull::getBonusLabel('some_new_kind'), 'Unknown kinds get a readable label');
+    }
+
+    public function testBonusEntriesNeverTouchCountersTotalsOrMonthly(): void
+    {
+        $result = $this->calculator()->compute($this->paidAndBonusSequence(), $this->bannerGroups()[self::SPECIAL], $this->rarityConfig());
+        $summary = $result['summary'];
+
+        $this->assertSame(5, $summary['total_pulls']);
+        $this->assertSame(2500, $summary['currency_spent']);
+        $this->assertSame([1, 1, 3], [$summary['s_count'], $summary['a_count'], $summary['b_count']], 'Bonus entries are neither S, A nor B');
+        $this->assertSame(0, $summary['unknown_count']);
+        $this->assertSame(0, $summary['s_pity'], 'The bonus 6★ after the S does not advance the pity');
+        $this->assertSame(0, $summary['a_pity']);
+        $this->assertSame(5.0, $summary['avg_s_pity']);
+        $this->assertSame(3.0, $summary['avg_a_pity']);
+        $this->assertSame(['Aglina'], array_column($summary['recent_s_pulls'], 'name'));
+        $this->assertSame('Aglina', $summary['oldest_s']['name']);
+        $this->assertSame(5, $summary['oldest_s']['recorded_pity']);
+        $this->assertNull($summary['oldest_s']['insert_after'], 'The bonus 6★ before it does not close a window');
+        $this->assertSame(
+            ['2026-06' => ['month' => '2026-06', 'total' => 5, 's_count' => 1, 'a_count' => 1]],
+            $result['monthly'],
+            'A month with bonus entries only is not listed',
+        );
+    }
+
+    public function testRarityFilterNeverHidesBonusEntriesButTheSearchDoes(): void
+    {
+        $rows = [
+            $this->filler(),
+            $this->row(4, 'Item'),
+            $this->row(6, 'Liino'),
+            $this->bonus('gift_intel_book'),
+            $this->row(5, 'Perlica'),
+            $this->bonus('gift_weapon', 6, 'Delivery Guaranteed', 'wpn_funnel_0011'),
+        ];
+        $calculator = $this->calculator();
+        $items = $calculator->compute($rows, $this->bannerGroups()[self::SPECIAL], $this->rarityConfig())['items'];
+        $names = static fn (array $page): array => array_column($page['items'], 'name');
+
+        $this->assertSame(['Delivery Guaranteed', 'Perlica', 'Headhunting Dossier', 'Liino', 'Item', 'Unknown'], $names($calculator->filterAndPaginate($items, [], null, 1, 15)));
+        $this->assertSame(['Delivery Guaranteed', 'Headhunting Dossier', 'Liino'], $names($calculator->filterAndPaginate($items, [6], null, 1, 15)));
+        $this->assertSame(['Delivery Guaranteed', 'Perlica', 'Headhunting Dossier', 'Liino'], $names($calculator->filterAndPaginate($items, [5, 6], null, 1, 15)));
+        $this->assertSame(['Delivery Guaranteed', 'Headhunting Dossier', 'Unknown'], $names($calculator->filterAndPaginate($items, [0], null, 1, 15)), 'Not unknown pulls, but still listed');
+        $this->assertSame(3, $calculator->filterAndPaginate($items, [0], null, 1, 15)['total']);
+
+        $this->assertSame(['Headhunting Dossier'], $names($calculator->filterAndPaginate($items, [6], 'dossier', 1, 15)));
+        $this->assertSame(['Liino'], $names($calculator->filterAndPaginate($items, [6], 'liino', 1, 15)), 'The search drops the bonus entries');
+        $this->assertSame(['Headhunting Dossier'], $names($calculator->filterAndPaginate($items, [], ' DOSSIER ', 1, 15)));
+    }
+
+    public function testTimelineEntriesLeaveFreeAndBonusSOut(): void
+    {
+        $rows = [
+            $this->row(4, pulledAt: '2026-06-01 10:00:00'),
+            $this->row(6, 'Free Liino', pulledAt: '2026-06-01 10:01:00', isFree: true, gachaTs: '1780308060000'),
+            $this->bonus('gift_weapon', 6, 'Delivery Guaranteed', 'wpn_funnel_0011', '2026-06-01 10:02:00'),
+            $this->row(6, 'Si', pulledAt: '2026-06-01 10:03:00'),
+            $this->row(4, pulledAt: '2026-06-01 10:04:00'),
+        ];
+        $calculator = $this->calculator();
+
+        $entries = $calculator->toTimelineEntries($rows, $this->rarityConfig());
+        $this->assertSame([false, false, false, true, false], array_map(static fn (PullTimelineEntry $entry): bool => $entry->isS, $entries));
+        $this->assertSame([true, false, false, true, true], array_map(static fn (PullTimelineEntry $entry): bool => $entry->countsAsPull, $entries));
+
+        $si = $calculator->compute($rows, $this->bannerGroups()[self::SPECIAL], $this->rarityConfig())['items'][3];
+        $this->assertSame(['Si', 2, 2, null], [$si['name'], $si['pity'], $si['recorded_pity'], $si['insert_after']], 'The window of the paid S spans the free and bonus 6★');
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function perBannerPityGroups(): iterable
+    {
+        yield 'Special Headhunting' => ['E_CharacterGachaPoolType_Joint', 'char'];
+        yield 'Arsenal Issue' => ['E_WeaponGachaPoolType_Standard', 'weapon'];
+        yield 'RE-Factor Issue' => ['E_WeaponGachaPoolType_Rerun', 'weapon'];
+    }
+
+    /**
+     * Two interleaved banners of one per-banner pity group, given newest first; the last row is a bonus entry of
+     * banner A, after the last paid pull (banner B).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function interleavedPools(string $poolType, string $category): array
+    {
+        $a = ['poolType' => $poolType, 'poolCategory' => $category, 'poolId' => 'pool_a', 'poolName' => 'Banner A'];
+        $b = ['poolType' => $poolType, 'poolCategory' => $category, 'poolId' => 'pool_b', 'poolName' => 'Banner B'];
+
+        return array_reverse([
+            $this->row(4, ...$a, pulledAt: '2026-06-01 10:00:00'),
+            $this->row(4, ...$a, pulledAt: '2026-06-01 10:01:00'),
+            $this->row(4, ...$b, pulledAt: '2026-06-01 10:02:00'),
+            $this->row(6, 'Liino', ...$a, pulledAt: '2026-06-01 10:03:00'),
+            $this->row(4, ...$b, pulledAt: '2026-06-01 10:04:00'),
+            $this->row(5, 'Perlica', ...$b, pulledAt: '2026-06-01 10:05:00'),
+            $this->row(4, ...$a, pulledAt: '2026-06-01 10:06:00'),
+            $this->row(4, ...$a, pulledAt: '2026-06-01 10:07:00'),
+            $this->row(4, ...$b, pulledAt: '2026-06-01 10:08:00'),
+            $this->bonus('gift_intel_book', pulledAt: '2026-06-01 10:09:00', poolType: $poolType, poolCategory: $category, poolId: 'pool_a', poolName: 'Banner A'),
+        ]);
+    }
+
+    #[DataProvider('perBannerPityGroups')]
+    public function testPerBannerPityGroupsCountEachPoolOnItsOwn(string $groupKey, string $category): void
+    {
+        $calculator = $this->calculator();
+        $bannerGroup = $this->bannerGroups()[$groupKey];
+        $rows = $this->interleavedPools($groupKey, $category);
+
+        $result = $calculator->compute($rows, $bannerGroup, $this->rarityConfig());
+        $summary = $result['summary'];
+
+        $this->assertSame(self::SUMMARY_KEYS, array_keys($summary));
+        $this->assertSame([1, 1, 1, 3, 1, 3, 1, 1, 1, null], array_column($result['items'], 'pity'), 'The S counts banner A only, the A banner B only');
+        $this->assertSame([...range(1, 9), null], array_column($result['items'], 'pull_number'), 'Pull numbers stay global');
+        $this->assertSame(9, $summary['total_pulls']);
+        $this->assertSame(4, $summary['s_pity'], 'Banner B, the one of the last paid pull');
+        $this->assertSame(1, $summary['a_pity']);
+        $this->assertSame('Banner B', $summary['pity_pool_name']);
+        $this->assertFalse($summary['allow_add_s']);
+        $this->assertSame([
+            [
+                'pool_id' => 'pool_a',
+                'pool_name' => 'Banner A',
+                'pool_version' => null,
+                'total_pulls' => 5,
+                's_count' => 1,
+                's_pity' => 2,
+                'a_pity' => 2,
+                'first_pulled_at' => '2026-06-01 10:00:00',
+                'last_pulled_at' => '2026-06-01 10:07:00',
+            ],
+            [
+                'pool_id' => 'pool_b',
+                'pool_name' => 'Banner B',
+                'pool_version' => null,
+                'total_pulls' => 4,
+                's_count' => 0,
+                's_pity' => 4,
+                'a_pity' => 1,
+                'first_pulled_at' => '2026-06-01 10:02:00',
+                'last_pulled_at' => '2026-06-01 10:08:00',
+            ],
+        ], $summary['pools']);
+
+        $this->assertSame(3, $summary['oldest_s']['recorded_pity'], 'The missing-pulls window of the S spans banner A only');
+        $this->assertSame(4, $summary['open_window']['recorded_pity'], 'Open window of banner B');
+        $this->assertNull($summary['open_window']['insert_after']);
+
+        $this->assertTrue($calculator->isPoolPityGroup($bannerGroup));
+        $partitions = $calculator->partitionByPityPool($rows, $bannerGroup);
+        $this->assertSame(['pool_a', 'pool_b'], array_keys($partitions));
+        $minutes = static fn (array $poolRows): array => array_map(static fn (array $row): string => $row['pulledAt']->format('i'), $poolRows);
+        $this->assertSame(['00', '01', '03', '06', '07', '09'], $minutes($partitions['pool_a']), 'Chronological order inside a banner, bonus entry included');
+        $this->assertSame(['02', '04', '05', '08'], $minutes($partitions['pool_b']));
+    }
+
+    public function testReFactorIssueCountsEachRerunOnItsOwn(): void
+    {
+        $groupKey = 'E_WeaponGachaPoolType_Rerun';
+        $x = ['poolType' => $groupKey, 'poolCategory' => 'weapon', 'poolId' => 'rerun_wpn_x', 'poolName' => 'Aglina Issue'];
+        $y = ['poolType' => $groupKey, 'poolCategory' => 'weapon', 'poolId' => 'rerun_wpn_y', 'poolName' => 'Ember Issue'];
+        $rows = [
+            $this->row(4, ...$x, pulledAt: '2026-06-01 10:00:00', poolVersion: 1),
+            $this->row(4, ...$x, pulledAt: '2026-06-01 10:01:00', poolVersion: 1),
+            $this->row(6, 'Delivery Guaranteed', ...$x, pulledAt: '2026-06-01 10:02:00', poolVersion: 1),
+            $this->row(4, ...$x, pulledAt: '2026-06-01 10:03:00', poolVersion: 1),
+            $this->row(4, ...$y, pulledAt: '2026-06-01 10:04:00'),
+            $this->row(4, ...$y, pulledAt: '2026-06-01 10:05:00'),
+            $this->row(4, ...$x, pulledAt: '2026-06-01 10:06:00', poolVersion: 2),
+            $this->row(5, 'Seeker', ...$x, pulledAt: '2026-06-01 10:07:00', poolVersion: 2),
+            $this->row(6, 'Grand Vision', ...$y, pulledAt: '2026-06-01 10:08:00'),
+            $this->row(4, ...$x, pulledAt: '2026-06-01 10:09:00', poolVersion: 2),
+        ];
+        $calculator = $this->calculator();
+        $bannerGroup = $this->bannerGroups()[$groupKey];
+
+        $result = $calculator->compute($rows, $bannerGroup, $this->rarityConfig());
+        $summary = $result['summary'];
+
+        $this->assertSame([1, 1, 3, 1, 1, 1, 1, 2, 3, 1], array_column($result['items'], 'pity'), 'Rerun #2 starts again; the run without a version spans its interleaved rows');
+        $this->assertSame([1, 1, 1, 1, null, null, 2, 2, null, 2], array_column($result['items'], 'pool_version'));
+        $this->assertSame(3, $summary['s_pity'], 'Rerun #2 only, not continued from rerun #1');
+        $this->assertSame(1, $summary['a_pity']);
+        $this->assertSame('Aglina Issue #2', $summary['pity_pool_name']);
+        $this->assertFalse($summary['allow_add_s']);
+        $this->assertSame([
+            [
+                'pool_id' => 'rerun_wpn_x',
+                'pool_name' => 'Aglina Issue',
+                'pool_version' => 1,
+                'total_pulls' => 4,
+                's_count' => 1,
+                's_pity' => 1,
+                'a_pity' => 1,
+                'first_pulled_at' => '2026-06-01 10:00:00',
+                'last_pulled_at' => '2026-06-01 10:03:00',
+            ],
+            [
+                'pool_id' => 'rerun_wpn_y',
+                'pool_name' => 'Ember Issue',
+                'pool_version' => null,
+                'total_pulls' => 3,
+                's_count' => 1,
+                's_pity' => 0,
+                'a_pity' => 0,
+                'first_pulled_at' => '2026-06-01 10:04:00',
+                'last_pulled_at' => '2026-06-01 10:08:00',
+            ],
+            [
+                'pool_id' => 'rerun_wpn_x',
+                'pool_name' => 'Aglina Issue',
+                'pool_version' => 2,
+                'total_pulls' => 3,
+                's_count' => 0,
+                's_pity' => 3,
+                'a_pity' => 1,
+                'first_pulled_at' => '2026-06-01 10:06:00',
+                'last_pulled_at' => '2026-06-01 10:09:00',
+            ],
+        ], $summary['pools']);
+
+        $this->assertSame(['rerun_wpn_x#1', 'rerun_wpn_y', 'rerun_wpn_x#2'], array_keys($calculator->partitionByPityPool($rows, $bannerGroup)));
+        $this->assertSame('rerun_wpn_x#2', GryphlinePullStatsCalculator::pityPoolKey(['poolId' => 'rerun_wpn_x', 'poolVersion' => 2]));
+        $this->assertSame('rerun_wpn_x', GryphlinePullStatsCalculator::pityPoolKey(['poolId' => 'rerun_wpn_x', 'poolVersion' => null]));
+        $this->assertSame('rerun_wpn_x', GryphlinePullStatsCalculator::pityPoolKey(['poolId' => 'rerun_wpn_x', 'poolVersion' => 0]), 'Version 0 means no rerun number');
+        $this->assertSame('', GryphlinePullStatsCalculator::pityPoolKey(['poolId' => null]));
+    }
+
+    public function testOnlyThePerBannerPityGroupsArePartitionedByPool(): void
+    {
+        $calculator = $this->calculator();
+        $bannerGroups = $this->bannerGroups();
+
+        foreach ($bannerGroups as $key => $group) {
+            $this->assertSame(\in_array($key, ArknightsEndfieldService::POOL_PITY_BANNERS, true), $calculator->isPoolPityGroup($group), $key);
+        }
+        $this->assertSame(
+            ['E_CharacterGachaPoolType_Joint', 'E_WeaponGachaPoolType_Standard', 'E_WeaponGachaPoolType_Rerun'],
+            array_values(array_filter(array_keys($bannerGroups), static fn (string $key): bool => $calculator->isPoolPityGroup($bannerGroups[$key]))),
+        );
+
+        $rows = [
+            $this->row(4, 'Second', pulledAt: '2026-06-01 10:01:00', poolId: 'special_b'),
+            $this->row(4, 'First', pulledAt: '2026-06-01 10:00:00', poolId: 'special_a'),
+        ];
+        $shared = $calculator->partitionByPityPool($rows, $bannerGroups[self::SPECIAL]);
+        $this->assertSame([''], array_keys($shared));
+        $this->assertSame(['First', 'Second'], array_column($shared[''], 'name'));
+        $this->assertSame(['' => []], $calculator->partitionByPityPool([], $bannerGroups['E_CharacterGachaPoolType_Joint']));
+    }
+
+    public function testReFactorHeadhuntingSharesOnePityAcrossItsPools(): void
+    {
+        $groupKey = 'E_CharacterGachaPoolType_Rerun';
+        $a = ['poolType' => $groupKey, 'poolId' => 'rerun_a', 'poolName' => 'Laevatain Rerun'];
+        $b = ['poolType' => $groupKey, 'poolId' => 'rerun_b', 'poolName' => 'Ember Rerun'];
+        $rows = [
+            $this->row(4, ...$a, pulledAt: '2026-06-01 10:00:00'),
+            $this->row(4, ...$a, pulledAt: '2026-06-01 10:01:00'),
+            $this->row(4, ...$a, pulledAt: '2026-06-01 10:02:00'),
+            $this->row(6, 'Laevatain', ...$a, pulledAt: '2026-06-01 10:03:00'),
+            $this->row(4, ...$a, pulledAt: '2026-06-01 10:04:00'),
+            // A free pull is not in the total of its banner
+            $this->row(4, 'Free Item', ...$a, pulledAt: '2026-06-01 10:04:30', isFree: true, gachaTs: '1780308270000'),
+            $this->row(4, ...$a, pulledAt: '2026-06-01 10:05:00'),
+            $this->row(4, ...$b, pulledAt: '2026-06-01 10:06:00'),
+            $this->row(4, ...$b, pulledAt: '2026-06-01 10:07:00'),
+            $this->row(4, ...$b, pulledAt: '2026-06-01 10:08:00'),
+            $this->row(6, 'Ember', ...$b, pulledAt: '2026-06-01 10:09:00'),
+            $this->row(4, ...$b, pulledAt: '2026-06-01 10:10:00'),
+        ];
+        $calculator = $this->calculator();
+        $bannerGroup = $this->bannerGroups()[$groupKey];
+
+        $summary = $calculator->compute($rows, $bannerGroup, $this->rarityConfig())['summary'];
+
+        $this->assertSame(['Ember', 'Laevatain'], array_column($summary['recent_s_pulls'], 'name'));
+        $this->assertSame([6, 4], array_column($summary['recent_s_pulls'], 'pity'), 'Ember continues the pity of the first rerun banner');
+        $this->assertSame([6, '2026-06-01 10:03:00'], [$summary['recent_s_pulls'][0]['recorded_pity'], $summary['recent_s_pulls'][0]['insert_after']], 'One window across the banners');
+        $this->assertSame(1, $summary['s_pity']);
+        $this->assertSame(1, $summary['a_pity']);
+        $this->assertSame(11, $summary['total_pulls']);
+        $this->assertNull($summary['pity_pool_name']);
+        $this->assertTrue($summary['allow_add_s']);
+        $this->assertSame([
+            [
+                'pool_id' => 'rerun_a',
+                'pool_name' => 'Laevatain Rerun',
+                'pool_version' => null,
+                'total_pulls' => 6,
+                's_count' => 1,
+                's_pity' => null,
+                'a_pity' => null,
+                'first_pulled_at' => '2026-06-01 10:00:00',
+                'last_pulled_at' => '2026-06-01 10:05:00',
+            ],
+            [
+                'pool_id' => 'rerun_b',
+                'pool_name' => 'Ember Rerun',
+                'pool_version' => null,
+                'total_pulls' => 5,
+                's_count' => 1,
+                's_pity' => null,
+                'a_pity' => null,
+                'first_pulled_at' => '2026-06-01 10:06:00',
+                'last_pulled_at' => '2026-06-01 10:10:00',
+            ],
+        ], $summary['pools']);
+
+        $this->assertFalse($calculator->isPoolPityGroup($bannerGroup));
+        $this->assertSame([''], array_keys($calculator->partitionByPityPool($rows, $bannerGroup)));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function sharedPityGroups(): iterable
+    {
+        yield 'Chartered Headhunting' => [self::SPECIAL];
+        yield 'Basic Headhunting' => ['E_CharacterGachaPoolType_Standard'];
+        yield 'Beginner Headhunting' => ['E_CharacterGachaPoolType_Beginner'];
+    }
+
+    #[DataProvider('sharedPityGroups')]
+    public function testSharedPityGroupsHaveNoPoolBreakdown(string $groupKey): void
+    {
+        $rows = [
+            $this->row(4, poolType: $groupKey, poolId: 'pool_a'),
+            $this->row(4, poolType: $groupKey, poolId: 'pool_a'),
+            $this->row(4, poolType: $groupKey, poolId: 'pool_b'),
+            $this->row(6, 'Liino', poolType: $groupKey, poolId: 'pool_b'),
+            $this->row(4, poolType: $groupKey, poolId: 'pool_b'),
+        ];
+
+        $summary = $this->calculator()->compute($rows, $this->bannerGroups()[$groupKey], $this->rarityConfig())['summary'];
+
+        $this->assertSame([4], array_column($summary['recent_s_pulls'], 'pity'), 'One pity across the banners');
+        $this->assertSame(1, $summary['s_pity']);
+        $this->assertSame([], $summary['pools']);
+        $this->assertNull($summary['pity_pool_name']);
+        $this->assertTrue($summary['allow_add_s']);
+    }
+
+    public function testRateUpFlagOfAnSComesFromTheCatalogWhenNotStored(): void
+    {
+        $aglina = ['poolId' => 'special_1_0_3', 'itemId' => 'chr_0013_aglina'];
+        $ember = ['poolId' => 'special_1_0_3', 'itemId' => 'chr_0009_azrila'];
+        $rows = [
+            $this->row(6, 'Aglina', ...$aglina),
+            $this->row(6, 'Ember', ...$ember),
+            $this->row(6, 'Ember stored up', ...$ember, isUp: true),
+            $this->row(6, 'Aglina stored not up', ...$aglina, isUp: false),
+            $this->row(6, 'Free Aglina', ...$aglina, isFree: true, gachaTs: '1780308000000'),
+            $this->row(6, 'Free Ember', ...$ember, isFree: true, gachaTs: '1780308060000'),
+            $this->row(5, 'Chen Qianyu', poolId: 'special_1_0_3', itemId: 'chr_0005_chen'),
+            $this->row(4, 'Up B', poolId: 'special_1_0_3', itemId: 'chr_0013_aglina'),
+            $this->row(6, 'Aglina in standard', poolId: 'standard', itemId: 'chr_0013_aglina'),
+            $this->row(6, 'Aglina in unknown pool', poolId: 'special_9_9_9', itemId: 'chr_0013_aglina'),
+            $this->row(6, 'Aglina without pool', poolId: null, itemId: 'chr_0013_aglina'),
+            $this->row(6, 'S without item', poolId: 'special_1_0_3'),
+        ];
+        $rows[11]['itemId'] = null;
+
+        $result = $this->calculator(self::catalog(self::RATE_UP_POOLS))->compute($rows, $this->bannerGroups()[self::SPECIAL], $this->rarityConfig());
+
+        $this->assertSame(
+            [true, false, true, false, true, false, null, null, null, null, null, null],
+            array_column($result['items'], 'is_up'),
+            'Catalog for a paid or free S, the stored flag first, null for non-S rows and when the catalog cannot tell',
+        );
+        $sItems = array_values(array_filter($result['items'], static fn (array $item): bool => $item['rarity'] === 6));
+        $this->assertSame(array_reverse(array_column($sItems, 'is_up')), array_column($result['summary']['recent_s_pulls'], 'is_up'));
+    }
+
+    public function testRateUpFlagOfAJointBannerAcceptsEitherRateUpOperator(): void
+    {
+        $rows = [
+            $this->row(6, 'Laevatain', 'E_CharacterGachaPoolType_Joint', poolId: 'joint_1_2_2', itemId: 'chr_0016_laevat'),
+            $this->row(6, 'Aglina', 'E_CharacterGachaPoolType_Joint', poolId: 'joint_1_2_2', itemId: 'chr_0013_aglina'),
+            $this->row(6, 'Ember', 'E_CharacterGachaPoolType_Joint', poolId: 'joint_1_2_2', itemId: 'chr_0009_azrila'),
+        ];
+
+        $items = $this->calculator(self::catalog(self::RATE_UP_POOLS))->compute($rows, $this->bannerGroups()['E_CharacterGachaPoolType_Joint'], $this->rarityConfig())['items'];
+
+        $this->assertSame([true, true, false], array_column($items, 'is_up'));
+    }
+
+    public function testRateUpFlagStaysUnknownWithoutAUsableCatalog(): void
+    {
+        $rows = [
+            $this->row(6, 'Aglina', poolId: 'special_1_0_3', itemId: 'chr_0013_aglina'),
+            $this->row(6, 'Ember', poolId: 'special_1_0_3', itemId: 'chr_0009_azrila'),
+            $this->row(6, 'Ember stored up', poolId: 'special_1_0_3', itemId: 'chr_0009_azrila', isUp: true),
+        ];
+        $bannerGroup = $this->bannerGroups()[self::SPECIAL];
+        $isUp = fn (?AkeCatalog $catalog): array => array_column($this->calculator($catalog)->compute($rows, $bannerGroup, $this->rarityConfig())['items'], 'is_up');
+
+        $this->assertSame([true, false, true], $isUp(self::catalog(self::RATE_UP_POOLS)), 'Positive control');
+        $this->assertSame([null, null, true], $isUp(null), 'No catalog');
+        $this->assertSame([null, null, true], $isUp(new AkeCatalog(new ArrayAdapter())), 'Nothing stored');
+        $this->assertSame([null, null, true], $isUp(self::catalog(null)), 'Catalog stored before the pools');
     }
 }

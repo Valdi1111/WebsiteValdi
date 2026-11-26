@@ -141,7 +141,7 @@ class GryphlineTaskCommand extends AbstractTaskCommand
             return [];
         }
 
-        $bannerTypes = $game->getGachaConfig()->getBannerTypes();
+        $bannerTypes = $game->getSyncStreams();
         $operation = $this->operationTracker->startSyncOperation((int) $profile->getId(), null, PullOperationKind::AUTO_SYNC, $bannerTypes);
 
         $messages = [];

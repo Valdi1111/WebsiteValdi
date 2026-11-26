@@ -12,7 +12,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 /**
  * Manual catalog update; the weekly update runs as the "catalog_update" task of the gryphline schedule.
  */
-#[AsCommand(name: 'gryphline:ake-catalog:update', description: 'Rebuild the Endfield operator and weapon catalog from AkeData')]
+#[AsCommand(name: 'gryphline:ake-catalog:update', description: 'Rebuild the Endfield operator, weapon and gacha pool catalog from AkeData')]
 class AkeCatalogUpdateCommand extends Command
 {
     public function __construct(
@@ -44,6 +44,11 @@ class AkeCatalogUpdateCommand extends Command
             }
         }
 
+        $pools = [AkeCatalog::TYPE_CHAR => 0, AkeCatalog::TYPE_WEAPON => 0];
+        foreach ($catalog['pools'] as $pool) {
+            ++$pools[$pool['category']];
+        }
+
         $io->title('Endfield catalog updated');
         $io->definitionList(
             ['Version' => $catalog['version']],
@@ -57,7 +62,15 @@ class AkeCatalogUpdateCommand extends Command
                 $sixStars[AkeCatalog::TYPE_CHAR],
                 $sixStars[AkeCatalog::TYPE_WEAPON],
             )],
+            ['Operator pools' => (string) $pools[AkeCatalog::TYPE_CHAR]],
+            ['Weapon pools' => (string) $pools[AkeCatalog::TYPE_WEAPON]],
         );
+        // A pool table that could not be read does not abort the build (see the gryphline log)
+        foreach (['operator' => AkeCatalog::TYPE_CHAR, 'weapon' => AkeCatalog::TYPE_WEAPON] as $label => $category) {
+            if ($pools[$category] === 0) {
+                $io->warning(sprintf('No %s pool was stored: the pool table could not be read (see the gryphline log).', $label));
+            }
+        }
         $io->success('Catalog saved.');
 
         return Command::SUCCESS;

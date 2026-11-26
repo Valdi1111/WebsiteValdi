@@ -5,6 +5,7 @@ namespace App\Tests\GryphlineBundle\Service\Pull;
 use App\GamesBundle\Exception\ManualPullViolationException;
 use App\GamesBundle\Exception\PullProfileLockedException;
 use App\GamesBundle\Model\Pull\Manual\CreateManualPullRequest;
+use App\GamesBundle\Model\Pull\Manual\FillerSlot;
 use App\GamesBundle\Model\Pull\PullOrigin;
 use App\GamesBundle\Service\Pull\ManualPullGuard;
 use App\GamesBundle\Service\Pull\PullGapPlanner;
@@ -41,6 +42,8 @@ class ManualPullServiceTest extends TestCase
 {
     private const string SPECIAL = 'E_CharacterGachaPoolType_Special';
     private const string WEAPON = 'E_WeaponGachaPoolType_Standard';
+    private const string WEAPON_RERUN = 'E_WeaponGachaPoolType_Rerun';
+    private const string JOINT = 'E_CharacterGachaPoolType_Joint';
 
     /** Doctrine hydrates pulled_at (a UTC wall time) in the PHP default timezone: emulate a non-UTC one */
     private const string HYDRATION_TIMEZONE = 'Europe/Rome';
@@ -91,19 +94,57 @@ class ManualPullServiceTest extends TestCase
         return $pull;
     }
 
-    private function recorded(string $pulledAt, int $rarity = 4, string $name = 'Item', ?string $itemId = null, string $poolType = self::SPECIAL, ?GryphlineGameProfile $profile = null): GryphlinePull
-    {
+    private function recorded(
+        string $pulledAt,
+        ?int $rarity = 4,
+        string $name = 'Item',
+        ?string $itemId = null,
+        string $poolType = self::SPECIAL,
+        ?GryphlineGameProfile $profile = null,
+        ?string $poolId = 'pool_1',
+        string $poolName = 'Winter Hunt',
+        ?int $poolVersion = null,
+        bool $isFree = false,
+        string $kind = GryphlinePull::KIND_DRAW,
+    ): GryphlinePull {
         return $this->store((new GryphlinePull())
             ->setGameProfile($profile ?? $this->profile)
             ->setSeqId((string) (1000 + $this->nextId))
             ->setPoolType($poolType)
-            ->setPoolCategory($poolType === self::WEAPON ? 'weapon' : 'char')
-            ->setPoolId('pool_1')
-            ->setPoolName('Winter Hunt')
+            ->setPoolCategory(str_starts_with($poolType, 'E_Weapon') ? 'weapon' : 'char')
+            ->setPoolId($poolId)
+            ->setPoolName($poolName)
+            ->setPoolVersion($poolVersion)
+            ->setIsFree($isFree)
+            ->setKind($kind)
             ->setItemId($itemId ?? 'item_' . $this->nextId)
             ->setName($name)
             ->setRarity($rarity)
             ->setPulledAt(new \DateTimeImmutable($pulledAt, new \DateTimeZone(self::HYDRATION_TIMEZONE))));
+    }
+
+    /**
+     * A recorded pull of one banner (pool id and rerun number) of a per-banner pity group.
+     *
+     * @param array{id: string, name: string, version: ?int} $pool
+     */
+    private function poolPull(string $bannerKey, array $pool, string $pulledAt, int $rarity = 4, string $name = 'Item'): GryphlinePull
+    {
+        return $this->recorded($pulledAt, $rarity, $name, poolType: $bannerKey, poolId: $pool['id'], poolName: $pool['name'], poolVersion: $pool['version']);
+    }
+
+    /**
+     * Fillers of one banner (pool id and rerun number) of a per-banner pity group.
+     *
+     * @param array{id: string, name: string, version: ?int} $pool
+     * @return list<GryphlinePull>
+     */
+    private function fillersOfPool(array $pool): array
+    {
+        return array_values(array_filter(
+            $this->rowsOf(PullOrigin::Filler),
+            static fn (GryphlinePull $filler): bool => $filler->getPoolId() === $pool['id'] && $filler->getPoolVersion() === $pool['version'],
+        ));
     }
 
     /**
@@ -133,8 +174,13 @@ class ManualPullServiceTest extends TestCase
                 'name' => $pull->getName(),
                 'rarity' => $pull->getRarity(),
                 'pulledAt' => new \DateTimeImmutable($pull->getPulledAt()->format('Y-m-d H:i:s'), new \DateTimeZone(self::HYDRATION_TIMEZONE)),
+                'gachaTs' => $pull->getGachaTs(),
                 'origin' => $pull->getOrigin(),
                 'declaredPity' => $pull->getDeclaredPity(),
+                'isUp' => $pull->isUp(),
+                'kind' => $pull->getKind(),
+                'isFree' => $pull->isFree(),
+                'poolVersion' => $pull->getPoolVersion(),
             ];
         }
         usort($rows, static fn (array $a, array $b): int => $a['pulledAt'] <=> $b['pulledAt']);
@@ -334,6 +380,43 @@ class ManualPullServiceTest extends TestCase
         $service->createManualS($this->profile, $this->game, $this->request(2, $foreign->getId()));
     }
 
+    /**
+     * @return iterable<string, array{0: string}>
+     */
+    public static function poolPityBannerKeyProvider(): iterable
+    {
+        yield 'Special Headhunting' => [self::JOINT];
+        yield 'Arsenal Issue' => [self::WEAPON];
+        yield 'RE-Factor Issue' => [self::WEAPON_RERUN];
+    }
+
+    #[DataProvider('poolPityBannerKeyProvider')]
+    public function testCreateManualSIsRefusedOnAPerBannerPityGroup(string $bannerKey): void
+    {
+        $liino = $this->seedBanner();
+        // Otherwise a valid request: an S of the banner to anchor on, a free second at the start of its window
+        $this->recorded('2026-03-01 10:00:00', poolType: $bannerKey);
+        $anchor = $this->recorded('2026-03-01 10:01:00', 6, 'Banner S', poolType: $bannerKey);
+        $count = \count($this->table);
+        $service = $this->service();
+
+        try {
+            $service->createManualS($this->profile, $this->game, $this->request(2, $anchor->getId(), '2026-03-01 09:00:00', banner: $bannerKey));
+            $this->fail('An earlier S cannot be added to a banner whose pity resets with each banner.');
+        } catch (BadRequestHttpException) {
+        }
+        $this->assertCount($count, $this->table, 'Nothing written');
+        $this->assertSame([], $this->rowsOf(PullOrigin::Manual));
+        $this->assertSame([], $this->rowsOf(PullOrigin::Filler));
+        $this->assertSame(0, $this->flushes);
+
+        // Chartered Headhunting still takes an earlier S (which also needs the profile lock to be free)
+        $manual = $service->createManualS($this->profile, $this->game, $this->request(4, $liino->getId()));
+        $this->assertSame([$manual], $this->rowsOf(PullOrigin::Manual));
+        $this->assertCount(3, $this->rowsOf(PullOrigin::Filler));
+        $this->assertSame(['Typhoeus' => 4, 'Liino' => 3], $this->sPities());
+    }
+
     public function testWriteOperationsThrowWhileTheProfileIsLocked(): void
     {
         $liino = $this->seedBanner();
@@ -421,6 +504,162 @@ class ManualPullServiceTest extends TestCase
         $service->declarePity($this->profile, $this->game, $foreign, 5);
     }
 
+    public function testDeclarePityRefusesAFreeSAndABonusSButNotAPaidS(): void
+    {
+        $liino = $this->seedBanner();
+        // Free Urgent Recruitment ten-pull (one timestamp) holding a 6★, then a 6★ bonus entry (weapon Tribute)
+        $freeS = null;
+        for ($i = 0; $i < 10; ++$i) {
+            $pull = $this->recorded('2026-06-01 11:00:00', $i === 3 ? 6 : 4, $i === 3 ? 'Free Six' : 'Item', isFree: true);
+            $freeS = $i === 3 ? $pull : $freeS;
+        }
+        $bonusS = $this->recorded('2026-06-01 11:30:00', 6, GryphlinePull::getBonusLabel('gift_weapon'), 'wpn_tribute', kind: 'gift_weapon');
+        $count = \count($this->table);
+        $service = $this->service();
+
+        foreach (['free 6★' => $freeS, 'bonus 6★' => $bonusS] as $label => $pull) {
+            try {
+                $service->declarePity($this->profile, $this->game, $pull, 5);
+                $this->fail('The pity of a ' . $label . ' cannot be declared');
+            } catch (BadRequestHttpException) {
+            }
+            $this->assertNull($pull->getDeclaredPity(), $label);
+        }
+        $this->assertCount($count, $this->table, 'Nothing written');
+        $this->assertSame(0, $this->flushes);
+
+        $service->declarePity($this->profile, $this->game, $liino, 7);
+        $this->assertSame(7, $liino->getDeclaredPity());
+        $this->assertCount(4, $this->rowsOf(PullOrigin::Filler));
+        $this->assertSame(7, $this->sPities()['Liino']);
+    }
+
+    /**
+     * Per-banner pity groups, each with two banners: two pool ids, or two reruns of one pool id.
+     *
+     * @return iterable<string, array{0: string, 1: string, 2: array{id: string, name: string, version: ?int}, 3: array{id: string, name: string, version: ?int}}>
+     */
+    public static function poolPityBannersProvider(): iterable
+    {
+        yield 'Special Headhunting' => [self::JOINT, 'char', ['id' => 'joint_a', 'name' => 'Ember Call', 'version' => null], ['id' => 'joint_b', 'name' => 'Frost Call', 'version' => null]];
+        yield 'Arsenal Issue' => [self::WEAPON, 'weapon', ['id' => 'wpn_a', 'name' => 'Iron Vow', 'version' => null], ['id' => 'wpn_b', 'name' => 'Glass Oath', 'version' => null]];
+        yield 'RE-Factor Issue' => [self::WEAPON_RERUN, 'weapon', ['id' => 'wpn_rerun', 'name' => 'Old Steel', 'version' => 1], ['id' => 'wpn_rerun', 'name' => 'Old Steel', 'version' => 2]];
+    }
+
+    /**
+     * @param array{id: string, name: string, version: ?int} $firstPool
+     * @param array{id: string, name: string, version: ?int} $secondPool
+     */
+    #[DataProvider('poolPityBannersProvider')]
+    public function testDeclarePityOnAPerBannerPityGroupOnlyCountsTheBannerOfThePull(string $bannerKey, string $category, array $firstPool, array $secondPool): void
+    {
+        // First banner: 20 paid pulls without an S; counted with them, the declared pity would be under the recorded one
+        for ($i = 0; $i < 20; ++$i) {
+            $this->poolPull($bannerKey, $firstPool, sprintf('2026-03-01 10:%02d:00', $i));
+        }
+        // Second banner: recorded pity 5 (4 pulls, then the S)
+        for ($i = 0; $i < 4; ++$i) {
+            $this->poolPull($bannerKey, $secondPool, sprintf('2026-04-01 10:%02d:00', $i));
+        }
+        $s = $this->poolPull($bannerKey, $secondPool, '2026-04-01 10:04:00', 6, 'Banner S');
+        $service = $this->service();
+
+        $service->declarePity($this->profile, $this->game, $s, 8);
+
+        $this->assertSame(8, $s->getDeclaredPity());
+        $fillers = $this->rowsOf(PullOrigin::Filler);
+        $this->assertCount(3, $fillers, '8 - 5 recorded pulls of its own banner');
+        foreach ($fillers as $filler) {
+            $this->assertSame($bannerKey, $filler->getPoolType());
+            $this->assertSame($category, $filler->getPoolCategory());
+            $this->assertSame($secondPool['id'], $filler->getPoolId(), 'The filler stays in the banner of the S');
+            $this->assertSame($secondPool['name'], $filler->getPoolName());
+            $this->assertSame($secondPool['version'], $filler->getPoolVersion());
+            $this->assertSame('2026-04-01 09:59:59', $filler->getPulledAt()->format('Y-m-d H:i:s'), 'Start of the banner: one second before its first pull');
+        }
+        $this->assertSame([], $this->fillersOfPool($firstPool));
+        $this->assertSame(['Banner S' => 8], $this->sPities($bannerKey));
+
+        $flushes = $this->flushes;
+        $this->assertTrue($service->realign($this->profile, $this->game, $bannerKey)->isEmpty(), 'Idempotent');
+        $this->assertSame($flushes, $this->flushes);
+        $this->assertCount(3, $this->rowsOf(PullOrigin::Filler));
+    }
+
+    /**
+     * Paid pulls around a free Urgent Recruitment ten-pull, then Liino.
+     */
+    public function testDeclarePityLeavesTheFreePullsOutOfTheRecordedPulls(): void
+    {
+        for ($i = 0; $i < 5; ++$i) {
+            $this->recorded(sprintf('2026-06-01 10:%02d:00', $i));
+        }
+        for ($i = 0; $i < 10; ++$i) {
+            $this->recorded('2026-06-01 10:10:00', $i === 0 ? 5 : 4, isFree: true);
+        }
+        for ($i = 0; $i < 3; ++$i) {
+            $this->recorded(sprintf('2026-06-01 10:%02d:00', 20 + $i));
+        }
+        $liino = $this->recorded('2026-06-01 10:30:00', 6, 'Liino', 'chr_liino');
+        $service = $this->service();
+
+        $service->declarePity($this->profile, $this->game, $liino, 9);
+        $this->assertNull($liino->getDeclaredPity(), 'Recorded pity 9: the 8 paid pulls and Liino, not the 10 free ones');
+        $this->assertSame([], $this->rowsOf(PullOrigin::Filler));
+
+        $service->declarePity($this->profile, $this->game, $liino, 30);
+        $this->assertSame(30, $liino->getDeclaredPity());
+        $fillers = $this->rowsOf(PullOrigin::Filler);
+        $this->assertCount(21, $fillers, '30 - 9 paid pulls (11 if the free pulls counted)');
+        foreach ($fillers as $filler) {
+            $this->assertSame('2026-06-01 09:59:59', $filler->getPulledAt()->format('Y-m-d H:i:s'));
+        }
+        $this->assertSame(['Liino' => 30], $this->sPities());
+
+        $flushes = $this->flushes;
+        $this->assertTrue($service->realign($this->profile, $this->game, self::SPECIAL)->isEmpty(), 'Idempotent');
+        $this->assertSame($flushes, $this->flushes);
+        $this->assertCount(21, $this->rowsOf(PullOrigin::Filler));
+    }
+
+    /**
+     * @return iterable<string, array{0: string, 1: ?int}>
+     */
+    public static function bonusEntryProvider(): iterable
+    {
+        yield 'Headhunting Dossier, no rarity' => ['gift_intel_book', null];
+        yield 'weapon Tribute, 6★' => ['gift_weapon', 6];
+    }
+
+    #[DataProvider('bonusEntryProvider')]
+    public function testABonusEntryNeitherCountsNorClosesTheWindow(string $kind, ?int $rarity): void
+    {
+        // Three pulls, the bonus entry, two pulls, then Liino: recorded pity 6
+        for ($i = 0; $i < 3; ++$i) {
+            $this->recorded(sprintf('2026-06-01 10:%02d:00', $i));
+        }
+        $this->recorded('2026-06-01 10:03:00', $rarity, GryphlinePull::getBonusLabel($kind), kind: $kind);
+        $this->recorded('2026-06-01 10:04:00');
+        $this->recorded('2026-06-01 10:05:00');
+        $liino = $this->recorded('2026-06-01 10:06:00', 6, 'Liino', 'chr_liino');
+        $service = $this->service();
+
+        $service->declarePity($this->profile, $this->game, $liino, 6);
+        $this->assertNull($liino->getDeclaredPity(), 'Equal to the recorded pity: the bonus entry is not a pull');
+
+        $service->declarePity($this->profile, $this->game, $liino, 10);
+        $fillers = $this->rowsOf(PullOrigin::Filler);
+        $this->assertCount(4, $fillers, '10 - 6 recorded pulls');
+        foreach ($fillers as $filler) {
+            $this->assertSame('2026-06-01 09:59:59', $filler->getPulledAt()->format('Y-m-d H:i:s'), 'The window starts before the bonus entry');
+        }
+        $this->assertSame(10, $this->sPities()['Liino']);
+
+        $flushes = $this->flushes;
+        $this->assertTrue($service->realign($this->profile, $this->game, self::SPECIAL)->isEmpty(), 'Idempotent');
+        $this->assertSame($flushes, $this->flushes);
+    }
+
     public function testDeleteManualRejectsARecordedPull(): void
     {
         $liino = $this->seedBanner();
@@ -500,11 +739,64 @@ class ManualPullServiceTest extends TestCase
         $this->assertSame($expected, $real->isUp());
     }
 
+    /**
+     * @param array{id: string, name: string, version: ?int} $firstPool
+     * @param array{id: string, name: string, version: ?int} $secondPool
+     */
+    #[DataProvider('poolPityBannersProvider')]
+    public function testRealignPlansEachBannerOfAPerBannerPityGroupOnItsOwn(string $bannerKey, string $category, array $firstPool, array $secondPool): void
+    {
+        // First banner: 3 pulls, its S (declared 6, recorded 4), then 3 pulls without an S
+        for ($i = 0; $i < 3; ++$i) {
+            $this->poolPull($bannerKey, $firstPool, sprintf('2026-03-01 10:%02d:00', $i));
+        }
+        $firstS = $this->poolPull($bannerKey, $firstPool, '2026-03-01 10:03:00', 6, 'First S')->setDeclaredPity(6);
+        for ($i = 0; $i < 3; ++$i) {
+            $this->poolPull($bannerKey, $firstPool, sprintf('2026-03-01 10:%02d:00', 4 + $i));
+        }
+        // Second banner: 2 pulls, then its S (declared 7, recorded 3); a shared window would also count the 3 pulls above
+        for ($i = 0; $i < 2; ++$i) {
+            $this->poolPull($bannerKey, $secondPool, sprintf('2026-04-01 10:%02d:00', $i));
+        }
+        $secondS = $this->poolPull($bannerKey, $secondPool, '2026-04-01 10:02:00', 6, 'Second S')->setDeclaredPity(7);
+        $count = \count($this->table);
+        $service = $this->service();
+
+        $plan = $service->realign($this->profile, $this->game, $bannerKey);
+
+        $this->assertSame(
+            [(int) $firstS->getId() => 2, (int) $secondS->getId() => 4],
+            array_count_values(array_map(static fn (FillerSlot $slot): int => $slot->sId, $plan->fillerCreates)),
+            'The returned plan merges the plans of both banners',
+        );
+        $this->assertSame([], $plan->merges);
+        $this->assertSame([], $plan->fillerMoves);
+        $this->assertSame([], $plan->fillerDeletes);
+        $this->assertSame(1, $this->flushes);
+
+        $this->assertCount($count + 6, $this->table);
+        foreach ([[$firstPool, 2, '2026-03-01 09:59:59'], [$secondPool, 4, '2026-04-01 09:59:59']] as [$pool, $expectedCount, $expectedAt]) {
+            $fillers = $this->fillersOfPool($pool);
+            $this->assertCount($expectedCount, $fillers, 'Fillers of ' . $pool['name'] . ' #' . $pool['version']);
+            foreach ($fillers as $filler) {
+                $this->assertSame($bannerKey, $filler->getPoolType());
+                $this->assertSame($category, $filler->getPoolCategory());
+                $this->assertSame($pool['name'], $filler->getPoolName());
+                $this->assertSame($expectedAt, $filler->getPulledAt()->format('Y-m-d H:i:s'), 'Start of its banner');
+            }
+        }
+        $this->assertSame(['First S' => 6, 'Second S' => 7], $this->sPities($bannerKey));
+
+        $this->assertTrue($service->realign($this->profile, $this->game, $bannerKey)->isEmpty(), 'Idempotent');
+        $this->assertSame(1, $this->flushes, 'Nothing to flush the second time');
+        $this->assertCount($count + 6, $this->table);
+    }
+
     public function testRealignAllCoversEveryConfiguredBanner(): void
     {
         $categories = [];
         $repository = $this->createMock(GryphlinePullRepository::class);
-        $repository->expects($this->exactly(4))
+        $repository->expects($this->exactly(7))
             ->method('findBannerRows')
             ->willReturnCallback(static function (GryphlineGameProfile $profile, array $bannerCategories) use (&$categories): array {
                 $categories[] = $bannerCategories;
@@ -529,8 +821,11 @@ class ManualPullServiceTest extends TestCase
 
         $this->assertSame([
             [self::SPECIAL],
+            ['E_CharacterGachaPoolType_Rerun'],
+            ['E_CharacterGachaPoolType_Joint'],
             ['E_CharacterGachaPoolType_Standard'],
             [self::WEAPON],
+            ['E_WeaponGachaPoolType_Rerun'],
             ['E_CharacterGachaPoolType_Beginner'],
         ], $categories);
     }

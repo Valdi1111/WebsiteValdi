@@ -15,6 +15,8 @@ final class AkeDataFixture
     public const string LATEST_PATH = 'public/1.6.4/11944529-13/TableCfg';
     public const string OLDER = '1.6.4@11775769-12';
     public const string OLDER_PATH = 'public/1.6.4/11775769-12/TableCfg';
+    public const string CHAR_POOL_TABLE = 'GachaCharPoolTable.json';
+    public const string WEAPON_POOL_TABLE = 'GachaWeaponPoolTable.json';
 
     /** @var list<string> paths requested on the AkeData host */
     public array $requestedPaths = [];
@@ -59,6 +61,26 @@ final class AkeDataFixture
             'desc' => ['id' => 98088074095664370, 'text' => ''],
             'rarity' => $rarity,
             'type' => $type,
+        ];
+    }
+
+    /**
+     * GachaCharPoolTable / GachaWeaponPoolTable row reduced to the fields the builder reads (plus a few
+     * real UI ones).
+     *
+     * @param list<mixed> $up
+     *
+     * @return array<string, mixed>
+     */
+    public static function poolRow(string $id, mixed $type, string $upField, array $up, int $poolVersion = 0): array
+    {
+        return [
+            'gachaPoolVersion' => $poolVersion,
+            'id' => $id,
+            'name' => ['id' => 4242424242, 'text' => ''],
+            'sortId' => 10,
+            'type' => $type,
+            $upField => $up,
         ];
     }
 
@@ -111,6 +133,23 @@ final class AkeDataFixture
                 '-5195668008198752422' => ' Industry 0.1 ',
                 '42' => 'T-Creds',
             ],
+            self::LATEST_PATH . '/' . self::CHAR_POOL_TABLE => [
+                'beginner' => self::poolRow('beginner', 1, 'upCharIds', []),
+                'rerun_chr_aglina' => self::poolRow('rerun_chr_aglina', 4, 'upCharIds', ['chr_0013_aglina'], 1),
+                // Non-string and blank rate-up ids are dropped
+                'special_1_0_1' => self::poolRow('special_1_0_1', 0, 'upCharIds', ['chr_0016_laevat', 42, '']),
+                'joint_1_2_2' => self::poolRow('joint_1_2_2', 3, 'upCharIds', ['chr_0016_laevat', 'chr_0013_aglina']),
+                'special_1_0_3' => self::poolRow('special_1_0_3', 0, 'upCharIds', ['chr_0013_aglina']),
+                // No integer type: the row is skipped instead of being read as a special pool
+                'special_9_9_9' => self::poolRow('special_9_9_9', '0', 'upCharIds', ['chr_0009_azrila']),
+                'standard' => self::poolRow('standard', 2, 'upCharIds', []),
+            ],
+            self::LATEST_PATH . '/' . self::WEAPON_POOL_TABLE => [
+                'rerun_wpn_aglina' => self::poolRow('rerun_wpn_aglina', 1, 'upWeaponIds', ['wpn_funnel_0011'], 1),
+                'weponbox_1_0_3' => self::poolRow('weponbox_1_0_3', 0, 'upWeaponIds', ['wpn_funnel_0011']),
+                'weaponbox_constant_1' => self::poolRow('weaponbox_constant_1', 0, 'upWeaponIds', ['wpn_claym_0013']),
+            ],
+            // The older version has no pool table: its build logs a warning and stores no pool
             self::OLDER_PATH . '/ItemTable.json' => [
                 'chr_0005_chen' => self::itemRow('chr_0005_chen', -5740150819386453598, 5, 4),
             ],

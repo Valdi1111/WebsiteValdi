@@ -110,8 +110,9 @@ class GryphlineTaskCommandTest extends KernelTestCase
             $categories[] = $message->getCategory();
             $delays[] = $envelope->last(DelayStamp::class)?->getDelay() ?? 0;
         }
-        self::assertSame(array_map('strval', array_keys($this->endfield->getGachaConfig()->getBannerTypes())), $categories);
-        self::assertCount(4, $categories);
-        self::assertSame([0, 15000, 30000, 45000], $delays);
+        // One message per sync stream: the weapon stream feeds both weapon banners
+        self::assertSame(array_map('strval', array_keys($this->endfield->getSyncStreams())), $categories);
+        self::assertCount(6, $categories);
+        self::assertSame([0, 15000, 30000, 45000, 60000, 75000], $delays);
     }
 }

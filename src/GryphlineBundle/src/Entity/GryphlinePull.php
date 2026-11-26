@@ -17,6 +17,18 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: GryphlinePullRepository::class)]
 class GryphlinePull
 {
+    /** Kind of a headhunting record: a pull; every other kind is a bonus entry (gift_intel_book, gift_weapon, ...) */
+    public const string KIND_DRAW = 'draw';
+
+    /** Labels of the bonus entries, as the official record page names them */
+    public const array BONUS_LABELS = [
+        'gift_intel_book' => 'Headhunting Dossier',
+        'gift_operator_token' => 'Token Tribute',
+        'gift_weapon_box' => 'Arms Offering',
+        'gift_weapon' => 'Tribute',
+        'gift' => 'Tribute',
+    ];
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -48,7 +60,8 @@ class GryphlinePull
     #[ORM\Column(length: 128)]
     private ?string $name = null;
 
-    #[ORM\Column(type: Types::SMALLINT)]
+    /** Null for bonus entries without a rarity (e.g. the Headhunting Dossier) */
+    #[ORM\Column(type: Types::SMALLINT, nullable: true)]
     private ?int $rarity = null;
 
     /**
@@ -73,6 +86,18 @@ class GryphlinePull
     /** Whether an S was the rate-up item, when a source says so (null = unknown, never "lost") */
     #[ORM\Column(nullable: true)]
     private ?bool $isUp = null;
+
+    /** Record kind as sent by the API: self::KIND_DRAW for pulls, gift_* for bonus entries (never pulls) */
+    #[ORM\Column(length: 32, options: ['default' => self::KIND_DRAW])]
+    private string $kind = self::KIND_DRAW;
+
+    /** Free Urgent Recruitment pull: it never counts toward the pity of the paid pulls */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $isFree = false;
+
+    /** Rerun number of the banner (the "#N" of the official page), null when the API gives none */
+    #[ORM\Column(type: Types::SMALLINT, nullable: true)]
+    private ?int $poolVersion = null;
 
     public function getId(): ?int
     {
@@ -180,7 +205,7 @@ class GryphlinePull
         return $this->rarity;
     }
 
-    public function setRarity(int $rarity): static
+    public function setRarity(?int $rarity): static
     {
         $this->rarity = $rarity;
 
@@ -255,6 +280,58 @@ class GryphlinePull
     public function setIsUp(?bool $isUp): static
     {
         $this->isUp = $isUp;
+
+        return $this;
+    }
+
+    public function getKind(): string
+    {
+        return $this->kind;
+    }
+
+    public function setKind(string $kind): static
+    {
+        $this->kind = $kind;
+
+        return $this;
+    }
+
+    /**
+     * Label of a bonus entry kind (unknown kinds get a readable form of their code).
+     */
+    public static function getBonusLabel(string $kind): string
+    {
+        return self::BONUS_LABELS[$kind] ?? ucfirst(str_replace('_', ' ', $kind));
+    }
+
+    /**
+     * Whether the record is a pull (bonus entries are listed but never count).
+     */
+    public function isDraw(): bool
+    {
+        return $this->kind === self::KIND_DRAW;
+    }
+
+    public function isFree(): bool
+    {
+        return $this->isFree;
+    }
+
+    public function setIsFree(bool $isFree): static
+    {
+        $this->isFree = $isFree;
+
+        return $this;
+    }
+
+    public function getPoolVersion(): ?int
+    {
+        return $this->poolVersion;
+    }
+
+    public function setPoolVersion(?int $poolVersion): static
+    {
+        $this->poolVersion = $poolVersion;
 
         return $this;
     }

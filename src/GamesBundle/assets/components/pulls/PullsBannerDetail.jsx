@@ -54,6 +54,37 @@ function hasValue(value) {
     return value !== null && value !== undefined;
 }
 
+// Label of free pulls (Endfield Urgent Recruitment), flagged by is_free on the row
+const FREE_PULL_LABEL = "Urgent Recruitment";
+
+// Free pull (Endfield Urgent Recruitment): listed with its own pity, but no pull number
+function isFreePull(record) {
+    return record?.is_free === true;
+}
+
+// Bonus entry that is not a pull (Endfield gifts, e.g. "Headhunting Dossier"): its label replaces the rarity
+function getBonusLabel(record) {
+    const label = record?.bonus_label;
+    return typeof label === "string" && label.trim() !== "" ? label : null;
+}
+
+/**
+ * Banner name with its rerun number ("#N"), as the official game page shows it.
+ * The suffix is not repeated when the name already ends with it.
+ */
+function formatPoolName(name, poolVersion) {
+    if (!name || !Number.isInteger(poolVersion) || poolVersion <= 0) {
+        return name;
+    }
+    const suffix = ` #${poolVersion}`;
+    return name.endsWith(suffix) ? name : `${name}${suffix}`;
+}
+
+// Date part of a "Y-m-d H:i:s" (or ISO) timestamp
+function formatPoolDate(value) {
+    return hasValue(value) && value !== "" ? String(value).split(/[ T]/)[0] : null;
+}
+
 /**
  * Insertion window of an S row or of the banner open window, as expected by ManualSPullModal.
  */
@@ -126,7 +157,7 @@ function PullItemThumbnail({ iconUrl, name, borderColor, placeholder }) {
  * "⋯" menu of an S row. Confirmations are a controlled Popconfirm anchored on the button,
  * because a Popconfirm inside a menu item would unmount when the menu closes.
  */
-function PullRowActions({ record, sLabel, disabled, onCorrectPity, onAddEarlier, onRemoveCorrection, onDelete }) {
+function PullRowActions({ record, sLabel, disabled, allowAddEarlier = true, onCorrectPity, onAddEarlier, onRemoveCorrection, onDelete }) {
     // Kind is kept after closing so the Popconfirm text doesn't change during its close animation
     const [confirmKind, setConfirmKind] = useState("remove");
     const [confirmOpen, setConfirmOpen] = useState(false);
@@ -140,10 +171,10 @@ function PullRowActions({ record, sLabel, disabled, onCorrectPity, onAddEarlier,
     }, [disabled]);
     const hasCorrection = hasValue(record.declared_pity);
 
-    const menuItems = [
-        { key: "correct", icon: <EditOutlined />, label: "Correct pity…" },
-        { key: "add", icon: <PlusOutlined />, label: `Add earlier ${sLabel}…` },
-    ];
+    const menuItems = [{ key: "correct", icon: <EditOutlined />, label: "Correct pity…" }];
+    if (allowAddEarlier) {
+        menuItems.push({ key: "add", icon: <PlusOutlined />, label: `Add earlier ${sLabel}…` });
+    }
     if (hasCorrection && !isManual) {
         menuItems.push({ key: "remove", icon: <UndoOutlined />, label: "Remove correction" });
     }
@@ -319,6 +350,8 @@ export default function PullsBannerDetail({
         if (rarity === aRarity) return "#722ed1";
         return undefined;
     };
+    // Bonus entries have no rarity colour, even when they carry a rarity (e.g. a gifted weapon)
+    const getRecordColor = (record) => (getBonusLabel(record) ? undefined : getRowColor(record.rarity));
 
     const columns = [
         {
@@ -332,7 +365,7 @@ export default function PullsBannerDetail({
             ) : isFiller(record) ? (
                 <Text type="secondary">{num}</Text>
             ) : (
-                <Text strong style={{ color: getRowColor(record.rarity) }}>
+                <Text strong style={{ color: getRecordColor(record) }}>
                     {num}
                 </Text>
             )),
@@ -370,11 +403,13 @@ export default function PullsBannerDetail({
                     );
                 }
 
-                const isTop = record.rarity >= sRarity;
-                const isSec = record.rarity === aRarity;
+                const bonusLabel = getBonusLabel(record);
+                // Bonus entries are styled as a plain row, whatever their rarity
+                const isTop = !bonusLabel && record.rarity >= sRarity;
+                const isSec = !bonusLabel && record.rarity === aRarity;
                 const tagColor = isTop ? "gold" : isSec ? "purple" : "default";
                 const rankText = isTop ? sShort : isSec ? aShort : bShort;
-                const rowColor = getRowColor(record.rarity);
+                const rowColor = getRecordColor(record);
 
                 return (
                     <Space size={8} align="center" wrap>
@@ -392,9 +427,30 @@ export default function PullsBannerDetail({
                         >
                             {name}
                         </Text>
-                        <Tag color={tagColor} style={{ margin: 0 }}>
-                            {rankText}
-                        </Tag>
+                        {bonusLabel ? (
+                            // The label already is the name of most bonus entries (e.g. "Headhunting Dossier")
+                            <Tag color="magenta" style={{ margin: 0 }}>
+                                {bonusLabel === name ? "Bonus" : bonusLabel}
+                            </Tag>
+                        ) : (
+                            <Tag color={tagColor} style={{ margin: 0 }}>
+                                {rankText}
+                            </Tag>
+                        )}
+                        {record.is_up === true && (
+                            <Tooltip title="Rate-up">
+                                <Tag color="volcano" style={{ margin: 0, fontSize: 11, fontWeight: 700 }}>
+                                    UP
+                                </Tag>
+                            </Tooltip>
+                        )}
+                        {isFreePull(record) && (
+                            <Tooltip title={`Free ${pullSingularLabel.toLowerCase()}`}>
+                                <Tag color="green" style={{ margin: 0, fontSize: 11 }}>
+                                    {FREE_PULL_LABEL}
+                                </Tag>
+                            </Tooltip>
+                        )}
                         {record.origin === "manual" && (
                             <Tooltip title="Added manually">
                                 <Tag color="blue" style={{ margin: 0, fontSize: 11 }}>
@@ -409,7 +465,8 @@ export default function PullsBannerDetail({
                                 </Tag>
                             </Tooltip>
                         )}
-                        {record.item_type && (
+                        {record.item_type && !(bonusLabel && !record.item_id) && (
+                            // A bonus entry without an item (e.g. a dossier) is no operator or weapon
                             <Text type="secondary" style={{ fontSize: 12 }}>
                                 ({record.item_type_label ?? record.item_type})
                             </Text>
@@ -427,6 +484,10 @@ export default function PullsBannerDetail({
                 // No pity value: unknown pulls, bonus rows and rewards that do not reset pity (e.g. S items)
                 if (isFiller(record) || pity === null || pity === undefined) {
                     return <Text type="secondary">—</Text>;
+                }
+                // Bonus entries have no rarity colour
+                if (getBonusLabel(record)) {
+                    return <Text type="secondary">{pity}</Text>;
                 }
                 if (record.rarity >= sRarity) {
                     const scheme = getPityColor(pity, sMaxPity);
@@ -487,9 +548,10 @@ export default function PullsBannerDetail({
             render: (text, record) => (
                 <Text
                     type={isFiller(record) ? "secondary" : undefined}
-                    style={{ color: getRowColor(record.rarity) || undefined, opacity: 0.85 }}
+                    style={{ color: getRecordColor(record) || undefined, opacity: 0.85 }}
                 >
-                    {text || banner?.name || "—"}
+                    {/* Rerun number (Endfield pool_version) appended as "#N" */}
+                    {formatPoolName(text || banner?.name, record.pool_version) || "—"}
                 </Text>
             ),
         },
@@ -505,7 +567,7 @@ export default function PullsBannerDetail({
                     </Text>
                 </Tooltip>
             ) : (
-                <Text style={{ color: getRowColor(record.rarity) || "inherit", fontSize: isMobile ? 12 : 13 }}>
+                <Text style={{ color: getRecordColor(record) || "inherit", fontSize: isMobile ? 12 : 13 }}>
                     {text}
                 </Text>
             )),
@@ -521,6 +583,8 @@ export default function PullsBannerDetail({
                     record={record}
                     sLabel={sLabel}
                     disabled={operationActive}
+                    // No earlier S where the pity resets with each banner (allow_add_s, Endfield only)
+                    allowAddEarlier={banner?.allow_add_s !== false}
                     onCorrectPity={openDeclareModal}
                     onAddEarlier={(anchor) => openManualModal({
                         bannerKey: banner?.key,
@@ -535,6 +599,74 @@ export default function PullsBannerDetail({
     ];
 
     const recentSPulls = banner?.recent_s_pulls || [];
+
+    // Banner the pity counters refer to, for groups whose pity resets per banner (Endfield)
+    const pityPoolName = typeof banner?.pity_pool_name === "string" && banner.pity_pool_name.trim() !== ""
+        ? banner.pity_pool_name
+        : null;
+    // Only the S card grows with the pity banner line: stretch the KPI cards to keep the row even
+    const kpiCardStyle = pityPoolName ? { height: "100%" } : undefined;
+
+    // Per-banner counters of a group (Endfield): one row per pool, the same pool may come back as a rerun
+    const poolRows = (Array.isArray(banner?.pools) ? banner.pools : []).map((pool, index) => ({
+        ...pool,
+        key: `${pool?.pool_id ?? "pool"}-${pool?.pool_version ?? 0}-${index}`,
+    }));
+    const poolsHaveSPity = poolRows.some((pool) => hasValue(pool.s_pity));
+    const poolsHaveAPity = poolRows.some((pool) => hasValue(pool.a_pity));
+    const formatCount = (value) => (typeof value === "number" ? value.toLocaleString() : "—");
+    const poolColumns = [
+        {
+            title: "Banner",
+            dataIndex: "pool_name",
+            key: "pool_name",
+            render: (name, pool) => <Text strong>{formatPoolName(name, pool.pool_version) || "—"}</Text>,
+        },
+        {
+            title: pullLabel,
+            dataIndex: "total_pulls",
+            key: "total_pulls",
+            render: (value) => <Text style={{ color: "#1677ff" }}>{formatCount(value)}</Text>,
+        },
+        {
+            title: sShort,
+            dataIndex: "s_count",
+            key: "s_count",
+            render: (value) => <Text style={{ color: "#fa8c16" }}>{formatCount(value)}</Text>,
+        },
+        ...(poolsHaveSPity ? [{
+            title: `${sShort} Pity`,
+            dataIndex: "s_pity",
+            key: "s_pity",
+            render: (value) => (hasValue(value)
+                ? <Text strong style={{ color: "#fa8c16" }}>{value}</Text>
+                : <Text type="secondary">—</Text>),
+        }] : []),
+        ...(poolsHaveAPity ? [{
+            title: `${aShort} Pity`,
+            dataIndex: "a_pity",
+            key: "a_pity",
+            render: (value) => (hasValue(value)
+                ? <Text strong style={{ color: "#722ed1" }}>{value}</Text>
+                : <Text type="secondary">—</Text>),
+        }] : []),
+        {
+            title: "Period",
+            key: "period",
+            render: (_, pool) => {
+                const first = formatPoolDate(pool.first_pulled_at);
+                const last = formatPoolDate(pool.last_pulled_at);
+                if (!first && !last) {
+                    return <Text type="secondary">—</Text>;
+                }
+                return (
+                    <Text type="secondary" style={{ fontSize: 13, whiteSpace: "nowrap" }}>
+                        {first && last && first !== last ? `${first} → ${last}` : first || last}
+                    </Text>
+                );
+            },
+        },
+    ];
 
     // "Add missing S" goes before the chronologically first S (banner.oldest_s; recent_s_pulls is
     // newest-first and may be capped, so its last element is only a fallback).
@@ -569,7 +701,7 @@ export default function PullsBannerDetail({
             {/* Top KPI Summary Cards (like zzz.rng.moe detail header) */}
             <Row gutter={[16, 16]}>
                 <Col xs={12} sm={8} md={4}>
-                    <Card variant="borderless" styles={cardStyles}>
+                    <Card variant="borderless" styles={cardStyles} style={kpiCardStyle}>
                         <Statistic
                             title={`Total ${pullLabel}`}
                             value={banner?.total_pulls || 0}
@@ -578,7 +710,7 @@ export default function PullsBannerDetail({
                     </Card>
                 </Col>
                 <Col xs={12} sm={8} md={5}>
-                    <Card variant="borderless" styles={cardStyles}>
+                    <Card variant="borderless" styles={cardStyles} style={kpiCardStyle}>
                         <Statistic
                             title={`${sLabel} ${pullLabel}`}
                             value={banner?.s_count || 0}
@@ -589,10 +721,19 @@ export default function PullsBannerDetail({
                             }
                             styles={{ content: { color: "#fa8c16", fontWeight: "bold" } }}
                         />
+                        {pityPoolName && (
+                            <Text
+                                type="secondary"
+                                ellipsis={{ tooltip: `Pity in ${pityPoolName}` }}
+                                style={{ display: "block", fontSize: 12 }}
+                            >
+                                Pity in {pityPoolName}
+                            </Text>
+                        )}
                     </Card>
                 </Col>
                 <Col xs={12} sm={8} md={5}>
-                    <Card variant="borderless" styles={cardStyles}>
+                    <Card variant="borderless" styles={cardStyles} style={kpiCardStyle}>
                         <Statistic
                             title={`${aLabel} ${pullLabel}`}
                             value={banner?.a_count || 0}
@@ -606,7 +747,7 @@ export default function PullsBannerDetail({
                     </Card>
                 </Col>
                 <Col xs={12} sm={12} md={5}>
-                    <Card variant="borderless" styles={cardStyles}>
+                    <Card variant="borderless" styles={cardStyles} style={kpiCardStyle}>
                         <Statistic
                             title={`Avg ${sLabel} Pity`}
                             value={banner?.avg_s_pity || 0}
@@ -616,7 +757,7 @@ export default function PullsBannerDetail({
                     </Card>
                 </Col>
                 <Col xs={12} sm={12} md={5}>
-                    <Card variant="borderless" styles={cardStyles}>
+                    <Card variant="borderless" styles={cardStyles} style={kpiCardStyle}>
                         <Statistic
                             title={`Avg ${aLabel} Pity`}
                             value={banner?.avg_a_pity || 0}
@@ -630,7 +771,8 @@ export default function PullsBannerDetail({
             {/* Recent S / 5* / 6* Signals Section */}
             <Card
                 title={`Recent ${sLabel} ${pullLabel} (${recentSPulls.length})`}
-                extra={supportsManualPulls ? (
+                // allow_add_s: false on banners whose pity resets with each banner (Endfield), absent elsewhere
+                extra={supportsManualPulls && banner?.allow_add_s !== false ? (
                     <Tooltip title={addMissingSHint}>
                         <Button
                             size="small"
@@ -662,6 +804,25 @@ export default function PullsBannerDetail({
                     <Empty description={`No ${sLabel} ${pullLabel} found in this banner`} />
                 )}
             </Card>
+
+            {/* Per-banner counters of the group (Endfield pools), only when the backend sends them */}
+            {poolRows.length > 0 && (
+                <Card
+                    title={`Banners (${poolRows.length})`}
+                    styles={{
+                        header: { padding: isMobile ? "12px 14px" : "14px 20px" },
+                        body: { padding: isMobile ? "12px 8px" : "18px 20px" },
+                    }}
+                >
+                    <Table
+                        size="small"
+                        columns={poolColumns}
+                        dataSource={poolRows}
+                        pagination={false}
+                        scroll={{ x: isMobile ? 520 : undefined }}
+                    />
+                </Card>
+            )}
 
             {/* Detailed Pulls Table with Rarity Pill Toggles (B / 3* hidden by default) */}
             <Card
@@ -747,6 +908,8 @@ export default function PullsBannerDetail({
                     columns={columns}
                     dataSource={items}
                     loading={loading}
+                    // Free pulls (Endfield Urgent Recruitment) are muted; every other row gets no extra props
+                    onRow={(record) => (isFreePull(record) ? { style: { opacity: 0.7 } } : {})}
                     onChange={onTableChange}
                     scroll={{ x: isMobile ? (supportsManualPulls ? 480 : 420) : undefined }}
                     pagination={{

@@ -6,6 +6,7 @@ use App\GamesBundle\Message\ProfileTaskMessageInterface;
 use App\GamesBundle\Model\Game\HasManualPullsInterface;
 use App\CoreBundle\Service\Notification\UnifiedNotificationService;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
+use App\GryphlineBundle\Entity\GryphlinePull;
 use App\GryphlineBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Model\Game\HasAutoPullImportInterface;
@@ -86,8 +87,9 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
         $profileId = (int) $profile->getId();
         $category = $message->getCategory();
         $operationId = $message->getOperationId();
-        $bannerTypes = $gameService->getGachaConfig()->getBannerTypes();
-        $bannerName = $bannerTypes[$category] ?? ('Banner ' . $category);
+        $bannerName = $gameService->getSyncStreams()[$category]
+            ?? $gameService->getGachaConfig()->getBannerTypes()[$category]
+            ?? ('Banner ' . $category);
 
         // Acquire per-profile lock to prevent overlapping backup imports or concurrent pull syncs
         $lock = $this->lockFactory->createLock(PullBackupImportService::getProfileLockKey($profileId), self::LOCK_TTL_SECONDS);
@@ -106,34 +108,51 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
                 $u8Token = $this->authService->getEndfieldU8Token($account, $profile->getGameUid());
             }
 
-            // 2. Fetch gacha pulls for the current page from the upstream API
+            // 2. Streams read banner by banner list their banners on the first page
+            $poolId = $message->getPoolId();
+            $pendingPoolIds = $message->getPendingPoolIds();
+            if ($poolId === null && $gameService->requiresPoolId($category)) {
+                $pendingPoolIds = $gameService->fetchStreamPoolIds($profile, $category, $u8Token);
+                $poolId = array_shift($pendingPoolIds);
+
+                if ($poolId === null) {
+                    $this->finishStream($profile, $gameService, $category, $operationId, 0, 0, $bannerName);
+
+                    return;
+                }
+            }
+
+            // 3. Fetch the records of the current page from the upstream API
             $nextSeqId = null;
             $pulls = $gameService->fetchPullsPage(
                 $profile,
                 $category,
                 $u8Token,
                 $message->getSeqId(),
-                $nextSeqId
+                $nextSeqId,
+                $poolId
             );
 
             if (empty($pulls) && ($nextSeqId === null || $nextSeqId === '')) {
                 // Last page of the banner: earlier pages (separate messages) may have stored new pulls
-                $this->realignBanner($profile, $gameService, $category);
-
-                if ($operationId !== null) {
-                    $this->operationTracker->recordSyncBannerPage($operationId, $category, 0, 0, true, $bannerName);
+                if ($pendingPoolIds !== []) {
+                    $this->dispatchNextPool($message, $u8Token, $pendingPoolIds);
+                    $this->recordPage($operationId, $category, 0, 0, false, $bannerName);
+                } else {
+                    $this->finishStream($profile, $gameService, $category, $operationId, 0, 0, $bannerName);
                 }
 
                 return;
             }
 
-            // 3. Persist new pulls, reconcile synthetic backup pulls, and stop on first existing official pull
+            // 4. Persist new records, reconcile synthetic backup pulls, and stop on first existing official record
             $pageHasExistingPull = false;
             $newCount = 0;
             $promotedCount = 0;
 
             foreach ($pulls as $pull) {
                 if ($this->pullRepository->existsByProfileAndSeqId($profile, (string) $pull->getSeqId(), $pull->getPoolCategory())) {
+                    $this->warnOnPoolTypeMismatch($profile, $pull);
                     $pageHasExistingPull = true;
                     break;
                 }
@@ -149,54 +168,49 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
                 $newCount++;
             }
 
-            // 4. Continue pagination if no existing record was hit and the upstream API indicates more records exist.
-            // The next page is queued before this one is committed: a retry of a committed page stops on its own
+            // 5. Continue pagination if no existing record was hit and the upstream API indicates more records exist,
+            // then go on with the next banner of the stream, if any.
+            // The next message is queued before this page is committed: a retry of a committed page stops on its own
             // (already stored) pulls, so a failure after the flush must not be able to drop the continuation.
             // If the flush fails instead, the retry queues the next page again and that duplicate stops on its first pull.
             $hasMorePages = !$pageHasExistingPull && $nextSeqId !== null && $nextSeqId !== '';
 
             if ($hasMorePages) {
-                $nextPageDelayMs = random_int(self::DELAY_MIN_MS, self::DELAY_MAX_MS);
-
                 $this->bus->dispatch(
                     new SyncPullsPageProfileMessage(
                         $profile->getId(),
                         $category,
                         $nextSeqId,
                         $u8Token,
-                        $operationId
+                        $operationId,
+                        $poolId,
+                        $pendingPoolIds
                     ),
-                    [new DelayStamp($nextPageDelayMs)]
+                    [new DelayStamp(random_int(self::DELAY_MIN_MS, self::DELAY_MAX_MS))]
                 );
+            } elseif ($pendingPoolIds !== []) {
+                $this->dispatchNextPool($message, $u8Token, $pendingPoolIds);
             }
 
-            // 5. Commit the page, then realign the banner on its last page
+            // 6. Commit the page, then realign the banners of the stream on its last page
             if ($newCount > 0 || $promotedCount > 0) {
                 $this->entityManager->flush();
 
                 $this->logger->info(sprintf(
-                    'Recorded %d new and promoted %d synthetic pull(s) for %s (Category %s, seq_id %s).',
+                    'Recorded %d new and promoted %d synthetic pull(s) for %s (Category %s%s, seq_id %s).',
                     $newCount,
                     $promotedCount,
                     $profile->getNickname(),
                     $category,
+                    $poolId !== null ? ', pool ' . $poolId : '',
                     $message->getSeqId() ?? 'initial'
                 ));
             }
 
-            if (!$hasMorePages) {
-                $this->realignBanner($profile, $gameService, $category);
-            }
-
-            if ($operationId !== null) {
-                $this->operationTracker->recordSyncBannerPage(
-                    $operationId,
-                    $category,
-                    $newCount,
-                    $promotedCount,
-                    !$hasMorePages,
-                    $bannerName
-                );
+            if (!$hasMorePages && $pendingPoolIds === []) {
+                $this->finishStream($profile, $gameService, $category, $operationId, $newCount, $promotedCount, $bannerName);
+            } else {
+                $this->recordPage($operationId, $category, $newCount, $promotedCount, false, $bannerName);
             }
         } catch (\Throwable $e) {
             if ($operationId !== null) {
@@ -210,19 +224,83 @@ class SyncPullsPageProfileHandler extends AbstractProfileTaskMessageHandler
     }
 
     /**
-     * Realigns the manual pulls and fillers of the synced banner (the profile lock is held by the caller).
+     * Queues the first page of the next banner of a stream read banner by banner.
+     *
+     * @param list<string> $pendingPoolIds Banners still to read, the next one first
      */
-    private function realignBanner(GryphlineGameProfile $profile, HasAutoPullImportInterface $gameService, string $category): void
+    private function dispatchNextPool(SyncPullsPageProfileMessage $message, string $u8Token, array $pendingPoolIds): void
+    {
+        $nextPoolId = array_shift($pendingPoolIds);
+
+        $this->bus->dispatch(
+            new SyncPullsPageProfileMessage(
+                $message->getGameProfileId(),
+                $message->getCategory(),
+                null,
+                $u8Token,
+                $message->getOperationId(),
+                $nextPoolId,
+                $pendingPoolIds
+            ),
+            [new DelayStamp(random_int(self::DELAY_MIN_MS, self::DELAY_MAX_MS))]
+        );
+    }
+
+    /**
+     * Last page of a stream: realigns its banners and closes it in the operation tracker.
+     */
+    private function finishStream(
+        GryphlineGameProfile $profile,
+        HasAutoPullImportInterface $gameService,
+        string $category,
+        ?string $operationId,
+        int $newCount,
+        int $promotedCount,
+        string $bannerName
+    ): void {
+        $this->realignStream($profile, $gameService, $category);
+        $this->recordPage($operationId, $category, $newCount, $promotedCount, true, $bannerName);
+    }
+
+    private function recordPage(?string $operationId, string $category, int $newCount, int $promotedCount, bool $isLast, string $bannerName): void
+    {
+        if ($operationId !== null) {
+            $this->operationTracker->recordSyncBannerPage($operationId, $category, $newCount, $promotedCount, $isLast, $bannerName);
+        }
+    }
+
+    /**
+     * A stored record with the same seq id but another pool type means the record API numbers that pool type on its
+     * own (the sync would then stop early and silently import nothing), or that its banner group changed.
+     */
+    private function warnOnPoolTypeMismatch(GryphlineGameProfile $profile, GryphlinePull $pull): void
+    {
+        $storedPoolType = $this->pullRepository->findPoolTypeBySeqId($profile, (string) $pull->getSeqId(), (string) $pull->getPoolCategory());
+        if ($storedPoolType !== null && $storedPoolType !== $pull->getPoolType()) {
+            $this->logger->warning(sprintf(
+                'Endfield record %s of %s is stored as %s but now comes as %s: the sync stopped on it.',
+                (string) $pull->getSeqId(),
+                $profile->getNickname(),
+                $storedPoolType,
+                (string) $pull->getPoolType()
+            ));
+        }
+    }
+
+    /**
+     * Realigns the manual pulls and fillers of the banners a stream feeds (the profile lock is held by the caller).
+     */
+    private function realignStream(GryphlineGameProfile $profile, HasAutoPullImportInterface $gameService, string $category): void
     {
         if (!$gameService instanceof HasManualPullsInterface) {
             return;
         }
 
-        $bannerKey = $gameService->getPoolTypeForCategory($category);
-        if (!isset($gameService->getGachaConfig()->getBannerGroups('categories')[$bannerKey])) {
-            return;
+        $bannerGroups = $gameService->getGachaConfig()->getBannerGroups('categories');
+        foreach ($gameService->getSyncStreamBanners($category) as $bannerKey) {
+            if (isset($bannerGroups[$bannerKey])) {
+                $this->manualPullService->realign($profile, $gameService, $bannerKey);
+            }
         }
-
-        $this->manualPullService->realign($profile, $gameService, $bannerKey);
     }
 }

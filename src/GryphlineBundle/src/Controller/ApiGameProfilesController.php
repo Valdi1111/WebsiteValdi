@@ -116,7 +116,7 @@ class ApiGameProfilesController extends AbstractController
             throw new BadRequestHttpException("This game profile does not support automated pull synchronization.");
         }
 
-        $bannerTypes = $gameService->getGachaConfig()->getBannerTypes();
+        $bannerTypes = $gameService->getSyncStreams();
         $operation = $operationTracker->startSyncOperation(
             (int) $gameProfile->getId(),
             $user->getId(),
@@ -390,6 +390,13 @@ class ApiGameProfilesController extends AbstractController
 
         $banner = $this->enrichBannerIcons($iconUrlBuilder, $gameService, $computed['summary']);
         $items = $iconUrlBuilder->enrichPullRows($gameService, $result['items']);
+        foreach ($items as &$item) {
+            // A bonus entry without an item (e.g. the Headhunting Dossier) has no icon to look up by name
+            if (($item['bonus_label'] ?? null) !== null && ($item['item_id'] ?? null) === null) {
+                $item['icon_url'] = null;
+            }
+        }
+        unset($item);
 
         return $this->json([
             'banner' => $banner,

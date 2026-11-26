@@ -14,7 +14,7 @@ use Doctrine\Persistence\ManagerRegistry;
 class GryphlinePullRepository extends ServiceEntityRepository
 {
     /** Fields read by GryphlinePullStatsCalculator. */
-    private const string STATS_FIELDS = 'p.id, p.seqId, p.poolType, p.poolCategory, p.poolId, p.poolName, p.itemId, p.name, p.rarity, p.pulledAt, p.origin, p.declaredPity, p.isUp';
+    private const string STATS_FIELDS = 'p.id, p.seqId, p.poolType, p.poolCategory, p.poolId, p.poolName, p.itemId, p.name, p.rarity, p.pulledAt, p.gachaTs, p.origin, p.declaredPity, p.isUp, p.kind, p.isFree, p.poolVersion';
 
     public function __construct(ManagerRegistry $registry)
     {
@@ -42,6 +42,26 @@ class GryphlinePullRepository extends ServiceEntityRepository
         return null !== $qb->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /**
+     * Pool type of the stored record with this seq id in a pool category (null when there is none).
+     */
+    public function findPoolTypeBySeqId(GryphlineGameProfile $profile, string $seqId, string $poolCategory): ?string
+    {
+        $poolType = $this->createQueryBuilder('p')
+            ->select('p.poolType')
+            ->where('p.gameProfile = :profile')
+            ->andWhere('p.seqId = :seqId')
+            ->andWhere('p.poolCategory = :poolCategory')
+            ->setParameter('profile', $profile)
+            ->setParameter('seqId', $seqId)
+            ->setParameter('poolCategory', $poolCategory)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult()['poolType'] ?? null;
+
+        return $poolType !== null ? (string) $poolType : null;
     }
 
     /**

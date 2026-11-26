@@ -7,13 +7,22 @@ use App\GamesBundle\Model\Game\RarityConfig;
 use App\GamesBundle\Model\Pull\PullOrigin;
 use App\GamesBundle\Model\Pull\PullTimelineEntry;
 use App\GamesBundle\Service\Pull\PullGapPlanner;
+use App\GryphlineBundle\Entity\GryphlinePull;
+use App\GryphlineBundle\Service\ArknightsEndfieldService;
+use App\GryphlineBundle\Service\Catalog\AkeCatalog;
 
 /**
  * Pity and summary statistics of Endfield banners, in the JSON shape shared by the pull pages.
  *
- * Every row counts as a headhunt; S pity resets on an S (rarity >= S tier), A pity on an A (and on an S
- * when the rarity config says so). Filler rows (unknown pulls of the missing history) count as headhunts
- * but not as B, and reset the A pity. Rows are ordered by pulledAt, then by numeric seqId.
+ * Only paid pulls count: a row is a headhunt when it is a "draw" record and not a free Urgent Recruitment pull.
+ * - Paid pulls: S pity resets on an S (rarity >= S tier), A pity on an A (and on an S when the rarity config says
+ *   so). Filler rows (unknown pulls of the missing history) count as headhunts but not as B, and reset the A pity.
+ * - Free pulls: each free ten-pull (same pool and gachaTs) has its own S/A counters from its first pull, as the game
+ *   guarantees a 5★ in it. They never touch the paid counters, the totals or the averages.
+ * - Bonus entries (Headhunting Dossier, Token Tribute, weapon Tribute...): listed with a label, never counted, even
+ *   when they carry a 6★ item.
+ * Banners whose pity resets with each banner (Special Headhunting, Arsenal Issue, RE-Factor Issue) keep separate
+ * paid counters per pool id (and rerun number). Rows are ordered by pulledAt, then by numeric seqId.
  *
  * Wall clock: pulled_at holds the UTC wall time of the API gachaTs, without offset, and is hydrated as
  * UTC by WallClockDateTimeImmutableType. The missing-pulls logic (timeline entries, "now", manual dates)
@@ -27,8 +36,16 @@ class GryphlinePullStatsCalculator
     private const int DYNAMIC_S_MAX_PITY = 80;
     private const int DYNAMIC_A_MAX_PITY = 10;
 
+    /** Banners with a per-banner breakdown in the summary: RE-Factor Headhunting and the per-banner pity ones */
+    private const array POOLS_BREAKDOWN_BANNERS = [
+        ArknightsEndfieldService::POOL_RERUN,
+        ...ArknightsEndfieldService::POOL_PITY_BANNERS,
+    ];
+
     public function __construct(
         private readonly PullGapPlanner $planner,
+        /** Rate-up items of each banner (is_up of the recorded S); optional so tests can leave it out */
+        private readonly ?AkeCatalog $catalog = null,
     ) {
     }
 
@@ -46,41 +63,69 @@ class GryphlinePullStatsCalculator
     {
         $aRarity = $rarityConfig->getA()->getRarity();
         $sResetsAPity = $rarityConfig->isSResetsAPity();
+        $poolPity = $this->isPoolPityGroup($bannerGroup);
+        $now ??= self::now();
 
         $rows = $this->sortRows($rows);
-        $windows = $this->planner->describe($this->buildTimelineEntries($rows, $rarityConfig), $now ?? self::now());
+        $windows = [];
+        $openWindows = [];
+        foreach ($this->partitionByPityPool($rows, $bannerGroup) as $poolKey => $poolRows) {
+            $described = $this->planner->describe($this->buildTimelineEntries($poolRows, $rarityConfig), $now);
+            $windows += $described['windows'];
+            $openWindows[$poolKey] = $described['open'];
+        }
 
         $pullCount = 0;
-        $sPity = 0;
-        $aPity = 0;
+        /** @var array<string, array{s: int, a: int}> $counters Paid counters, one per pity pool ('' when shared) */
+        $counters = [];
+        /** @var array<string, array{s: int, a: int}> $freeCounters Counters of each free ten-pull */
+        $freeCounters = [];
+        $lastPityPoolKey = '';
         $sCount = 0;
         $aCount = 0;
         $bCount = 0;
         $unknownCount = 0;
         $sPitySum = 0;
         $aPitySum = 0;
+        // Paid S/A only: the averages leave out the free pulls (their pity counts inside their ten-pull)
+        $paidSCount = 0;
+        $paidACount = 0;
         $recentSPulls = [];
         $oldestS = null;
         $items = [];
         $monthly = [];
+        $pools = [];
 
         foreach ($rows as $row) {
-            if ($this->countsAsPull($row)) {
+            $isDraw = self::isDraw($row);
+            $isFree = $isDraw && self::isFree($row);
+            $countsAsPull = $this->countsAsPull($row);
+            $poolKey = $poolPity ? self::pityPoolKey($row) : '';
+            $counters[$poolKey] ??= ['s' => 0, 'a' => 0];
+
+            if ($countsAsPull) {
                 $pullCount++;
-                $sPity++;
-                $aPity++;
+                $counters[$poolKey]['s']++;
+                $counters[$poolKey]['a']++;
+                $lastPityPoolKey = $poolKey;
             }
-            $pullNumber = $pullCount;
-            $rarity = (int) ($row['rarity'] ?? 0);
+            $pullNumber = $countsAsPull ? $pullCount : null;
+            $rarity = isset($row['rarity']) ? (int) $row['rarity'] : null;
             $origin = self::originOf($row);
             $isFiller = $origin === PullOrigin::Filler;
-            $isS = !$isFiller && $this->isS($row, $rarityConfig);
-            $isA = !$isFiller && !$isS && $rarity === $aRarity;
+            $isS = $isDraw && !$isFiller && $this->isS($row, $rarityConfig);
+            $isA = $isDraw && !$isFiller && !$isS && $rarity === $aRarity;
             $declared = [
                 'origin' => $origin->value,
                 'declared_pity' => self::declaredPityOf($row),
-                // Rate-up flag of an S when a source gives it (null = unknown, never a lost 50/50)
-                'is_up' => isset($row['isUp']) ? (bool) $row['isUp'] : null,
+                // Rate-up flag of an S: stored by a source, else from the banner data (null = unknown, never a lost 50/50)
+                'is_up' => $this->isUpOf($row, $isS),
+            ];
+            $recordFields = [
+                'kind' => self::kindOf($row),
+                'is_free' => $isFree,
+                'pool_version' => self::poolVersionOf($row),
+                'bonus_label' => $isDraw ? null : GryphlinePull::getBonusLabel(self::kindOf($row)),
             ];
 
             /** @var \DateTimeInterface|string|null $pulledAt */
@@ -89,34 +134,53 @@ class GryphlinePullStatsCalculator
                 ? $pulledAt->format('Y-m-d H:i:s')
                 : (string) $pulledAt;
 
-            if ($isFiller) {
+            if (!$isDraw) {
+                // Bonus entry: listed only
+                $itemPity = null;
+            } elseif ($isFiller) {
                 // Unknown pull: an A may have happened in it, so the A pity starts again
                 $itemPity = null;
                 $unknownCount++;
-                $aPity = 0;
+                $counters[$poolKey]['a'] = 0;
+            } elseif ($isFree) {
+                $blockKey = self::freeBlockKey($row);
+                $freeCounters[$blockKey] ??= ['s' => 0, 'a' => 0];
+                $freeCounters[$blockKey]['s']++;
+                $freeCounters[$blockKey]['a']++;
+
+                if ($isS) {
+                    $itemPity = $freeCounters[$blockKey]['s'];
+                    $sCount++;
+                    $recentSPulls[] = $this->recentSPull($row, $pullNumber, $rarity, $itemPity, $pulledAtFormatted) + $declared + $recordFields;
+                    $freeCounters[$blockKey]['s'] = 0;
+                    if ($sResetsAPity) {
+                        $freeCounters[$blockKey]['a'] = 0;
+                    }
+                } elseif ($isA) {
+                    $itemPity = $freeCounters[$blockKey]['a'];
+                    $aCount++;
+                    $freeCounters[$blockKey]['a'] = 0;
+                } else {
+                    $itemPity = 1;
+                    $bCount++;
+                }
             } elseif ($isS) {
-                $itemPity = $sPity;
+                $itemPity = $counters[$poolKey]['s'];
                 $sCount++;
-                $sPitySum += $sPity;
-                $recentSPulls[] = [
-                    'id' => $row['id'],
-                    'pull_number' => $pullNumber,
-                    'item_id' => $row['itemId'],
-                    'name' => $row['name'],
-                    'item_type' => $row['poolCategory'] ?? 'char',
-                    'rarity' => $rarity,
-                    'pity' => $itemPity,
-                    'pulled_at' => $pulledAtFormatted,
-                ] + $declared + $windows['windows'][$row['id']]->toArray();
-                $sPity = 0;
+                $paidSCount++;
+                $sPitySum += $itemPity;
+                $recentSPulls[] = $this->recentSPull($row, $pullNumber, $rarity, $itemPity, $pulledAtFormatted)
+                    + $declared + $recordFields + $windows[$row['id']]->toArray();
+                $counters[$poolKey]['s'] = 0;
                 if ($sResetsAPity) {
-                    $aPity = 0;
+                    $counters[$poolKey]['a'] = 0;
                 }
             } elseif ($isA) {
-                $itemPity = $aPity;
+                $itemPity = $counters[$poolKey]['a'];
                 $aCount++;
-                $aPitySum += $aPity;
-                $aPity = 0;
+                $paidACount++;
+                $aPitySum += $itemPity;
+                $counters[$poolKey]['a'] = 0;
             } else {
                 $itemPity = 1;
                 $bCount++;
@@ -138,24 +202,36 @@ class GryphlinePullStatsCalculator
                 'rarity' => $rarity,
                 'pity' => $itemPity,
                 'pulled_at' => $pulledAtFormatted,
-            ] + $declared;
-            if ($isS) {
+            ] + $declared + $recordFields;
+            if ($isS && !$isFree) {
                 // Limits of the manual pull forms (declare a pity, add an earlier S)
-                $item += $windows['windows'][$row['id']]->toArray();
+                $item += $windows[$row['id']]->toArray();
                 $oldestS ??= $item;
             }
             $items[] = $item;
 
-            if ($pulledAt instanceof \DateTimeInterface) {
+            if ($isDraw && \in_array($bannerGroup['key'], self::POOLS_BREAKDOWN_BANNERS, true)) {
+                $this->addToPool($pools, $row, $bannerGroup, $countsAsPull, $isS, $pulledAtFormatted);
+            }
+
+            if ($isDraw && $pulledAt instanceof \DateTimeInterface) {
                 $month = $pulledAt->format('Y-m');
                 $monthly[$month] ??= ['month' => $month, 'total' => 0, 's_count' => 0, 'a_count' => 0];
-                $monthly[$month]['total']++;
+                if ($countsAsPull) {
+                    $monthly[$month]['total']++;
+                }
                 if ($isS) {
                     $monthly[$month]['s_count']++;
                 } elseif ($isA) {
                     $monthly[$month]['a_count']++;
                 }
             }
+        }
+
+        $current = $counters[$lastPityPoolKey] ?? ['s' => 0, 'a' => 0];
+        foreach ($pools as $key => $pool) {
+            $pools[$key]['s_pity'] = $poolPity ? ($counters[$key]['s'] ?? 0) : null;
+            $pools[$key]['a_pity'] = $poolPity ? ($counters[$key]['a'] ?? 0) : null;
         }
 
         return [
@@ -168,18 +244,24 @@ class GryphlinePullStatsCalculator
                 's_count' => $sCount,
                 'a_count' => $aCount,
                 'b_count' => $bCount,
-                's_pity' => $sPity,
+                's_pity' => $current['s'],
                 's_max_pity' => $bannerGroup['s_max_pity'],
-                'a_pity' => $aPity,
+                'a_pity' => $current['a'],
                 'a_max_pity' => $bannerGroup['a_max_pity'],
-                'avg_s_pity' => $sCount > 0 ? round($sPitySum / $sCount, 2) : 0.0,
-                'avg_a_pity' => $aCount > 0 ? round($aPitySum / $aCount, 2) : 0.0,
+                'avg_s_pity' => $paidSCount > 0 ? round($sPitySum / $paidSCount, 2) : 0.0,
+                'avg_a_pity' => $paidACount > 0 ? round($aPitySum / $paidACount, 2) : 0.0,
                 'recent_s_pulls' => array_reverse($recentSPulls),
                 'unknown_count' => $unknownCount,
-                // Window after the last S: limits of a manual S added without an anchor
-                'open_window' => $windows['open']->toArray(),
+                // Window after the last S (of the banner the pity refers to): limits of a manual S added without an anchor
+                'open_window' => ($openWindows[$lastPityPoolKey] ?? $openWindows[array_key_last($openWindows)] ?? $this->planner->describe([], $now)['open'])->toArray(),
                 // First S of the banner (full item): anchor of "Add missing S"
                 'oldest_s' => $oldestS,
+                // Per-banner breakdown (RE-Factor Headhunting, per-banner pity groups), oldest banner first
+                'pools' => array_values($pools),
+                // Banner the S/A pity refers to, for the groups whose pity resets with each banner
+                'pity_pool_name' => $poolPity && isset($pools[$lastPityPoolKey]) ? self::poolLabel($pools[$lastPityPoolKey]) : null,
+                // "Add missing S" makes no sense when the pity ends with each banner (ManualPullService refuses it)
+                'allow_add_s' => !$poolPity,
             ],
             'items' => $items,
             'monthly' => $monthly,
@@ -187,7 +269,8 @@ class GryphlinePullStatsCalculator
     }
 
     /**
-     * Newest-first items filtered by rarity (0: unknown pulls) and name, then paginated.
+     * Newest-first items filtered by rarity (0: unknown pulls) and name, then paginated. Bonus entries are not
+     * pulls, so the rarity filter (the pull pages always send one) never hides them; the name search does.
      *
      * @param list<array<string, mixed>> $items Items as returned by compute() (oldest first)
      * @param list<int> $rarities
@@ -200,7 +283,8 @@ class GryphlinePullStatsCalculator
 
         $filtered = [];
         foreach (array_reverse($items) as $item) {
-            if ($raritySet !== null && !isset($raritySet[(int) $item['rarity']])) {
+            $isBonus = ($item['bonus_label'] ?? null) !== null;
+            if ($raritySet !== null && !$isBonus && ($item['rarity'] === null || !isset($raritySet[(int) $item['rarity']]))) {
                 continue;
             }
             if ($search !== '' && !str_contains(mb_strtolower((string) $item['name']), $search)) {
@@ -279,8 +363,43 @@ class GryphlinePullStatsCalculator
     }
 
     /**
-     * Rows of one banner group as entries of the shared missing-pulls logic (PullGapPlanner, ManualPullGuard),
-     * in the order compute() counts them and with the same isS() / countsAsPull() rules.
+     * Whether the pity of a banner group resets with each banner (pool id) instead of carrying over.
+     *
+     * @param array{key: string} $bannerGroup
+     */
+    public function isPoolPityGroup(array $bannerGroup): bool
+    {
+        return \in_array($bannerGroup['key'], ArknightsEndfieldService::POOL_PITY_BANNERS, true);
+    }
+
+    /**
+     * Rows of a banner group split by pity pool, in chronological order: one list per banner (pool id and rerun
+     * number) for the per-banner pity groups, a single list ('' key) otherwise. The missing-pulls logic runs on
+     * each list on its own.
+     *
+     * @param list<array<string, mixed>> $rows Rows of one banner group, in any order
+     * @param array{key: string} $bannerGroup
+     * @return array<string, list<array<string, mixed>>>
+     */
+    public function partitionByPityPool(array $rows, array $bannerGroup): array
+    {
+        $rows = $this->sortRows($rows);
+        if (!$this->isPoolPityGroup($bannerGroup)) {
+            return ['' => $rows];
+        }
+
+        $partitions = [];
+        foreach ($rows as $row) {
+            $partitions[self::pityPoolKey($row)][] = $row;
+        }
+
+        return $partitions === [] ? ['' => []] : $partitions;
+    }
+
+    /**
+     * Rows of one banner group (or of one pity pool of it) as entries of the shared missing-pulls logic
+     * (PullGapPlanner, ManualPullGuard), in the order compute() counts them and with the same isS() /
+     * countsAsPull() rules.
      *
      * @param list<array<string, mixed>> $rows Rows of one banner group, in any order
      * @return list<PullTimelineEntry>
@@ -291,23 +410,39 @@ class GryphlinePullStatsCalculator
     }
 
     /**
-     * Whether a row is an S (6★): it resets the S pity. Filler rows (rarity 0) never are.
+     * Whether a row has an S rarity (6★). Filler rows (rarity 0) and bonus entries without rarity never do;
+     * compute() also leaves out bonus entries and free pulls when it resets the pity.
      *
      * @param array<string, mixed> $row
      */
     public function isS(array $row, RarityConfig $rarityConfig): bool
     {
-        return (int) ($row['rarity'] ?? 0) >= $rarityConfig->getS()->getRarity();
+        return isset($row['rarity']) && (int) $row['rarity'] >= $rarityConfig->getS()->getRarity();
     }
 
     /**
-     * Whether a row is a headhunt: it advances the pity, the pull number and the currency spent.
+     * Whether a row is a paid headhunt: it advances the pity, the pull number and the currency spent.
+     * Bonus entries and free Urgent Recruitment pulls never do.
      *
      * @param array<string, mixed> $row
      */
     public function countsAsPull(array $row): bool
     {
-        return true;
+        return self::isDraw($row) && !self::isFree($row);
+    }
+
+    /**
+     * Pity pool of a row in the per-banner pity groups: its pool id, plus the rerun number when there is one.
+     * Rows without a pool id (manual rows of older versions) share their own pool.
+     *
+     * @param array<string, mixed> $row
+     */
+    public static function pityPoolKey(array $row): string
+    {
+        $poolId = (string) ($row['poolId'] ?? '');
+        $version = self::poolVersionOf($row);
+
+        return $version !== null ? $poolId . '#' . $version : $poolId;
     }
 
     /**
@@ -345,7 +480,8 @@ class GryphlinePullStatsCalculator
                 id: (int) $row['id'],
                 pulledAt: WallClockDateTimeImmutableType::fromDateTime($row['pulledAt']),
                 origin: $origin,
-                isS: $origin !== PullOrigin::Filler && $this->isS($row, $rarityConfig),
+                // Only a paid S closes a window: a free or bonus 6★ never resets the paid pity
+                isS: $origin !== PullOrigin::Filler && $this->countsAsPull($row) && $this->isS($row, $rarityConfig),
                 countsAsPull: $this->countsAsPull($row),
                 declaredPity: self::declaredPityOf($row),
                 itemId: $itemId !== null && $itemId !== '' ? (string) $itemId : null,
@@ -354,6 +490,139 @@ class GryphlinePullStatsCalculator
         }
 
         return $entries;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>
+     */
+    private function recentSPull(array $row, ?int $pullNumber, ?int $rarity, ?int $pity, string $pulledAt): array
+    {
+        return [
+            'id' => $row['id'],
+            'pull_number' => $pullNumber,
+            'item_id' => $row['itemId'],
+            'name' => $row['name'],
+            'item_type' => $row['poolCategory'] ?? 'char',
+            'rarity' => $rarity,
+            'pity' => $pity,
+            'pulled_at' => $pulledAt,
+        ];
+    }
+
+    /**
+     * Adds a pull to the per-banner breakdown.
+     *
+     * @param array<string, array<string, mixed>> $pools
+     * @param array<string, mixed> $row
+     * @param array{name: string} $bannerGroup
+     */
+    private function addToPool(array &$pools, array $row, array $bannerGroup, bool $countsAsPull, bool $isS, string $pulledAt): void
+    {
+        $key = self::pityPoolKey($row);
+        $pools[$key] ??= [
+            'pool_id' => isset($row['poolId']) && $row['poolId'] !== '' ? (string) $row['poolId'] : null,
+            'pool_name' => (string) ($row['poolName'] ?: $bannerGroup['name']),
+            'pool_version' => self::poolVersionOf($row),
+            'total_pulls' => 0,
+            's_count' => 0,
+            's_pity' => null,
+            'a_pity' => null,
+            'first_pulled_at' => $pulledAt,
+            'last_pulled_at' => $pulledAt,
+        ];
+        if ($countsAsPull) {
+            $pools[$key]['total_pulls']++;
+        }
+        if ($isS) {
+            $pools[$key]['s_count']++;
+        }
+        $pools[$key]['last_pulled_at'] = $pulledAt;
+    }
+
+    /**
+     * Rate-up flag of a row: the stored one (sources, manual pulls), else for an S the banner data of the
+     * catalog (null when the banner is unknown or has no rate-up item, e.g. Basic Headhunting).
+     *
+     * @param array<string, mixed> $row
+     */
+    private function isUpOf(array $row, bool $isS): ?bool
+    {
+        if (isset($row['isUp'])) {
+            return (bool) $row['isUp'];
+        }
+        if (!$isS || $this->catalog === null || empty($row['poolId']) || empty($row['itemId'])) {
+            return null;
+        }
+
+        $pool = $this->catalog->findPool((string) $row['poolId']);
+        if ($pool === null || $pool['up'] === []) {
+            return null;
+        }
+
+        return \in_array((string) $row['itemId'], $pool['up'], true);
+    }
+
+    /**
+     * @param array<string, mixed> $pool
+     */
+    private static function poolLabel(array $pool): string
+    {
+        return $pool['pool_version'] !== null ? sprintf('%s #%d', $pool['pool_name'], $pool['pool_version']) : (string) $pool['pool_name'];
+    }
+
+    /**
+     * Free ten-pull of a free row: the pulls of one Urgent Recruitment share their pool and timestamp.
+     *
+     * @param array<string, mixed> $row
+     */
+    private static function freeBlockKey(array $row): string
+    {
+        $pulledAt = $row['pulledAt'] ?? null;
+
+        return sprintf(
+            '%s|%s',
+            (string) ($row['poolId'] ?? ''),
+            (string) ($row['gachaTs'] ?? ($pulledAt instanceof \DateTimeInterface ? $pulledAt->format('U') : (string) $pulledAt))
+        );
+    }
+
+    /**
+     * Rows queried before the kind column existed (or built by hand) are pulls.
+     *
+     * @param array<string, mixed> $row
+     */
+    private static function kindOf(array $row): string
+    {
+        $kind = (string) ($row['kind'] ?? '');
+
+        return $kind !== '' ? $kind : GryphlinePull::KIND_DRAW;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private static function isDraw(array $row): bool
+    {
+        return self::kindOf($row) === GryphlinePull::KIND_DRAW;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private static function isFree(array $row): bool
+    {
+        return (bool) ($row['isFree'] ?? false);
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private static function poolVersionOf(array $row): ?int
+    {
+        $version = isset($row['poolVersion']) ? (int) $row['poolVersion'] : 0;
+
+        return $version > 0 ? $version : null;
     }
 
     /**

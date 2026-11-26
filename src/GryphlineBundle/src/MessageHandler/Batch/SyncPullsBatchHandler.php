@@ -84,7 +84,7 @@ class SyncPullsBatchHandler extends AbstractBatchTaskMessageHandler
         }
 
         $serviceClass = $gameService::class;
-        $bannerTypes = $gameService->getGachaConfig()->getBannerTypes();
+        $bannerTypes = $gameService->getSyncStreams();
         $categories = array_keys($bannerTypes);
 
         $operationId = null;

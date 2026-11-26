@@ -16,13 +16,29 @@ use Symfony\Component\Messenger\Attribute\AsMessage;
 #[AsMessage('gryphline_pulls')]
 class SyncPullsPageProfileMessage implements ProfileTaskMessageInterface
 {
+    /*
+     * Pool being read and pools still to read, for the streams read banner by banner (Endfield Special
+     * Headhunting). Plain properties with defaults: messages queued before they existed unserialize with none.
+     */
+    private ?string $poolId = null;
+
+    /** @var list<string> */
+    private array $pendingPoolIds = [];
+
+    /**
+     * @param list<string> $pendingPoolIds
+     */
     public function __construct(
         private readonly int     $gameProfileId,
         private readonly string  $category,
         private readonly ?string $seqId = null,
         private readonly ?string $u8Token = null,
         private readonly ?string $operationId = null,
+        ?string $poolId = null,
+        array $pendingPoolIds = [],
     ) {
+        $this->poolId = $poolId;
+        $this->pendingPoolIds = array_values($pendingPoolIds);
     }
 
     public function getGameProfileId(): int
@@ -48,5 +64,18 @@ class SyncPullsPageProfileMessage implements ProfileTaskMessageInterface
     public function getOperationId(): ?string
     {
         return $this->operationId;
+    }
+
+    public function getPoolId(): ?string
+    {
+        return $this->poolId;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getPendingPoolIds(): array
+    {
+        return $this->pendingPoolIds;
     }
 }

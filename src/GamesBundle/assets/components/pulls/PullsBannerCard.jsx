@@ -5,6 +5,9 @@ import React, { useEffect, useState } from "react";
 
 const { Text, Title } = Typography;
 
+// Label of free pulls (Endfield Urgent Recruitment), flagged by is_free on the row
+const FREE_PULL_LABEL = "Urgent Recruitment";
+
 /**
  * Computes color for a pull pity badge (green for early, gold/orange for mid/soft, red for late/hard pity).
  */
@@ -39,6 +42,15 @@ export function PullsRecentBadge({ pull, maxPity = 90, pullSingularLabel = "Pull
     const isOfficial = pull.origin === "official";
     const officialLabel = useGameProvider().officialPullLabel || "official";
     const hasDeclaredPity = pull.declared_pity !== null && pull.declared_pity !== undefined;
+    // Optional flags: rate-up S (any provider) and free pull (Endfield), which has no pull number
+    const isUp = pull.is_up === true;
+    const isFree = pull.is_free === true;
+    const hasPullNumber = pull.pull_number !== null && pull.pull_number !== undefined;
+    const pityDetail = isFree
+        ? ` (${FREE_PULL_LABEL})`
+        : hasPullNumber
+            ? ` (${pullSingularLabel} #${pull.pull_number})`
+            : "";
 
     useEffect(() => {
         setImgError(false);
@@ -51,7 +63,8 @@ export function PullsRecentBadge({ pull, maxPity = 90, pullSingularLabel = "Pull
             title={
                 <div style={{ fontSize: 12 }}>
                     <div style={{ fontWeight: 600 }}>{pull.name}</div>
-                    <div>Pity: {pull.pity} ({pullSingularLabel} #{pull.pull_number})</div>
+                    <div>Pity: {pull.pity}{pityDetail}</div>
+                    {isUp && <div>Rate-up</div>}
                     {hasDeclaredPity && !isOfficial && <div>Declared pity: {pull.declared_pity}</div>}
                     {isManual && <div>Added manually</div>}
                     {isOfficial && <div>From the official {officialLabel} history</div>}
@@ -94,6 +107,8 @@ export function PullsRecentBadge({ pull, maxPity = 90, pullSingularLabel = "Pull
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
+                            // Free pulls are muted, the badges around the circle stay readable
+                            ...(isFree ? { opacity: 0.6 } : {}),
                         }}
                     >
                         {showImage ? (
@@ -113,6 +128,44 @@ export function PullsRecentBadge({ pull, maxPity = 90, pullSingularLabel = "Pull
                             getInitials(pull.name)
                         )}
                     </div>
+                    {isUp && (
+                        <span
+                            style={{
+                                position: "absolute",
+                                top: -5,
+                                left: -6,
+                                background: "#d4380d",
+                                color: "#fff",
+                                fontSize: 9,
+                                fontWeight: 700,
+                                lineHeight: "13px",
+                                padding: "0 4px",
+                                borderRadius: 8,
+                                border: "1.5px solid #fff",
+                            }}
+                        >
+                            UP
+                        </span>
+                    )}
+                    {isFree && (
+                        <span
+                            style={{
+                                position: "absolute",
+                                top: -5,
+                                right: -6,
+                                background: "#389e0d",
+                                color: "#fff",
+                                fontSize: 9,
+                                fontWeight: 700,
+                                lineHeight: "13px",
+                                padding: "0 4px",
+                                borderRadius: 8,
+                                border: "1.5px solid #fff",
+                            }}
+                        >
+                            FREE
+                        </span>
+                    )}
                     <span
                         style={{
                             position: "absolute",
@@ -162,6 +215,11 @@ export default function PullsBannerCard({ banner, rarityConfig, onViewDetails })
     const aPityPercent = Math.min(100, Math.round((banner.a_pity / (banner.a_max_pity || 10)) * 100));
 
     const recentPulls = (banner.recent_s_pulls || []).slice(0, 6);
+
+    // Banner the pity counters refer to, for groups whose pity resets per banner (Endfield)
+    const pityPoolName = typeof banner.pity_pool_name === "string" && banner.pity_pool_name.trim() !== ""
+        ? banner.pity_pool_name
+        : null;
 
     return (
         <Card
@@ -220,7 +278,7 @@ export default function PullsBannerCard({ banner, rarityConfig, onViewDetails })
                             </Space>
                         </Tooltip>
 
-                        <Tooltip title={`${sLabel} Pity Counter`}>
+                        <Tooltip title={pityPoolName ? `${sLabel} Pity Counter in ${pityPoolName}` : `${sLabel} Pity Counter`}>
                             <span style={{ fontSize: 13, fontWeight: 700, color: "#fa8c16" }}>
                                 {sShort} {banner.s_pity}/{banner.s_max_pity}
                             </span>
@@ -237,8 +295,18 @@ export default function PullsBannerCard({ banner, rarityConfig, onViewDetails })
                 {/* Dual Pity Progress Bars */}
                 <div style={{ marginBottom: 16 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2 }}>
-                        <Text type="secondary">{sLabel} Pity</Text>
-                        <Text strong style={{ color: "#fa8c16" }}>
+                        {pityPoolName ? (
+                            <Text
+                                type="secondary"
+                                ellipsis={{ tooltip: `${sLabel} Pity in ${pityPoolName}` }}
+                                style={{ minWidth: 0, marginRight: 8 }}
+                            >
+                                {sLabel} Pity in {pityPoolName}
+                            </Text>
+                        ) : (
+                            <Text type="secondary">{sLabel} Pity</Text>
+                        )}
+                        <Text strong style={{ color: "#fa8c16", ...(pityPoolName ? { flexShrink: 0 } : {}) }}>
                             {banner.s_pity} / {banner.s_max_pity} ({Math.max(0, banner.s_max_pity - banner.s_pity)} left)
                         </Text>
                     </div>

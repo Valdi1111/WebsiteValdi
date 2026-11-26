@@ -27,6 +27,9 @@ class AkeCatalogUpdateCommandTest extends TestCase
         $this->assertMatchesRegularExpression('/Operators\s+4/', $display);
         $this->assertMatchesRegularExpression('/Weapons\s+2/', $display);
         $this->assertMatchesRegularExpression('/6★\s+4 \(3 operators, 1 weapons\)/', $display);
+        $this->assertMatchesRegularExpression('/Operator pools\s+6/', $display);
+        $this->assertMatchesRegularExpression('/Weapon pools\s+3/', $display);
+        $this->assertStringNotContainsString('pool was stored', $display);
 
         $this->assertSame(AkeDataFixture::LATEST, new AkeCatalog($pool)->getVersion());
     }
@@ -41,6 +44,26 @@ class AkeCatalogUpdateCommandTest extends TestCase
         $this->assertContains(AkeDataFixture::OLDER_PATH . '/ItemTable.json', $fixture->requestedPaths);
         $this->assertSame(AkeDataFixture::OLDER, $catalog->getVersion());
         $this->assertMatchesRegularExpression('/Operators\s+1/', $tester->getDisplay());
+    }
+
+    public function testMissingPoolTableStillSavesTheCatalogAndWarns(): void
+    {
+        $catalog = new AkeCatalog(new ArrayAdapter());
+        $fixture = new AkeDataFixture([AkeDataFixture::LATEST_PATH . '/' . AkeDataFixture::WEAPON_POOL_TABLE => null]);
+        $tester = new CommandTester($this->createCommand($fixture, $catalog));
+
+        $this->assertSame(Command::SUCCESS, $tester->execute([]), $tester->getDisplay());
+
+        $display = $tester->getDisplay();
+        $this->assertMatchesRegularExpression('/Items\s+6 \(6 new\)/', $display);
+        $this->assertMatchesRegularExpression('/Operator pools\s+6/', $display);
+        $this->assertMatchesRegularExpression('/Weapon pools\s+0/', $display);
+        $this->assertStringContainsString('No weapon pool was stored', $display);
+        $this->assertStringNotContainsString('No operator pool was stored', $display);
+
+        $this->assertSame(AkeDataFixture::LATEST, $catalog->getVersion());
+        $this->assertNotNull($catalog->findPool('standard'));
+        $this->assertNull($catalog->findPool('rerun_wpn_aglina'));
     }
 
     public function testAbortedBuildKeepsPreviousCatalogAndFails(): void

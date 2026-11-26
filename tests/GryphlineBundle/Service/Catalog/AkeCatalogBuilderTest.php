@@ -2,26 +2,47 @@
 
 namespace App\Tests\GryphlineBundle\Service\Catalog;
 
+use App\GryphlineBundle\Service\Catalog\AkeCatalog;
 use App\GryphlineBundle\Service\Catalog\AkeCatalogBuilder;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
 class AkeCatalogBuilderTest extends TestCase
 {
+    private const array CHAR_POOLS = [
+        'beginner' => ['id' => 'beginner', 'category' => 'char', 'type' => AkeCatalog::CHAR_POOL_TYPE_BEGINNER, 'up' => []],
+        'joint_1_2_2' => ['id' => 'joint_1_2_2', 'category' => 'char', 'type' => AkeCatalog::CHAR_POOL_TYPE_JOINT, 'up' => ['chr_0016_laevat', 'chr_0013_aglina']],
+        'rerun_chr_aglina' => ['id' => 'rerun_chr_aglina', 'category' => 'char', 'type' => AkeCatalog::CHAR_POOL_TYPE_RERUN, 'up' => ['chr_0013_aglina']],
+        'special_1_0_1' => ['id' => 'special_1_0_1', 'category' => 'char', 'type' => AkeCatalog::CHAR_POOL_TYPE_SPECIAL, 'up' => ['chr_0016_laevat']],
+        'special_1_0_3' => ['id' => 'special_1_0_3', 'category' => 'char', 'type' => AkeCatalog::CHAR_POOL_TYPE_SPECIAL, 'up' => ['chr_0013_aglina']],
+        'standard' => ['id' => 'standard', 'category' => 'char', 'type' => AkeCatalog::CHAR_POOL_TYPE_STANDARD, 'up' => []],
+    ];
+
+    private const array WEAPON_POOLS = [
+        'rerun_wpn_aglina' => ['id' => 'rerun_wpn_aglina', 'category' => 'weapon', 'type' => AkeCatalog::WEAPON_POOL_TYPE_RERUN, 'up' => ['wpn_funnel_0011']],
+        'weaponbox_constant_1' => ['id' => 'weaponbox_constant_1', 'category' => 'weapon', 'type' => AkeCatalog::WEAPON_POOL_TYPE_NORMAL, 'up' => ['wpn_claym_0013']],
+        'weponbox_1_0_3' => ['id' => 'weponbox_1_0_3', 'category' => 'weapon', 'type' => AkeCatalog::WEAPON_POOL_TYPE_NORMAL, 'up' => ['wpn_funnel_0011']],
+    ];
+
     public function testBuildsCompactCatalogOfTheLatestVersion(): void
     {
         $fixture = new AkeDataFixture();
-        $catalog = $this->createBuilder($fixture)->build();
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->never())->method('warning');
+        $catalog = new AkeCatalogBuilder($fixture->client(), $logger)->build();
 
         $this->assertSame(AkeDataFixture::LATEST, $catalog['version']);
         $this->assertNotFalse(\DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $catalog['built_at']));
 
-        // The item table is read (and reduced) before the big text table is downloaded
+        // The item table is read (and reduced) before the big text table is downloaded, the pool tables last
         $this->assertSame([
             'manifest.json',
             AkeDataFixture::LATEST_PATH . '/ItemTable.json',
             AkeDataFixture::LATEST_PATH . '/I18nTextTable_EN.json',
+            AkeDataFixture::LATEST_PATH . '/' . AkeDataFixture::CHAR_POOL_TABLE,
+            AkeDataFixture::LATEST_PATH . '/' . AkeDataFixture::WEAPON_POOL_TABLE,
         ], $fixture->requestedPaths);
 
         $this->assertSame([
@@ -32,6 +53,42 @@ class AkeCatalogBuilderTest extends TestCase
             'wpn_claym_0003' => ['id' => 'wpn_claym_0003', 'name' => 'Industry 0.1', 'rarity' => 4, 'type' => 'weapon'],
             'wpn_funnel_0011' => ['id' => 'wpn_funnel_0011', 'name' => 'Delivery Guaranteed', 'rarity' => 6, 'type' => 'weapon'],
         ], $catalog['items']);
+
+        // Both tables merged and sorted by pool id; the row without an integer type is skipped
+        $expectedPools = self::CHAR_POOLS + self::WEAPON_POOLS;
+        ksort($expectedPools, \SORT_STRING);
+        $this->assertSame($expectedPools, $catalog['pools']);
+        $this->assertArrayNotHasKey('special_9_9_9', $catalog['pools']);
+    }
+
+    /**
+     * @return iterable<string, array{string, mixed, string}>
+     */
+    public static function brokenPoolTableProvider(): iterable
+    {
+        yield 'char table not found' => [AkeDataFixture::CHAR_POOL_TABLE, null, 'char'];
+        yield 'invalid weapon table' => [AkeDataFixture::WEAPON_POOL_TABLE, '{"broken', 'weapon'];
+        yield 'char table without typed pool' => [AkeDataFixture::CHAR_POOL_TABLE, ['standard' => ['id' => 'standard', 'upCharIds' => []]], 'char'];
+    }
+
+    #[DataProvider('brokenPoolTableProvider')]
+    public function testBrokenPoolTableStillBuildsTheItemsWithAWarning(string $table, mixed $content, string $emptyCategory): void
+    {
+        $fixture = new AkeDataFixture([AkeDataFixture::LATEST_PATH . '/' . $table => $content]);
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())->method('warning')->with(
+            $this->anything(),
+            $this->callback(static fn (array $context): bool => $context['table'] === $table && $context['version'] === AkeDataFixture::LATEST),
+        );
+
+        $catalog = new AkeCatalogBuilder($fixture->client(), $logger)->build();
+
+        $this->assertSame(AkeDataFixture::LATEST, $catalog['version']);
+        $this->assertCount(6, $catalog['items']);
+        $this->assertSame(
+            $emptyCategory === 'char' ? self::WEAPON_POOLS : self::CHAR_POOLS,
+            $catalog['pools'],
+        );
     }
 
     public function testKeepsOnlyOperatorsAndWeaponsWithAnEnglishName(): void

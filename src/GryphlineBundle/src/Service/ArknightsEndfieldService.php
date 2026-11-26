@@ -23,6 +23,7 @@ use App\GamesBundle\Model\GameNotes\GameNotesStamina;
 use App\GamesBundle\Model\Game\RuntimeAccountDataInterface;
 use App\GryphlineBundle\Model\RuntimeAccountData;
 use App\GryphlineBundle\Model\SkportSessionCredentials;
+use App\GryphlineBundle\Service\Catalog\AkeCatalog;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\DependencyInjection\Attribute\Target;
@@ -57,7 +58,14 @@ class ArknightsEndfieldService implements GameInterface, HasCheckInInterface, Ha
         private readonly ObjectMapperInterface $objectMapper,
         #[Target('gryphline.ake')]
         private readonly LoggerInterface $logger,
+        /** Banner data of the pull records (rerun weapon banners); optional so tests can leave it out */
+        private readonly ?AkeCatalog $catalog = null,
     ) {
+    }
+
+    public function getCatalog(): ?AkeCatalog
+    {
+        return $this->catalog;
     }
 
     public static function getGameId(): int

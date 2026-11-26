@@ -8,23 +8,32 @@ use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as HttpClientExcep
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
- * Builds the compact Endfield catalog (operators and weapons) from the AkeData datamine.
+ * Builds the compact Endfield catalog (operators, weapons and gacha pools) from the AkeData datamine.
  *
  * The manifest gives the TableCfg directory of each published game version. ItemTable.json holds the
  * items keyed by id, with an empty "name.text" and the text id in "name.id"; the English name comes
  * from I18nTextTable_EN.json (text id => string, ~14 MB). The item table is reduced to the operator
  * and weapon rows before the text table is downloaded, and each table is released as soon as it has
- * been read, so only one of them is in memory at a time. This only runs from the console or a worker.
+ * been read, so only one of them is in memory at a time. The small GachaCharPoolTable.json and
+ * GachaWeaponPoolTable.json (pool id => type and rate-up item ids) are read last. This only runs from
+ * the console or a worker.
  *
- * Any problem (unknown version, missing or invalid table, no resolvable name) throws before anything
- * is saved, so the previous catalog stays in place. The result is not merged with the previous
- * catalog: every AkeData version ships the full tables.
+ * Any item problem (unknown version, missing or invalid item or text table, no resolvable name) throws
+ * before anything is saved, so the previous catalog stays in place. A pool table that cannot be read
+ * only logs a warning and leaves the pools of its category empty: the items are what matters. The
+ * result is not merged with the previous catalog: every AkeData version ships the full tables.
  */
 class AkeCatalogBuilder
 {
     private const string MANIFEST_PATH = 'manifest.json';
     private const string ITEM_TABLE_FILE = 'ItemTable.json';
     private const string TEXT_TABLE_FILE = 'I18nTextTable_EN.json';
+
+    /** Pool table file and field holding the rate-up item ids, per catalog type. */
+    private const array POOL_TABLES = [
+        AkeCatalog::TYPE_CHAR => ['file' => 'GachaCharPoolTable.json', 'up_field' => 'upCharIds'],
+        AkeCatalog::TYPE_WEAPON => ['file' => 'GachaWeaponPoolTable.json', 'up_field' => 'upWeaponIds'],
+    ];
 
     /** Relative TableCfg directory published by the manifest (e.g. "public/1.6.4/11944529-13/TableCfg"). */
     private const string TABLE_CFG_PATH_PATTERN = '#^[A-Za-z0-9_@-][A-Za-z0-9._@-]*(/[A-Za-z0-9_@-][A-Za-z0-9._@-]*)*$#';
@@ -41,7 +50,7 @@ class AkeCatalogBuilder
      * Builds the catalog of the given manifest version id ("latest" when null). The result is not saved:
      * callers persist it with AkeCatalog::save().
      *
-     * @return array{version: string, built_at: string, items: array<string, array{id: string, name: string, rarity: ?int, type: string}>}
+     * @return array{version: string, built_at: string, items: array<string, array{id: string, name: string, rarity: ?int, type: string}>, pools: array<string, array{id: string, category: string, type: int, up: list<string>}>}
      *
      * @throws \RuntimeException when the build is aborted (the previous catalog must be kept)
      */
@@ -62,16 +71,28 @@ class AkeCatalogBuilder
         }
         ksort($items, \SORT_STRING);
 
+        $pools = [];
+        $poolCounts = [];
+        foreach (array_keys(self::POOL_TABLES) as $category) {
+            $categoryPools = $this->collectPools($tableCfgPath, $versionId, $category);
+            $poolCounts[$category] = count($categoryPools);
+            $pools += $categoryPools;
+        }
+        ksort($pools, \SORT_STRING);
+
         $this->logger->info('Endfield catalog built', [
             'version' => $versionId,
             'items' => count($items),
             'unresolved' => count($candidates) - count($items),
+            'char_pools' => $poolCounts[AkeCatalog::TYPE_CHAR],
+            'weapon_pools' => $poolCounts[AkeCatalog::TYPE_WEAPON],
         ]);
 
         return [
             'version' => $versionId,
             'built_at' => new \DateTimeImmutable()->format(\DateTimeInterface::ATOM),
             'items' => $items,
+            'pools' => $pools,
         ];
     }
 
@@ -165,6 +186,56 @@ class AkeCatalogBuilder
         }
 
         return $items;
+    }
+
+    /**
+     * Pools of one category (char or weapon) keyed by pool id. Rows without an integer type are dropped
+     * (0 is a real pool type, so it cannot serve as a default). A table that cannot be read or holds no
+     * usable pool logs a warning and yields no pool instead of aborting the build.
+     *
+     * @return array<string, array{id: string, category: string, type: int, up: list<string>}>
+     */
+    private function collectPools(string $tableCfgPath, string $versionId, string $category): array
+    {
+        ['file' => $file, 'up_field' => $upField] = self::POOL_TABLES[$category];
+
+        try {
+            $poolTable = $this->fetchJson(sprintf('%s/%s', $tableCfgPath, $file));
+        } catch (\RuntimeException $e) {
+            $this->logger->warning('Endfield catalog built without the pools of a table', [
+                'version' => $versionId,
+                'table' => $file,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [];
+        }
+
+        $pools = [];
+        foreach ($poolTable as $poolId => $entry) {
+            $poolId = (string) $poolId;
+            if ($poolId === '' || !is_array($entry) || !is_int($entry['type'] ?? null)) {
+                continue;
+            }
+
+            $up = is_array($entry[$upField] ?? null) ? $entry[$upField] : [];
+            $pools[$poolId] = [
+                'id' => $poolId,
+                'category' => $category,
+                'type' => $entry['type'],
+                'up' => array_values(array_filter($up, static fn (mixed $itemId): bool => is_string($itemId) && $itemId !== '')),
+            ];
+        }
+
+        if ($pools === []) {
+            $this->logger->warning('Endfield catalog built without the pools of a table', [
+                'version' => $versionId,
+                'table' => $file,
+                'error' => 'No pool with an integer type.',
+            ]);
+        }
+
+        return $pools;
     }
 
     /**

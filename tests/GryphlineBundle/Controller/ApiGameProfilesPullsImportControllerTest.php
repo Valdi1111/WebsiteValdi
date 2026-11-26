@@ -226,7 +226,8 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
 
         $dispatched = [];
         $bus = $this->createMock(MessageBusInterface::class);
-        $bus->expects($this->exactly(4))
+        // One message per sync stream (Chartered, RE-Factor, Special, Basic, weapons, Beginner)
+        $bus->expects($this->exactly(6))
             ->method('dispatch')
             ->willReturnCallback(static function (object $message) use (&$dispatched): Envelope {
                 $dispatched[] = $message;
@@ -240,7 +241,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
         $this->assertTrue($payload['success']);
         $this->assertSame('auto_sync', $payload['operation']['kind']);
-        $this->assertSame(4, $payload['operation']['total']);
+        $this->assertSame(6, $payload['operation']['total']);
 
         foreach ($dispatched as $message) {
             $this->assertInstanceOf(SyncPullsPageProfileMessage::class, $message);
@@ -291,7 +292,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $this->assertSame(Response::HTTP_OK, $response->getStatusCode());
         $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
         $this->assertSame(0, $payload['total_pulls']);
-        $this->assertCount(4, $payload['banners'], 'Configured banners are listed even without pulls');
+        $this->assertCount(7, $payload['banners'], 'Configured banners are listed even without pulls');
         $this->assertSame([], $payload['monthly_timeline']);
         $this->assertSame([], $payload['available_backup_importers']);
         $this->assertSame('https://games.test/gryphline/profiles/10/pulls/progress', $payload['mercure_topic']);
@@ -316,6 +317,33 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
             'rarity' => $rarity,
             'pulledAt' => new \DateTimeImmutable($pulledAt),
         ];
+    }
+
+    public function testPullsListLeavesNoIconOnABonusEntryWithoutItem(): void
+    {
+        $user = $this->createUser(1);
+        [$account, $profile] = $this->createAccountAndProfile($user, 10);
+
+        $dossier = ['itemId' => null, 'rarity' => null, 'kind' => 'gift_intel_book']
+            + $this->pullRow(2, 'E_CharacterGachaPoolType_Special', '2026-06-01 10:01:00', 4, 'Headhunting Dossier');
+        $tribute = ['itemId' => 'wpn_tribute', 'rarity' => 6, 'kind' => 'gift_weapon']
+            + $this->pullRow(3, 'E_CharacterGachaPoolType_Special', '2026-06-01 10:02:00', 4, 'Tribute weapon');
+        $pullRepo = $this->createStub(GryphlinePullRepository::class);
+        $pullRepo->method('findBannerRows')->willReturn([
+            $this->pullRow(1, 'E_CharacterGachaPoolType_Special', '2026-06-01 10:00:00', 4, 'Item'),
+            $dossier,
+            $tribute,
+        ]);
+
+        $request = Request::create('/api/accounts/1/gameProfiles/10/pulls', 'GET', ['banner' => 'E_CharacterGachaPoolType_Special']);
+        $response = $this->createController()->apiGameProfilePullsList($request, $account, $profile, $pullRepo, new GryphlinePullStatsCalculator(new PullGapPlanner()), $this->createIconUrlBuilder());
+
+        $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $icons = array_column($payload['items'], 'icon_url', 'name');
+        // The dossier has no item: its icon would be looked up by name and never found
+        $this->assertNull($icons['Headhunting Dossier']);
+        $this->assertSame('icon/wpn_tribute', $icons['Tribute weapon'], 'A bonus entry with an item keeps its icon');
+        $this->assertSame('icon/item_1', $icons['Item']);
     }
 
     private function createIconUrlBuilder(): PullItemIconUrlBuilder
@@ -363,14 +391,17 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $this->assertSame(5, $payload['total_pulls']);
         $this->assertSame([
             'E_CharacterGachaPoolType_Special',
+            'E_CharacterGachaPoolType_Rerun',
+            'E_CharacterGachaPoolType_Joint',
             'E_CharacterGachaPoolType_Standard',
             'E_WeaponGachaPoolType_Standard',
+            'E_WeaponGachaPoolType_Rerun',
             'E_CharacterGachaPoolType_Beginner',
             'E_CharacterGachaPoolType_Collab',
         ], array_column($payload['banners'], 'key'), 'Configured banners first, then unconfigured pool types');
-        $this->assertSame([3, 0, 1, 0, 1], array_column($payload['banners'], 'total_pulls'));
-        $this->assertSame('Collab Hunt', $payload['banners'][4]['name']);
-        $this->assertSame([80, 10], [$payload['banners'][4]['s_max_pity'], $payload['banners'][4]['a_max_pity']]);
+        $this->assertSame([3, 0, 0, 0, 1, 0, 0, 1], array_column($payload['banners'], 'total_pulls'));
+        $this->assertSame('Collab Hunt', $payload['banners'][7]['name']);
+        $this->assertSame([80, 10], [$payload['banners'][7]['s_max_pity'], $payload['banners'][7]['a_max_pity']]);
         $this->assertSame(1, $payload['banners'][0]['s_pity']);
         $this->assertSame('icon/item_2', $payload['banners'][0]['recent_s_pulls'][0]['icon_url']);
         $this->assertSame('icon/item_2', $payload['banners'][0]['oldest_s']['icon_url'], 'oldest_s is enriched like recent_s_pulls');
@@ -420,7 +451,7 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         $this->assertSame('icon/item_6', $payload['items'][0]['icon_url']);
 
         $banner = $payload['banner'];
-        $this->assertSame('Weapon Headhunting', $banner['name']);
+        $this->assertSame('Arsenal Issue', $banner['name']);
         $this->assertSame(12, $banner['total_pulls']);
         $this->assertSame(6000, $banner['currency_spent']);
         $this->assertSame([2, 3, 7], [$banner['s_count'], $banner['a_count'], $banner['b_count']]);

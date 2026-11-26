@@ -42,6 +42,18 @@ class GryphlinePullItem
     #[Map(target: 'pulledAt')]
     private ?\DateTimeImmutable $gachaTime = null;
 
+    #[Map(target: 'kind')]
+    #[SerializedName('kind')]
+    private string $kind = GryphlinePull::KIND_DRAW;
+
+    #[Map(target: 'isFree')]
+    #[SerializedName('isFree')]
+    private bool $isFree = false;
+
+    #[Map(target: 'poolVersion')]
+    #[SerializedName('poolVersion')]
+    private ?int $poolVersion = null;
+
     public function getSeqId(): ?string
     {
         return $this->seqId;
@@ -193,6 +205,49 @@ class GryphlinePullItem
     public function setGachaTime(?\DateTimeImmutable $gachaTime): static
     {
         $this->gachaTime = $gachaTime;
+
+        return $this;
+    }
+
+    public function getKind(): string
+    {
+        return $this->kind;
+    }
+
+    /**
+     * Records without a kind are pulls (the official page reads a missing kind as "draw").
+     */
+    public function setKind(?string $kind): static
+    {
+        $this->kind = $kind !== null && $kind !== '' ? $kind : GryphlinePull::KIND_DRAW;
+
+        return $this;
+    }
+
+    public function isFree(): bool
+    {
+        return $this->isFree;
+    }
+
+    public function setIsFree(bool|int|string|null $isFree): static
+    {
+        $this->isFree = filter_var($isFree, \FILTER_VALIDATE_BOOLEAN);
+
+        return $this;
+    }
+
+    public function getPoolVersion(): ?int
+    {
+        return $this->poolVersion;
+    }
+
+    /**
+     * Rerun number of the banner; anything but a positive integer means "none".
+     */
+    public function setPoolVersion(int|string|null $poolVersion): static
+    {
+        $version = is_numeric($poolVersion) ? (int) $poolVersion : 0;
+        $this->poolVersion = $version > 0 ? $version : null;
 
         return $this;
     }

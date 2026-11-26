@@ -37,6 +37,11 @@ class AkeCatalogUpdaterTest extends TestCase
         $this->assertSame(AkeDataFixture::LATEST, $reader->getVersion());
         $this->assertSame('Delivery Guaranteed', $reader->find('wpn_funnel_0011')['name']);
         $this->assertNull($reader->find('wpn_old_0001'));
+        $this->assertSame(
+            ['id' => 'rerun_chr_aglina', 'category' => 'char', 'type' => AkeCatalog::CHAR_POOL_TYPE_RERUN, 'up' => ['chr_0013_aglina']],
+            $reader->findPool('rerun_chr_aglina'),
+        );
+        $this->assertSame(AkeCatalog::WEAPON_POOL_TYPE_NORMAL, $reader->findPool('weaponbox_constant_1')['type']);
     }
 
     /**
@@ -65,8 +70,9 @@ class AkeCatalogUpdaterTest extends TestCase
             $this->assertStringContainsString('previous catalog kept', $e->getMessage());
         }
 
-        $this->assertSame(self::PREVIOUS_CATALOG, $catalog->all());
-        $this->assertSame(self::PREVIOUS_CATALOG, new AkeCatalog($pool)->all());
+        // The previous catalog predates the pools: it reads back with an empty pool list
+        $this->assertSame(self::PREVIOUS_CATALOG + ['pools' => []], $catalog->all());
+        $this->assertSame(self::PREVIOUS_CATALOG + ['pools' => []], new AkeCatalog($pool)->all());
     }
 
     private function createUpdater(AkeDataFixture $fixture, AkeCatalog $catalog): AkeCatalogUpdater

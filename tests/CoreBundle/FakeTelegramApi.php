@@ -13,9 +13,10 @@ use Symfony\Component\Notifier\Transport\Transports;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
- * Telegram as the account linking sees it, served through MockHttpClient with the requests recorded: the OpenID
- * Connect endpoints (code exchange, keys), with id tokens really signed by a key generated for the tests, and the
- * sendMessage method of the Bot API.
+ * Telegram as the site sees it, served through MockHttpClient with the requests recorded: the OpenID Connect endpoints
+ * (code exchange, keys), with id tokens really signed by a key generated for the tests, and the Bot API methods of the
+ * bot of BOT_TOKEN (sendMessage of the notifier and of the chat bot, editMessageText, answerCallbackQuery, getUpdates,
+ * the webhook and the command menu).
  */
 final class FakeTelegramApi
 {
@@ -31,8 +32,27 @@ final class FakeTelegramApi
     /** @var array{private: string, n: string, e: string}|null generated once: RSA key generation is slow */
     private static ?array $key = null;
 
+    public const string BOT_API = 'https://api.telegram.org/';
+    public const string BOT_USERNAME = 'valdi_test_bot';
+
     /** @var list<array{method: string, url: string, options: array<string, mixed>}> */
     public array $requests = [];
+
+    /**
+     * Answers of the next Bot API calls, by method, in order: [status, body]; a method without one answers as Telegram
+     * does when it accepts the call. sendMessage keeps $sendStatus / $sendError when it has none here.
+     *
+     * @var array<string, list<array{int, array<string, mixed>}>>
+     */
+    public array $botAnswers = [];
+
+    /** @var list<list<array<string, mixed>>> updates of the next getUpdates calls, one list per call */
+    public array $updates = [];
+
+    /** URL of getWebhookInfo, "" when no webhook is set */
+    public string $webhookUrl = '';
+
+    private int $nextMessageId = 100;
 
     /**
      * @param array<string, mixed> $claims      claims of the id token, over the valid ones of claims()
@@ -71,12 +91,54 @@ final class FakeTelegramApi
                     default => self::json(200, ['access_token' => 'access-token', 'id_token' => $this->idToken(), 'token_type' => 'Bearer', 'expires_in' => 30, 'scope' => 'openid profile']),
                 },
                 'GET '.self::OAUTH_BASE_URI.'.well-known/jwks.json' => self::json(200, ['keys' => [self::jwk()]]),
-                'POST https://api.telegram.org/bot'.self::BOT_TOKEN.'/sendMessage' => self::json($this->sendStatus, $this->sendStatus === 200
-                    ? ['ok' => true, 'result' => ['message_id' => 1, 'date' => $this->clock->now()->getTimestamp(), 'chat' => ['id' => (int) self::USER_ID, 'type' => 'private'], 'text' => 'Welcome']]
-                    : ['ok' => false, 'error_code' => $this->sendStatus, 'description' => $this->sendError ?? 'Internal Server Error']),
-                default => new MockResponse('Not Found', ['http_code' => 404]),
+                'POST https://api.telegram.org/bot'.self::BOT_TOKEN.'/sendMessage' => ($this->botAnswers['sendMessage'] ?? []) !== []
+                    ? self::json(...array_shift($this->botAnswers['sendMessage']))
+                    : self::json($this->sendStatus, $this->sendStatus === 200
+                        ? ['ok' => true, 'result' => ['message_id' => 1, 'date' => $this->clock->now()->getTimestamp(), 'chat' => ['id' => (int) self::USER_ID, 'type' => 'private'], 'text' => 'Welcome']]
+                        : ['ok' => false, 'error_code' => $this->sendStatus, 'description' => $this->sendError ?? 'Internal Server Error']),
+                default => str_starts_with($url, self::BOT_API.'bot'.self::BOT_TOKEN.'/') && $method === 'POST'
+                    ? $this->botApi(substr($url, strlen(self::BOT_API.'bot'.self::BOT_TOKEN.'/')))
+                    : new MockResponse('Not Found', ['http_code' => 404]),
             };
         }, $baseUri);
+    }
+
+    /**
+     * The Bot API calls made, in order, with their JSON parameters.
+     *
+     * @return list<array{method: string, params: array<string, mixed>}>
+     */
+    public function botCalls(): array
+    {
+        $calls = [];
+        $prefix = self::BOT_API.'bot'.self::BOT_TOKEN.'/';
+        foreach ($this->requests as $request) {
+            if (str_starts_with($request['url'], $prefix)) {
+                $body = $request['options']['body'] ?? '';
+                $calls[] = ['method' => substr($request['url'], strlen($prefix)), 'params' => is_string($body) && $body !== '' ? json_decode($body, true, flags: \JSON_THROW_ON_ERROR) : []];
+            }
+        }
+
+        return $calls;
+    }
+
+    private function botApi(string $method): MockResponse
+    {
+        if (($this->botAnswers[$method] ?? []) !== []) {
+            return self::json(...array_shift($this->botAnswers[$method]));
+        }
+
+        $now = $this->clock->now()->getTimestamp();
+        $chat = ['id' => (int) self::USER_ID, 'type' => 'private'];
+
+        return self::json(200, ['ok' => true, 'result' => match ($method) {
+            'getMe' => ['id' => (int) self::BOT_ID, 'is_bot' => true, 'first_name' => 'Valdi test', 'username' => self::BOT_USERNAME],
+            'getUpdates' => array_shift($this->updates) ?? [],
+            'editMessageText' => ['message_id' => 1, 'date' => $now, 'chat' => $chat, 'text' => ''],
+            'getWebhookInfo' => ['url' => $this->webhookUrl, 'has_custom_certificate' => false, 'pending_update_count' => 0],
+            'sendMessage' => ['message_id' => $this->nextMessageId++, 'date' => $now, 'chat' => $chat, 'text' => ''],
+            default => true,
+        }]);
     }
 
     public function oauthClient(

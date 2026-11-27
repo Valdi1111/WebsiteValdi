@@ -20,6 +20,11 @@ security:
         discord_interactions:
             pattern: ^/discord/interactions$
             security: false
+        # Telegram updates (webhook): authenticated by the secret header of the bot (TelegramRequestParser), never by
+        # the session or the remember-me cookie
+        telegram_webhook:
+            pattern: ^/webhook/telegram$
+            security: false
         # Requests carrying an API token ("Authorization: Bearer <token>"): logged in by the token at every request and
         # never kept in the session, so that a disabled or deleted token stops at once and the session of a browser
         # is left alone. The login is marked as made with an API token (ApiTokenAuthenticationListener).

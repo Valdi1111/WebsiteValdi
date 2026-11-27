@@ -10,6 +10,7 @@
         "ext-iconv": "*",
         "ext-imagick": "*",
         "ext-openssl": "*",
+        "ext-sodium": "*",
         "doctrine/doctrine-bundle": "^3.2",
         "doctrine/doctrine-migrations-bundle": "^4.0",
         "doctrine/orm": "^3.6",

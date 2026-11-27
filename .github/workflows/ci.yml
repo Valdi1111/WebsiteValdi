@@ -24,7 +24,7 @@ jobs:
                 uses: shivammathur/setup-php@v2
                 with:
                     php-version: '8.5'
-                    extensions: ctype, exif, iconv, imagick, openssl, mbstring, xml, curl, zip, intl
+                    extensions: ctype, exif, iconv, imagick, openssl, mbstring, xml, curl, zip, intl, sodium
                     tools: composer:v2
                     coverage: none
 

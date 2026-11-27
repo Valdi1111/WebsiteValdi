@@ -2,9 +2,13 @@
 
 namespace App\CoreBundle;
 
+use App\CoreBundle\Attribute\AsChatAction;
+use App\CoreBundle\Attribute\AsChatCommand;
 use App\CoreBundle\Doctrine\EncryptedTextType;
+use App\CoreBundle\Model\Chat\ChatReplySenderInterface;
 use App\CoreBundle\Service\Encryption\DatabaseCipher;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
+use Symfony\Component\DependencyInjection\ChildDefinition;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
@@ -45,6 +49,17 @@ class CoreBundle extends AbstractBundle
     public function loadExtension(array $config, ContainerConfigurator $configurator, ContainerBuilder $container): void
     {
         $configurator->import('./config/services.yaml');
+
+        // Chat commands and buttons, found by their attribute; the registries read the rest of the attribute from the class
+        $container->registerAttributeForAutoconfiguration(AsChatCommand::class, static function (ChildDefinition $definition, AsChatCommand $attribute): void {
+            $definition->addTag(AsChatCommand::TAG, ['name' => $attribute->name]);
+        });
+        $container->registerAttributeForAutoconfiguration(AsChatAction::class, static function (ChildDefinition $definition, AsChatAction $attribute): void {
+            $definition->addTag(AsChatAction::TAG, ['name' => $attribute->name]);
+        });
+        // Here and not with #[AutoconfigureTag] on the interface: Model/ is not scanned for services, so an attribute
+        // there is never read
+        $container->registerForAutoconfiguration(ChatReplySenderInterface::class)->addTag(ChatReplySenderInterface::TAG);
 
         $configurator->parameters()->set('core.database_encryption_key', $config['database_encryption_key']);
     }

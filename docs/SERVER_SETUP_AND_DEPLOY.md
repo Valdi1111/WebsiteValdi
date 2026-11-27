@@ -71,6 +71,7 @@ Create `.env.local` at the project root based on [`.env`](../.env) and configure
 - Shared folder paths: `ANIME_BASE_FOLDER`, `ANIME_TEMP_FOLDER`, `VIDEOS_BASE_FOLDER`
 - External API credentials (MyAnimeList, AniList, AnimeWorld) and notification transports (`TELEGRAM_DSN`, `DISCORD_DSN`)
 - Discord application for "Link Discord" on the profile page *(optional, disabled while empty)*: `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` (the secret preferably in the secrets vault). In the [Discord Developer Portal](https://discord.com/developers/applications), OAuth2 > Redirects, register `${DEFAULT_URI}/profile/discord/callback` exactly (e.g. `https://valdi.ovh/profile/discord/callback`): the callback is on `DEFAULT_URI` whatever subdomain the user starts from. A development installation registers its own URI (e.g. `https://valdi.wip:8443/profile/discord/callback`), in the same application or, better, in a separate one
+- Discord chat bot (slash commands of the same application) *(optional, disabled while empty)*: `DISCORD_PUBLIC_KEY` (General Information > Public Key, hex) and `DISCORD_BOT_TOKEN` (Bot > Token, preferably in the secrets vault). The public key verifies the signature of every interaction: while it is empty, `/discord/interactions` answers 404. The bot token is only used by `chat:commands:sync`, which the deploy runs (see [§3.2](#32-deployment-pipeline-steps)): while it is empty, the commands are not registered. Then, in General Information > Interactions Endpoint URL, set `${DEFAULT_URI}/discord/interactions` (e.g. `https://valdi.ovh/discord/interactions`). Discord checks that URL when it is saved, with a signed PING and with an invalid signature, and refuses it unless the site answers both correctly: deploy the release and set `DISCORD_PUBLIC_KEY` before saving it (it is read at runtime; if the environment was compiled with `composer dump-env prod`, run it again). The answers are sent by the `core_chat` workers (see [§2.7](#27-configure-supervisor-services)). A development installation needs a public HTTPS URL for its endpoint (e.g. a tunnel) and, better, a separate application, since an application has one endpoint and one set of global commands
 - Telegram bot for "Link Telegram" on the profile page *(optional, disabled while empty)*: `TELEGRAM_CLIENT_ID` and `TELEGRAM_CLIENT_SECRET` (the secret preferably in the secrets vault), from the BotFather mini app > the bot > Login Widget. It must be the bot of `TELEGRAM_DSN`, which sends the notifications: the client id is the part of its token before `:`, otherwise linking stays disabled. In the same Login Widget section, add `${DEFAULT_URI}/profile/telegram/callback` to the Allowed URLs (e.g. `https://valdi.ovh/profile/telegram/callback`). A development installation uses its own bot, with its own `TELEGRAM_DSN` and its own Allowed URL
 - Node microservice port: `NODE_SERVICES_PORT=3003` (and `node-services/.env.local` if overriding its default port `3000`)
 
@@ -130,9 +131,11 @@ It can be run again at any time: unchanged settings produce the same file. `--ou
 
 Templates use the placeholders `{{NAME}}`, `{{QUEUE}}`, `{{OPTIONS}}`, `{{NUMPROCS}}`, `{{APP_DIR}}`, `{{WORKER_USER}}` (`www-data`), `{{DEPLOY_USER}}` and `{{DEPLOY_HOME}}`. Logs go to `var/log/<program>.log` (`var/log/<program>_<NN>.log` for `messenger-multi`).
 
-The list currently covers `node-services`; the `core_async`, `hoyoverse`, `hoyoverse_diary`, `hoyoverse_redeem`, `hoyoverse_pulls`, `gryphline`, `gryphline_pulls`, `perfectworld` and `perfectworld_pulls` workers; 12 `anime_episode_download` workers; and the `default`, `hoyoverse`, `gryphline` and `perfectworld` schedulers.
+The list currently covers `node-services`; 2 `core_chat` workers (the chat bot: slash commands and buttons, on workers of their own so that an answer never waits behind the notifications); the `core_async`, `hoyoverse`, `hoyoverse_diary`, `hoyoverse_redeem`, `hoyoverse_pulls`, `gryphline`, `gryphline_pulls`, `perfectworld` and `perfectworld_pulls` workers; 12 `anime_episode_download` workers; and the `default`, `hoyoverse`, `gryphline` and `perfectworld` schedulers.
 
 **Adding a worker**: add a line to `programs.list` (e.g. `messenger|my-bundle|my_bundle|--limit=100 --time-limit=3600|`) and run `sudo scripts/setup-supervisor.sh` again.
+
+The deploy script does not run it: after deploying the release that adds the `core_chat` workers, run `sudo scripts/setup-supervisor.sh` once, otherwise the chat bot acknowledges the commands ("thinking…") but never answers them.
 
 **Useful commands** (in a group, programs are addressed as `website-valdi:<program>`):
 
@@ -195,13 +198,14 @@ nano /var/www/website-valdi-deploy/website-deploy.env   # APP_DIR, BACKUP_SCRIPT
 3. **Purge stale Symfony cache:** `rm -rf var/cache/prod var/cache/dev` before running Composer to prevent `ClassNotFound` errors when bundles, namespaces, or packages are updated or removed.
 4. **PHP dependencies & migrations:** `composer install --no-dev --optimize-autoloader --no-interaction` and `php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration`, followed by `php bin/console cache:pool:clear core.security_hierarchy.cache`: the database role hierarchy is cached in an application pool under `var/share/`, which step 3 does not remove.
 5. **Warmup cache & assets:** `php bin/console cache:warmup --env=prod` and `php bin/console assets:install public --no-interaction`.
-6. **Frontend build:** `npm ci` and `npm run build`.
-7. **Update `node-services`:** `cd node-services && npm ci --omit=dev && npx playwright install chromium`.
-8. **Restart background services:**
+6. **Sync the Discord commands:** `php bin/console chat:commands:sync --platform=discord --env=prod` replaces every global slash command of the Discord application with the commands of the deployed version. It only prints a note while `DISCORD_BOT_TOKEN` is empty, and a failure (Discord unreachable, token revoked, payload refused) prints a warning without stopping the deploy: run the same command again by hand once fixed. `--dry-run` prints the payload without calling Discord.
+7. **Frontend build:** `npm ci` and `npm run build`.
+8. **Update `node-services`:** `cd node-services && npm ci --omit=dev && npx playwright install chromium`.
+9. **Restart background services:**
    - `sudo supervisorctl restart website-valdi:website-node-services`
    - `php bin/console messenger:stop-workers` (Messenger workers stop gracefully and Supervisor restarts them with the new code)
    - *(optional)* `sudo systemctl reload php8.5-fpm` to flush OPcache without dropping active HTTP requests.
-9. **Update the deploy script:** copies `scripts/website-deploy.sh` over the running copy (effective from the next deploy, see §3.1).
+10. **Update the deploy script:** copies `scripts/website-deploy.sh` over the running copy (effective from the next deploy, see §3.1).
 
 ### 3.3 Quick Caddy / Mercure Maintenance
 - **Check service status and live logs:**

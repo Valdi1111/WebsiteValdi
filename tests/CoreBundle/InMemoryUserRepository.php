@@ -55,6 +55,28 @@ class InMemoryUserRepository extends UserRepository
         return null;
     }
 
+    public function findOneByDiscordUserId(string $discordUserId): ?User
+    {
+        foreach ($this->rows as $user) {
+            if ($user->getDiscordUserId() === $discordUserId) {
+                return $user;
+            }
+        }
+
+        return null;
+    }
+
+    public function findOneByTelegramChatId(string $telegramChatId): ?User
+    {
+        foreach ($this->rows as $user) {
+            if ($user->getTelegramChatId() === $telegramChatId) {
+                return $user;
+            }
+        }
+
+        return null;
+    }
+
     public function findAllWithRoles(): array
     {
         $users = array_values($this->rows);

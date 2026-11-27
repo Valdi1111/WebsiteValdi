@@ -58,6 +58,22 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
     }
 
     /**
+     * The user who linked this Discord account, for the bot commands (ChatUserResolver).
+     */
+    public function findOneByDiscordUserId(string $discordUserId): ?User
+    {
+        return $this->findOneBy(['discordUserId' => $discordUserId]);
+    }
+
+    /**
+     * The user who linked this Telegram account (its user id is also the id of the private chat with the bot).
+     */
+    public function findOneByTelegramChatId(string $telegramChatId): ?User
+    {
+        return $this->findOneBy(['telegramChatId' => $telegramChatId]);
+    }
+
+    /**
      * Whether a user has this email, compared as the unique index of the column does (case-insensitive collation).
      */
     public function emailExists(string $email): bool

@@ -102,6 +102,22 @@ class ProfileSummaryPresenterTest extends TestCase
         $this->assertStringNotContainsString('secret', json_encode([$embed->getDescription(), self::sectionFields($embed)], JSON_THROW_ON_ERROR));
     }
 
+    public function testSectionThatCannotBeLaidOutShowsAGenericLineAndTheOthersStay(): void
+    {
+        $status = self::profileStatus([
+            // Unexpected data: summarize() throws
+            'stamina' => SectionResult::success($this->stamina, new \stdClass()),
+            'dailies' => SectionResult::success($this->dailies, new GameNotesDailies()->addDaily(new GameNotesProgressMetric()->setName('Daily Tasks')->setCurrentValue(4)->setMaxValue(4))),
+        ]);
+
+        $embed = $this->presenter()->present($status);
+
+        $this->assertSame([
+            ['Stamina', '⚠️ Unavailable right now', '🔋'],
+            ['Dailies', 'Done', '📅'],
+        ], self::sectionFields($embed));
+    }
+
     public function testAccountProblemAndUnreadableProfile(): void
     {
         $status = self::profileStatus([], health: AccountHealth::problem('Log in again on the site.'), error: new \RuntimeException('cookie'));

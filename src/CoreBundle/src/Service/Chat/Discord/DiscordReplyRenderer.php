@@ -56,7 +56,11 @@ class DiscordReplyRenderer
             fn (UniversalEmbed $embed): array => $this->embedTransformer->transform($embed)->toArray(),
             $reply->embeds,
         ));
-        $content = self::truncate((string) $reply->text);
+        // Embeds have no page indicator of their own: the page goes under the text
+        $content = self::truncate(trim(implode("\n", array_filter([
+            (string) $reply->text,
+            $reply->pageCount > 1 ? sprintf('Page %d/%d', $reply->page, $reply->pageCount) : '',
+        ], static fn (string $line): bool => $line !== ''))));
 
         // Nothing to show, not even after the limits: an empty message would be refused
         if ($reply->isEmpty() || (trim($content) === '' && $embeds === [])) {

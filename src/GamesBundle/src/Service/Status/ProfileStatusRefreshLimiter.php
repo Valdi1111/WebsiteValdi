@@ -27,9 +27,36 @@ class ProfileStatusRefreshLimiter
      */
     public function consume(User $user, GameProfileRef $ref): void
     {
-        $limit = $this->limiterFactory->create(sprintf('%d:%s', $user->getId(), $ref))->consume();
+        $limit = $this->limiterFactory->create(self::key($user, $ref))->consume();
         if (!$limit->isAccepted()) {
             throw new TooManyStatusRefreshesException($limit->getRetryAfter());
         }
+    }
+
+    /**
+     * A fresh read of several profiles at once (Refresh of a chat answer): all or none. Every profile is checked first
+     * without spending anything, so a refused Refresh costs nothing; then one read is counted for each.
+     *
+     * @param list<GameProfileRef> $refs
+     * @return string|null null when accepted (and counted), else the refusal shown to the user
+     */
+    public function consumeAll(User $user, array $refs): ?string
+    {
+        foreach ($refs as $ref) {
+            // consume(0) only reports: it is always "accepted", the tokens left tell
+            if ($this->limiterFactory->create(self::key($user, $ref))->consume(0)->getRemainingTokens() < 1) {
+                return TooManyStatusRefreshesException::MESSAGE;
+            }
+        }
+        foreach ($refs as $ref) {
+            $this->limiterFactory->create(self::key($user, $ref))->consume();
+        }
+
+        return null;
+    }
+
+    private static function key(User $user, GameProfileRef $ref): string
+    {
+        return sprintf('%d:%s', $user->getId(), $ref);
     }
 }

@@ -68,13 +68,24 @@ class GameProfileStatusCollector
      */
     public function getSupportedSectionKeys(GameProfileInterface $profile): array
     {
+        return $this->findSupportedSectionKeys($profile) ?? [];
+    }
+
+    /**
+     * Same as getSupportedSectionKeys(), but null when the context cannot be built: such a profile (unreadable cookie)
+     * must not be hidden from the chat commands, whose answer tells the user to log in again.
+     *
+     * @return list<string>|null section keys in display order, null when unknown
+     */
+    public function findSupportedSectionKeys(GameProfileInterface $profile): ?array
+    {
         try {
             $context = $this->registry->providerOf($profile)?->createContext($profile);
         } catch (\Throwable) {
-            return [];
+            return null;
         }
         if ($context === null) {
-            return [];
+            return null;
         }
 
         return array_keys(array_filter($this->sections, static fn (ProfileSectionInterface $section): bool => $section->supports($context)));

@@ -4,6 +4,7 @@ namespace App\GamesBundle\Service;
 
 use App\GamesBundle\Model\Game\PullItemIconQuery;
 use App\GamesBundle\Model\Game\PullItemIconResolverInterface;
+use App\GamesBundle\Model\Game\PullItemPreviewResolverInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
@@ -113,37 +114,35 @@ class PullItemIconResolverManager
      */
     public function resolveCandidateUrlsByGameBiz(string $gameBiz, PullItemIconQuery $query): array
     {
-        $entries = $this->resolversByGameBiz[$gameBiz] ?? [];
-        if ($entries === []) {
-            return [];
-        }
-
-        $urls = [];
-        foreach ($entries as $entry) {
-            $resolver = $entry['resolver'];
-            $serviceClass = $entry['serviceClass'];
-            try {
-                $url = $resolver->resolveUrl($serviceClass, $query);
-                if ($url !== null && $url !== '' && !in_array($url, $urls, true)) {
-                    $urls[] = $url;
-                }
-            } catch (\Throwable $e) {
-                $this->logger?->warning('Pull item icon resolver failed', [
-                    'resolver' => $resolver::class,
-                    'game_biz' => $gameBiz,
-                    'game_service' => $serviceClass,
-                    'item_id' => $query->itemId,
-                    'name' => $query->name,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
-
-        return $urls;
+        return $this->collectUrlsByGameBiz(
+            $gameBiz,
+            $query,
+            static fn (PullItemIconResolverInterface $resolver, string $serviceClass): ?string => $resolver->resolveUrl($serviceClass, $query),
+        );
     }
 
     /**
-     * @return list<array{resolver: class-string, priority: int, url: ?string, error: ?string}>
+     * Full artwork URLs of the item from the resolvers that know one (PullItemPreviewResolverInterface), by priority.
+     * The icon candidates are not included: the caller falls back to them only when the item has no artwork.
+     *
+     * @return list<string>
+     */
+    public function resolvePreviewCandidateUrlsByGameBiz(string $gameBiz, PullItemIconQuery $query): array
+    {
+        return $this->collectUrlsByGameBiz(
+            $gameBiz,
+            $query,
+            static fn (PullItemIconResolverInterface $resolver, string $serviceClass): ?string => $resolver instanceof PullItemPreviewResolverInterface
+                ? $resolver->resolvePreviewUrl($serviceClass, $query)
+                : null,
+        );
+    }
+
+    /**
+     * Per resolver: the icon URL, and the artwork URL for resolvers implementing PullItemPreviewResolverInterface
+     * (supports_preview false: no artwork lookup).
+     *
+     * @return list<array{resolver: class-string, priority: int, url: ?string, error: ?string, supports_preview: bool, preview_url: ?string, preview_error: ?string}>
      */
     public function resolveCandidateUrlsDetailedByGameBiz(string $gameBiz, PullItemIconQuery $query): array
     {
@@ -165,11 +164,27 @@ class PullItemIconResolverManager
                 $error = $e->getMessage();
             }
 
+            $previewUrl = null;
+            $previewError = null;
+            if ($resolver instanceof PullItemPreviewResolverInterface) {
+                try {
+                    $previewUrl = $resolver->resolvePreviewUrl($serviceClass, $query);
+                    if ($previewUrl === '') {
+                        $previewUrl = null;
+                    }
+                } catch (\Throwable $e) {
+                    $previewError = $e->getMessage();
+                }
+            }
+
             $results[] = [
                 'resolver' => $resolver::class,
                 'priority' => $entry['priority'],
                 'url' => $url,
                 'error' => $error,
+                'supports_preview' => $resolver instanceof PullItemPreviewResolverInterface,
+                'preview_url' => $previewUrl,
+                'preview_error' => $previewError,
             ];
         }
 
@@ -182,6 +197,38 @@ class PullItemIconResolverManager
     public function resolveUrl(string|object $gameService, PullItemIconQuery $query): ?string
     {
         return $this->resolveCandidateUrls($gameService, $query)[0] ?? null;
+    }
+
+    /**
+     * Runs $resolve on every resolver of the game by priority, skipping null, empty, duplicate and failing results.
+     *
+     * @param callable(PullItemIconResolverInterface, class-string): ?string $resolve
+     * @return list<string>
+     */
+    private function collectUrlsByGameBiz(string $gameBiz, PullItemIconQuery $query, callable $resolve): array
+    {
+        $urls = [];
+        foreach ($this->resolversByGameBiz[$gameBiz] ?? [] as $entry) {
+            $resolver = $entry['resolver'];
+            $serviceClass = $entry['serviceClass'];
+            try {
+                $url = $resolve($resolver, $serviceClass);
+                if ($url !== null && $url !== '' && !in_array($url, $urls, true)) {
+                    $urls[] = $url;
+                }
+            } catch (\Throwable $e) {
+                $this->logger?->warning('Pull item icon resolver failed', [
+                    'resolver' => $resolver::class,
+                    'game_biz' => $gameBiz,
+                    'game_service' => $serviceClass,
+                    'item_id' => $query->itemId,
+                    'name' => $query->name,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $urls;
     }
 
     /**

@@ -61,32 +61,55 @@ class PullIconResolversCommand extends Command
             return Command::SUCCESS;
         }
 
-        $rows = [];
+        $iconRows = [];
+        $previewRows = [];
         foreach ($candidates as $entry) {
-            $url = $entry['url'];
-            $httpInfo = '-';
-            if ($checkHttp && $url !== null) {
-                try {
-                    $resp = $this->httpClient->request('GET', $url);
-                    $status = $resp->getStatusCode();
-                    $body = $status === 200 ? $resp->getContent(false) : '';
-                    $ct = $resp->getHeaders(false)['content-type'][0] ?? '?';
-                    $httpInfo = sprintf('HTTP %d (%s, %d B)', $status, explode(';', $ct)[0], strlen($body));
-                } catch (\Throwable $e) {
-                    $httpInfo = 'ERR: ' . $e->getMessage();
-                }
-            }
-
-            $rows[] = [
+            $iconRows[] = [
                 $entry['priority'],
                 $entry['resolver'],
-                $url ?? ($entry['error'] ? 'ERR: ' . $entry['error'] : '(null)'),
-                $httpInfo,
+                $entry['url'] ?? ($entry['error'] ? 'ERR: ' . $entry['error'] : '(null)'),
+                $checkHttp ? $this->checkHttp($entry['url']) : '-',
             ];
+
+            if ($entry['supports_preview']) {
+                $previewRows[] = [
+                    $entry['priority'],
+                    $entry['resolver'],
+                    $entry['preview_url'] ?? ($entry['preview_error'] ? 'ERR: ' . $entry['preview_error'] : '(null: icona)'),
+                    $checkHttp ? $this->checkHttp($entry['preview_url']) : '-',
+                ];
+            }
         }
 
-        $io->table(['Priority', 'Resolver', 'Resolved URL', 'HTTP Check'], $rows);
+        $io->section('Icona');
+        $io->table(['Priority', 'Resolver', 'Resolved URL', 'HTTP Check'], $iconRows);
+
+        // Artwork of the click-to-zoom preview (filter games_pull_item_preview); without one the preview uses the icon
+        $io->section('Artwork (anteprima)');
+        if ($previewRows === []) {
+            $io->text('Nessun provider con artwork: l\'anteprima usa l\'icona.');
+        } else {
+            $io->table(['Priority', 'Resolver', 'Resolved URL', 'HTTP Check'], $previewRows);
+        }
 
         return Command::SUCCESS;
+    }
+
+    private function checkHttp(?string $url): string
+    {
+        if ($url === null) {
+            return '-';
+        }
+
+        try {
+            $resp = $this->httpClient->request('GET', $url);
+            $status = $resp->getStatusCode();
+            $body = $status === 200 ? $resp->getContent(false) : '';
+            $ct = $resp->getHeaders(false)['content-type'][0] ?? '?';
+
+            return sprintf('HTTP %d (%s, %d B)', $status, explode(';', $ct)[0], strlen($body));
+        } catch (\Throwable $e) {
+            return 'ERR: ' . $e->getMessage();
+        }
     }
 }

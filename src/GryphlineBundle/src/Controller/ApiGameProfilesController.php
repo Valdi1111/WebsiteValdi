@@ -389,14 +389,8 @@ class ApiGameProfilesController extends AbstractController
         $result = $statsCalculator->filterAndPaginate($computed['items'], $rarities, $search ?: null, $page, $limit);
 
         $banner = $this->enrichBannerIcons($iconUrlBuilder, $gameService, $computed['summary']);
+        // Bonus entries without an item (e.g. the Headhunting Dossier) get no image from the builder
         $items = $iconUrlBuilder->enrichPullRows($gameService, $result['items']);
-        foreach ($items as &$item) {
-            // A bonus entry without an item (e.g. the Headhunting Dossier) has no icon to look up by name
-            if (($item['bonus_label'] ?? null) !== null && ($item['item_id'] ?? null) === null) {
-                $item['icon_url'] = null;
-            }
-        }
-        unset($item);
 
         return $this->json([
             'banner' => $banner,

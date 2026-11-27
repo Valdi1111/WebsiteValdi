@@ -1,7 +1,8 @@
 import { useGameProvider } from "@GamesBundle/components/GameProviderContext";
+import PullItemImage, { usePreviewTooltip } from "@GamesBundle/components/pulls/PullItemImage";
 import { Card, Button, Space, Typography, Tooltip, Progress } from "antd";
 import { RightOutlined, RocketOutlined } from "@ant-design/icons";
-import React, { useEffect, useState } from "react";
+import React from "react";
 
 const { Text, Title } = Typography;
 
@@ -22,21 +23,10 @@ export function getPityColor(pity, maxPity = 90) {
     return { border: "#ff4d4f", bg: "rgba(255, 77, 79, 0.14)", badgeBg: "#cf1322", text: "#ff4d4f" };
 }
 
-/**
- * Generates a short 2-letter monogram or icon label for an item name.
- */
-function getInitials(name) {
-    if (!name) return "?";
-    const words = name.trim().split(/\s+/);
-    if (words.length === 1) {
-        return words[0].substring(0, 2).toUpperCase();
-    }
-    return (words[0][0] + words[1][0]).toUpperCase();
-}
-
 export function PullsRecentBadge({ pull, maxPity = 90, pullSingularLabel = "Pull" }) {
     const colorScheme = getPityColor(pull.pity, maxPity);
-    const [imgError, setImgError] = useState(false);
+    // Details on hover, artwork on click
+    const { tooltipProps, onPreviewOpenChange } = usePreviewTooltip();
     // Manual S (added by the user), official S (from the official S-rank history) and S with a declared pity
     const isManual = pull.origin === "manual";
     const isOfficial = pull.origin === "official";
@@ -52,14 +42,9 @@ export function PullsRecentBadge({ pull, maxPity = 90, pullSingularLabel = "Pull
             ? ` (${pullSingularLabel} #${pull.pull_number})`
             : "";
 
-    useEffect(() => {
-        setImgError(false);
-    }, [pull.icon_url]);
-
-    const showImage = Boolean(pull.icon_url) && !imgError;
-
     return (
         <Tooltip
+            {...tooltipProps}
             title={
                 <div style={{ fontSize: 12 }}>
                     <div style={{ fontWeight: 600 }}>{pull.name}</div>
@@ -98,36 +83,14 @@ export function PullsRecentBadge({ pull, maxPity = 90, pullSingularLabel = "Pull
                         boxShadow: "0 2px 6px rgba(0, 0, 0, 0.08)",
                     }}
                 >
-                    <div
-                        style={{
-                            width: "100%",
-                            height: "100%",
-                            borderRadius: "50%",
-                            overflow: "hidden",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            // Free pulls are muted, the badges around the circle stay readable
-                            ...(isFree ? { opacity: 0.6 } : {}),
-                        }}
-                    >
-                        {showImage ? (
-                            <img
-                                src={pull.icon_url}
-                                alt={pull.name}
-                                loading="lazy"
-                                onError={() => setImgError(true)}
-                                style={{
-                                    width: "100%",
-                                    height: "100%",
-                                    objectFit: "cover",
-                                    display: "block",
-                                }}
-                            />
-                        ) : (
-                            getInitials(pull.name)
-                        )}
-                    </div>
+                    <PullItemImage
+                        iconUrl={pull.icon_url}
+                        previewUrl={pull.preview_url}
+                        name={pull.name}
+                        onPreviewOpenChange={onPreviewOpenChange}
+                        // Free pulls are muted, the badges around the circle stay readable
+                        style={isFree ? { opacity: 0.6 } : undefined}
+                    />
                     {isUp && (
                         <span
                             style={{

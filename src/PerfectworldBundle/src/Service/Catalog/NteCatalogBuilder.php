@@ -27,6 +27,9 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * pools featuring its Arcs). irminsul being unavailable does not abort the build: the runs of the previous
  * catalog are kept. The featured items stay those of the datamine, which agree with irminsul on every
  * mapped banner by construction.
+ *
+ * Each item also gets its full artwork ("preview_path", for the click-to-zoom preview of the pulls tracker):
+ * the GachaIllustrate image when it differs from the item icon, else for an Arc the 1024px version of its icon.
  */
 class NteCatalogBuilder
 {
@@ -38,6 +41,10 @@ class NteCatalogBuilder
     private const string AVATAR_TABLE_PATH = 'DataTable/Avarta/AvatarDataTable.json';
     private const string ARC_POOL_TABLE_PATH = 'DataTable/Fork/DT_ForkLotteryPoolData.json';
     private const string BOARD_CELL_TABLE_PATH = 'DataTable/Monopoly/DT_MonopolyCellDataTable.json';
+    private const string GACHA_ILLUSTRATE_TABLE_PATH = 'DataTable/Gacha/GachaIllustrate.json';
+
+    /** 256px Arc icon ("UI_Icon/Fork/fork_HugVine_256.png"), whose 1024px version is "UI_Icon/Fork/1024/fork_HugVine.png". */
+    private const string ARC_ICON_PATTERN = '#^UI_Icon/Fork/([A-Za-z0-9_-]+)_256\.png$#';
 
     /** Game slug of the irminsul.gg data API. */
     private const string IRMINSUL_GAME = 'nte';
@@ -48,8 +55,8 @@ class NteCatalogBuilder
     /**
      * Item tables in precedence order: the first table defining an id sets its type, later tables only
      * fill the fields still missing (e.g. DT_AppearanceData has no icon for gliders, DT_ItemConfig has).
-     * GachaIllustrate is not used: it is a gacha portrait table without names or qualities that repeats
-     * characters, arcs and dice with 1024px illustrations instead of icons.
+     * GachaIllustrate is not one of them: it is a gacha portrait table without names or qualities that repeats
+     * characters, Arcs, dice and cosmetics with their illustrations, read afterwards for the previews only.
      */
     private const array ITEM_TABLES = [
         ['path' => 'DataTable/Character/DT_Character.json', 'type' => NteCatalog::TYPE_CHARACTER, 'required' => true],
@@ -116,7 +123,7 @@ class NteCatalogBuilder
      * Builds the catalog at the given ref (branch, tag or commit) and merges it over the stored one.
      * The result is not saved: callers persist it with NteCatalog::save().
      *
-     * @return array{sha: string, version: string, built_at: string, items: array<string, array{id: string, name: string, rank: ?string, type: string, icon_path: ?string}>, avatars: array<string, string>, pools: array<string, string>, banners: array<string, array{id: string, category: string, name: ?string, up: list<string>, others: list<string>, up_guarantee: ?int, up_source: string, runs: list<array{start_at: string, end_at: string}>}>}
+     * @return array{sha: string, version: string, built_at: string, items: array<string, array{id: string, name: string, rank: ?string, type: string, icon_path: ?string, preview_path?: ?string}>, avatars: array<string, string>, pools: array<string, string>, banners: array<string, array{id: string, category: string, name: ?string, up: list<string>, others: list<string>, up_guarantee: ?int, up_source: string, runs: list<array{start_at: string, end_at: string}>}>}
      *
      * @throws \RuntimeException when the build is aborted (the previous catalog must be kept)
      */
@@ -158,6 +165,8 @@ class NteCatalogBuilder
 
         // Entries without any usable name are dropped: callers store the name in a NOT NULL column
         $items = array_filter($items, static fn (array $entry): bool => $entry['name'] !== null);
+        // Once every table filled the icons: a preview only counts when it differs from the final icon
+        $items = $this->addPreviewPaths($sha, $items);
 
         $avatars = $this->buildAvatars($sha);
 
@@ -427,7 +436,7 @@ class NteCatalogBuilder
     /**
      * Adds a row (or fills the missing fields of an entry from a previous table).
      *
-     * @param array<string, array{id: string, name: ?string, rank: ?string, type: string, icon_path: ?string}> $items
+     * @param array<string, array{id: string, name: ?string, rank: ?string, type: string, icon_path: ?string, preview_path: ?string}> $items
      * @param array<string, mixed> $row
      * @param array<string, mixed> $localization
      *
@@ -441,6 +450,8 @@ class NteCatalogBuilder
             'rank' => $this->resolveRank($this->firstField($row, self::QUALITY_FIELDS)),
             'type' => $type,
             'icon_path' => $this->resolveIconPath($row, self::ICON_FIELDS),
+            // Set by addPreviewPaths() once every table is read
+            'preview_path' => null,
         ];
 
         $key = NteCatalog::normalizeId($rowId);
@@ -453,6 +464,57 @@ class NteCatalogBuilder
         }
 
         return $items[$key]['name'] !== null;
+    }
+
+    /**
+     * Sets the full artwork of every item ("preview_path", null when it has none):
+     * - the GachaIllustrate image ("ItemIcon", rows keyed by item id in any case) when it is not the item icon:
+     *   the 1024px gacha splash or outfit art of the characters, the illustrations of some cosmetics; for the
+     *   Arcs and the dice the table only repeats their icon;
+     * - otherwise, for an Arc, the 1024px version of its 256px icon. A few Arcs lack it: that URL answers 404
+     *   and the preview falls back to the icon.
+     * GachaIllustrate is optional: without it only the Arcs get a preview.
+     *
+     * @param array<string, array{id: string, name: ?string, rank: ?string, type: string, icon_path: ?string, preview_path: ?string}> $items
+     *
+     * @return array<string, array{id: string, name: ?string, rank: ?string, type: string, icon_path: ?string, preview_path: ?string}>
+     */
+    private function addPreviewPaths(string $sha, array $items): array
+    {
+        $illustrations = [];
+        foreach ($this->fetchTableRows($sha, self::GACHA_ILLUSTRATE_TABLE_PATH, false) ?? [] as $rowId => $row) {
+            if (!is_array($row) || trim((string) $rowId) === '') {
+                continue;
+            }
+            $path = $this->resolveIconPath($row, ['ItemIcon']);
+            if ($path !== null) {
+                $illustrations[NteCatalog::normalizeId((string) $rowId)] ??= $path;
+            }
+        }
+
+        foreach ($items as $key => $item) {
+            $illustration = $illustrations[$key] ?? null;
+            // Asset paths are case-insensitive in the game: a path differing only in case is the icon itself
+            $items[$key]['preview_path'] = $illustration !== null && ($item['icon_path'] === null || strcasecmp($illustration, $item['icon_path']) !== 0)
+                ? $illustration
+                : $this->resolveArcPreviewPath($item);
+        }
+
+        return $items;
+    }
+
+    /**
+     * "UI_Icon/Fork/fork_HugVine_256.png" => "UI_Icon/Fork/1024/fork_HugVine.png" for an Arc, null for anything else.
+     *
+     * @param array{type: string, icon_path: ?string} $item
+     */
+    private function resolveArcPreviewPath(array $item): ?string
+    {
+        if ($item['type'] !== NteCatalog::TYPE_ARC || $item['icon_path'] === null || !preg_match(self::ARC_ICON_PATTERN, $item['icon_path'], $matches)) {
+            return null;
+        }
+
+        return sprintf('UI_Icon/Fork/1024/%s.png', $matches[1]);
     }
 
     /**

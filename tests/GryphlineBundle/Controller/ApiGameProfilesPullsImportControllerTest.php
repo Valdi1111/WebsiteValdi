@@ -9,6 +9,10 @@ use App\GamesBundle\Model\Pull\Manual\DeclarePityRequest;
 use App\GamesBundle\Model\Pull\PullOrigin;
 use App\GamesBundle\Service\Pull\ManualPullGuard;
 use App\GamesBundle\Service\Pull\PullGapPlanner;
+use App\GamesBundle\Model\Game\PullItemIconQuery;
+use App\GamesBundle\Model\Game\PullItemIconResolverInterface;
+use App\GamesBundle\Service\PullItemIconPathCodec;
+use App\GamesBundle\Service\PullItemIconResolverManager;
 use App\GamesBundle\Service\PullItemIconUrlBuilder;
 use App\GryphlineBundle\Controller\ApiGameProfilesController;
 use App\GryphlineBundle\Entity\GryphlineAccount;
@@ -28,6 +32,7 @@ use App\GryphlineBundle\Service\SkportAuthService;
 use App\GryphlineBundle\Service\SkportSignerService;
 use App\GryphlineBundle\Service\SkportUtilsService;
 use Doctrine\ORM\EntityManagerInterface;
+use Liip\ImagineBundle\Imagine\Cache\CacheManager;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
@@ -336,14 +341,32 @@ class ApiGameProfilesPullsImportControllerTest extends TestCase
         ]);
 
         $request = Request::create('/api/accounts/1/gameProfiles/10/pulls', 'GET', ['banner' => 'E_CharacterGachaPoolType_Special']);
-        $response = $this->createController()->apiGameProfilePullsList($request, $account, $profile, $pullRepo, new GryphlinePullStatsCalculator(new PullGapPlanner()), $this->createIconUrlBuilder());
+        // The real builder, which owns the rule: only the CDN lookup and the LiipImagine URLs are faked
+        $resolver = new class implements PullItemIconResolverInterface {
+            public static function getSupportedGameServices(): array
+            {
+                return [ArknightsEndfieldService::class => 100];
+            }
+
+            public function resolveUrl(string|object $gameService, PullItemIconQuery $query): ?string
+            {
+                return 'https://cdn.test/' . $query->itemId . '.png';
+            }
+        };
+        $cacheManager = $this->createStub(CacheManager::class);
+        $cacheManager->method('getBrowserPath')->willReturnCallback(static fn (string $path, string $filter): string => $filter . ':' . $path);
+        $iconUrlBuilder = new PullItemIconUrlBuilder($cacheManager, new PullItemIconPathCodec(), new PullItemIconResolverManager([$resolver]));
+
+        $response = $this->createController()->apiGameProfilePullsList($request, $account, $profile, $pullRepo, new GryphlinePullStatsCalculator(new PullGapPlanner()), $iconUrlBuilder);
 
         $payload = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
-        $icons = array_column($payload['items'], 'icon_url', 'name');
-        // The dossier has no item: its icon would be looked up by name and never found
-        $this->assertNull($icons['Headhunting Dossier']);
-        $this->assertSame('icon/wpn_tribute', $icons['Tribute weapon'], 'A bonus entry with an item keeps its icon');
-        $this->assertSame('icon/item_1', $icons['Item']);
+        $items = array_column($payload['items'], null, 'name');
+        // The dossier has no item: its images would be looked up by name and never found
+        $this->assertNull($items['Headhunting Dossier']['icon_url']);
+        $this->assertNull($items['Headhunting Dossier']['preview_url']);
+        $this->assertStringEndsWith('/wpn_tribute.webp', $items['Tribute weapon']['icon_url'], 'A bonus entry with an item keeps its icon');
+        $this->assertStringStartsWith(PullItemIconUrlBuilder::PREVIEW_FILTER_NAME . ':', $items['Tribute weapon']['preview_url']);
+        $this->assertStringEndsWith('/item_1.webp', $items['Item']['icon_url']);
     }
 
     private function createIconUrlBuilder(): PullItemIconUrlBuilder

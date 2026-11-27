@@ -3,6 +3,7 @@ import { useGameProvider } from "@GamesBundle/components/GameProviderContext";
 import DeclarePityModal from "@GamesBundle/components/pulls/DeclarePityModal";
 import ManualSPullModal from "@GamesBundle/components/pulls/ManualSPullModal";
 import { PullsRecentBadge, getPityColor } from "@GamesBundle/components/pulls/PullsBannerCard";
+import PullItemImage, { usePreviewTooltip } from "@GamesBundle/components/pulls/PullItemImage";
 import {
     Row,
     Col,
@@ -97,59 +98,42 @@ function pickInsertWindow(source) {
     };
 }
 
-function getInitials(name) {
-    if (!name) return "?";
-    const words = name.trim().split(/\s+/);
-    if (words.length === 1) {
-        return words[0].substring(0, 2).toUpperCase();
-    }
-    return (words[0][0] + words[1][0]).toUpperCase();
-}
-
-function PullItemThumbnail({ iconUrl, name, borderColor, placeholder }) {
-    const [imgError, setImgError] = useState(false);
-
-    useEffect(() => {
-        setImgError(false);
-    }, [iconUrl]);
-
-    const showImage = !placeholder && Boolean(iconUrl) && !imgError;
-
+function PullItemThumbnail({ iconUrl, previewUrl, name, borderColor, placeholder, onPreviewOpenChange }) {
     return (
-        <div
+        <PullItemImage
+            iconUrl={iconUrl}
+            previewUrl={previewUrl}
+            name={name}
+            placeholder={placeholder}
+            size={32}
+            onPreviewOpenChange={onPreviewOpenChange}
             style={{
-                width: 32,
-                height: 32,
-                borderRadius: "50%",
-                overflow: "hidden",
-                flexShrink: 0,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
                 border: `1.5px solid ${borderColor || "rgba(140, 140, 140, 0.3)"}`,
                 background: "rgba(0, 0, 0, 0.04)",
                 fontSize: 11,
                 fontWeight: 700,
                 color: borderColor || "inherit",
             }}
-        >
-            {showImage ? (
-                <img
-                    src={iconUrl}
-                    alt={name}
-                    loading="lazy"
-                    onError={() => setImgError(true)}
-                    style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        display: "block",
-                    }}
+        />
+    );
+}
+
+// Featured item of a banner: name on hover, artwork on click
+function FeaturedItemThumbnail({ item }) {
+    const { tooltipProps, onPreviewOpenChange } = usePreviewTooltip();
+
+    return (
+        <Tooltip {...tooltipProps} title={item?.name}>
+            <span>
+                <PullItemThumbnail
+                    iconUrl={item?.icon_url}
+                    previewUrl={item?.preview_url}
+                    name={item?.name ?? ""}
+                    borderColor="#fa8c16"
+                    onPreviewOpenChange={onPreviewOpenChange}
                 />
-            ) : (
-                placeholder ?? getInitials(name)
-            )}
-        </div>
+            </span>
+        </Tooltip>
     );
 }
 
@@ -415,6 +399,7 @@ export default function PullsBannerDetail({
                     <Space size={8} align="center" wrap>
                         <PullItemThumbnail
                             iconUrl={record.icon_url}
+                            previewUrl={record.preview_url}
                             name={name}
                             borderColor={rowColor}
                         />
@@ -638,11 +623,7 @@ export default function PullsBannerDetail({
                     <Space size={10} align="center">
                         <Space size={4} align="center">
                             {featured.map((item, index) => (
-                                <Tooltip key={`${item?.item_id ?? item?.name ?? "item"}-${index}`} title={item?.name}>
-                                    <span>
-                                        <PullItemThumbnail iconUrl={item?.icon_url} name={item?.name ?? ""} borderColor="#fa8c16" />
-                                    </span>
-                                </Tooltip>
+                                <FeaturedItemThumbnail key={`${item?.item_id ?? item?.name ?? "item"}-${index}`} item={item} />
                             ))}
                         </Space>
                         {label}

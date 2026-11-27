@@ -1,5 +1,6 @@
 import { useBackendApi } from "@GamesBundle/components/BackendApiContext";
 import { useGameProvider } from "@GamesBundle/components/GameProviderContext";
+import GameProfileAvatar from "@GamesBundle/components/game-profile/GameProfileAvatar";
 import React, { useState, useCallback } from "react";
 import {
     Drawer,
@@ -10,7 +11,6 @@ import {
     Space,
     Divider,
     Descriptions,
-    Avatar,
     Tag,
     Alert,
     Spin,
@@ -33,7 +33,6 @@ export default function GameProfileSettingsDrawer({ open, account, profileId, on
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [profile, setProfile] = useState(null);
-    const [imgError, setImgError] = useState(false);
 
     const api = useBackendApi();
     const provider = useGameProvider();
@@ -52,7 +51,6 @@ export default function GameProfileSettingsDrawer({ open, account, profileId, on
         if (!opened) {
             setLoading(false);
             setProfile(null);
-            setImgError(false);
             form.resetFields();
             return;
         }
@@ -67,7 +65,6 @@ export default function GameProfileSettingsDrawer({ open, account, profileId, on
             .then((res) => {
                 const data = res.data;
                 setProfile(data);
-                setImgError(false);
 
                 // Populate only properties present in the profile object
                 const initialValues = {};
@@ -136,23 +133,7 @@ export default function GameProfileSettingsDrawer({ open, account, profileId, on
                 <>
                     {/* Header info & avatar */}
                     <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
-                        <Avatar
-                            size={64}
-                            src={
-                                profile.icon_url && !imgError ? (
-                                    <img
-                                        src={profile.icon_url}
-                                        alt={profile.game_name}
-                                        referrerPolicy="no-referrer"
-                                        onError={() => setImgError(true)}
-                                    />
-                                ) : undefined
-                            }
-                            shape="square"
-                            style={{ filter: isProfileActive ? "none" : "grayscale(100%)" }}
-                        >
-                            {profile.game_name?.[0] ?? "G"}
-                        </Avatar>
+                        <GameProfileAvatar profile={profile} size={64} active={isProfileActive} />
                         <div>
                             <h3 style={{ margin: 0 }}>
                                 {profile.nickname || `UID ${profile.game_uid}`} {profile.level ? <Tag color="blue">Lv. {profile.level}</Tag> : null}

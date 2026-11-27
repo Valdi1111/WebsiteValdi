@@ -16,7 +16,10 @@ use Symfony\Contracts\Service\ResetInterface;
  *
  * Shape:
  *   sha, version, built_at,
- *   items:   [lowercased id => [id, name, rank (S|A|B|null), type (character|arc|item|cosmetic), icon_path]],
+ *   items:   [lowercased id => [id, name, rank (S|A|B|null), type (character|arc|item|cosmetic), icon_path, preview_path]]:
+ *            "preview_path" is the full artwork of the item (gacha splash or outfit art of a character, 1024px Arc,
+ *            illustration of a cosmetic), null when it has none; catalogs built before the previews lack it and
+ *            read as having none until the next rebuild,
  *   avatars: [lowercased avatar id => icon_path],
  *   pools:   [lowercased pool id => display name],
  *   banners: [lowercased pool id => [id, category (arc|board), name, up, others, up_guarantee, up_source, runs]]:
@@ -66,7 +69,7 @@ class NteCatalog implements ResetInterface
     }
 
     /**
-     * @return array{id: string, name: string, rank: ?string, rarity: ?int, type: string, icon_path: ?string}|null
+     * @return array{id: string, name: string, rank: ?string, rarity: ?int, type: string, icon_path: ?string, preview_path: ?string}|null
      */
     public function find(string $rewardId): ?array
     {
@@ -84,6 +87,7 @@ class NteCatalog implements ResetInterface
             'rarity' => $rank !== null ? (self::RANK_TO_RARITY[$rank] ?? null) : null,
             'type' => (string) ($entry['type'] ?? self::TYPE_ITEM),
             'icon_path' => isset($entry['icon_path']) && is_string($entry['icon_path']) ? $entry['icon_path'] : null,
+            'preview_path' => is_string($entry['preview_path'] ?? null) && $entry['preview_path'] !== '' ? $entry['preview_path'] : null,
         ];
     }
 
@@ -92,6 +96,17 @@ class NteCatalog implements ResetInterface
         $iconPath = $this->find($rewardId)['icon_path'] ?? null;
 
         return $iconPath !== null ? $this->buildAssetUrl($iconPath) : null;
+    }
+
+    /**
+     * Full artwork of an item, for the click-to-zoom preview of the pulls tracker: null when the item has none
+     * (or the catalog predates the previews), and the preview then shows the icon.
+     */
+    public function getPreviewUrl(string $rewardId): ?string
+    {
+        $previewPath = $this->find($rewardId)['preview_path'] ?? null;
+
+        return $previewPath !== null ? $this->buildAssetUrl($previewPath) : null;
     }
 
     /**

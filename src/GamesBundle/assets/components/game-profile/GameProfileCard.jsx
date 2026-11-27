@@ -1,4 +1,5 @@
 import { useGameProvider } from "@GamesBundle/components/GameProviderContext";
+import GameProfileAvatar from "@GamesBundle/components/game-profile/GameProfileAvatar";
 import {
     SettingOutlined,
     LinkOutlined,
@@ -7,9 +8,9 @@ import {
     HistoryOutlined,
     DashboardOutlined,
 } from "@ant-design/icons";
-import { Card, Avatar, Tag, Tooltip, Typography, Space } from "antd";
+import { Card, Tag, Tooltip, Typography, Space } from "antd";
 import { useNavigate } from "react-router";
-import React, { useState } from "react";
+import React from "react";
 
 const { Text } = Typography;
 
@@ -20,11 +21,6 @@ const { Text } = Typography;
 export default function GameProfileCard({ profile, account, onOpenSettings, onOpenStatus }) {
     const navigate = useNavigate();
     const { basePath } = useGameProvider();
-    const [imgError, setImgError] = useState(false);
-
-    React.useEffect(() => {
-        setImgError(false);
-    }, [profile.icon_url]);
 
     const profilePath = `${basePath}/accounts/${account.id}/profiles/${profile.id}`;
     // The diary feature is supported only if the profile defines sync_diary
@@ -69,25 +65,7 @@ export default function GameProfileCard({ profile, account, onOpenSettings, onOp
             actions={actions}
         >
             <Card.Meta
-                avatar={
-                    <Avatar
-                        src={
-                            profile.icon_url && !imgError ? (
-                                <img
-                                    src={profile.icon_url}
-                                    alt={profile.game_name}
-                                    referrerPolicy="no-referrer"
-                                    onError={() => setImgError(true)}
-                                />
-                            ) : undefined
-                        }
-                        shape="square"
-                        size={48}
-                        style={{ filter: profile.active ? "none" : "grayscale(100%)" }}
-                    >
-                        {profile.game_name?.[0] ?? "G"}
-                    </Avatar>
-                }
+                avatar={<GameProfileAvatar profile={profile} size={48} />}
                 title={
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 4 }}>
                         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

@@ -15,12 +15,15 @@ class NteCatalogTest extends TestCase
         'version' => '1.5.4',
         'built_at' => '2026-11-23T06:00:00+01:00',
         'items' => [
-            '1042' => ['id' => '1042', 'name' => 'Blackbird', 'rank' => 'S', 'type' => 'character', 'icon_path' => 'UI_Icon/AvatarImage/200/player_heiyu.png'],
-            'fork_vine' => ['id' => 'fork_vine', 'name' => 'Be Happy', 'rank' => 'B', 'type' => 'arc', 'icon_path' => 'UI_Icon/Fork/fork_HugVine_256.png'],
+            '1042' => ['id' => '1042', 'name' => 'Blackbird', 'rank' => 'S', 'type' => 'character', 'icon_path' => 'UI_Icon/AvatarImage/200/player_heiyu.png', 'preview_path' => 'UI/Appearance/Fashion/1024/YH_lihui_fashionshop_heiyu.png'],
+            '1024' => ['id' => '1024', 'name' => 'Zankou', 'rank' => 'A', 'type' => 'character', 'icon_path' => 'UI_Icon/AvatarImage/200/player_zankou.png', 'preview_path' => 'UI/Gacha/YH_lihui_character_zankou.png'],
+            'fork_vine' => ['id' => 'fork_vine', 'name' => 'Be Happy', 'rank' => 'B', 'type' => 'arc', 'icon_path' => 'UI_Icon/Fork/fork_HugVine_256.png', 'preview_path' => 'UI_Icon/Fork/1024/fork_HugVine.png'],
+            // Built before the previews: no preview_path at all
             'fashion_glide_1075' => ['id' => 'Fashion_glide_1075', 'name' => 'Sheepcopter', 'rank' => 'A', 'type' => 'cosmetic', 'icon_path' => 'UI/Appearance/Glider/Fashion_Glide_1075.png'],
-            'fashion_1042_1' => ['id' => 'Fashion_1042_1', 'name' => 'Wandering Stars', 'rank' => 'A', 'type' => 'cosmetic', 'icon_path' => 'UI_Icon/AvatarImage/256/player_heiyu1_256.png'],
-            'green_item' => ['id' => 'Green_item', 'name' => 'Green Thing', 'rank' => null, 'type' => 'item', 'icon_path' => null],
-            'spaced' => ['id' => 'Spaced', 'name' => 'Spaced', 'rank' => 'B', 'type' => 'item', 'icon_path' => 'UI_Icon/Item/with space.png'],
+            'fashion_1042_1' => ['id' => 'Fashion_1042_1', 'name' => 'Wandering Stars', 'rank' => 'A', 'type' => 'cosmetic', 'icon_path' => 'UI_Icon/AvatarImage/256/player_heiyu1_256.png', 'preview_path' => null],
+            'green_item' => ['id' => 'Green_item', 'name' => 'Green Thing', 'rank' => null, 'type' => 'item', 'icon_path' => null, 'preview_path' => ''],
+            'spaced' => ['id' => 'Spaced', 'name' => 'Spaced', 'rank' => 'B', 'type' => 'item', 'icon_path' => 'UI_Icon/Item/with space.png', 'preview_path' => 'UI/Gacha/with space.png'],
+            'broken_preview' => ['id' => 'Broken_preview', 'name' => 'Broken', 'rank' => 'B', 'type' => 'item', 'icon_path' => 'UI_Icon/Item/broken.png', 'preview_path' => 42],
         ],
         'avatars' => ['1042' => 'UI_Icon/AvatarImage/256/player_heiyu_256.png'],
         'pools' => ['lottery_heiyu' => 'Foretold Finale', 'forklottery_heiyu' => 'Foretold Special'],
@@ -48,9 +51,10 @@ class NteCatalogTest extends TestCase
         $this->assertSame('1.5.4', $catalog->getVersion());
 
         $this->assertSame(
-            ['id' => 'Fashion_glide_1075', 'name' => 'Sheepcopter', 'rank' => 'A', 'rarity' => 4, 'type' => 'cosmetic', 'icon_path' => 'UI/Appearance/Glider/Fashion_Glide_1075.png'],
+            ['id' => 'Fashion_glide_1075', 'name' => 'Sheepcopter', 'rank' => 'A', 'rarity' => 4, 'type' => 'cosmetic', 'icon_path' => 'UI/Appearance/Glider/Fashion_Glide_1075.png', 'preview_path' => null],
             $catalog->find('Fashion_Glide_1075'),
         );
+        $this->assertSame('UI_Icon/Fork/1024/fork_HugVine.png', $catalog->find('FORK_VINE')['preview_path']);
         $this->assertSame(5, $catalog->find('1042')['rarity']);
         $this->assertSame(3, $catalog->find('FORK_VINE')['rarity']);
         $this->assertNull($catalog->find('green_item')['rarity']);
@@ -67,6 +71,31 @@ class NteCatalogTest extends TestCase
         $this->assertSame($base . 'UI_Icon/Item/with%20space.png', $catalog->getIconUrl('spaced'));
         $this->assertNull($catalog->getIconUrl('green_item'));
         $this->assertNull($catalog->getIconUrl('unknown_id'));
+    }
+
+    public function testPreviewUrlsPointToTheCatalogCommit(): void
+    {
+        $catalog = $this->createCatalog(self::CATALOG);
+        $base = 'https://raw.githubusercontent.com/Waifus-Grace/NTE_Assets/' . self::SHA . '/';
+
+        // Gacha splash and outfit art of the characters, 1024px Arc
+        $this->assertSame($base . 'UI/Gacha/YH_lihui_character_zankou.png', $catalog->getPreviewUrl('1024'));
+        $this->assertSame($base . 'UI/Appearance/Fashion/1024/YH_lihui_fashionshop_heiyu.png', $catalog->getPreviewUrl('1042'));
+        $this->assertSame($base . 'UI_Icon/Fork/1024/fork_HugVine.png', $catalog->getPreviewUrl(' Fork_Vine '));
+        $this->assertSame($base . 'UI/Gacha/with%20space.png', $catalog->getPreviewUrl('spaced'));
+
+        // No artwork, an item stored before the previews, unusable values, unknown item: no preview, the icon stays
+        $this->assertNull($catalog->getPreviewUrl('fashion_1042_1'));
+        $this->assertNull($catalog->getPreviewUrl('fashion_glide_1075'));
+        $this->assertSame($base . 'UI/Appearance/Glider/Fashion_Glide_1075.png', $catalog->getIconUrl('fashion_glide_1075'));
+        $this->assertNull($catalog->getPreviewUrl('green_item'));
+        $this->assertNull($catalog->getPreviewUrl('broken_preview'));
+        $this->assertNull($catalog->getPreviewUrl('unknown_id'));
+    }
+
+    public function testPreviewUrlNeedsABuiltCatalog(): void
+    {
+        $this->assertNull(new NteCatalog(new ArrayAdapter())->getPreviewUrl('1042'));
     }
 
     public function testAvatarAndPoolLookups(): void

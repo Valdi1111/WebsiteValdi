@@ -4,9 +4,12 @@ namespace App\PerfectworldBundle\Controller;
 
 use App\CoreBundle\Entity\User;
 use App\GamesBundle\Model\Game\HasManualPullsInterface;
+use App\GamesBundle\Model\Pull\Card\PullCardQuery;
 use App\GamesBundle\Model\Pull\Manual\CreateManualPullRequest;
 use App\GamesBundle\Model\Pull\Manual\DeclarePityRequest;
 use App\GamesBundle\Security\GameAccountOwnerVoter;
+use App\GamesBundle\Service\Pull\Card\PullCardLimiter;
+use App\GamesBundle\Service\Pull\Card\PullCardRenderer;
 use App\GamesBundle\Service\PullItemIconUrlBuilder;
 use App\PerfectworldBundle\Entity\PerfectworldAccount;
 use App\PerfectworldBundle\Entity\PerfectworldGameProfile;
@@ -17,9 +20,10 @@ use App\PerfectworldBundle\Model\Game\HasPullTrackerInterface;
 use App\PerfectworldBundle\Repository\PerfectworldPullRepository;
 use App\PerfectworldBundle\Service\Catalog\NteCatalog;
 use App\PerfectworldBundle\Service\Pull\ManualPullService;
+use App\PerfectworldBundle\Service\Pull\PerfectworldPullCardBuilder;
 use App\PerfectworldBundle\Service\Pull\PerfectworldPullStatsCalculator;
-use App\PerfectworldBundle\Service\Pull\PullBackupImportService;
 use App\PerfectworldBundle\Service\Pull\PullBackupImporterManager;
+use App\PerfectworldBundle\Service\Pull\PullBackupImportService;
 use App\PerfectworldBundle\Service\Pull\PullOperationTracker;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -30,6 +34,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapQueryParameter;
+use Symfony\Component\HttpKernel\Attribute\MapQueryString;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -333,6 +338,32 @@ class ApiGameProfilesController extends AbstractController
     /**
      * S items a manual S of the banner can be (catalog only: NTE manual pulls need a catalog id).
      */
+    /**
+     * The shareable pulls card (PNG download): one banner, or every banner with pulls; see PullCardQuery.
+     */
+    #[Route('/gameProfiles/{gameProfile}/pulls/card', name: 'pulls_card', requirements: ['gameProfile' => '\d+'], methods: ['GET'])]
+    public function apiGameProfilePullsCard(
+        #[CurrentUser] User $user,
+        #[MapEntity(message: 'Account not found.')] PerfectworldAccount $account,
+        #[MapEntity(message: 'Game profile not found.')] PerfectworldGameProfile $gameProfile,
+        PerfectworldPullCardBuilder $cardBuilder,
+        PullCardRenderer $cardRenderer,
+        PullCardLimiter $cardLimiter,
+        #[MapQueryString]
+        PullCardQuery $query = new PullCardQuery(),
+    ): Response {
+        $this->assertProfileOfAccount($account, $gameProfile);
+        $cardLimiter->consume($user);
+
+        try {
+            $card = $cardBuilder->build($gameProfile, $query->banner, $query->all, $query->player);
+        } catch (\InvalidArgumentException $e) {
+            throw new BadRequestHttpException($e->getMessage(), $e);
+        }
+
+        return $cardRenderer->renderResponse($card);
+    }
+
     #[Route('/gameProfiles/{gameProfile}/pulls/manual/suggestions', name: 'pulls_manual_suggestions', requirements: ['gameProfile' => '\d+'], methods: ['GET'])]
     public function apiGameProfilePullsManualSuggestions(
         #[MapEntity(message: 'Account not found.')] PerfectworldAccount $account,

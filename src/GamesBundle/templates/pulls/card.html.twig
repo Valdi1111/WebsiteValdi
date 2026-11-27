@@ -1,0 +1,201 @@
+{#
+    Shareable pulls card, screenshotted by node-services (PullCardRenderer). Self-contained: no script runs and no
+    request leaves the page, the icons come inline (icons: icon path => data URI, null when it failed to load) and so
+    does the font (font_faces). Its family name is installed nowhere, so a broken embed shows as DejaVu, even on dev.
+#}
+{%- macro pity_colors(pity, max_pity) -%}
+    {%- if pity is null -%}
+        #8c8c8c|rgba(140, 140, 140, 0.16)|#595959
+    {%- elseif pity / max_pity <= 0.45 -%}
+        #52c41a|rgba(82, 196, 26, 0.16)|#389e0d
+    {%- elseif pity / max_pity <= 0.78 -%}
+        #faad14|rgba(250, 173, 20, 0.16)|#d48806
+    {%- else -%}
+        #ff4d4f|rgba(255, 77, 79, 0.16)|#cf1322
+    {%- endif -%}
+{%- endmacro -%}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{{ card.gameName }} · {{ card.title }}</title>
+    <style>
+        {% for face in font_faces %}
+        @font-face {
+            font-family: "PullCardSans";
+            font-style: normal;
+            font-weight: {{ face.weight }};
+            src: url("{{ face.src }}") format("woff2");
+            unicode-range: {{ face.range }};
+        }
+        {% endfor %}
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #10131f; }
+        #card {
+            width: {{ width }}px;
+            padding: 44px 48px 34px;
+            color: #e9ecf5;
+            font-family: "PullCardSans", "DejaVu Sans", "Noto Sans", sans-serif;
+            background:
+                radial-gradient(900px 420px at 0% 0%, rgba(250, 173, 20, 0.12), transparent 65%),
+                radial-gradient(900px 520px at 100% 0%, rgba(114, 46, 209, 0.20), transparent 60%),
+                linear-gradient(160deg, #181c2e 0%, #10131f 100%);
+        }
+        .header { margin-bottom: 28px; }
+        .game { font-size: 15px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #faad14; }
+        .title { font-size: 40px; font-weight: 700; line-height: 1.15; margin-top: 6px; }
+        .player { font-size: 16px; color: #9aa3bd; margin-top: 8px; }
+
+        .section + .section { margin-top: 34px; padding-top: 30px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+        .section-name { font-size: 24px; font-weight: 700; margin-bottom: 16px; }
+
+        .stats { display: flex; gap: 14px; margin-bottom: 28px; }
+        .stat {
+            flex: 1;
+            padding: 14px 18px 16px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .stat-label { font-size: 13px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #9aa3bd; }
+        .stat-value { font-size: 32px; font-weight: 700; line-height: 1.2; margin-top: 4px; }
+        .stat-value small { font-size: 18px; font-weight: 500; color: #9aa3bd; }
+        .bar { height: 6px; margin-top: 8px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+        .bar span { display: block; height: 100%; border-radius: 3px; }
+
+        .grid-label { font-size: 13px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: #9aa3bd; margin-bottom: 16px; }
+        .grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 22px 12px; }
+        .cell { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+        .ring {
+            position: relative;
+            width: 92px;
+            height: 92px;
+            border-radius: 50%;
+            border: 3px solid var(--ring);
+            background: var(--ring-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .ring.manual { border-style: dashed; }
+        .ring img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+        .ring.free img { opacity: 0.6; }
+        .ring .initial { font-size: 34px; font-weight: 700; color: var(--ring); }
+        .badge {
+            position: absolute;
+            font-weight: 700;
+            color: #fff;
+            border: 2px solid #141827;
+            border-radius: 12px;
+            white-space: nowrap;
+        }
+        .badge.pity { bottom: -6px; right: -8px; font-size: 16px; line-height: 20px; padding: 1px 8px; background: var(--badge); }
+        .badge.up { top: -6px; left: -8px; font-size: 12px; line-height: 16px; padding: 0 6px; background: #d4380d; }
+        .badge.free { top: -6px; right: -8px; font-size: 12px; line-height: 16px; padding: 0 6px; background: #389e0d; }
+        .name {
+            max-width: 100%;
+            margin-top: 10px;
+            font-size: 14px;
+            line-height: 1.25;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .more .ring { border: 3px dashed rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.04); }
+        .more .ring span { font-size: 24px; font-weight: 700; color: #9aa3bd; }
+        .more .name { color: #9aa3bd; }
+        .empty { padding: 28px; border-radius: 14px; text-align: center; color: #9aa3bd; background: rgba(255, 255, 255, 0.04); }
+
+        .footer { display: flex; justify-content: space-between; margin-top: 32px; font-size: 13px; color: #6f7894; }
+    </style>
+</head>
+<body>
+<div id="card">
+    <div class="header">
+        <div class="game">{{ card.gameName }}</div>
+        <div class="title">{{ card.title }}</div>
+        {% if card.playerName is not null or card.playerUid is not null %}
+            <div class="player">
+                {{- card.playerName ?? '' }}{% if card.playerName is not null and card.playerUid is not null %} · {% endif %}{% if card.playerUid is not null %}UID {{ card.playerUid }}{% endif -%}
+            </div>
+        {% endif %}
+    </div>
+
+    {% for section in card.sections %}
+        {% set pull_label = section.pullLabel ?? card.pullLabel %}
+        <div class="section">
+            {% if card.sections|length > 1 %}
+                <div class="section-name">{{ section.name }}</div>
+            {% endif %}
+
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-label">Total {{ pull_label }}</div>
+                    <div class="stat-value">{{ section.totalPulls|number_format(0, '.', ',') }}</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">{{ card.sLabel }} pulled</div>
+                    <div class="stat-value">{{ section.sCount }}</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Average pity</div>
+                    <div class="stat-value">{{ section.sCount > 0 ? section.avgSPity|number_format(1) : '–' }}</div>
+                </div>
+                {% if section.upKnown > 0 %}
+                    <div class="stat">
+                        <div class="stat-label">Rate-up</div>
+                        <div class="stat-value">{{ section.upCount }}<small>/{{ section.upKnown }} · {{ (section.upCount / section.upKnown * 100)|round }}%</small></div>
+                    </div>
+                {% endif %}
+                <div class="stat">
+                    <div class="stat-label">Current pity</div>
+                    <div class="stat-value">{{ section.sPity }}<small>/{{ section.sMaxPity }}</small></div>
+                    <div class="bar"><span style="width: {{ min(100, (section.sPity / section.sMaxPity * 100)|round) }}%; background: #fa8c16;"></span></div>
+                </div>
+            </div>
+
+            {% if section.items is empty %}
+                <div class="empty">No {{ card.sLabel }} {{ pull_label|lower }} yet</div>
+            {% else %}
+                <div class="grid-label">{{ card.sLabel }} history · newest first</div>
+                <div class="grid">
+                    {% for item in section.items %}
+                        {% set colors = _self.pity_colors(item.pity, section.sMaxPity)|split('|') %}
+                        {% set icon = item.iconPath is not null ? icons[item.iconPath] ?? null : null %}
+                        <div class="cell">
+                            <div class="ring{{ item.isManual ? ' manual' }}{{ item.isFree ? ' free' }}"
+                                 style="--ring: {{ colors[0] }}; --ring-bg: {{ colors[1] }}; --badge: {{ colors[2] }};">
+                                {% if icon is not null %}
+                                    <img src="{{ icon }}" alt="">
+                                {% else %}
+                                    <span class="initial">{{ item.name|first|upper }}</span>
+                                {% endif %}
+                                {% if item.isUp %}<span class="badge up">UP</span>{% endif %}
+                                {% if item.isFree %}<span class="badge free">FREE</span>{% endif %}
+                                {% if item.pity is not null %}
+                                    <span class="badge pity">{{ item.pity }}{{ item.hasDeclaredPity ? '*' }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="name">{{ item.name }}</div>
+                        </div>
+                    {% endfor %}
+                    {% if section.hiddenCount > 0 %}
+                        <div class="cell more">
+                            <div class="ring"><span>+{{ section.hiddenCount }}</span></div>
+                            <div class="name">older</div>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    {% endfor %}
+
+    <div class="footer">
+        <span>Pulls Tracker</span>
+        {# Game server wall clock: printed as is, never converted to the site timezone #}
+        <span>{{ card.generatedAt|date('j M Y', false) }}</span>
+    </div>
+</div>
+</body>
+</html>

@@ -23,7 +23,7 @@ framework:
     http_client:
         scoped_clients:
             node_services.client:
-                base_uri: 'http://localhost:%node_services_port%'
+                base_uri: 'http://127.0.0.1:%node_services_port%'
 
 when@test:
     framework:

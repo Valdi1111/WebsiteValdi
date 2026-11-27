@@ -4,9 +4,13 @@ namespace App\HoyoverseBundle\Controller;
 
 use App\CoreBundle\Entity\User;
 use App\GamesBundle\Model\Game\HasManualPullsInterface;
+use App\GamesBundle\Model\Pull\Card\PullCardQuery;
 use App\GamesBundle\Model\Pull\Manual\CreateManualPullRequest;
 use App\GamesBundle\Model\Pull\Manual\DeclarePityRequest;
+use App\GamesBundle\Model\Pull\PullOperationKind;
 use App\GamesBundle\Security\GameAccountOwnerVoter;
+use App\GamesBundle\Service\Pull\Card\PullCardLimiter;
+use App\GamesBundle\Service\Pull\Card\PullCardRenderer;
 use App\GamesBundle\Service\PullItemIconUrlBuilder;
 use App\HoyoverseBundle\Entity\HoyoverseAccount;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
@@ -19,9 +23,9 @@ use App\HoyoverseBundle\Model\Game\HasDiaryInterface;
 use App\HoyoverseBundle\Model\Game\HasPowershellPullImportInterface;
 use App\HoyoverseBundle\Model\Game\HasPullTrackerInterface;
 use App\HoyoverseBundle\Model\Game\HasStokenPullImportInterface;
-use App\GamesBundle\Model\Pull\PullOperationKind;
 use App\HoyoverseBundle\Repository\HoyoverseDiaryEntryRepository;
 use App\HoyoverseBundle\Repository\HoyoversePullRepository;
+use App\HoyoverseBundle\Service\Pull\HoyoversePullCardBuilder;
 use App\HoyoverseBundle\Service\Pull\HoyoversePullStatsCalculator;
 use App\HoyoverseBundle\Service\Pull\HoyoverseRateUpLookupFactory;
 use App\HoyoverseBundle\Service\Pull\HoyoverseServerTimezoneResolver;
@@ -39,9 +43,10 @@ use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\MapQueryString;
+use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
-use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Mercure\Authorization;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -667,6 +672,32 @@ class ApiGameProfilesController extends AbstractController
             'page' => $page,
             'limit' => $limit,
         ]);
+    }
+
+    /**
+     * The shareable pulls card (PNG download): one banner, or every banner with pulls; see PullCardQuery.
+     */
+    #[Route('/gameProfiles/{gameProfile}/pulls/card', name: 'pulls_card', requirements: ['gameProfile' => '\d+'], methods: ['GET'])]
+    public function apiGameProfilePullsCard(
+        #[CurrentUser] User $user,
+        #[MapEntity(message: "Hoyoverse Account not found.")] HoyoverseAccount $account,
+        #[MapEntity(message: "Game profile not found.")] HoyoverseGameProfile $gameProfile,
+        HoyoversePullCardBuilder $cardBuilder,
+        PullCardRenderer $cardRenderer,
+        PullCardLimiter $cardLimiter,
+        #[MapQueryString]
+        PullCardQuery $query = new PullCardQuery(),
+    ): Response {
+        $this->assertProfileOfAccount($account, $gameProfile);
+        $cardLimiter->consume($user);
+
+        try {
+            $card = $cardBuilder->build($gameProfile, $query->banner, $query->all, $query->player);
+        } catch (\InvalidArgumentException $e) {
+            throw new BadRequestHttpException($e->getMessage(), $e);
+        }
+
+        return $cardRenderer->renderResponse($card);
     }
 
     #[Route('/gameProfiles/{gameProfile}/pulls/manual/suggestions', name: 'pulls_manual_suggestions', requirements: ['gameProfile' => '\d+'], methods: ['GET'])]

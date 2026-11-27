@@ -1,20 +1,4 @@
-const { chromium } = require('playwright');
-
-let browser;
-
-// avvia browser UNA volta sola
-async function getBrowser() {
-    if (!browser) {
-        browser = await chromium.launch({
-            headless: true,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox'
-            ]
-        });
-    }
-    return browser;
-}
+const { getBrowser } = require('./browser');
 
 async function extractMp4(url) {
     const browser = await getBrowser();

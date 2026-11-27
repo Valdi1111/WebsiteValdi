@@ -9,3 +9,17 @@ liip_imagine:
                     size: [128, 128]
                     mode: inset
                     allow_upscale: false
+        # Click-to-zoom preview of a pull item: its full artwork (else its icon source), transparent borders trimmed
+        # (pixels up to 5% opaque included, the haze around many artworks) so the subject fills the preview, at most
+        # 1024 px and never enlarged
+        games_pull_item_preview:
+            data_loader: games.pull_item_preview_loader
+            format: webp
+            quality: 85
+            filters:
+                trim:
+                    threshold: 0.05
+                thumbnail:
+                    size: [1024, 1024]
+                    mode: inset
+                    allow_upscale: false

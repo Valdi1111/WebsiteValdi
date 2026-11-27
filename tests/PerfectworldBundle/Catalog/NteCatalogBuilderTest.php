@@ -50,6 +50,7 @@ class NteCatalogBuilderTest extends TestCase
     private const string FEATURED_KEY = 'BPUI_LotteryModuleEntrance_BigGurantten';
     private const string POOL_TABLE = 'DataTable/Fork/DT_ForkLotteryPoolData.json';
     private const string BOARD_CELL_TABLE = 'DataTable/Monopoly/DT_MonopolyCellDataTable.json';
+    private const string GACHA_ILLUSTRATE_TABLE = 'DataTable/Gacha/GachaIllustrate.json';
 
     /** @var list<array{level: string, message: string, context: array<string, mixed>}> */
     private array $logs = [];
@@ -74,30 +75,30 @@ class NteCatalogBuilderTest extends TestCase
         $items = $catalog['items'];
 
         // Names: namespace lookup beats the stale embedded string, key-only and embedded fallbacks
-        $this->assertSame(['id' => '1042', 'name' => 'Blackbird', 'rank' => 'S', 'type' => 'character', 'icon_path' => 'UI_Icon/AvatarImage/200/player_heiyu.png'], $items['1042']);
+        $this->assertSame(['id' => '1042', 'name' => 'Blackbird', 'rank' => 'S', 'type' => 'character', 'icon_path' => 'UI_Icon/AvatarImage/200/player_heiyu.png', 'preview_path' => 'UI/Appearance/Fashion/1024/YH_lihui_fashionshop_heiyu.png'], $items['1042']);
         $this->assertSame('Zankou', $items['1024']['name']);
         $this->assertSame('A', $items['1024']['rank']);
         $this->assertSame('Embedded Name', $items['1098']['name']);
         $this->assertArrayNotHasKey('1099', $items);
 
         // Arcs: icon file name not derived from the id, key found outside its namespace
-        $this->assertSame(['id' => 'fork_twinbirds', 'name' => 'Crime and Punishment', 'rank' => 'S', 'type' => 'arc', 'icon_path' => 'UI_Icon/Fork/fork_twinbirds_256.png'], $items['fork_twinbirds']);
-        $this->assertSame(['id' => 'fork_vine', 'name' => 'Be Happy', 'rank' => 'B', 'type' => 'arc', 'icon_path' => 'UI_Icon/Fork/fork_HugVine_256.png'], $items['fork_vine']);
+        $this->assertSame(['id' => 'fork_twinbirds', 'name' => 'Crime and Punishment', 'rank' => 'S', 'type' => 'arc', 'icon_path' => 'UI_Icon/Fork/fork_twinbirds_256.png', 'preview_path' => 'UI_Icon/Fork/1024/fork_twinbirds.png'], $items['fork_twinbirds']);
+        $this->assertSame(['id' => 'fork_vine', 'name' => 'Be Happy', 'rank' => 'B', 'type' => 'arc', 'icon_path' => 'UI_Icon/Fork/fork_HugVine_256.png', 'preview_path' => 'UI_Icon/Fork/1024/fork_HugVine.png'], $items['fork_vine']);
 
         // Items: path kept with its case, object name ignored
-        $this->assertSame(['id' => 'DiceNormal', 'name' => 'Fabricated Dice', 'rank' => 'S', 'type' => 'item', 'icon_path' => 'UI_Icon/Item/DiceNormal.png'], $items['dicenormal']);
+        $this->assertSame(['id' => 'DiceNormal', 'name' => 'Fabricated Dice', 'rank' => 'S', 'type' => 'item', 'icon_path' => 'UI_Icon/Item/DiceNormal.png', 'preview_path' => null], $items['dicenormal']);
         $this->assertSame('item', $items['annulith']['type']);
         $this->assertNull($items['green_item']['rank']);
         $this->assertNull($items['bad_icon']['icon_path']);
 
         // Cosmetics: Fashion_ prefix, cosmetic item types, vehicle and appearance tables
-        $this->assertSame(['id' => 'Fashion_glide_1075', 'name' => 'Sheepcopter', 'rank' => 'A', 'type' => 'cosmetic', 'icon_path' => 'UI/Appearance/Glider/Fashion_Glide_1075.png'], $items['fashion_glide_1075']);
+        $this->assertSame(['id' => 'Fashion_glide_1075', 'name' => 'Sheepcopter', 'rank' => 'A', 'type' => 'cosmetic', 'icon_path' => 'UI/Appearance/Glider/Fashion_Glide_1075.png', 'preview_path' => 'UI/Gacha/Lottery_Img/Yiluoyi/YH_lihui_1024_Yiluoyi1.png'], $items['fashion_glide_1075']);
         $this->assertSame('cosmetic', $items['glide_1']['type']);
-        $this->assertSame(['id' => 'vehicle002', 'name' => 'Griffin', 'rank' => 'S', 'type' => 'cosmetic', 'icon_path' => 'UI_Icon/Item/YH_UI_CarCard1.png'], $items['vehicle002']);
+        $this->assertSame(['id' => 'vehicle002', 'name' => 'Griffin', 'rank' => 'S', 'type' => 'cosmetic', 'icon_path' => 'UI_Icon/Item/YH_UI_CarCard1.png', 'preview_path' => null], $items['vehicle002']);
         $this->assertSame('UI_Icon/AvatarImage/256/player_sakiri_256.png', $items['fashion_1003_0']['icon_path']);
 
         // DT_ItemConfig sets type and name, DT_AppearanceData fills the missing rank and icon
-        $this->assertSame(['id' => 'Fashion_1042_1', 'name' => 'Wandering Stars', 'rank' => 'A', 'type' => 'cosmetic', 'icon_path' => 'UI_Icon/AvatarImage/256/player_heiyu1_256.png'], $items['fashion_1042_1']);
+        $this->assertSame(['id' => 'Fashion_1042_1', 'name' => 'Wandering Stars', 'rank' => 'A', 'type' => 'cosmetic', 'icon_path' => 'UI_Icon/AvatarImage/256/player_heiyu1_256.png', 'preview_path' => null], $items['fashion_1042_1']);
 
         $this->assertSame([
             'fashion_1042_1' => 'UI_Icon/AvatarImage/256/player_heiyu1_256.png',
@@ -109,6 +110,71 @@ class NteCatalogBuilderTest extends TestCase
         $this->assertSame('Foretold Finale', $catalog['pools']['lottery_heiyu']);
         $this->assertSame('Fading Reverie', $catalog['pools']['lottery_anhunqu']);
         $this->assertSame('Strange Encounters', $catalog['pools']['lottery_permanent']);
+    }
+
+    public function testPreviewPathsAreTheFullArtworks(): void
+    {
+        $fixture = new NteAssetsFixture();
+        $items = $this->createBuilder($fixture, null, $this->createLogger())->build()['items'];
+
+        // Characters: gacha splash, outfit art in the appearance folder or in the 1024px icon folder
+        $this->assertSame('UI/Gacha/YH_lihui_character_zankou.png', $items['1024']['preview_path']);
+        $this->assertSame('UI/Appearance/Fashion/1024/YH_lihui_fashionshop_heiyu.png', $items['1042']['preview_path']);
+        $this->assertSame('UI_Icon/Appearance/1098/Fashion_1098_0/1024_Fashion_1098_0.png', $items['1098']['preview_path']);
+        $this->assertArrayNotHasKey('1099', $items);
+        $this->assertArrayNotHasKey('not_in_catalog', $items);
+
+        // Arcs: GachaIllustrate repeats the 256px icon (key in another case for fork_vine), so the 1024px version
+        // of the icon file is used, whatever the Arc id
+        $this->assertSame('UI_Icon/Fork/1024/fork_twinbirds.png', $items['fork_twinbirds']['preview_path']);
+        $this->assertSame('UI_Icon/Fork/1024/fork_HugVine.png', $items['fork_vine']['preview_path']);
+
+        // Cosmetic illustrated under a key in another case
+        $this->assertSame('UI/Gacha/Lottery_Img/Yiluoyi/YH_lihui_1024_Yiluoyi1.png', $items['fashion_glide_1075']['preview_path']);
+
+        // No artwork: the illustration is the icon (in any case, also when a later table fills that icon), not a
+        // UI texture, no row, or no icon to derive from
+        $this->assertNull($items['dicenormal']['preview_path']);
+        $this->assertNull($items['fashion_1042_1']['preview_path']);
+        $this->assertNull($items['annulith']['preview_path']);
+        $this->assertNull($items['vehicle002']['preview_path']);
+        $this->assertNull($items['green_item']['preview_path']);
+        $this->assertNull($items['bad_icon']['preview_path']);
+
+        // Downloaded once, at the commit, without warning
+        $this->assertSame(1, array_count_values($fixture->requestedRawPaths())[self::GACHA_ILLUSTRATE_TABLE]);
+        $this->assertSame([], $this->skippedTableWarnings(self::GACHA_ILLUSTRATE_TABLE));
+    }
+
+    public function testMissingGachaIllustrateLeavesOnlyTheArcPreviews(): void
+    {
+        $fixture = new NteAssetsFixture([self::GACHA_ILLUSTRATE_TABLE => null]);
+        $items = $this->createBuilder($fixture, null, $this->createLogger())->build()['items'];
+
+        $this->assertNull($items['1024']['preview_path']);
+        $this->assertNull($items['1042']['preview_path']);
+        $this->assertNull($items['fashion_glide_1075']['preview_path']);
+        // Derived from the icon, without the table
+        $this->assertSame('UI_Icon/Fork/1024/fork_twinbirds.png', $items['fork_twinbirds']['preview_path']);
+        $this->assertSame('UI_Icon/Fork/1024/fork_HugVine.png', $items['fork_vine']['preview_path']);
+
+        $this->assertSame([['path' => self::GACHA_ILLUSTRATE_TABLE, 'sha' => NteAssetsFixture::SHA]], $this->skippedTableWarnings(self::GACHA_ILLUSTRATE_TABLE));
+    }
+
+    public function testArcIconsOutsideThe256pxShapeHaveNoPreview(): void
+    {
+        $fixture = new NteAssetsFixture([
+            'DataTable/Fork/DT_ForkItemData.json' => NteAssetsFixture::table('DT_ForkItemData', [
+                'fork_twinbirds' => NteAssetsFixture::itemRow(NteAssetsFixture::text('/Game/Text/ST_Fork.ST_Fork', 'fork_twinbirds_name'), 'ORANGE', '/Game/UI/UI_Icon/Fork/fork_twinbirds.fork_twinbirds', 'EItemType::ITEM_TYPE_FORK'),
+                'fork_vine' => NteAssetsFixture::itemRow(NteAssetsFixture::text('/Game/Text/ST_Fork.ST_Fork', 'fork_moved_name'), 'BLUE', '/Game/UI/UI_Icon/Item/fork_HugVine_256.fork_HugVine_256', 'EItemType::ITEM_TYPE_FORK'),
+            ]),
+            self::GACHA_ILLUSTRATE_TABLE => null,
+        ]);
+
+        $items = $this->createBuilder($fixture)->build()['items'];
+
+        $this->assertNull($items['fork_twinbirds']['preview_path']);
+        $this->assertNull($items['fork_vine']['preview_path']);
     }
 
     public function testExplicitRefIsResolvedToItsSha(): void
@@ -191,9 +257,11 @@ class NteCatalogBuilderTest extends TestCase
 
         $catalog = $this->createBuilder(new NteAssetsFixture(), $nteCatalog)->build();
 
+        // Kept as stored: an entry built before the previews has no preview_path until the game lists it again
         $this->assertSame(self::PREVIOUS_CATALOG['items']['old_item'], $catalog['items']['old_item']);
         $this->assertSame('Blackbird', $catalog['items']['1042']['name']);
         $this->assertSame('S', $catalog['items']['1042']['rank']);
+        $this->assertSame('UI/Appearance/Fashion/1024/YH_lihui_fashionshop_heiyu.png', $catalog['items']['1042']['preview_path']);
         $this->assertSame('UI_Icon/AvatarImage/256/old_256.png', $catalog['avatars']['old_avatar']);
         $this->assertSame('Old Board', $catalog['pools']['lottery_old']);
         $this->assertSame(NteAssetsFixture::SHA, $catalog['sha']);
@@ -607,6 +675,19 @@ class NteCatalogBuilderTest extends TestCase
                 '12' => ['CellID' => '12'],
             ]),
         ], $files));
+    }
+
+    /**
+     * Contexts of the "optional table missing" warnings about a table.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function skippedTableWarnings(string $path): array
+    {
+        return array_values(array_column(array_filter(
+            $this->logs,
+            static fn (array $log): bool => $log['level'] === LogLevel::WARNING && ($log['context']['path'] ?? null) === $path,
+        ), 'context'));
     }
 
     private static function featuredText(string $name): string

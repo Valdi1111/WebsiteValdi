@@ -281,6 +281,7 @@ Character, weapon, Light Cone, W-Engine, and Bangboo thumbnails in cards (`Pulls
   - **Honkai: Star Rail** (`hkrpg_global`): direct `itemId` resolution → `avatarroundicon/{itemId}.webp` (characters) and `lightconemediumicon/{itemId}.webp` (Light Cones).
   - **Zenless Zone Zero** (`nap_global`): lookup in `zzz/{version}/{character|weapon|bangboo}.json`, converting `IconRole*` → `IconRoleCircle*` for agents.
 - **API Enrichment & Local Cache**: `ApiGameProfilesController` injects `'icon_url'` via `PullItemIconUrlBuilder::enrichPullRows()`; on first request, `LiipImagineBundle` downloads the asset via `PullItemIconBinaryLoader` and caches the resized image (`128×128`, `webp`, quality `100`) under `public/media/cache/games_pull_item_icon/`.
+- **Full artwork**: `NanokaIconResolver` also implements `PullItemPreviewResolverInterface` for the `preview_url` of the click-to-zoom preview (filter `games_pull_item_preview`): Genshin wish splash (`UI_Gacha_AvatarImg_*`, `UI_Gacha_EquipIcon_*` for the five standard weapon classes), HSR `avatardrawcard/{id}` and `lightconemaxfigures/{id}`, ZZZ agent portrait `IconRole{n}`. ZZZ W-Engines and Bangboos have none and preview their icon. See [`PULL_ITEM_ICONS.md`](../../docs/PULL_ITEM_ICONS.md).
 
 ### 7.5 Third-Party Backup Importing (Paimon.moe, Star Rail Station, ZZZ.rng.moe)
 To preserve pull history older than HoYoverse's 6–12 month API window, the bundle provides an extensible **Backup Importer** architecture accessible from both the web UI and the CLI.

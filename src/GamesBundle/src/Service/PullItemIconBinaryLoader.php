@@ -2,103 +2,26 @@
 
 namespace App\GamesBundle\Service;
 
+use App\GamesBundle\Model\Game\PullItemIconQuery;
 use Liip\ImagineBundle\Binary\BinaryInterface;
-use Liip\ImagineBundle\Binary\Loader\LoaderInterface;
 use Liip\ImagineBundle\Exception\Binary\Loader\NotLoadableException;
-use Liip\ImagineBundle\Model\Binary;
-use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
-use Symfony\Component\DependencyInjection\Attribute\Target;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 
+/**
+ * Source of the pull item icons (filter set games_pull_item_icon): the icon candidates of the resolvers, by priority.
+ */
 #[AutoconfigureTag('liip_imagine.binary.loader', attributes: ['loader' => 'games.pull_item_icon_loader'])]
-class PullItemIconBinaryLoader implements LoaderInterface
+class PullItemIconBinaryLoader extends AbstractPullItemImageLoader
 {
-    private const array MIME_TO_EXTENSION = [
-        'image/png' => 'png',
-        'image/webp' => 'webp',
-        'image/jpeg' => 'jpg',
-        'image/jpg' => 'jpg',
-    ];
-
-    public function __construct(
-        private readonly PullItemIconPathCodec $pathCodec,
-        private readonly PullItemIconResolverManager $resolverManager,
-        #[Target('games.pull_icon_fetch.client')]
-        private readonly HttpClientInterface $httpClient,
-        private readonly ?LoggerInterface $logger = null,
-    ) {
-    }
-
-    public function find($path): BinaryInterface
+    protected function load(string $gameBiz, PullItemIconQuery $query, string $path): BinaryInterface
     {
-        $decoded = $this->pathCodec->decode((string) $path);
-        if ($decoded === null) {
-            throw new NotLoadableException(sprintf('Pull item icon path "%s" is invalid.', (string) $path));
-        }
-
-        $candidateUrls = $this->resolverManager->resolveCandidateUrlsByGameBiz($decoded['gameBiz'], $decoded['query']);
+        $candidateUrls = $this->resolverManager->resolveCandidateUrlsByGameBiz($gameBiz, $query);
         if ($candidateUrls === []) {
-            throw new NotLoadableException(sprintf('No pull item icon URL resolved for "%s".', (string) $path));
+            throw new NotLoadableException(sprintf('No pull item icon URL resolved for "%s".', $path));
         }
 
-        foreach ($candidateUrls as $url) {
-            try {
-                $response = $this->httpClient->request('GET', $url);
-                $status = $response->getStatusCode();
-                if ($status !== 200) {
-                    $this->logger?->debug('Pull item icon CDN returned non-200 status', [
-                        'url' => $url,
-                        'status' => $status,
-                    ]);
-                    continue;
-                }
+        [$binary] = $this->download($candidateUrls, $path);
 
-                $headers = $response->getHeaders(false);
-                $rawContentType = $headers['content-type'][0] ?? '';
-                $mimeType = strtolower(trim(explode(';', $rawContentType)[0]));
-
-                if ($mimeType === '' || !str_starts_with($mimeType, 'image/')) {
-                    $mimeType = $this->guessMimeFromUrl($url);
-                }
-
-                if ($mimeType === null || !str_starts_with($mimeType, 'image/')) {
-                    $this->logger?->warning('Pull item icon response is not an image', [
-                        'url' => $url,
-                        'content_type' => $rawContentType,
-                    ]);
-                    continue;
-                }
-
-                $content = $response->getContent();
-                if ($content === '') {
-                    continue;
-                }
-
-                $extension = self::MIME_TO_EXTENSION[$mimeType] ?? pathinfo((string) parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION) ?: 'png';
-
-                return new Binary($content, $mimeType, $extension);
-            } catch (\Throwable $e) {
-                $this->logger?->warning('Failed downloading pull item icon from CDN', [
-                    'url' => $url,
-                    'path' => (string) $path,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
-
-        throw new NotLoadableException(sprintf('Pull item icon could not be downloaded for "%s".', (string) $path));
-    }
-
-    private function guessMimeFromUrl(string $url): ?string
-    {
-        $ext = strtolower((string) pathinfo((string) parse_url($url, PHP_URL_PATH), PATHINFO_EXTENSION));
-
-        return match ($ext) {
-            'png' => 'image/png',
-            'webp' => 'image/webp',
-            'jpg', 'jpeg' => 'image/jpeg',
-            default => null,
-        };
+        return $binary ?? throw new NotLoadableException(sprintf('Pull item icon could not be downloaded for "%s".', $path));
     }
 }

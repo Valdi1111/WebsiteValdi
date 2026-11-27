@@ -116,6 +116,20 @@ final class NteAssetsFixture
     }
 
     /**
+     * GachaIllustrate row: the illustration ("ItemIcon") and fields the catalog ignores.
+     *
+     * @return array<string, mixed>
+     */
+    public static function illustration(string $path): array
+    {
+        return [
+            'ItemIcon' => self::asset($path),
+            'CharacterSequence' => self::asset('/Game/sequence_pack/cutscenes/CardDrawSettlement/sequence_getplayer.sequence_getplayer'),
+            'HeadIcon' => self::asset('/Game/UI/UI_Icon/AvatarImage/200/player_x.player_x'),
+        ];
+    }
+
+    /**
      * Banner tables of the real 1.5.4 Global datamine (c457cb6), reduced to what the banners are built from:
      * the 12 Arc pools (rate-up Arc, name), the 13 board pools with the guarantee texts naming the
      * featured characters, and the featured S characters and Arcs. Merge it over the default files.
@@ -281,6 +295,25 @@ final class NteAssetsFixture
                 '1' => [
                     'Name' => self::text('/Game/Text/ST_Ui.ST_Ui', 'ui_forkshop_24', 'Miracle Box'),
                 ],
+            ]),
+            // Shapes of the real table (c457cb6): gacha splash, outfit art in either folder, the Arcs and dice
+            // pointing at their own icon, illustrated cosmetics; keys do not always share the case of the item ids
+            'DataTable/Gacha/GachaIllustrate.json' => self::table('GachaIllustrate', [
+                '1024' => self::illustration('/Game/UI/UI/Gacha/YH_lihui_character_zankou.YH_lihui_character_zankou'),
+                '1042' => self::illustration('/Game/UI/UI/Appearance/Fashion/1024/YH_lihui_fashionshop_heiyu.YH_lihui_fashionshop_heiyu'),
+                '1098' => self::illustration('/Game/UI/UI_Icon/Appearance/1098/Fashion_1098_0/1024_Fashion_1098_0.1024_Fashion_1098_0'),
+                // Dropped item (no name): no entry to add a preview to
+                '1099' => self::illustration('/Game/UI/UI/Gacha/YH_lihui_character_y.YH_lihui_character_y'),
+                'fork_twinbirds' => self::illustration('/Game/UI/UI_Icon/Fork/fork_twinbirds_256.fork_twinbirds_256'),
+                'fork_Vine' => self::illustration('/Game/UI/UI_Icon/Fork/fork_HugVine_256.fork_HugVine_256'),
+                // The icon itself, in another case
+                'DIceNormal' => self::illustration('/Game/UI/UI_Icon/item/DICENormal.DIceNormal'),
+                'Fashion_Glide_1075' => self::illustration('/Game/UI/UI/Gacha/Lottery_Img/Yiluoyi/YH_lihui_1024_Yiluoyi1.YH_lihui_1024_Yiluoyi1'),
+                // Same as the icon DT_AppearanceData fills after DT_ItemConfig: no preview
+                'Fashion_1042_1' => self::illustration('/Game/UI/UI_Icon/AvatarImage/256/player_heiyu1_256.player_heiyu1_256'),
+                // Not a UI texture: ignored
+                'Annulith' => self::illustration('/Game/Characters/Player/mesh.mesh'),
+                'Not_in_catalog' => self::illustration('/Game/UI/UI/Gacha/YH_lihui_character_z.YH_lihui_character_z'),
             ]),
         ];
     }

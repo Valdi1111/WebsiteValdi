@@ -5,11 +5,11 @@ namespace App\GamesBundle\Service;
 use App\GamesBundle\Model\Game\PullItemIconQuery;
 use App\GamesBundle\Model\Pull\PullOrigin;
 use Liip\ImagineBundle\Imagine\Cache\CacheManager;
-use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 class PullItemIconUrlBuilder
 {
     public const string FILTER_NAME = 'games_pull_item_icon';
+    public const string PREVIEW_FILTER_NAME = 'games_pull_item_preview';
 
     public function __construct(
         private readonly CacheManager $cacheManager,
@@ -23,24 +23,15 @@ class PullItemIconUrlBuilder
      */
     public function buildUrl(string|object $gameService, PullItemIconQuery $query): ?string
     {
-        if (!$this->resolverManager->supportsGameService($gameService)) {
-            return null;
-        }
+        $path = $this->buildPath($gameService, $query);
 
-        $gameBiz = $this->resolverManager->getGameBizForService($gameService);
-        if ($gameBiz === null) {
-            return null;
-        }
-
-        $path = $this->pathCodec->encode($gameBiz, $query);
-        if ($path === null) {
-            return null;
-        }
-
-        return $this->cacheManager->getBrowserPath($path, self::FILTER_NAME);
+        return $path !== null ? $this->cacheManager->getBrowserPath($path, self::FILTER_NAME) : null;
     }
 
     /**
+     * Adds icon_url (the round thumbnail) and preview_url (the click-to-zoom artwork) to pull-shaped rows;
+     * both are null when the row has no item to look up.
+     *
      * @param class-string|object $gameService
      * @param array<int, array<string, mixed>> $rows
      * @return array<int, array<string, mixed>>
@@ -52,16 +43,44 @@ class PullItemIconUrlBuilder
         }
 
         foreach ($rows as &$row) {
-            // Filler rows are unknown pulls: there is no item to resolve
-            if (($row['origin'] ?? null) === PullOrigin::Filler->value) {
-                $row['icon_url'] = null;
-                continue;
-            }
-
-            $row['icon_url'] = $this->buildUrl($gameService, PullItemIconQuery::fromPullRow($row));
+            $path = self::hasItem($row) ? $this->buildPath($gameService, PullItemIconQuery::fromPullRow($row)) : null;
+            $row['icon_url'] = $path !== null ? $this->cacheManager->getBrowserPath($path, self::FILTER_NAME) : null;
+            $row['preview_url'] = $path !== null ? $this->cacheManager->getBrowserPath($path, self::PREVIEW_FILTER_NAME) : null;
         }
         unset($row);
 
         return $rows;
+    }
+
+    /**
+     * Filler rows are unknown pulls, and a bonus entry without an item (e.g. the Endfield Headhunting Dossier) has
+     * nothing to look up by name: neither has an image.
+     *
+     * @param array<string, mixed> $row
+     */
+    private static function hasItem(array $row): bool
+    {
+        if (($row['origin'] ?? null) === PullOrigin::Filler->value) {
+            return false;
+        }
+
+        return ($row['bonus_label'] ?? null) === null || ($row['item_id'] ?? null) !== null;
+    }
+
+    /**
+     * @param class-string|object $gameService
+     */
+    private function buildPath(string|object $gameService, PullItemIconQuery $query): ?string
+    {
+        if (!$this->resolverManager->supportsGameService($gameService)) {
+            return null;
+        }
+
+        $gameBiz = $this->resolverManager->getGameBizForService($gameService);
+        if ($gameBiz === null) {
+            return null;
+        }
+
+        return $this->pathCodec->encode($gameBiz, $query);
     }
 }

@@ -153,6 +153,7 @@ Operator and weapon thumbnails in cards (`PullsRecentBadge`) and detail tables (
   - **Operators** (`chr_*`): resolves icons from `charremoteicon/icon_{charId}`.
   - **Weapons**: resolves `iconId` via `ItemTable` under `itemicon/` (falling back to `gachaweapon/`).
 - **API Enrichment & Local Cache**: `ApiGameProfilesController` injects `'icon_url'` via `PullItemIconUrlBuilder::enrichPullRows()`; on first request, `LiipImagineBundle` downloads and caches the resized image (`128×128`, `webp`, quality `100`) under `public/media/cache/games_pull_item_icon/`.
+- **Full artwork**: `AkeDataIconResolver` also implements `PullItemPreviewResolverInterface` for the `preview_url` of the click-to-zoom preview (filter `games_pull_item_preview`): operator `characterportrait/{charId}` and weapon `gachaweapon/{iconId}` (through ItemTable), only when listed in the asset index. Bonus entries without an item get neither URL (`PullItemIconUrlBuilder`). See [`PULL_ITEM_ICONS.md`](../../docs/PULL_ITEM_ICONS.md).
 
 ### 5.4 Real-Time Progress Tracking (Mercure + Polling Fallback)
 All asynchronous pull operations — manual **Auto Sync**, nightly **Scheduled Sync**, and future **Backup Imports** (`GamesBundle\Model\Pull\PullOperationKind`) — are tracked uniformly by `GryphlineBundle\Service\Pull\PullOperationTracker` (extending `GamesBundle\Service\AbstractPullOperationTracker`):

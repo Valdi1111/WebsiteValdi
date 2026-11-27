@@ -8,6 +8,7 @@ import {
     parsePullDate,
     PULL_DATE_FORMAT,
 } from "@GamesBundle/components/pulls/manualPullDates";
+import PullItemImage from "@GamesBundle/components/pulls/PullItemImage";
 import { PlusOutlined } from "@ant-design/icons";
 import {
     Alert,
@@ -35,49 +36,19 @@ function normalizeName(name) {
     return (name || "").trim().toLowerCase();
 }
 
-function getInitials(name) {
-    if (!name) return "?";
-    const words = name.trim().split(/\s+/);
-    if (words.length === 1) {
-        return words[0].substring(0, 2).toUpperCase();
-    }
-    return (words[0][0] + words[1][0]).toUpperCase();
-}
-
 function SuggestionLabel({ item }) {
-    const [imgError, setImgError] = useState(false);
-    const showImage = Boolean(item.icon_url) && !imgError;
     const typeLabel = item.item_type_label ?? item.item_type;
 
     return (
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-            <div
-                style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: "50%",
-                    overflow: "hidden",
-                    flexShrink: 0,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: "rgba(0, 0, 0, 0.06)",
-                    fontSize: 10,
-                    fontWeight: 700,
-                }}
-            >
-                {showImage ? (
-                    <img
-                        src={item.icon_url}
-                        alt={item.name}
-                        loading="lazy"
-                        onError={() => setImgError(true)}
-                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                    />
-                ) : (
-                    getInitials(item.name)
-                )}
-            </div>
+            {/* No preview: a click on the option must select it */}
+            <PullItemImage
+                iconUrl={item.icon_url}
+                name={item.name}
+                size={24}
+                preview={false}
+                style={{ background: "rgba(0, 0, 0, 0.06)", fontSize: 10, fontWeight: 700 }}
+            />
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {item.name}
             </span>

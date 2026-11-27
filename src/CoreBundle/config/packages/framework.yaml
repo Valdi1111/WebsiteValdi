@@ -52,6 +52,4 @@ framework:
             Symfony\Component\Mailer\Messenger\SendEmailMessage: core_async
             Symfony\Component\Notifier\Message\ChatMessage: core_async
             Symfony\Component\Notifier\Message\SmsMessage: core_async
-            App\CoreBundle\Message\Chat\ExecuteChatCommandMessage: core_chat
-            App\CoreBundle\Message\Chat\HandleChatActionMessage: core_chat
 

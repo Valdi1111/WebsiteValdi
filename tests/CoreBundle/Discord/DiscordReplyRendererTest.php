@@ -100,6 +100,18 @@ class DiscordReplyRendererTest extends TestCase
         $this->assertSame($expected, $this->renderer->render(new ChatReply(actionRows: [[self::action('Next', '2')]])));
     }
 
+    public function testThePageGoesUnderTheTextOnlyWhenThereAreSeveral(): void
+    {
+        $embeds = [new UniversalEmbed()->setTitle('Stamina')];
+
+        $this->assertSame('Page 2/3', $this->renderer->render(new ChatReply(null, $embeds, [], 2, 3))['content']);
+        $this->assertSame("Your profiles\nPage 1/2", $this->renderer->render(new ChatReply('Your profiles', $embeds, [], 1, 2))['content']);
+        $this->assertSame('Your profiles', $this->renderer->render(new ChatReply('Your profiles', $embeds, [], 1, 1))['content']);
+        $this->assertSame('', $this->renderer->render(new ChatReply(null, $embeds))['content']);
+        // The page alone is not an answer
+        $this->assertSame(ChatReply::ERROR, $this->renderer->render(new ChatReply(null, [], [], 2, 3))['content']);
+    }
+
     public function testContentIsCutToTwoThousandCharacters(): void
     {
         $content = $this->renderer->render(ChatReply::text(str_repeat('é', 2500)))['content'];

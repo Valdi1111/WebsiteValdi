@@ -1,0 +1,10 @@
+# Descriptions of the game chat commands and their options (Discord description_localizations, Telegram
+# setMyCommands): the key is the English text of #[AsChatCommand] or ChatCommandBuilder. The answers stay in English.
+'Only the profiles of this game': 'Solo i profili di questo gioco'
+'Only this profile': 'Solo questo profilo'
+'Show the status of your game profiles': 'Mostra lo stato dei tuoi profili di gioco'
+'Show the stamina of your game profiles': 'Mostra la stamina dei tuoi profili di gioco'
+'Show the daily activities of your game profiles': 'Mostra le attività giornaliere dei tuoi profili di gioco'
+'Show the weekly activities of your game profiles': 'Mostra le attività settimanali dei tuoi profili di gioco'
+'Show the endgame modes of your game profiles': 'Mostra le modalità endgame dei tuoi profili di gioco'
+'Show your game profiles and their reminders': 'Mostra i tuoi profili di gioco e i loro reminder'

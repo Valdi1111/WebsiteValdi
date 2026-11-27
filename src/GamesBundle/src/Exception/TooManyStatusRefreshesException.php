@@ -11,9 +11,11 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class TooManyStatusRefreshesException extends \RuntimeException implements UserFacingHttpExceptionInterface
 {
+    public const string MESSAGE = 'Too many refreshes of this profile: try again in a few minutes.';
+
     public function __construct(public readonly \DateTimeImmutable $retryAfter)
     {
-        parent::__construct('Too many refreshes of this profile: try again in a few minutes.');
+        parent::__construct(self::MESSAGE);
     }
 
     public function getStatusCode(): int

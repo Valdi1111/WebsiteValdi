@@ -44,3 +44,4 @@ when@test:
             transports:
                 # The test suite has no database: the emails and chat messages (CoreBundle) stay in memory
                 core_async: 'in-memory://'
+                core_chat: 'in-memory://'

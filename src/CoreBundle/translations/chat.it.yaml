@@ -1,0 +1,3 @@
+# Descriptions of the chat commands, their options and subcommands (Discord description_localizations, Telegram
+# setMyCommands): the key is the English text of #[AsChatCommand] or ChatCommandBuilder. The answers stay in English.
+'List the commands you can use': 'Elenca i comandi che puoi usare'

@@ -6,6 +6,13 @@ framework:
             discord.client:
                 base_uri: 'https://discord.com/api/v10/'
                 timeout: 10
+            # Discord API as the bot of the application (DISCORD_BOT_TOKEN), only to sync the slash commands
+            # (chat:commands:sync). The answers to the interactions go through discord.client: their token is in the URL
+            discord.bot.client:
+                base_uri: 'https://discord.com/api/v10/'
+                timeout: 10
+                headers:
+                    Authorization: 'Bot %env(DISCORD_BOT_TOKEN)%'
             # OpenID Connect of Telegram, for linking the account (TelegramOAuthClient): "token" and
             # ".well-known/jwks.json". The bot messages go through the notifier transport instead
             telegram.oauth.client:
@@ -32,8 +39,19 @@ framework:
                 retry_strategy:
                     max_retries: 3
                     multiplier: 2
+            # Chat commands and button presses (Discord, Telegram) run here, on workers of their own so that an answer
+            # never waits behind the reminders. No retry: a Discord interaction token lasts 15 minutes, and the handlers
+            # always close the deferred answer themselves
+            core_chat:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    queue_name: core_chat
+                retry_strategy:
+                    max_retries: 0
         routing:
             Symfony\Component\Mailer\Messenger\SendEmailMessage: core_async
             Symfony\Component\Notifier\Message\ChatMessage: core_async
             Symfony\Component\Notifier\Message\SmsMessage: core_async
+            App\CoreBundle\Message\Chat\ExecuteChatCommandMessage: core_chat
+            App\CoreBundle\Message\Chat\HandleChatActionMessage: core_chat
 

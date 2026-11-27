@@ -71,32 +71,38 @@ echo "6) Warmup cache"
 # Warmup production cache directly (stale cache was already cleared in step 3)
 php bin/console cache:warmup --env=prod
 
-echo "7) Install Symfony assets"
+echo "7) Sync the chat bot commands with Discord"
+# Replaces every global slash command of the Discord application with the commands of this version. Skipped with a
+# note while DISCORD_BOT_TOKEN is empty; a failure (Discord unreachable, token revoked) only warns: the site itself is
+# deployed, and the commands can be synced again by hand with the same command.
+php bin/console chat:commands:sync --platform=discord --env=prod || echo " - [WARNING] The Discord commands were not synced: run \"php bin/console chat:commands:sync --platform=discord --env=prod\" again." >&2
+
+echo "8) Install Symfony assets"
 php bin/console assets:install public --no-interaction
 
-echo "8) Install Node dependencies (frontend)"
+echo "9) Install Node dependencies (frontend)"
 npm ci
 
-echo "9) Build frontend"
+echo "10) Build frontend"
 npm run build
 
-echo "10) Install Node dependencies (node-services)"
+echo "11) Install Node dependencies (node-services)"
 cd "$NODE_SERVICES_DIR"
 npm ci --omit=dev
 npx playwright install chromium
 cd "$APP_DIR"
 
-echo "11) Restart node services"
+echo "12) Restart node services"
 sudo supervisorctl restart "$SUPERVISOR_NODE_SERVICE"
 
-echo "12) Restart messenger workers"
+echo "13) Restart messenger workers"
 php bin/console messenger:stop-workers
 
-#echo "13) Reset OPcache & PHP-FPM"
+#echo "14) Reset OPcache & PHP-FPM"
 # Reload PHP-FPM to flush OPcache without dropping in-flight HTTP requests
 #sudo systemctl reload "$PHP_FPM_SERVICE"
 
-echo "14) Update the deploy script"
+echo "15) Update the deploy script"
 # Replace this script with the version just pulled, so changes to it are deployed too.
 # The new file is written next to it and moved over it: mv swaps the directory entry to a new inode, while the
 # running bash keeps reading the old file it has open. This run therefore finishes with the old code, and the

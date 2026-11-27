@@ -10,6 +10,7 @@ node|node-services|||
 
 # Messenger workers
 messenger|core|core_async|--limit=100 --time-limit=3600|
+messenger-multi|core-chat|core_chat|--limit=100 --time-limit=3600|2
 messenger|hoyoverse|hoyoverse|--limit=100 --time-limit=3600|
 messenger|hoyoverse-diary|hoyoverse_diary|--limit=100 --time-limit=3600|
 messenger|hoyoverse-redeem|hoyoverse_redeem|--limit=100 --time-limit=3600|

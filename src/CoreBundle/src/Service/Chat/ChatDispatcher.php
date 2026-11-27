@@ -150,33 +150,59 @@ class ChatDispatcher implements ChatDispatcherInterface
         string $locale,
         ChatReplyTarget $target,
     ): ChatDispatchResult {
+        $prepared = $this->prepareAction($platform, $platformUserId, $actionData, $locale, $target);
+        if ($prepared instanceof ChatReply) {
+            return ChatDispatchResult::immediate($prepared);
+        }
+
+        try {
+            $this->bus->dispatch($prepared);
+        } catch (\Throwable $e) {
+            return ChatDispatchResult::immediate($this->failure('Chat action not dispatched: {error}', $e, ['platform' => $platform->value]));
+        }
+
+        // The answer edits the message of the button, which keeps its visibility
+        return ChatDispatchResult::deferred(true);
+    }
+
+    /**
+     * The checks of a button press (user, button data, handler, authorize()), without queueing it: dispatchAction()
+     * queues the result, and a platform that runs the press itself (Telegram, from its worker) answers the button first,
+     * then gives the result to ChatExecutor::handleAction(). A refusal is the answer for the user alone.
+     *
+     * @return HandleChatActionMessage|ChatReply the authorized press, or the refusal
+     */
+    public function prepareAction(
+        ChatPlatform $platform,
+        string $platformUserId,
+        string $actionData,
+        string $locale,
+        ChatReplyTarget $target,
+    ): HandleChatActionMessage|ChatReply {
         try {
             $user = $this->resolveUser($platform, $platformUserId);
             if ($user instanceof ChatReply) {
-                return ChatDispatchResult::immediate($user);
+                return $user;
             }
 
             // The data comes from the platform: anything that is not a known button is refused the same way
             try {
                 $ref = $this->codec->decode($actionData);
             } catch (InvalidChatActionRefException) {
-                return ChatDispatchResult::immediate(ChatReply::error(self::INVALID_ACTION));
+                return ChatReply::error(self::INVALID_ACTION);
             }
             if (!$this->actions->has($ref->handler)) {
-                return ChatDispatchResult::immediate(ChatReply::error(self::INVALID_ACTION));
+                return ChatReply::error(self::INVALID_ACTION);
             }
 
             $refusal = $this->actions->get($ref->handler)->authorize($user, $ref);
             if ($refusal !== null) {
-                return ChatDispatchResult::immediate(ChatReply::error($refusal));
+                return ChatReply::error($refusal);
             }
 
-            $this->bus->dispatch(new HandleChatActionMessage((int) $user->user->getId(), $platform, $platformUserId, $ref, $locale, $target));
-
-            // The answer edits the message of the button, which keeps its visibility
-            return ChatDispatchResult::deferred(true);
+            return new HandleChatActionMessage((int) $user->user->getId(), $platform, $platformUserId, $ref, $locale, $target);
         } catch (\Throwable $e) {
-            return ChatDispatchResult::immediate($this->failure('Chat action not dispatched: {error}', $e, ['platform' => $platform->value]));
+            return $this->failure('Chat action not authorized: {error}', $e, ['platform' => $platform->value]);
         }
     }
 

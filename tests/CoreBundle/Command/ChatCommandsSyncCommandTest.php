@@ -10,7 +10,9 @@ use App\CoreBundle\Model\Chat\ChatReply;
 use App\CoreBundle\Model\Chat\ChatRequest;
 use App\CoreBundle\Service\Chat\ChatCommandRegistry;
 use App\CoreBundle\Service\Chat\Discord\DiscordCommandPayloadBuilder;
+use App\CoreBundle\Service\Chat\Telegram\TelegramCommandPayloadBuilder;
 use App\CoreBundle\Service\Discord\DiscordBotApiClient;
+use App\CoreBundle\Service\Telegram\TelegramBotApiClient;
 use App\CoreBundle\Service\UserRoleResolver;
 use App\Tests\CoreBundle\FakeDiscordApi;
 use PHPUnit\Framework\TestCase;
@@ -18,6 +20,7 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\DependencyInjection\ServiceLocator;
+use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\Translation\Loader\ArrayLoader;
 use Symfony\Component\Translation\Translator;
 
@@ -76,6 +79,9 @@ class ChatCommandsSyncCommandTest extends TestCase
             $registry,
             new DiscordCommandPayloadBuilder($translator),
             new DiscordBotApiClient($this->discord->client(), $botToken),
+            new TelegramCommandPayloadBuilder($translator),
+            // Telegram has its own tests (Telegram\Outbound\ChatCommandsSyncTelegramTest): never reached here
+            new TelegramBotApiClient(new MockHttpClient(), ''),
         ));
     }
 
@@ -172,15 +178,6 @@ class ChatCommandsSyncCommandTest extends TestCase
         }]);
 
         $this->assertSame(Command::FAILURE, $tester->execute([]));
-        $this->assertSame([], $this->discord->requests);
-    }
-
-    public function testTelegramCommandsAreNotImplementedYet(): void
-    {
-        $tester = $this->tester();
-
-        $this->assertSame(Command::FAILURE, $tester->execute(['--platform' => 'telegram']));
-        $this->assertStringContainsString('Telegram commands are not implemented yet', $tester->getDisplay());
         $this->assertSame([], $this->discord->requests);
     }
 

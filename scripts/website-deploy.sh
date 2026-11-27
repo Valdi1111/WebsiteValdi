@@ -71,11 +71,13 @@ echo "6) Warmup cache"
 # Warmup production cache directly (stale cache was already cleared in step 3)
 php bin/console cache:warmup --env=prod
 
-echo "7) Sync the chat bot commands with Discord"
-# Replaces every global slash command of the Discord application with the commands of this version. Skipped with a
-# note while DISCORD_BOT_TOKEN is empty; a failure (Discord unreachable, token revoked) only warns: the site itself is
-# deployed, and the commands can be synced again by hand with the same command.
+echo "7) Sync the chat bot commands with Discord and Telegram"
+# Replaces every global slash command of the Discord application, and the command menu of the Telegram bot (private
+# chats), with the commands of this version. Each is skipped with a note while its token is empty; a failure (service
+# unreachable, token revoked) only warns: the site itself is deployed, and the commands can be synced again by hand
+# with the same command.
 php bin/console chat:commands:sync --platform=discord --env=prod || echo " - [WARNING] The Discord commands were not synced: run \"php bin/console chat:commands:sync --platform=discord --env=prod\" again." >&2
+php bin/console chat:commands:sync --platform=telegram --env=prod || echo " - [WARNING] The Telegram command menu was not synced: run \"php bin/console chat:commands:sync --platform=telegram --env=prod\" again." >&2
 
 echo "8) Install Symfony assets"
 php bin/console assets:install public --no-interaction
@@ -98,11 +100,18 @@ sudo supervisorctl restart "$SUPERVISOR_NODE_SERVICE"
 echo "13) Restart messenger workers"
 php bin/console messenger:stop-workers
 
-#echo "14) Reset OPcache & PHP-FPM"
+echo "14) Point the Telegram bot to its webhook"
+# After the workers restart: the updates are handled by the core_chat workers, which must run this version.
+# Sends the Telegram updates (chat commands, buttons) to ${DEFAULT_URI}/webhook/telegram with TELEGRAM_WEBHOOK_SECRET.
+# Skipped with a note while TELEGRAM_DSN has no bot token or the secret is empty; a failure (Telegram unreachable, URL
+# refused) only warns: the site itself is deployed, and the webhook can be set again by hand with the same command.
+php bin/console telegram:webhook:set --env=prod || echo " - [WARNING] The Telegram webhook was not set: run \"php bin/console telegram:webhook:set --env=prod\" again (\"telegram:webhook:info\" shows its state)." >&2
+
+#echo "15) Reset OPcache & PHP-FPM"
 # Reload PHP-FPM to flush OPcache without dropping in-flight HTTP requests
 #sudo systemctl reload "$PHP_FPM_SERVICE"
 
-echo "15) Update the deploy script"
+echo "16) Update the deploy script"
 # Replace this script with the version just pulled, so changes to it are deployed too.
 # The new file is written next to it and moved over it: mv swaps the directory entry to a new inode, while the
 # running bash keeps reading the old file it has open. This run therefore finishes with the old code, and the

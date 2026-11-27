@@ -123,7 +123,9 @@ class ChatPaginatorTest extends TestCase
     public function testTelegramPagesHoldItsMessageLength(): void
     {
         $this->assertSame(4096, ChatPaginator::maxCharacters(ChatPlatform::Telegram));
-        $this->assertSame([2, 1], $this->pageSizes([self::embed(2048), self::embed(2048), self::embed(1)], ChatPlatform::Telegram));
+        // Measured on the text Telegram shows (Telegram\Outbound\TelegramPaginationTest): the blank line under a title
+        // and the separators count too
+        $this->assertSame([1, 2], $this->pageSizes([self::embed(2048), self::embed(2048), self::embed(1)], ChatPlatform::Telegram));
         $this->assertSame([3], $this->pageSizes([self::embed(2048), self::embed(2048), self::embed(1)], ChatPlatform::Cli));
     }
 

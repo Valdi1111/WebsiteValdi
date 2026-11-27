@@ -23,6 +23,34 @@ export function getPityColor(pity, maxPity = 90) {
     return { border: "#ff4d4f", bg: "rgba(255, 77, 79, 0.14)", badgeBg: "#cf1322", text: "#ff4d4f" };
 }
 
+/**
+ * "UP" badge of a rate-up item, on the top-left corner of its image circle (the positioned parent), the same on the
+ * "Recent S" circles and on the thumbnails of the pulls list. Other props (e.g. those of a wrapping Tooltip) go to the span.
+ */
+export function RateUpBadge({ style, ...props }) {
+    return (
+        <span
+            {...props}
+            style={{
+                position: "absolute",
+                top: -5,
+                left: -6,
+                background: "#d4380d",
+                color: "#fff",
+                fontSize: 9,
+                fontWeight: 700,
+                lineHeight: "13px",
+                padding: "0 4px",
+                borderRadius: 8,
+                border: "1.5px solid #fff",
+                ...style,
+            }}
+        >
+            UP
+        </span>
+    );
+}
+
 export function PullsRecentBadge({ pull, maxPity = 90, pullSingularLabel = "Pull" }) {
     const colorScheme = getPityColor(pull.pity, maxPity);
     // Details on hover, artwork on click
@@ -91,25 +119,7 @@ export function PullsRecentBadge({ pull, maxPity = 90, pullSingularLabel = "Pull
                         // Free pulls are muted, the badges around the circle stay readable
                         style={isFree ? { opacity: 0.6 } : undefined}
                     />
-                    {isUp && (
-                        <span
-                            style={{
-                                position: "absolute",
-                                top: -5,
-                                left: -6,
-                                background: "#d4380d",
-                                color: "#fff",
-                                fontSize: 9,
-                                fontWeight: 700,
-                                lineHeight: "13px",
-                                padding: "0 4px",
-                                borderRadius: 8,
-                                border: "1.5px solid #fff",
-                            }}
-                        >
-                            UP
-                        </span>
-                    )}
+                    {isUp && <RateUpBadge />}
                     {isFree && (
                         <span
                             style={{

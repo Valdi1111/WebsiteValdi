@@ -2,7 +2,7 @@ import { useBackendApi } from "@GamesBundle/components/BackendApiContext";
 import { useGameProvider } from "@GamesBundle/components/GameProviderContext";
 import DeclarePityModal from "@GamesBundle/components/pulls/DeclarePityModal";
 import ManualSPullModal from "@GamesBundle/components/pulls/ManualSPullModal";
-import { PullsRecentBadge, getPityColor } from "@GamesBundle/components/pulls/PullsBannerCard";
+import { PullsRecentBadge, RateUpBadge, getPityColor } from "@GamesBundle/components/pulls/PullsBannerCard";
 import PullItemImage, { usePreviewTooltip } from "@GamesBundle/components/pulls/PullItemImage";
 import {
     Row,
@@ -98,8 +98,8 @@ function pickInsertWindow(source) {
     };
 }
 
-function PullItemThumbnail({ iconUrl, previewUrl, name, borderColor, placeholder, onPreviewOpenChange }) {
-    return (
+function PullItemThumbnail({ iconUrl, previewUrl, name, borderColor, placeholder, onPreviewOpenChange, isUp = false }) {
+    const image = (
         <PullItemImage
             iconUrl={iconUrl}
             previewUrl={previewUrl}
@@ -115,6 +115,19 @@ function PullItemThumbnail({ iconUrl, previewUrl, name, borderColor, placeholder
                 color: borderColor || "inherit",
             }}
         />
+    );
+    if (!isUp) {
+        return image;
+    }
+
+    // The badge sits outside the clipped circle and outside the preview trigger: a click on it opens nothing
+    return (
+        <span style={{ position: "relative", display: "inline-flex", flexShrink: 0 }}>
+            {image}
+            <Tooltip title="Rate-up">
+                <RateUpBadge style={{ cursor: "default" }} />
+            </Tooltip>
+        </span>
     );
 }
 
@@ -402,6 +415,8 @@ export default function PullsBannerDetail({
                             previewUrl={record.preview_url}
                             name={name}
                             borderColor={rowColor}
+                            // Rate-up flag on the image: same place on every row, easy to scan down the list
+                            isUp={record.is_up === true}
                         />
                         <Text
                             strong={isTop || isSec}
@@ -421,13 +436,6 @@ export default function PullsBannerDetail({
                             <Tag color={tagColor} style={{ margin: 0 }}>
                                 {rankText}
                             </Tag>
-                        )}
-                        {record.is_up === true && (
-                            <Tooltip title="Rate-up">
-                                <Tag color="volcano" style={{ margin: 0, fontSize: 11, fontWeight: 700 }}>
-                                    UP
-                                </Tag>
-                            </Tooltip>
                         )}
                         {isFreePull(record) && (
                             <Tooltip title={`Free ${pullSingularLabel.toLowerCase()}`}>

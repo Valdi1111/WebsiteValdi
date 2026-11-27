@@ -4,10 +4,13 @@ namespace App\GryphlineBundle\Controller;
 
 use App\CoreBundle\Entity\User;
 use App\GamesBundle\Model\Game\HasManualPullsInterface;
+use App\GamesBundle\Model\Pull\Card\PullCardQuery;
 use App\GamesBundle\Model\Pull\Manual\CreateManualPullRequest;
 use App\GamesBundle\Model\Pull\Manual\DeclarePityRequest;
 use App\GamesBundle\Model\Pull\PullOperationKind;
 use App\GamesBundle\Security\GameAccountOwnerVoter;
+use App\GamesBundle\Service\Pull\Card\PullCardLimiter;
+use App\GamesBundle\Service\Pull\Card\PullCardRenderer;
 use App\GamesBundle\Service\PullItemIconUrlBuilder;
 use App\GryphlineBundle\Entity\GryphlineAccount;
 use App\GryphlineBundle\Entity\GryphlineGameProfile;
@@ -17,6 +20,7 @@ use App\GryphlineBundle\Message\Profile\SyncPullsPageProfileMessage;
 use App\GryphlineBundle\Model\Game\GameInterface;
 use App\GryphlineBundle\Model\Game\HasAutoPullImportInterface;
 use App\GryphlineBundle\Repository\GryphlinePullRepository;
+use App\GryphlineBundle\Service\Pull\GryphlinePullCardBuilder;
 use App\GryphlineBundle\Service\Pull\GryphlinePullStatsCalculator;
 use App\GryphlineBundle\Service\Pull\ManualPullService;
 use App\GryphlineBundle\Service\Pull\PullBackupImporterManager;
@@ -30,9 +34,10 @@ use Symfony\Component\DependencyInjection\ServiceLocator;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Attribute\MapQueryString;
+use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
-use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Mercure\Authorization;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -400,6 +405,32 @@ class ApiGameProfilesController extends AbstractController
             'page' => $page,
             'limit' => $limit,
         ]);
+    }
+
+    /**
+     * The shareable pulls card (PNG download): one banner, or every banner with pulls; see PullCardQuery.
+     */
+    #[Route('/gameProfiles/{gameProfile}/pulls/card', name: 'pulls_card', requirements: ['gameProfile' => '\d+'], methods: ['GET'])]
+    public function apiGameProfilePullsCard(
+        #[CurrentUser] User $user,
+        #[MapEntity(message: "Gryphline Account not found.")] GryphlineAccount $account,
+        #[MapEntity(message: "Game profile not found.")] GryphlineGameProfile $gameProfile,
+        GryphlinePullCardBuilder $cardBuilder,
+        PullCardRenderer $cardRenderer,
+        PullCardLimiter $cardLimiter,
+        #[MapQueryString]
+        PullCardQuery $query = new PullCardQuery(),
+    ): Response {
+        $this->assertProfileOfAccount($account, $gameProfile);
+        $cardLimiter->consume($user);
+
+        try {
+            $card = $cardBuilder->build($gameProfile, $query->banner, $query->all, $query->player);
+        } catch (\InvalidArgumentException $e) {
+            throw new BadRequestHttpException($e->getMessage(), $e);
+        }
+
+        return $cardRenderer->renderResponse($card);
     }
 
     #[Route('/gameProfiles/{gameProfile}/pulls/manual/suggestions', name: 'pulls_manual_suggestions', requirements: ['gameProfile' => '\d+'], methods: ['GET'])]

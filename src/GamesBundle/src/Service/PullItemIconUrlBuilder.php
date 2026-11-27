@@ -43,13 +43,24 @@ class PullItemIconUrlBuilder
         }
 
         foreach ($rows as &$row) {
-            $path = self::hasItem($row) ? $this->buildPath($gameService, PullItemIconQuery::fromPullRow($row)) : null;
+            $path = $this->buildRowPath($gameService, $row);
             $row['icon_url'] = $path !== null ? $this->cacheManager->getBrowserPath($path, self::FILTER_NAME) : null;
             $row['preview_url'] = $path !== null ? $this->cacheManager->getBrowserPath($path, self::PREVIEW_FILTER_NAME) : null;
         }
         unset($row);
 
         return $rows;
+    }
+
+    /**
+     * Path of the item of a pull-shaped row in the filter sets, null when it has no image to look up.
+     *
+     * @param class-string|object $gameService
+     * @param array<string, mixed> $row
+     */
+    public function buildRowPath(string|object $gameService, array $row): ?string
+    {
+        return self::hasItem($row) ? $this->buildPath($gameService, PullItemIconQuery::fromPullRow($row)) : null;
     }
 
     /**

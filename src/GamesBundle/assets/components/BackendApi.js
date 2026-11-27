@@ -27,6 +27,7 @@ import axios from "axios";
  * @property {(accountId: string|number, gameProfileId: string|number, pullId: string|number, pity: number|null) => Promise<axios.AxiosResponse<any>>} declarePullPity
  * @property {(accountId: string|number, gameProfileId: string|number, pullId: string|number) => Promise<axios.AxiosResponse<any>>} deleteManualPull
  * @property {(accountId: string|number, gameProfileId: string|number) => Promise<axios.AxiosResponse<any>>} importSRankHistory
+ * @property {(accountId: string|number, gameProfileId: string|number, params: { banner?: string, all?: boolean, player?: boolean }) => Promise<axios.AxiosResponse<Blob>>} getPullsCard
  */
 
 /**
@@ -112,6 +113,22 @@ export default function (apiUrl, { message }) {
         axiosInstance.get(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls/overview`);
     api._gameProfiles.getPulls = async (accountId, gameProfileId, params) =>
         axiosInstance.get(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls`, { params });
+    // Shareable card of the pulls (PNG). Errors come back as a Blob too: their problem details are parsed back, so
+    // that withErrorHandling() shows them like any other error
+    api._gameProfiles.getPullsCard = async (accountId, gameProfileId, params) =>
+        axiosInstance
+            .get(`/accounts/${accountId}/gameProfiles/${gameProfileId}/pulls/card`, { params, responseType: "blob" })
+            .catch(async (err) => {
+                const data = err.response?.data;
+                if (data instanceof Blob) {
+                    try {
+                        err.response.data = JSON.parse(await data.text());
+                    } catch {
+                        // Not JSON: left as it is
+                    }
+                }
+                throw err;
+            });
 
     // Manual pulls (missing history): add an earlier S, declare the real pity of an S, delete a manual S
     api._gameProfiles.getManualPullSuggestions = async (accountId, gameProfileId, bannerKey) =>

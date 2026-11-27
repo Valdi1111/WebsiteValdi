@@ -6,6 +6,7 @@ import { useGameProvider } from "@GamesBundle/components/GameProviderContext";
 import PullsBannerCard from "@GamesBundle/components/pulls/PullsBannerCard";
 import PullsMonthlyChart from "@GamesBundle/components/pulls/PullsMonthlyChart";
 import PullsBannerDetail from "@GamesBundle/components/pulls/PullsBannerDetail";
+import PullsShareModal from "@GamesBundle/components/pulls/PullsShareModal";
 import {
     ArrowLeftOutlined,
     SyncOutlined,
@@ -14,6 +15,7 @@ import {
     ImportOutlined,
     DownOutlined,
     FileTextOutlined,
+    ShareAltOutlined,
 } from "@ant-design/icons";
 import {
     Typography,
@@ -63,6 +65,7 @@ export default function PullsPage() {
     const [openExtraImporterKey, setOpenExtraImporterKey] = useState(null);
     const [selectedBackupImporter, setSelectedBackupImporter] = useState(null);
     const [syncingPulls, setSyncingPulls] = useState(false);
+    const [shareOpen, setShareOpen] = useState(false);
 
     const fetchBannerDetail = useCallback(
         (targetBannerKey, targetPage, targetPageSize, targetRarities, targetSearch) => {
@@ -385,6 +388,12 @@ export default function PullsPage() {
                             </Dropdown>
                         )}
 
+                        {banners.some((b) => b.total_pulls > 0) && (
+                            <Button icon={<ShareAltOutlined />} onClick={() => setShareOpen(true)}>
+                                {!isMobile && "Share"}
+                            </Button>
+                        )}
+
                         <Button
                             icon={<ReloadOutlined />}
                             loading={loadingOverview || loadingDetail}
@@ -523,6 +532,17 @@ export default function PullsPage() {
                         applyOperationUpdate(op);
                     }
                 }}
+            />
+
+            {/* Shareable image of the pulls (the banner on screen, or all of them) */}
+            <PullsShareModal
+                open={shareOpen}
+                onClose={() => setShareOpen(false)}
+                accountId={accountId}
+                gameProfileId={profile?.id ?? gameProfileId}
+                banners={banners}
+                initialBannerKey={selectedBannerKey}
+                rarityConfig={rarityConfig}
             />
         </div>
     );

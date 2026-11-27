@@ -125,6 +125,7 @@ class PerfectworldPullStatsCalculator
      * @return array{
      *     summary: array<string, mixed>,
      *     items: list<array<string, mixed>>,
+     *     s_pulls: list<array<string, mixed>>,
      *     monthly: array<string, array{month: string, total: int, s_count: int, a_count: int}>
      * }
      */
@@ -273,6 +274,8 @@ class PerfectworldPullStatsCalculator
                 'oldest_s' => $sPulls[0] ?? null,
             ] + ($listPools ? ['pools' => array_values($pools)] : []),
             'items' => $items,
+            // Every S, newest first (recent_s_pulls is capped): the shareable card can show them all
+            's_pulls' => array_reverse($sPulls),
             'monthly' => $monthly,
         ];
     }

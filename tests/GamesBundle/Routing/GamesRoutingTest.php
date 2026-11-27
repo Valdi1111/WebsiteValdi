@@ -76,6 +76,8 @@ class GamesRoutingTest extends KernelTestCase
             yield $provider . ' declare pity' => ['PATCH', $base . '/3/declared-pity', $name . 'pulls_declared_pity'];
             yield $provider . ' delete manual S' => ['DELETE', $base . '/3', $name . 'pulls_manual_delete'];
             yield $provider . ' list keeps GET' => ['GET', $base, $name . 'pulls_list'];
+            // Shareable card: a static segment, never taken for a pull id
+            yield $provider . ' shareable card' => ['GET', $base . '/card', $name . 'pulls_card'];
         }
     }
 

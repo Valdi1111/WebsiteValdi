@@ -1,3 +1,12 @@
+parameters:
+    # Web root of the LiipImagine web_path resolver (config/packages/liip_imagine.yaml), where the resized images are
+    # stored: the shareable pulls card reads its icons from there
+    games.liip_web_root: '%kernel.project_dir%/public'
+
+when@test:
+    parameters:
+        games.liip_web_root: '%kernel.cache_dir%/public'
+
 services:
     # default configuration for services in *this* file
     _defaults:

@@ -6,3 +6,9 @@ framework:
             policy: sliding_window
             limit: 3
             interval: '10 minutes'
+        # Shareable pulls cards (PullCardLimiter), per user: each one keeps the headless browser of node-services busy
+        # for a few seconds. Room for trying the options a few times
+        games_pull_card:
+            policy: sliding_window
+            limit: 20
+            interval: '10 minutes'

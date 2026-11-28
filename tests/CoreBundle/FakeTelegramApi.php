@@ -81,6 +81,10 @@ final class FakeTelegramApi
     public function client(?string $baseUri = null): MockHttpClient
     {
         return new MockHttpClient(function (string $method, string $url, array $options): MockResponse {
+            // A file upload comes as a callback the response reads after this one: kept as a string for the assertions
+            if (($options['body'] ?? null) instanceof \Closure) {
+                $options['body'] = MultipartBody::read($options['body']);
+            }
             $this->requests[] = ['method' => $method, 'url' => $url, 'options' => $options];
 
             return match ($method.' '.$url) {
@@ -104,7 +108,8 @@ final class FakeTelegramApi
     }
 
     /**
-     * The Bot API calls made, in order, with their JSON parameters.
+     * The Bot API calls made, in order, with their JSON parameters; those of a file upload (sendPhoto, sendDocument) as
+     * MultipartBody::parse() gives them, the fields as strings.
      *
      * @return list<array{method: string, params: array<string, mixed>}>
      */
@@ -115,7 +120,11 @@ final class FakeTelegramApi
         foreach ($this->requests as $request) {
             if (str_starts_with($request['url'], $prefix)) {
                 $body = $request['options']['body'] ?? '';
-                $calls[] = ['method' => substr($request['url'], strlen($prefix)), 'params' => is_string($body) && $body !== '' ? json_decode($body, true, flags: \JSON_THROW_ON_ERROR) : []];
+                $calls[] = ['method' => substr($request['url'], strlen($prefix)), 'params' => match (true) {
+                    !is_string($body) || $body === '' => [],
+                    MultipartBody::isMultipart($request['options']) => MultipartBody::parse($body, MultipartBody::contentType($request['options'])),
+                    default => json_decode($body, true, flags: \JSON_THROW_ON_ERROR),
+                }];
             }
         }
 

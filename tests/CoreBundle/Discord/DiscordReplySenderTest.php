@@ -5,6 +5,7 @@ namespace App\Tests\CoreBundle\Discord;
 use App\CoreBundle\Exception\ChatReplyNotSentException;
 use App\CoreBundle\Model\Chat\ChatAction;
 use App\CoreBundle\Model\Chat\ChatActionRef;
+use App\CoreBundle\Model\Chat\ChatImage;
 use App\CoreBundle\Model\Chat\ChatPlatform;
 use App\CoreBundle\Model\Chat\ChatReply;
 use App\CoreBundle\Model\Chat\ChatReplyMode;
@@ -20,12 +21,14 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\ErrorHandler\BufferingLogger;
 
 /**
- * DiscordReplySender against FakeDiscordApi: the webhook calls of each mode, the text-only retry, and that the
- * interaction token (in the URL) never reaches an exception or a log.
+ * DiscordReplySender against FakeDiscordApi: the webhook calls of each mode, an image uploaded as multipart, the
+ * text-only retry, and that the interaction token (in the URL) never reaches an exception or a log.
  */
 class DiscordReplySenderTest extends TestCase
 {
     private const string TOKEN = 'aW50ZXJhY3Rpb246c2VjcmV0LXRva2Vu';
+    /** Bytes no text encoding would keep: a line break, a NUL, an invalid UTF-8 byte */
+    private const string PNG = "\x89PNG\r\n\x1a\n\0\xFF--card";
 
     private FakeDiscordApi $discord;
     private BufferingLogger $logger;
@@ -46,6 +49,16 @@ class DiscordReplySenderTest extends TestCase
         $renderer = new DiscordReplyRenderer(new DiscordEmbedTransformer(), new DiscordEmbedLimiter(), new ChatActionCodec());
 
         return new DiscordReplySender($this->discord->client(), $renderer, $this->logger);
+    }
+
+    private static function imageReply(?string $text = 'Your pulls'): ChatReply
+    {
+        return ChatReply::image(new ChatImage('pulls-nelly.png', 'image/png', self::PNG, 2400, 1880, 'Pulls of Nelly'), $text);
+    }
+
+    private function contentType(int $index): string
+    {
+        return $this->discord->requests[$index]['options']['normalized_headers']['content-type'][0] ?? '';
     }
 
     private static function target(): ChatReplyTarget
@@ -186,6 +199,102 @@ class DiscordReplySenderTest extends TestCase
 
         $this->assertInstanceOf(ChatReplyNotSentException::class, $e);
         $this->assertCount(2, $this->discord->requests);
+        $this->assertNoSecretIn($e);
+    }
+
+    public function testAnImageIsUploadedAsMultipartWithTheMessageAsPayloadJson(): void
+    {
+        $this->assertNull($this->send(ChatReplyMode::FollowUp, self::imageReply()));
+
+        $this->assertSame(['POST webhooks/'.FakeDiscordApi::APPLICATION_ID.'/'.self::TOKEN], $this->discord->requestedPaths());
+        $this->assertStringStartsWith('Content-Type: multipart/form-data; boundary=', $this->contentType(0));
+        $body = (string) $this->discord->requests[0]['options']['body'];
+        $this->assertStringContainsString('Content-Disposition: form-data; name="payload_json"', $body);
+        $this->assertStringContainsString('Content-Disposition: form-data; name="files[0]"; filename="pulls-nelly.png"', $body);
+        // The file as it is: not re-encoded
+        $this->assertStringContainsString("\r\n\r\n".self::PNG."\r\n", $body);
+
+        $parts = $this->discord->multipartBody(0);
+        $this->assertSame(['payload_json', 'files[0]'], array_keys($parts));
+        $this->assertSame(['filename' => 'pulls-nelly.png', 'contentType' => 'image/png', 'content' => self::PNG], $parts['files[0]']);
+        $this->assertSame([
+            'content' => 'Your pulls',
+            'embeds' => [],
+            'components' => [],
+            'allowed_mentions' => ['parse' => []],
+            'attachments' => [['id' => 0, 'filename' => 'pulls-nelly.png', 'description' => 'Pulls of Nelly']],
+            'flags' => 64,
+        ], json_decode($parts['payload_json'], true, flags: \JSON_THROW_ON_ERROR));
+        $this->assertNull($this->discord->authorization(0));
+    }
+
+    public function testReplaceEditsTheOriginalResponseWithTheImage(): void
+    {
+        $this->assertNull($this->send(ChatReplyMode::Replace, self::imageReply(null)));
+
+        $this->assertSame(['PATCH webhooks/'.FakeDiscordApi::APPLICATION_ID.'/'.self::TOKEN.'/messages/@original'], $this->discord->requestedPaths());
+        $this->assertStringStartsWith('Content-Type: multipart/form-data', $this->contentType(0));
+        $message = $this->discord->jsonBody(0);
+        // The deferred "thinking..." becomes the image: no text left over, the file listed
+        $this->assertSame('', $message['content']);
+        $this->assertSame([['id' => 0, 'filename' => 'pulls-nelly.png', 'description' => 'Pulls of Nelly']], $message['attachments']);
+        $this->assertArrayNotHasKey('flags', $message);
+        $this->assertSame(self::PNG, $this->discord->multipartBody(0)['files[0]']['content']);
+    }
+
+    public function testARefusedImageIsSentAgainAsJsonTextSayingSo(): void
+    {
+        $this->discord->webhookStatuses = [413, 200];
+
+        $this->assertNull($this->send(ChatReplyMode::FollowUp, self::imageReply()));
+
+        $this->assertCount(2, $this->discord->requests);
+        $this->assertSame($this->discord->requestedPaths()[0], $this->discord->requestedPaths()[1]);
+        $this->assertStringStartsWith('Content-Type: multipart/form-data', $this->contentType(0));
+        $this->assertSame('Content-Type: application/json', $this->contentType(1));
+        $this->assertSame(
+            ['content' => "Your pulls\n".ChatReply::IMAGE_NOT_SENT, 'embeds' => [], 'components' => [], 'allowed_mentions' => ['parse' => []], 'flags' => 64],
+            $this->discord->jsonBody(1),
+        );
+        $this->assertStringNotContainsString(self::PNG, (string) $this->discord->requests[1]['options']['body']);
+        $logs = $this->logger->cleanLogs();
+        $this->assertSame('warning', $logs[0][0]);
+        $this->assertSame(413, $logs[0][2]['status']);
+    }
+
+    public function testARefusedImageWithoutTextIsReplacedBySayingSo(): void
+    {
+        $this->discord->webhookStatuses = [400, 200];
+
+        $this->assertNull($this->send(ChatReplyMode::Replace, self::imageReply(null)));
+
+        $this->assertSame(
+            ['content' => ChatReply::IMAGE_NOT_SENT, 'embeds' => [], 'components' => [], 'allowed_mentions' => ['parse' => []]],
+            $this->discord->jsonBody(1),
+        );
+    }
+
+    public function testAServerErrorOnAnImageIsNotRetried(): void
+    {
+        $this->discord->webhookStatuses = [502];
+
+        $e = $this->send(ChatReplyMode::FollowUp, self::imageReply());
+
+        $this->assertInstanceOf(ChatReplyNotSentException::class, $e);
+        $this->assertSame(502, $e->statusCode);
+        $this->assertCount(1, $this->discord->requests);
+        $this->assertNoSecretIn($e);
+    }
+
+    public function testATransportErrorOnAnImageThrowsWithoutTheUrl(): void
+    {
+        $this->discord->webhookStatuses = [FakeDiscordApi::TRANSPORT_ERROR];
+
+        $e = $this->send(ChatReplyMode::FollowUp, self::imageReply());
+
+        $this->assertInstanceOf(ChatReplyNotSentException::class, $e);
+        $this->assertNull($e->statusCode);
+        $this->assertCount(1, $this->discord->requests);
         $this->assertNoSecretIn($e);
     }
 

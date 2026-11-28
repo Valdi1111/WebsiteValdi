@@ -5,6 +5,7 @@ namespace App\Tests\CoreBundle\Discord;
 use App\CoreBundle\Model\Chat\ChatAction;
 use App\CoreBundle\Model\Chat\ChatActionRef;
 use App\CoreBundle\Model\Chat\ChatActionStyle;
+use App\CoreBundle\Model\Chat\ChatImage;
 use App\CoreBundle\Model\Chat\ChatReply;
 use App\CoreBundle\Model\Notification\UniversalEmbed;
 use App\CoreBundle\Service\Chat\ChatActionCodec;
@@ -16,7 +17,8 @@ use Symfony\Component\ErrorHandler\BufferingLogger;
 
 /**
  * ChatReply → Discord message payload: the keys always present (an edit must clear what it does not repeat), embeds
- * through the notifier transformer and the limiter, buttons within the limits of Discord.
+ * through the notifier transformer and the limiter, buttons within the limits of Discord, an image as the attachment
+ * of the uploaded file.
  */
 class DiscordReplyRendererTest extends TestCase
 {
@@ -37,6 +39,11 @@ class DiscordReplyRendererTest extends TestCase
     private static function action(string $label, string ...$args): ChatAction
     {
         return new ChatAction($label, new ChatActionRef('page', $args));
+    }
+
+    private static function image(?string $description = 'Pulls of Nelly'): ChatImage
+    {
+        return new ChatImage('pulls-nelly.png', 'image/png', "\x89PNG\r\n\x1a\n", 2400, 1880, $description);
     }
 
     /**
@@ -195,5 +202,46 @@ class DiscordReplyRendererTest extends TestCase
         );
         $this->assertSame(ChatReply::ERROR, $this->renderer->renderText(ChatReply::embeds([$embed]))['content']);
         $this->assertSame(2000, mb_strlen($this->renderer->renderText(ChatReply::text(str_repeat('a', 3000)))['content']));
+    }
+
+    public function testAnImageIsTheAttachmentOfTheUploadedFile(): void
+    {
+        $this->assertSame([
+            'content' => 'Your pulls',
+            'embeds' => [],
+            'components' => [],
+            'allowed_mentions' => ['parse' => []],
+            // The file itself is files[0] of the request
+            'attachments' => [['id' => 0, 'filename' => 'pulls-nelly.png', 'description' => 'Pulls of Nelly']],
+        ], $this->renderer->render(ChatReply::image(self::image(), 'Your pulls')));
+    }
+
+    public function testAnImageAloneIsAnAnswerAndHasNoDescriptionWithoutOne(): void
+    {
+        $this->assertSame([
+            'content' => '',
+            'embeds' => [],
+            'components' => [],
+            'allowed_mentions' => ['parse' => []],
+            'attachments' => [['id' => 0, 'filename' => 'pulls-nelly.png']],
+        ], $this->renderer->render(ChatReply::image(self::image(null))));
+    }
+
+    public function testTheDescriptionOfTheAttachmentIsCutTo1024Characters(): void
+    {
+        $attachment = $this->renderer->render(ChatReply::image(self::image(str_repeat('é', 1500))))['attachments'][0];
+
+        $this->assertSame(str_repeat('é', DiscordReplyRenderer::MAX_ATTACHMENT_DESCRIPTION), $attachment['description']);
+    }
+
+    public function testTheTextFallbackOfAnImageSaysItWasNotSent(): void
+    {
+        $this->assertSame(
+            ['content' => "Your pulls\n".ChatReply::IMAGE_NOT_SENT, 'embeds' => [], 'components' => [], 'allowed_mentions' => ['parse' => []]],
+            $this->renderer->renderText(ChatReply::image(self::image(), 'Your pulls')),
+        );
+        // Not the generic error: the answer was there, only its image could not go
+        $this->assertSame(ChatReply::IMAGE_NOT_SENT, $this->renderer->renderText(ChatReply::image(self::image()))['content']);
+        $this->assertSame(ChatReply::IMAGE_NOT_SENT, $this->renderer->renderText(ChatReply::image(self::image(), ' '))['content']);
     }
 }

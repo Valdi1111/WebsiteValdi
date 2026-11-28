@@ -2,7 +2,9 @@
 
 namespace App\HoyoverseBundle\Service\Pull;
 
+use App\GamesBundle\Model\Game\GameProfileInterface;
 use App\GamesBundle\Model\Pull\Card\PullCard;
+use App\GamesBundle\Model\Pull\Card\PullCardBuilderInterface;
 use App\GamesBundle\Service\Pull\Card\PullCardSectionFactory;
 use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\HoyoverseBundle\Model\Game\GameInterface;
@@ -15,7 +17,7 @@ use Symfony\Component\DependencyInjection\ServiceLocator;
 /**
  * Content of the shareable pulls card of a HoYoverse game profile: one banner, or all the banners with pulls.
  */
-class HoyoversePullCardBuilder
+class HoyoversePullCardBuilder implements PullCardBuilderInterface
 {
     /** S pulls shown on the card of a single banner (with the "+N older" cell, four rows of eight) */
     public const int BANNER_LIMIT = 31;
@@ -37,6 +39,40 @@ class HoyoversePullCardBuilder
     ) {
     }
 
+    public static function getProviderKey(): string
+    {
+        return 'hoyoverse';
+    }
+
+    public function supports(GameProfileInterface $profile): bool
+    {
+        return $profile instanceof HoyoverseGameProfile && $this->findGameService($profile) !== null;
+    }
+
+    public function getBanners(GameProfileInterface $profile): array
+    {
+        $gameService = $profile instanceof HoyoverseGameProfile ? $this->findGameService($profile) : null;
+        if ($gameService === null) {
+            return [];
+        }
+
+        $banners = [];
+        foreach ($gameService->getGachaConfig()->getBannerGroups() as $key => $group) {
+            $banners[] = ['key' => (string) $key, 'name' => (string) $group['name']];
+        }
+
+        return $banners;
+    }
+
+    public function buildCard(GameProfileInterface $profile, ?string $bannerKey = null, bool $showAll = false, bool $showPlayer = false): PullCard
+    {
+        if (!$profile instanceof HoyoverseGameProfile) {
+            throw new \InvalidArgumentException('Not a HoYoverse game profile.');
+        }
+
+        return $this->build($profile, $bannerKey, $showAll, $showPlayer);
+    }
+
     /**
      * @param ?string $bannerKey  the banner group of the card, null for every banner with pulls
      * @param bool    $showAll    every S pull instead of the newest ones (the card grows with the history)
@@ -46,11 +82,7 @@ class HoyoversePullCardBuilder
      */
     public function build(HoyoverseGameProfile $profile, ?string $bannerKey = null, bool $showAll = false, bool $showPlayer = false): PullCard
     {
-        $gameId = $profile->getGameId();
-        $gameService = $gameId !== null && $this->locatorByGameId->has($gameId) ? $this->locatorByGameId->get($gameId) : null;
-        if (!$gameService instanceof GameInterface || !$gameService instanceof HasPullTrackerInterface) {
-            throw new \InvalidArgumentException('This game profile does not support pull tracking.');
-        }
+        $gameService = $this->findGameService($profile) ?? throw new \InvalidArgumentException('This game profile does not support pull tracking.');
 
         $bannerGroups = $gameService->getGachaConfig()->getBannerGroups();
         $rarityConfig = $gameService->getRarityConfig();
@@ -110,5 +142,13 @@ class HoyoversePullCardBuilder
         }
 
         throw new \InvalidArgumentException(sprintf('Unknown banner "%s".', $bannerKey));
+    }
+
+    private function findGameService(HoyoverseGameProfile $profile): (GameInterface&HasPullTrackerInterface)|null
+    {
+        $gameId = $profile->getGameId();
+        $gameService = $gameId !== null && $this->locatorByGameId->has($gameId) ? $this->locatorByGameId->get($gameId) : null;
+
+        return $gameService instanceof GameInterface && $gameService instanceof HasPullTrackerInterface ? $gameService : null;
     }
 }

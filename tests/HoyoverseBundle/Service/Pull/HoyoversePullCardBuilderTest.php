@@ -3,6 +3,7 @@
 namespace App\Tests\HoyoverseBundle\Service\Pull;
 
 use App\CoreBundle\Entity\User;
+use App\GamesBundle\Model\Game\GameProfileInterface;
 use App\GamesBundle\Model\Pull\Card\PullCardItem;
 use App\GamesBundle\Model\Pull\Card\PullCardSection;
 use App\GamesBundle\Service\Pull\Card\PullCardSectionFactory;
@@ -17,6 +18,8 @@ use App\HoyoverseBundle\Service\Pull\HoyoversePullCardBuilder;
 use App\HoyoverseBundle\Service\Pull\HoyoversePullStatsCalculator;
 use App\HoyoverseBundle\Service\Pull\HoyoverseRateUpLookupFactory;
 use App\HoyoverseBundle\Service\Pull\HoyoverseServerTimezoneResolver;
+use App\PerfectworldBundle\Entity\PerfectworldGameProfile;
+use App\Tests\GamesBundle\Status\Fixtures\FakeGameProfile;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -301,5 +304,105 @@ class HoyoversePullCardBuilderTest extends TestCase
         $card = $this->createBuilder($pullRepo)->build($this->createProfile());
 
         $this->assertSame(self::CLOCK_NOW, $card->generatedAt->format('Y-m-d H:i:s'), 'Not the server wall clock of the planner');
+    }
+
+    public function testProviderKeyIsTheOneOfTheHoyoverseProfiles(): void
+    {
+        $this->assertSame('hoyoverse', HoyoversePullCardBuilder::getProviderKey());
+    }
+
+    public function testSupportsAProfileOfAGameWithPullTracker(): void
+    {
+        $this->assertTrue($this->createBuilder($this->createStub(HoyoversePullRepository::class))->supports($this->createProfile()));
+    }
+
+    #[DataProvider('gamesWithoutPullTracker')]
+    public function testDoesNotSupportAProfileOfAGameWithoutPullTracker(?int $gameId): void
+    {
+        $builder = $this->createBuilder($this->createStub(HoyoversePullRepository::class));
+
+        $this->assertFalse($builder->supports($this->createProfile($gameId)));
+        $this->assertSame([], $builder->getBanners($this->createProfile($gameId)));
+    }
+
+    /**
+     * @return iterable<string, array{GameProfileInterface}>
+     */
+    public static function foreignProfiles(): iterable
+    {
+        yield 'fake profile' => [new FakeGameProfile(10, GenshinImpactService::GAME_BIZ)];
+        // The game id of Genshin Impact, but another provider
+        yield 'Perfect World profile' => [new PerfectworldGameProfile()->setGameId(GenshinImpactService::GAME_ID)];
+    }
+
+    #[DataProvider('foreignProfiles')]
+    public function testRefusesTheProfileOfAnotherProvider(GameProfileInterface $profile): void
+    {
+        $pullRepo = $this->createMock(HoyoversePullRepository::class);
+        $pullRepo->expects($this->never())->method('findProfileRows');
+        $pullRepo->expects($this->never())->method('findBannerRows');
+        $builder = $this->createBuilder($pullRepo);
+
+        $this->assertFalse($builder->supports($profile));
+        $this->assertSame([], $builder->getBanners($profile));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Not a HoYoverse game profile.');
+
+        $builder->buildCard($profile);
+    }
+
+    public function testBannersAreTheConfiguredGroupsInTheirOrderWithStringKeys(): void
+    {
+        $banners = $this->createBuilder($this->createStub(HoyoversePullRepository::class))->getBanners($this->createProfile());
+
+        // The gacha types are integer keys in the configuration
+        $this->assertSame([
+            ['key' => '301', 'name' => 'Character Event Wish'],
+            ['key' => '302', 'name' => 'Weapon Event Wish'],
+            ['key' => '200', 'name' => 'Standard Wish'],
+            ['key' => '100', 'name' => "Beginners' Wish"],
+            ['key' => '500', 'name' => 'Chronicled Wish'],
+        ], $banners);
+    }
+
+    public function testBuildCardBuildsTheCardOfTheProfileWithEveryOption(): void
+    {
+        $profile = $this->createProfile();
+        $rows = $this->bannerRows(self::CHARACTER_BANNER, 40, 'Char');
+        $pullRepo = $this->createMock(HoyoversePullRepository::class);
+        $pullRepo->expects($this->exactly(2))->method('findBannerRows')->with($profile, ['301', '400'])->willReturn($rows);
+        $builder = $this->createBuilder($pullRepo);
+
+        $card = $builder->buildCard($profile, self::CHARACTER_BANNER, showAll: true, showPlayer: true);
+
+        $this->assertEquals($builder->build($profile, self::CHARACTER_BANNER, true, true), $card);
+        $this->assertSame('Character Event Wish', $card->title);
+        $this->assertCount(40, $card->sections[0]->items, 'Every S pull');
+        $this->assertSame('Traveler', $card->playerName);
+        $this->assertSame('700000001', $card->playerUid);
+    }
+
+    public function testBuildCardWithoutOptionsIsTheCardOfEveryBanner(): void
+    {
+        $profile = $this->createProfile();
+        $pullRepo = $this->createMock(HoyoversePullRepository::class);
+        $pullRepo->expects($this->once())->method('findProfileRows')->with($profile)->willReturn($this->bannerRows(self::CHARACTER_BANNER, 20, 'Char'));
+        $pullRepo->expects($this->never())->method('findBannerRows');
+
+        $card = $this->createBuilder($pullRepo)->buildCard($profile);
+
+        $this->assertSame('All banners', $card->title);
+        $this->assertCount(HoyoversePullCardBuilder::PROFILE_LIMIT, $card->sections[0]->items);
+        $this->assertNull($card->playerName);
+        $this->assertNull($card->playerUid);
+    }
+
+    public function testBuildCardRefusesAProfileOfAGameWithoutPullTracker(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('This game profile does not support pull tracking.');
+
+        $this->createBuilder($this->createStub(HoyoversePullRepository::class))->buildCard($this->createProfile(HonkaiImpact3rdService::GAME_ID));
     }
 }

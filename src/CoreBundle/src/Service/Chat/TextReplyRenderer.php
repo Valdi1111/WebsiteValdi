@@ -9,7 +9,7 @@ use App\CoreBundle\Model\Notification\UniversalEmbed;
 
 /**
  * A chat answer as plain text, for chat:run: the text, then each embed (title, description, "icon name: value" fields,
- * footer), the buttons with the data they would send, and the page.
+ * footer), a line about the image, the buttons with the data they would send, and the page.
  */
 class TextReplyRenderer
 {
@@ -26,6 +26,9 @@ class TextReplyRenderer
         }
         foreach ($reply->embeds as $embed) {
             $blocks[] = $this->renderEmbed($embed);
+        }
+        if ($reply->image !== null) {
+            $blocks[] = sprintf('[image: %s, %s, %dx%d, %d KB]', $reply->image->filename, $reply->image->contentType, $reply->image->width, $reply->image->height, intdiv($reply->image->size(), 1024));
         }
         if ($reply->actionRows !== []) {
             $blocks[] = implode("\n", array_map(

@@ -28,6 +28,7 @@ class DiscordReplyRenderer
     public const int MAX_ROWS = 5;
     public const int MAX_BUTTONS_PER_ROW = 5;
     public const int MAX_LABEL = 80;
+    public const int MAX_ATTACHMENT_DESCRIPTION = 1024;
 
     public const int COMPONENT_ACTION_ROW = 1;
     public const int COMPONENT_BUTTON = 2;
@@ -48,7 +49,7 @@ class DiscordReplyRenderer
     }
 
     /**
-     * @return array{content: string, embeds: list<array<string, mixed>>, components: list<array<string, mixed>>, allowed_mentions: array{parse: list<string>}}
+     * @return array{content: string, embeds: list<array<string, mixed>>, components: list<array<string, mixed>>, allowed_mentions: array{parse: list<string>}, attachments?: list<array{id: int, filename: string, description?: string}>}
      */
     public function render(ChatReply $reply): array
     {
@@ -63,16 +64,26 @@ class DiscordReplyRenderer
         ], static fn (string $line): bool => $line !== ''))));
 
         // Nothing to show, not even after the limits: an empty message would be refused
-        if ($reply->isEmpty() || (trim($content) === '' && $embeds === [])) {
+        if ($reply->isEmpty() || (trim($content) === '' && $embeds === [] && $reply->image === null)) {
             return self::text(ChatReply::ERROR);
         }
 
-        return [
+        $payload = [
             'content' => $content,
             'embeds' => $embeds,
             'components' => $this->renderComponents($reply->actionRows),
             'allowed_mentions' => ['parse' => []],
         ];
+        if ($reply->image !== null) {
+            // The file itself goes as files[0] (DiscordReplySender); on an edit, the list is every file the message keeps
+            $payload['attachments'] = [array_filter([
+                'id' => 0,
+                'filename' => $reply->image->filename,
+                'description' => $reply->image->description !== null ? mb_substr($reply->image->description, 0, self::MAX_ATTACHMENT_DESCRIPTION) : null,
+            ], static fn (int|string|null $value): bool => $value !== null)];
+        }
+
+        return $payload;
     }
 
     /**
@@ -83,6 +94,10 @@ class DiscordReplyRenderer
     public function renderText(ChatReply $reply): array
     {
         $text = $reply->text === null || trim($reply->text) === '' ? ChatReply::ERROR : $reply->text;
+        // The image is what was refused: the text alone must not look like the whole answer
+        if ($reply->image !== null) {
+            $text = $reply->text === null || trim($reply->text) === '' ? ChatReply::IMAGE_NOT_SENT : $reply->text."\n".ChatReply::IMAGE_NOT_SENT;
+        }
 
         return self::text($text);
     }

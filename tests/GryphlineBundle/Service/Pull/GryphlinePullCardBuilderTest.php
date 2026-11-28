@@ -3,6 +3,7 @@
 namespace App\Tests\GryphlineBundle\Service\Pull;
 
 use App\CoreBundle\Entity\User;
+use App\GamesBundle\Model\Game\GameProfileInterface;
 use App\GamesBundle\Model\Pull\Card\PullCardItem;
 use App\GamesBundle\Model\Pull\Card\PullCardSection;
 use App\GamesBundle\Service\Pull\Card\PullCardSectionFactory;
@@ -18,6 +19,8 @@ use App\GryphlineBundle\Service\Pull\GryphlinePullStatsCalculator;
 use App\GryphlineBundle\Service\SkportAuthService;
 use App\GryphlineBundle\Service\SkportSignerService;
 use App\GryphlineBundle\Service\SkportUtilsService;
+use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
+use App\Tests\GamesBundle\Status\Fixtures\FakeGameProfile;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -312,5 +315,106 @@ class GryphlinePullCardBuilderTest extends TestCase
         $card = $this->createBuilder($pullRepo)->build($this->createProfile());
 
         $this->assertSame(self::CLOCK_NOW, $card->generatedAt->format('Y-m-d H:i:s'));
+    }
+
+    public function testProviderKeyIsTheOneOfTheGryphlineProfiles(): void
+    {
+        $this->assertSame('gryphline', GryphlinePullCardBuilder::getProviderKey());
+    }
+
+    public function testSupportsAProfileOfAGameWithPullTracker(): void
+    {
+        $this->assertTrue($this->createBuilder($this->createStub(GryphlinePullRepository::class))->supports($this->createProfile()));
+    }
+
+    #[DataProvider('gamesWithoutPullTracker')]
+    public function testDoesNotSupportAProfileOfAGameWithoutPullTracker(string $gameBiz): void
+    {
+        $builder = $this->createBuilder($this->createStub(GryphlinePullRepository::class));
+
+        $this->assertFalse($builder->supports($this->createProfile($gameBiz)));
+        $this->assertSame([], $builder->getBanners($this->createProfile($gameBiz)));
+    }
+
+    /**
+     * @return iterable<string, array{GameProfileInterface}>
+     */
+    public static function foreignProfiles(): iterable
+    {
+        yield 'fake profile' => [new FakeGameProfile(10, ArknightsEndfieldService::GAME_BIZ)];
+        // The game biz of Arknights: Endfield, but another provider
+        yield 'HoYoverse profile' => [new HoyoverseGameProfile()->setGameBiz(ArknightsEndfieldService::GAME_BIZ)->setGameId(ArknightsEndfieldService::GAME_ID)];
+    }
+
+    #[DataProvider('foreignProfiles')]
+    public function testRefusesTheProfileOfAnotherProvider(GameProfileInterface $profile): void
+    {
+        $pullRepo = $this->createMock(GryphlinePullRepository::class);
+        $pullRepo->expects($this->never())->method('findProfileRows');
+        $pullRepo->expects($this->never())->method('findBannerRows');
+        $builder = $this->createBuilder($pullRepo);
+
+        $this->assertFalse($builder->supports($profile));
+        $this->assertSame([], $builder->getBanners($profile));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Not a Gryphline game profile.');
+
+        $builder->buildCard($profile);
+    }
+
+    public function testBannersAreTheConfiguredGroupsInTheirOrder(): void
+    {
+        $banners = $this->createBuilder($this->createStub(GryphlinePullRepository::class))->getBanners($this->createProfile());
+
+        $this->assertSame([
+            ['key' => self::CHARTERED, 'name' => 'Chartered Headhunting'],
+            ['key' => 'E_CharacterGachaPoolType_Rerun', 'name' => 'RE-Factor Headhunting'],
+            ['key' => 'E_CharacterGachaPoolType_Joint', 'name' => 'Special Headhunting'],
+            ['key' => 'E_CharacterGachaPoolType_Standard', 'name' => 'Basic Headhunting'],
+            ['key' => self::ARSENAL, 'name' => 'Arsenal Issue'],
+            ['key' => 'E_WeaponGachaPoolType_Rerun', 'name' => 'RE-Factor Issue'],
+            ['key' => 'E_CharacterGachaPoolType_Beginner', 'name' => 'Beginner Headhunting'],
+        ], $banners);
+    }
+
+    public function testBuildCardBuildsTheCardOfTheProfileWithEveryOption(): void
+    {
+        $profile = $this->createProfile();
+        $rows = $this->bannerRows(self::CHARTERED, 40, 'Op');
+        $pullRepo = $this->createMock(GryphlinePullRepository::class);
+        $pullRepo->expects($this->exactly(2))->method('findBannerRows')->with($profile, [self::CHARTERED])->willReturn($rows);
+        $builder = $this->createBuilder($pullRepo);
+
+        $card = $builder->buildCard($profile, self::CHARTERED, showAll: true, showPlayer: true);
+
+        $this->assertEquals($builder->build($profile, self::CHARTERED, true, true), $card);
+        $this->assertSame('Chartered Headhunting', $card->title);
+        $this->assertCount(40, $card->sections[0]->items, 'Every S pull');
+        $this->assertSame('Endministrator', $card->playerName);
+        $this->assertSame('4000000001', $card->playerUid);
+    }
+
+    public function testBuildCardWithoutOptionsIsTheCardOfEveryBanner(): void
+    {
+        $profile = $this->createProfile();
+        $pullRepo = $this->createMock(GryphlinePullRepository::class);
+        $pullRepo->expects($this->once())->method('findProfileRows')->with($profile)->willReturn($this->bannerRows(self::CHARTERED, 20, 'Op'));
+        $pullRepo->expects($this->never())->method('findBannerRows');
+
+        $card = $this->createBuilder($pullRepo)->buildCard($profile);
+
+        $this->assertSame('All banners', $card->title);
+        $this->assertCount(GryphlinePullCardBuilder::PROFILE_LIMIT, $card->sections[0]->items);
+        $this->assertNull($card->playerName);
+        $this->assertNull($card->playerUid);
+    }
+
+    public function testBuildCardRefusesAProfileOfAGameWithoutPullTracker(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('This game profile does not support pull tracking.');
+
+        $this->createBuilder($this->createStub(GryphlinePullRepository::class))->buildCard($this->createProfile('other'));
     }
 }

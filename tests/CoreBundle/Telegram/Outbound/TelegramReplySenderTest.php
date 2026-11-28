@@ -5,6 +5,7 @@ namespace App\Tests\CoreBundle\Telegram\Outbound;
 use App\CoreBundle\Exception\ChatReplyNotSentException;
 use App\CoreBundle\Model\Chat\ChatAction;
 use App\CoreBundle\Model\Chat\ChatActionRef;
+use App\CoreBundle\Model\Chat\ChatImage;
 use App\CoreBundle\Model\Chat\ChatPlatform;
 use App\CoreBundle\Model\Chat\ChatReply;
 use App\CoreBundle\Model\Chat\ChatReplyMode;
@@ -18,6 +19,7 @@ use App\CoreBundle\Service\Notification\TelegramHtmlRenderer;
 use App\CoreBundle\Service\Notification\TelegramParsedown;
 use App\CoreBundle\Service\Telegram\TelegramBotApiClient;
 use App\Tests\CoreBundle\FakeTelegramApi;
+use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\ErrorHandler\BufferingLogger;
@@ -27,12 +29,15 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
  * TelegramReplySender against FakeTelegramApi: the Bot API call of each mode with its exact parameters, and the
- * fallbacks (not modified, HTML Telegram cannot parse, refused edit), with the bot token never in an error or a log.
+ * fallbacks (not modified, HTML Telegram cannot parse, refused edit), with the bot token never in an error or a log. An
+ * image goes as a photo or a document by its size, with the text as caption, and as text alone when Telegram refuses it.
  */
 class TelegramReplySenderTest extends TestCase
 {
     private const string MESSAGE_ID = '321';
     private const string PARSE_ERROR = 'Bad Request: can\'t parse entities: Unsupported start tag "br" at byte offset 42';
+    /** Bytes no text encoding would keep: a line break, a NUL, an invalid UTF-8 byte */
+    private const string PNG = "\x89PNG\r\n\x1a\n\0\xFF--card";
 
     private FakeTelegramApi $telegram;
     private BufferingLogger $logger;
@@ -71,6 +76,24 @@ class TelegramReplySenderTest extends TestCase
         );
     }
 
+    private static function image(int $width = 2400, int $height = 1880, string $content = self::PNG): ChatImage
+    {
+        return new ChatImage('pulls-nelly.png', 'image/png', $content, $width, $height, 'Pulls of Nelly');
+    }
+
+    private static function imageReply(?ChatImage $image = null, ?string $text = 'Your <pulls>'): ChatReply
+    {
+        return ChatReply::image($image ?? self::image(), $text);
+    }
+
+    /**
+     * @return array{filename: string, contentType: string, content: string} the file as FakeTelegramApi::botCalls() gives it
+     */
+    private static function file(): array
+    {
+        return ['filename' => 'pulls-nelly.png', 'contentType' => 'image/png', 'content' => self::PNG];
+    }
+
     /**
      * @param array{int, string} $error status and description
      * @return array{int, array<string, mixed>}
@@ -80,10 +103,10 @@ class TelegramReplySenderTest extends TestCase
         return [$error[0], ['ok' => false, 'error_code' => $error[0], 'description' => $error[1]]];
     }
 
-    private function send(ChatReplyMode $mode, ?ChatReplyTarget $target = null, ?TelegramReplySender $sender = null): ?ChatReplyNotSentException
+    private function send(ChatReplyMode $mode, ?ChatReplyTarget $target = null, ?TelegramReplySender $sender = null, ?ChatReply $reply = null): ?ChatReplyNotSentException
     {
         try {
-            ($sender ?? $this->sender())->send($target ?? TelegramTarget::create(FakeTelegramApi::USER_ID, self::MESSAGE_ID), self::reply(), $mode);
+            ($sender ?? $this->sender())->send($target ?? TelegramTarget::create(FakeTelegramApi::USER_ID, self::MESSAGE_ID), $reply ?? self::reply(), $mode);
 
             return null;
         } catch (ChatReplyNotSentException $e) {
@@ -281,5 +304,182 @@ class TelegramReplySenderTest extends TestCase
 
         $this->assertInstanceOf(ChatReplyNotSentException::class, $e);
         $this->assertSame([], $this->telegram->requests);
+    }
+
+    public function testAnImageThatFitsGoesAsAPhotoInANewMessage(): void
+    {
+        // Even to replace the pressed message: a text message does not become a photo
+        $this->assertNull($this->send(ChatReplyMode::Replace, reply: self::imageReply()));
+
+        $this->assertSame([['method' => 'sendPhoto', 'params' => [
+            'chat_id' => FakeTelegramApi::USER_ID,
+            'caption' => 'Your &lt;pulls&gt;',
+            'parse_mode' => 'HTML',
+            'photo' => self::file(),
+        ]]], $this->telegram->botCalls());
+        $this->assertStringStartsWith('Content-Type: multipart/form-data', $this->telegram->requests[0]['options']['normalized_headers']['content-type'][0]);
+    }
+
+    public function testATallImageGoesAsADocumentAtFullSize(): void
+    {
+        $this->assertNull($this->send(ChatReplyMode::FollowUp, reply: self::imageReply(self::image(2400, 6600))));
+
+        $this->assertSame([['method' => 'sendDocument', 'params' => [
+            'chat_id' => FakeTelegramApi::USER_ID,
+            'caption' => 'Your &lt;pulls&gt;',
+            'parse_mode' => 'HTML',
+            // A WebP document would become a sticker otherwise
+            'disable_content_type_detection' => 'true',
+            'document' => self::file(),
+        ]]], $this->telegram->botCalls());
+    }
+
+    public function testAnImageWithoutTextGoesWithoutCaption(): void
+    {
+        $this->assertNull($this->send(ChatReplyMode::FollowUp, reply: self::imageReply(text: null)));
+
+        $this->assertSame([['method' => 'sendPhoto', 'params' => ['chat_id' => FakeTelegramApi::USER_ID, 'photo' => self::file()]]], $this->telegram->botCalls());
+    }
+
+    #[TestWith([2400, 1880, 'sendPhoto'])]
+    #[TestWith([1880, 2400, 'sendPhoto'])]
+    #[TestWith([2560, 2560, 'sendPhoto'])]
+    #[TestWith([2561, 1000, 'sendDocument'])]
+    #[TestWith([1000, 2561, 'sendDocument'])]
+    #[TestWith([2400, 6600, 'sendDocument'])]
+    #[TestWith([2500, 125, 'sendPhoto'])]
+    #[TestWith([2500, 124, 'sendDocument'])]
+    public function testTheSizeOfTheImageChoosesPhotoOrDocument(int $width, int $height, string $method): void
+    {
+        $this->assertNull($this->send(ChatReplyMode::FollowUp, reply: self::imageReply(self::image($width, $height))));
+
+        $this->assertSame([$method], $this->methods());
+    }
+
+    public function testAFileOverTenMegabytesGoesAsADocument(): void
+    {
+        $this->assertNull($this->send(ChatReplyMode::FollowUp, reply: self::imageReply(self::image(1000, 800, str_repeat('x', TelegramReplySender::PHOTO_MAX_BYTES)))));
+        $this->assertNull($this->send(ChatReplyMode::FollowUp, reply: self::imageReply(self::image(1000, 800, str_repeat('x', TelegramReplySender::PHOTO_MAX_BYTES + 1)))));
+
+        $this->assertSame(['POST', 'POST'], array_column($this->telegram->requests, 'method'));
+        $this->assertSame(
+            [FakeTelegramApi::BOT_API.'bot'.FakeTelegramApi::BOT_TOKEN.'/sendPhoto', FakeTelegramApi::BOT_API.'bot'.FakeTelegramApi::BOT_TOKEN.'/sendDocument'],
+            array_column($this->telegram->requests, 'url'),
+        );
+    }
+
+    public function testACaptionTelegramCannotParseIsSentAgainAsPlainText(): void
+    {
+        $this->telegram->botAnswers['sendDocument'] = [self::refusal([400, self::PARSE_ERROR])];
+
+        $this->assertNull($this->send(ChatReplyMode::FollowUp, reply: self::imageReply(self::image(2400, 6600))));
+
+        $calls = $this->telegram->botCalls();
+        $this->assertSame(['sendDocument', 'sendDocument'], $this->methods());
+        $this->assertSame([
+            'chat_id' => FakeTelegramApi::USER_ID,
+            // Shown as it is: not escaped, no parse_mode
+            'caption' => 'Your <pulls>',
+            'disable_content_type_detection' => 'true',
+            'document' => self::file(),
+        ], $calls[1]['params']);
+        $this->assertSame('warning', $this->logger->cleanLogs()[0][0]);
+    }
+
+    public function testARefusedImageSendsTheTextAloneSayingSo(): void
+    {
+        $this->telegram->botAnswers['sendPhoto'] = [self::refusal([400, 'Bad Request: IMAGE_PROCESS_FAILED'])];
+
+        $this->assertNull($this->send(ChatReplyMode::Replace, reply: self::imageReply()));
+
+        $calls = $this->telegram->botCalls();
+        $this->assertSame(['sendPhoto', 'sendMessage'], $this->methods());
+        $this->assertSame([
+            'chat_id' => (int) FakeTelegramApi::USER_ID,
+            'text' => "Your &lt;pulls&gt;\n".ChatReply::IMAGE_NOT_SENT,
+            'parse_mode' => 'HTML',
+            'link_preview_options' => ['is_disabled' => true],
+            'reply_markup' => ['inline_keyboard' => []],
+        ], $calls[1]['params']);
+        $logs = $this->logger->cleanLogs();
+        $this->assertSame(['warning', 400], [$logs[0][0], $logs[0][2]['status']]);
+    }
+
+    public function testARefusedImageWithoutTextSaysItAlone(): void
+    {
+        $this->telegram->botAnswers['sendDocument'] = [self::refusal([413, 'Request Entity Too Large'])];
+
+        $this->assertNull($this->send(ChatReplyMode::FollowUp, reply: self::imageReply(self::image(2400, 6600), null)));
+
+        $this->assertSame(['sendDocument', 'sendMessage'], $this->methods());
+        $this->assertSame(ChatReply::IMAGE_NOT_SENT, $this->telegram->botCalls()[1]['params']['text']);
+    }
+
+    public function testAPlainCaptionRefusedForAnotherReasonSendsTheTextAlone(): void
+    {
+        $this->telegram->botAnswers['sendPhoto'] = [self::refusal([400, self::PARSE_ERROR]), self::refusal([400, 'Bad Request: wrong type of the web page content'])];
+
+        $this->assertNull($this->send(ChatReplyMode::FollowUp, reply: self::imageReply()));
+
+        $this->assertSame(['sendPhoto', 'sendPhoto', 'sendMessage'], $this->methods());
+        $this->assertStringEndsWith(ChatReply::IMAGE_NOT_SENT, $this->telegram->botCalls()[2]['params']['text']);
+    }
+
+    public function testATextFallbackRefusedTooThrowsWithTheStatusOnly(): void
+    {
+        $this->telegram->botAnswers['sendPhoto'] = [self::refusal([400, 'Bad Request: IMAGE_PROCESS_FAILED'])];
+        $this->telegram->botAnswers['sendMessage'] = [self::refusal([403, 'Forbidden: bot was blocked by the user'])];
+
+        $e = $this->send(ChatReplyMode::FollowUp, reply: self::imageReply());
+
+        $this->assertInstanceOf(ChatReplyNotSentException::class, $e);
+        $this->assertSame('Telegram refused the answer: HTTP 403.', $e->getMessage());
+        $this->assertSame(403, $e->statusCode);
+        $this->assertSame(['sendPhoto', 'sendMessage'], $this->methods());
+        $this->assertNoSecretIn($e);
+    }
+
+    public function testAServerErrorOnAnImageThrowsWithoutTheTextFallback(): void
+    {
+        $this->telegram->botAnswers['sendPhoto'] = [self::refusal([502, 'Bad Gateway'])];
+
+        $e = $this->send(ChatReplyMode::FollowUp, reply: self::imageReply());
+
+        $this->assertInstanceOf(ChatReplyNotSentException::class, $e);
+        $this->assertSame('Telegram refused the answer: HTTP 502.', $e->getMessage());
+        $this->assertSame(502, $e->statusCode);
+        $this->assertSame(['sendPhoto'], $this->methods());
+        $this->assertNoSecretIn($e);
+    }
+
+    public function testARateLimitOnAnImageThrowsWithoutTheTextFallback(): void
+    {
+        // The text alone would be refused by the same limit: the image is not given up for it
+        $this->telegram->botAnswers['sendPhoto'] = [self::refusal([429, 'Too Many Requests: retry after 5'])];
+
+        $e = $this->send(ChatReplyMode::FollowUp, reply: self::imageReply());
+
+        $this->assertInstanceOf(ChatReplyNotSentException::class, $e);
+        $this->assertSame('Telegram refused the answer: HTTP 429.', $e->getMessage());
+        $this->assertSame(429, $e->statusCode);
+        $this->assertSame(['sendPhoto'], $this->methods());
+    }
+
+    public function testAnUnreachableTelegramForAnImageThrowsWithoutRetry(): void
+    {
+        $requests = 0;
+        $client = new MockHttpClient(static function () use (&$requests): MockResponse {
+            $requests++;
+
+            return new MockResponse('', ['error' => 'Could not resolve host: api.telegram.org']);
+        }, FakeTelegramApi::BOT_API);
+
+        $e = $this->send(ChatReplyMode::FollowUp, sender: $this->sender($client), reply: self::imageReply());
+
+        $this->assertInstanceOf(ChatReplyNotSentException::class, $e);
+        $this->assertSame('Telegram could not be reached for the answer.', $e->getMessage());
+        $this->assertNull($e->statusCode);
+        $this->assertSame(1, $requests);
+        $this->assertNoSecretIn($e);
     }
 }

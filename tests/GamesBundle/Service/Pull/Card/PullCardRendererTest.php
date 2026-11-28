@@ -270,6 +270,178 @@ class PullCardRendererTest extends TestCase
         $this->assertStringContainsString('private', (string) $response->headers->get('Cache-Control'));
     }
 
+    public function testRenderWebpConvertsThePngOfNodeServices(): void
+    {
+        $scales = [];
+        $renderer = $this->createRenderer($this->pngClient([2 => [60, 40]], $scales));
+
+        $image = $renderer->renderWebp(self::card([self::section([])]));
+
+        $this->assertSame([2], $scales, 'Rendered at 2x by default');
+        $this->assertSame('image/webp', $image->mimeType);
+        $this->assertSame('webp', $image->extension);
+        $this->assertSame([60, 40], [$image->width, $image->height]);
+        $this->assertSame(['RIFF', 'WEBP'], [substr($image->content, 0, 4), substr($image->content, 8, 4)], 'A WebP file');
+
+        $decoded = new \Imagick();
+        $decoded->readImageBlob($image->content);
+        $this->assertSame('WEBP', $decoded->getImageFormat());
+        $this->assertSame([60, 40], [$decoded->getImageWidth(), $decoded->getImageHeight()]);
+        $decoded->clear();
+    }
+
+    public function testRenderWebpSendsTheScaleAsked(): void
+    {
+        $scales = [];
+        $renderer = $this->createRenderer($this->pngClient([1 => [30, 20]], $scales));
+
+        $image = $renderer->renderWebp(self::card([self::section([])]), 1);
+
+        $this->assertSame([1], $scales);
+        $this->assertSame([30, 20], [$image->width, $image->height]);
+    }
+
+    public function testRenderWebpKeepsACardAsTallAsAWebpCanBe(): void
+    {
+        $scales = [];
+        $renderer = $this->createRenderer($this->pngClient([2 => [2, PullCardRenderer::WEBP_MAX_SIDE]], $scales));
+
+        $image = $renderer->renderWebp(self::card([self::section([])]));
+
+        $this->assertSame([2], $scales, 'No render at 1x');
+        $this->assertSame([2, PullCardRenderer::WEBP_MAX_SIDE], [$image->width, $image->height]);
+    }
+
+    /**
+     * @return iterable<string, array{array{int, int}}>
+     */
+    public static function oversizedProvider(): iterable
+    {
+        yield 'too tall' => [[4, PullCardRenderer::WEBP_MAX_SIDE + 1]];
+        yield 'too wide' => [[PullCardRenderer::WEBP_MAX_SIDE + 1, 4]];
+    }
+
+    /**
+     * @param array{int, int} $oversized
+     */
+    #[DataProvider('oversizedProvider')]
+    public function testRenderWebpRendersAgainAtOneXWhenTooLargeAtTwoX(array $oversized): void
+    {
+        $scales = [];
+        $renderer = $this->createRenderer($this->pngClient([2 => $oversized, 1 => [2, 8192]], $scales));
+
+        $image = $renderer->renderWebp(self::card([self::section([])]));
+
+        $this->assertSame([2, 1], $scales);
+        $this->assertSame([2, 8192], [$image->width, $image->height], 'The image of the 1x render');
+        $this->assertSame('image/webp', $image->mimeType);
+    }
+
+    public function testRenderWebpRefusesACardTooTallEvenAtOneX(): void
+    {
+        $scales = [];
+        $tall = [2, PullCardRenderer::WEBP_MAX_SIDE + 1];
+        $renderer = $this->createRenderer($this->pngClient([2 => $tall, 1 => $tall], $scales));
+
+        try {
+            $renderer->renderWebp(self::card([self::section([])]));
+            $this->fail('A card too tall for a WebP must be refused.');
+        } catch (PullCardUnavailableException $e) {
+            $this->assertSame(PullCardUnavailableException::MESSAGE, $e->getMessage());
+            // The size, not a conversion error
+            $this->assertNull($e->getPrevious());
+        }
+        $this->assertSame([2, 1], $scales);
+    }
+
+    public function testRenderWebpAtOneXIsNotRenderedAgain(): void
+    {
+        $scales = [];
+        $renderer = $this->createRenderer($this->pngClient([1 => [2, PullCardRenderer::WEBP_MAX_SIDE + 1]], $scales));
+
+        try {
+            $renderer->renderWebp(self::card([self::section([])]), 1);
+            $this->fail('A card too tall for a WebP must be refused.');
+        } catch (PullCardUnavailableException $e) {
+            $this->assertNull($e->getPrevious());
+        }
+        $this->assertSame([1], $scales);
+    }
+
+    public function testRenderWebpThrowsWhenTheResponseIsNotAnImage(): void
+    {
+        $renderer = $this->createRenderer(new MockHttpClient(new MockResponse('PNG-BYTES', ['http_code' => 200]), 'http://127.0.0.1:3003'));
+
+        try {
+            $renderer->renderWebp(self::card([self::section([])]));
+            $this->fail('An unreadable PNG must throw.');
+        } catch (PullCardUnavailableException $e) {
+            $this->assertSame(PullCardUnavailableException::MESSAGE, $e->getMessage());
+            $this->assertInstanceOf(\ImagickException::class, $e->getPrevious());
+        }
+    }
+
+    public function testRenderWebpThrowsWhenNodeServicesCannotRender(): void
+    {
+        $renderer = $this->createRenderer(new MockHttpClient(new MockResponse('Render failed', ['http_code' => 500]), 'http://127.0.0.1:3003'));
+
+        $this->expectException(PullCardUnavailableException::class);
+        $this->expectExceptionMessage(PullCardUnavailableException::MESSAGE);
+
+        $renderer->renderWebp(self::card([self::section([])]));
+    }
+
+    /**
+     * @return iterable<string, array{string, string, string, string}>
+     */
+    public static function filenameProvider(): iterable
+    {
+        yield 'apostrophe' => ['Genshin Impact', "Beginners' Wish", 'webp', 'genshin-impact-beginners-wish.webp'];
+        yield 'colon and capitals' => ['Honkai: Star Rail', 'All banners', 'png', 'honkai-star-rail-all-banners.png'];
+        yield 'parentheses' => ['Neverness to Everness', 'Scarborough Fair (Limited Boards)', 'webp', 'neverness-to-everness-scarborough-fair-limited-boards.webp'];
+    }
+
+    #[DataProvider('filenameProvider')]
+    public function testFilenameIsTheSlugOfTheGameAndTheTitle(string $gameName, string $title, string $extension, string $expected): void
+    {
+        $card = self::card([self::section([])], gameName: $gameName, title: $title);
+
+        $this->assertSame($expected, $this->createRenderer()->filename($card, $extension));
+    }
+
+    /**
+     * node-services answering with a PNG of the size given for the scale asked; the scales asked are recorded.
+     *
+     * @param array<int, array{int, int}> $sizesByScale width and height of the PNG by scale
+     * @param list<int>                   $scales
+     */
+    private function pngClient(array $sizesByScale, array &$scales): MockHttpClient
+    {
+        return new MockHttpClient(function (string $method, string $url, array $options) use ($sizesByScale, &$scales): MockResponse {
+            $body = json_decode($options['body'], true, flags: JSON_THROW_ON_ERROR);
+            $this->assertIsArray($body);
+            $scale = $body['scale'];
+            $this->assertIsInt($scale);
+            $scales[] = $scale;
+            $this->assertArrayHasKey($scale, $sizesByScale, sprintf('Unexpected scale %d', $scale));
+
+            return new MockResponse(self::png(...$sizesByScale[$scale]), ['http_code' => 200]);
+        }, 'http://127.0.0.1:3003');
+    }
+
+    private static function png(int $width, int $height): string
+    {
+        $image = new \Imagick();
+        try {
+            $image->newImage($width, $height, new \ImagickPixel('#1e293b'));
+            $image->setImageFormat('png');
+
+            return $image->getImagesBlob();
+        } finally {
+            $image->clear();
+        }
+    }
+
     private function createRenderer(?MockHttpClient $nodeServices = null): PullCardRenderer
     {
         $loader = new FilesystemLoader();

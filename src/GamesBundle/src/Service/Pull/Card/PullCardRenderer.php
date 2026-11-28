@@ -4,6 +4,7 @@ namespace App\GamesBundle\Service\Pull\Card;
 
 use App\GamesBundle\Exception\PullCardUnavailableException;
 use App\GamesBundle\Model\Pull\Card\PullCard;
+use App\GamesBundle\Model\Pull\Card\PullCardImage;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\HeaderUtils;
@@ -20,7 +21,10 @@ use Twig\Environment;
 class PullCardRenderer
 {
     public const int WIDTH = 1200;
-    private const int SCALE = 2;
+    public const int SCALE = 2;
+    /** Largest side a WebP can have */
+    public const int WEBP_MAX_SIDE = 16383;
+    private const int WEBP_QUALITY = 85;
     /** Limits of the call to node-services (on loopback): connection, idle time, whole render (a big one takes ~5 s) */
     private const float CONNECT_TIMEOUT = 3.0;
     private const float TIMEOUT = 20.0;
@@ -67,11 +71,13 @@ class PullCardRenderer
     }
 
     /**
+     * @param int $scale device pixels per CSS pixel: the PNG is WIDTH × scale pixels wide
+     *
      * @return string the PNG bytes
      *
      * @throws PullCardUnavailableException when node-services cannot render it
      */
-    public function renderPng(PullCard $card): string
+    public function renderPng(PullCard $card, int $scale = self::SCALE): string
     {
         $html = $this->renderHtml($card);
 
@@ -80,7 +86,7 @@ class PullCardRenderer
                 'json' => [
                     'html' => $html,
                     'width' => self::WIDTH,
-                    'scale' => self::SCALE,
+                    'scale' => $scale,
                     'selector' => '#card',
                 ],
                 'max_connect_duration' => self::CONNECT_TIMEOUT,
@@ -107,6 +113,51 @@ class PullCardRenderer
     }
 
     /**
+     * The card as a WebP (lossy, much lighter than the PNG), for the chat platforms. A card taller than a WebP can be
+     * at this scale is rendered again at 1x.
+     *
+     * @throws PullCardUnavailableException when node-services cannot render it, or the card is too tall even at 1x
+     */
+    public function renderWebp(PullCard $card, int $scale = self::SCALE): PullCardImage
+    {
+        $png = $this->renderPng($card, $scale);
+        // The size from the PNG header: a too large image is never decoded (ImageMagick may refuse it by policy)
+        $size = @getimagesizefromstring($png);
+        if ($size !== false && max($size[0], $size[1]) > self::WEBP_MAX_SIDE) {
+            if ($scale > 1) {
+                return $this->renderWebp($card, 1);
+            }
+
+            throw new PullCardUnavailableException();
+        }
+
+        $image = new \Imagick();
+        try {
+            $image->readImageBlob($png);
+            $width = $image->getImageWidth();
+            $height = $image->getImageHeight();
+            $image->setImageFormat('webp');
+            $image->setImageCompressionQuality(self::WEBP_QUALITY);
+
+            return new PullCardImage($image->getImagesBlob(), 'image/webp', 'webp', $width, $height);
+        } catch (\ImagickException $e) {
+            $this->logger?->error('The pulls card could not be converted to WebP: {error}', ['error' => $e->getMessage()]);
+
+            throw new PullCardUnavailableException(previous: $e);
+        } finally {
+            $image->clear();
+        }
+    }
+
+    /**
+     * File name of the card, after the game and its title (e.g. genshin-impact-all-banners.png).
+     */
+    public function filename(PullCard $card, string $extension): string
+    {
+        return $this->slugger->slug(sprintf('%s %s', $card->gameName, $card->title))->lower()->toString().'.'.$extension;
+    }
+
+    /**
      * The PNG as a download, named after the game and the title of the card (e.g. genshin-impact-all-banners.png).
      *
      * @throws PullCardUnavailableException when node-services cannot render it
@@ -115,8 +166,7 @@ class PullCardRenderer
     {
         $response = new Response($this->renderPng($card), Response::HTTP_OK, ['Content-Type' => 'image/png']);
 
-        $filename = $this->slugger->slug(sprintf('%s %s', $card->gameName, $card->title))->lower()->toString().'.png';
-        $response->headers->set('Content-Disposition', HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_ATTACHMENT, $filename));
+        $response->headers->set('Content-Disposition', HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_ATTACHMENT, $this->filename($card, 'png')));
         // Built for one user, from live data
         $response->setPrivate();
         $response->headers->addCacheControlDirective('no-store');

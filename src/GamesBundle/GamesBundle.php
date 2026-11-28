@@ -4,6 +4,7 @@ namespace App\GamesBundle;
 
 use App\GamesBundle\Model\Game\PullItemIconResolverInterface;
 use App\GamesBundle\Model\Profile\GameProfileProviderInterface;
+use App\GamesBundle\Model\Pull\Card\PullCardBuilderInterface;
 use App\GamesBundle\Model\Status\ProfileSectionInterface;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -46,6 +47,8 @@ class GamesBundle extends AbstractBundle
             ->addTag(GameProfileProviderInterface::TAG);
         $container->registerForAutoconfiguration(ProfileSectionInterface::class)
             ->addTag(ProfileSectionInterface::TAG);
+        $container->registerForAutoconfiguration(PullCardBuilderInterface::class)
+            ->addTag(PullCardBuilderInterface::TAG);
     }
 
     public function configure(DefinitionConfigurator $definition): void

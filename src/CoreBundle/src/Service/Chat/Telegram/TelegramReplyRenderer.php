@@ -26,6 +26,8 @@ use Psr\Log\LoggerInterface;
 class TelegramReplyRenderer
 {
     public const int MAX_TEXT = 4096;
+    /** Caption of a photo or a document, after the entity parsing */
+    public const int MAX_CAPTION = 1024;
     /** Telegram allows 8 buttons per row: longer rows wrap */
     public const int MAX_BUTTONS_PER_ROW = 8;
     public const string PARSE_MODE = 'HTML';
@@ -105,6 +107,41 @@ class TelegramReplyRenderer
         }
 
         return ['text' => $text.$tail] + self::extras($this->renderKeyboard($reply->actionRows));
+    }
+
+    /**
+     * The caption of an answer with an image (sendPhoto, sendDocument): its text alone, escaped, cut to the 1024
+     * characters Telegram allows (the embeds are for text answers). No text, no caption.
+     *
+     * @return array{caption?: string, parse_mode?: string}
+     */
+    public function renderCaption(ChatReply $reply): array
+    {
+        $text = self::caption($reply);
+
+        return $text !== '' ? ['caption' => self::escape($text), 'parse_mode' => self::PARSE_MODE] : [];
+    }
+
+    /**
+     * The same caption without markup, for when Telegram could not parse it.
+     *
+     * @return array{caption?: string}
+     */
+    public function renderPlainCaption(ChatReply $reply): array
+    {
+        $text = self::caption($reply);
+
+        return $text !== '' ? ['caption' => $text] : [];
+    }
+
+    /**
+     * The plain text of a caption, cut only when it is too long.
+     */
+    private static function caption(ChatReply $reply): string
+    {
+        $text = trim((string) $reply->text);
+
+        return self::utf16Length($text) > self::MAX_CAPTION ? self::cut($text, self::MAX_CAPTION) : $text;
     }
 
     /**

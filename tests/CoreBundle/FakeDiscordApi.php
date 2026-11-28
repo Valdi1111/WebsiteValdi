@@ -51,6 +51,10 @@ final class FakeDiscordApi
     {
         return new MockHttpClient(function (string $method, string $url, array $options): MockResponse {
             $path = str_starts_with($url, self::BASE_URI) ? substr($url, strlen(self::BASE_URI)) : $url;
+            // A file upload comes as a callback the response reads after this one: kept as a string for the assertions
+            if (($options['body'] ?? null) instanceof \Closure) {
+                $options['body'] = MultipartBody::read($options['body']);
+            }
             $this->requests[] = ['method' => $method, 'path' => $path, 'options' => $options];
 
             // Paths holding ids and tokens
@@ -99,11 +103,22 @@ final class FakeDiscordApi
     }
 
     /**
-     * @return array<mixed> the JSON body of a request
+     * @return array<mixed> the JSON body of a request; of a file upload, its message (payload_json)
      */
     public function jsonBody(int $index): array
     {
         return self::decode($this->requests[$index]['options']);
+    }
+
+    /**
+     * @return array<string, string|array{filename: string, contentType: string|null, content: string}> the parts of a
+     *                                                                                                   file upload
+     */
+    public function multipartBody(int $index): array
+    {
+        $options = $this->requests[$index]['options'];
+
+        return MultipartBody::parse((string) $options['body'], MultipartBody::contentType($options));
     }
 
     public function authorization(int $index): ?string
@@ -133,7 +148,13 @@ final class FakeDiscordApi
      */
     private static function decode(array $options): array
     {
-        return json_decode((string) ($options['body'] ?? ''), true, flags: \JSON_THROW_ON_ERROR);
+        $body = (string) ($options['body'] ?? '');
+        if (MultipartBody::isMultipart($options)) {
+            // A message with files: the message is the payload_json part
+            $body = (string) (MultipartBody::parse($body, MultipartBody::contentType($options))['payload_json'] ?? '');
+        }
+
+        return json_decode($body, true, flags: \JSON_THROW_ON_ERROR);
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Tests\CoreBundle\Chat;
 use App\CoreBundle\Model\Chat\ChatAction;
 use App\CoreBundle\Model\Chat\ChatActionRef;
 use App\CoreBundle\Model\Chat\ChatActionStyle;
+use App\CoreBundle\Model\Chat\ChatImage;
 use App\CoreBundle\Model\Chat\ChatReply;
 use App\CoreBundle\Model\Notification\UniversalEmbed;
 use App\CoreBundle\Service\Chat\ChatActionCodec;
@@ -50,6 +51,39 @@ class TextReplyRendererTest extends TestCase
 
             Page 1/3
             TEXT, new TextReplyRenderer(new ChatActionCodec())->render($reply));
+    }
+
+    public function testTheImageIsALineAfterTheEmbedsAndBeforeTheButtons(): void
+    {
+        // 150 KB and 900 bytes: the size is rounded down
+        $image = new ChatImage('pulls-nelly.png', 'image/png', str_repeat("\0", 150 * 1024 + 900), 2400, 1880, 'Pulls of Nelly');
+        $reply = new ChatReply(
+            'Your pulls',
+            [new UniversalEmbed()->setTitle('Limited')],
+            [[new ChatAction('Refresh', new ChatActionRef('refresh', ['pulls', '1']), '🔄')]],
+            page: 2,
+            pageCount: 3,
+            image: $image,
+        );
+
+        $this->assertSame(<<<'TEXT'
+            Your pulls
+
+            Limited
+
+            [image: pulls-nelly.png, image/png, 2400x1880, 150 KB]
+
+            [🔄 Refresh] → refresh:pulls:1
+
+            Page 2/3
+            TEXT, new TextReplyRenderer(new ChatActionCodec())->render($reply));
+    }
+
+    public function testAnImageAlone(): void
+    {
+        $image = new ChatImage('card.webp', 'image/webp', 'tiny', 2400, 6600);
+
+        $this->assertSame('[image: card.webp, image/webp, 2400x6600, 0 KB]', new TextReplyRenderer(new ChatActionCodec())->render(ChatReply::image($image)));
     }
 
     public function testTextOnly(): void

@@ -4,6 +4,7 @@ namespace App\Tests\CoreBundle\Telegram\Outbound;
 
 use App\CoreBundle\Model\Chat\ChatAction;
 use App\CoreBundle\Model\Chat\ChatActionRef;
+use App\CoreBundle\Model\Chat\ChatImage;
 use App\CoreBundle\Model\Chat\ChatReply;
 use App\CoreBundle\Model\Notification\UniversalEmbed;
 use App\CoreBundle\Service\Chat\ChatActionCodec;
@@ -16,7 +17,8 @@ use Symfony\Component\ErrorHandler\BufferingLogger;
 
 /**
  * ChatReply → sendMessage / editMessageText parameters: the reply's text escaped, the embeds through the notifier's
- * HTML renderer, the keyboard always present, and a text Telegram never refuses for its length.
+ * HTML renderer, the keyboard always present, and a text Telegram never refuses for its length. The caption of an answer
+ * with an image: its text alone, within the 1024 characters of a caption.
  */
 class TelegramReplyRendererTest extends TestCase
 {
@@ -70,6 +72,11 @@ class TelegramReplyRendererTest extends TestCase
         }
         self::assertSame([], $open, 'Unclosed tags');
         self::assertSame(0, preg_match('/<[^>]*$/', $html), 'A cut tag');
+    }
+
+    private static function image(): ChatImage
+    {
+        return new ChatImage('pulls.png', 'image/png', "\x89PNG", 2400, 1880);
     }
 
     private static function utf16(string $text): int
@@ -262,5 +269,60 @@ class TelegramReplyRendererTest extends TestCase
         $this->assertLessThanOrEqual(TelegramReplyRenderer::MAX_TEXT, self::utf16($text));
         $this->assertStringEndsWith(TelegramReplyRenderer::ELLIPSIS."\n\nPage 1/2", $text);
         $this->assertStringStartsWith('🔋<🔋<', $text);
+    }
+
+    public function testTheCaptionIsTheTextAloneEscaped(): void
+    {
+        $this->assertSame(
+            ['caption' => 'Your &lt;b&gt;pulls&lt;/b&gt; &amp; "luck"', 'parse_mode' => 'HTML'],
+            $this->renderer->renderCaption(ChatReply::image(self::image(), '  Your <b>pulls</b> & "luck"'."\n")),
+        );
+        // The embeds and the page are for text answers
+        $reply = new ChatReply('Your pulls', [self::staminaEmbed()], [[self::action('Next', '▶️', '3')]], 2, 3, self::image());
+        $this->assertSame(['caption' => 'Your pulls', 'parse_mode' => 'HTML'], $this->renderer->renderCaption($reply));
+    }
+
+    public function testThePlainCaptionIsNotEscapedAndHasNoParseMode(): void
+    {
+        $this->assertSame(
+            ['caption' => 'Your <b>pulls</b> & "luck"'],
+            $this->renderer->renderPlainCaption(ChatReply::image(self::image(), ' Your <b>pulls</b> & "luck" ')),
+        );
+    }
+
+    public function testNoTextNoCaption(): void
+    {
+        foreach ([ChatReply::image(self::image()), ChatReply::image(self::image(), " \n ")] as $reply) {
+            $this->assertSame([], $this->renderer->renderCaption($reply));
+            $this->assertSame([], $this->renderer->renderPlainCaption($reply));
+        }
+    }
+
+    public function testACaptionOfExactly1024UnitsIsKept(): void
+    {
+        // Measured before the escaping, in UTF-16 code units: "&" is one, an emoji beyond the BMP two
+        $fits = str_repeat('&', 1000).str_repeat('a', 22).'🔋';
+        $this->assertSame(TelegramReplyRenderer::MAX_CAPTION, self::utf16($fits));
+
+        $this->assertSame(htmlspecialchars($fits, \ENT_NOQUOTES), $this->renderer->renderCaption(ChatReply::image(self::image(), $fits))['caption']);
+        $this->assertSame($fits, $this->renderer->renderPlainCaption(ChatReply::image(self::image(), $fits))['caption']);
+    }
+
+    public function testALongCaptionIsCutWithTheEllipsis(): void
+    {
+        $long = str_repeat('a<&🔋 ', 300);
+
+        $caption = $this->renderer->renderCaption(ChatReply::image(self::image(), $long))['caption'];
+
+        self::assertWellFormed($caption);
+        $visible = html_entity_decode($caption, \ENT_QUOTES | \ENT_HTML5, 'UTF-8');
+        $this->assertLessThanOrEqual(TelegramReplyRenderer::MAX_CAPTION, self::utf16($visible));
+        $this->assertGreaterThan(TelegramReplyRenderer::MAX_CAPTION - 8, self::utf16($visible));
+        $this->assertStringEndsWith(TelegramReplyRenderer::ELLIPSIS, $visible);
+        $this->assertStringStartsWith(mb_substr($visible, 0, -1), $long);
+        $this->assertStringStartsWith('a&lt;&amp;🔋 a&lt;', $caption);
+
+        $plain = $this->renderer->renderPlainCaption(ChatReply::image(self::image(), $long))['caption'];
+        $this->assertSame($visible, $plain, 'The same text, not escaped');
     }
 }

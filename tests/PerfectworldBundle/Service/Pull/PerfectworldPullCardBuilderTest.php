@@ -3,12 +3,14 @@
 namespace App\Tests\PerfectworldBundle\Service\Pull;
 
 use App\CoreBundle\Entity\User;
+use App\GamesBundle\Model\Game\GameProfileInterface;
 use App\GamesBundle\Model\Pull\Card\PullCardItem;
 use App\GamesBundle\Model\Pull\Card\PullCardSection;
 use App\GamesBundle\Model\Pull\PullOrigin;
 use App\GamesBundle\Service\Pull\Card\PullCardSectionFactory;
 use App\GamesBundle\Service\Pull\PullGapPlanner;
 use App\GamesBundle\Service\PullItemIconUrlBuilder;
+use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
 use App\PerfectworldBundle\Entity\PerfectworldAccount;
 use App\PerfectworldBundle\Entity\PerfectworldGameProfile;
 use App\PerfectworldBundle\Entity\PerfectworldPull;
@@ -18,6 +20,7 @@ use App\PerfectworldBundle\Service\Catalog\NteCatalog;
 use App\PerfectworldBundle\Service\NevernessToEvernessService;
 use App\PerfectworldBundle\Service\Pull\PerfectworldPullCardBuilder;
 use App\PerfectworldBundle\Service\Pull\PerfectworldPullStatsCalculator;
+use App\Tests\GamesBundle\Status\Fixtures\FakeGameProfile;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -319,5 +322,103 @@ class PerfectworldPullCardBuilderTest extends TestCase
         $card = $this->createBuilder($pullRepo)->build($this->createProfile());
 
         $this->assertSame(self::CLOCK_NOW, $card->generatedAt->format('Y-m-d H:i:s'));
+    }
+
+    public function testProviderKeyIsTheOneOfThePerfectWorldProfiles(): void
+    {
+        $this->assertSame('perfectworld', PerfectworldPullCardBuilder::getProviderKey());
+    }
+
+    public function testSupportsAProfileOfAGameWithPullTracker(): void
+    {
+        $this->assertTrue($this->createBuilder($this->createStub(PerfectworldPullRepository::class))->supports($this->createProfile()));
+    }
+
+    #[DataProvider('gamesWithoutPullTracker')]
+    public function testDoesNotSupportAProfileOfAGameWithoutPullTracker(int $gameId): void
+    {
+        $builder = $this->createBuilder($this->createStub(PerfectworldPullRepository::class));
+
+        $this->assertFalse($builder->supports($this->createProfile($gameId)));
+        $this->assertSame([], $builder->getBanners($this->createProfile($gameId)));
+    }
+
+    /**
+     * @return iterable<string, array{GameProfileInterface}>
+     */
+    public static function foreignProfiles(): iterable
+    {
+        yield 'fake profile' => [new FakeGameProfile(5, NevernessToEvernessService::GAME_BIZ)];
+        // The game id of Neverness to Everness, but another provider
+        yield 'HoYoverse profile' => [new HoyoverseGameProfile()->setGameId(NevernessToEvernessService::GAME_ID)];
+    }
+
+    #[DataProvider('foreignProfiles')]
+    public function testRefusesTheProfileOfAnotherProvider(GameProfileInterface $profile): void
+    {
+        $pullRepo = $this->createMock(PerfectworldPullRepository::class);
+        $pullRepo->expects($this->never())->method('findBannerRows');
+        $builder = $this->createBuilder($pullRepo);
+
+        $this->assertFalse($builder->supports($profile));
+        $this->assertSame([], $builder->getBanners($profile));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Not a Perfect World game profile.');
+
+        $builder->buildCard($profile);
+    }
+
+    public function testBannersAreTheConfiguredGroupsInTheirOrder(): void
+    {
+        $banners = $this->createBuilder($this->createStub(PerfectworldPullRepository::class))->getBanners($this->createProfile());
+
+        $this->assertSame([
+            ['key' => self::LIMITED, 'name' => 'Scarborough Fair (Limited Boards)'],
+            ['key' => self::STANDARD, 'name' => 'Strange Encounters (Standard Board)'],
+            ['key' => self::ARC, 'name' => 'Arc Research Program'],
+        ], $banners);
+    }
+
+    public function testBuildCardBuildsTheCardOfTheProfileWithEveryOption(): void
+    {
+        $profile = $this->createProfile();
+        $rows = $this->arcRows(60, self::everyFourthLost(60));
+        $pullRepo = $this->createMock(PerfectworldPullRepository::class);
+        $pullRepo->expects($this->exactly(2))->method('findBannerRows')->with($profile, self::ARC)->willReturn($rows);
+        $builder = $this->createBuilder($pullRepo);
+
+        $card = $builder->buildCard($profile, self::ARC, showAll: true, showPlayer: true);
+
+        $this->assertEquals($builder->build($profile, self::ARC, true, true), $card);
+        $this->assertSame('Arc Research Program', $card->title);
+        $this->assertCount(60, $card->sections[0]->items, 'Every S pull');
+        $this->assertSame('Player_1', $card->playerName);
+        $this->assertSame('100000000001', $card->playerUid);
+    }
+
+    public function testBuildCardWithoutOptionsIsTheCardOfEveryBanner(): void
+    {
+        $profile = $this->createProfile();
+        $pullRepo = $this->createMock(PerfectworldPullRepository::class);
+        $pullRepo->expects($this->exactly(3))
+            ->method('findBannerRows')
+            ->willReturnCallback(fn (PerfectworldGameProfile $asked, string $bannerKey): array => $bannerKey === self::ARC ? $this->arcRows(20) : []);
+
+        $card = $this->createBuilder($pullRepo)->buildCard($profile);
+
+        $this->assertSame('All banners', $card->title);
+        $this->assertSame(['Arc Research Program'], array_map(static fn (PullCardSection $section): string => $section->name, $card->sections));
+        $this->assertCount(PerfectworldPullCardBuilder::PROFILE_LIMIT, $card->sections[0]->items);
+        $this->assertNull($card->playerName);
+        $this->assertNull($card->playerUid);
+    }
+
+    public function testBuildCardRefusesAProfileOfAGameWithoutPullTracker(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('This game profile does not support pull tracking.');
+
+        $this->createBuilder($this->createStub(PerfectworldPullRepository::class))->buildCard($this->createProfile(2));
     }
 }

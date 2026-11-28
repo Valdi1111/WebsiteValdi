@@ -7,6 +7,7 @@ use App\CoreBundle\Model\Chat\ChatChoice;
 use App\GamesBundle\Chat\Action\GamesChatAction;
 use App\GamesBundle\Chat\ChatProfileSelector;
 use App\GamesBundle\Model\Chat\ChatProfileSelection;
+use App\GamesBundle\Model\Game\GameProfileInterface;
 use App\GamesBundle\Model\Profile\GameProfileRef;
 use App\Tests\GamesBundle\Chat\Fixtures\ChatGameProfile;
 use App\Tests\GamesBundle\Chat\Fixtures\GamesChatKernelTrait;
@@ -154,6 +155,20 @@ class ChatProfileSelectorTest extends KernelTestCase
         $this->assertSame(['fake:1'], self::refs($this->select(null, '700000001')));
     }
 
+    public function testAmbiguousNicknameIsRefusedWithTheGamesOnlyWhenPublic(): void
+    {
+        $this->world->profile($this->user, 1, nickname: 'Nelly', uid: '700000001');
+        $this->world->profile($this->user, 2, 'checkin_game', nickname: 'nelly', uid: '700000002');
+        $this->world->profile($this->user, 3, nickname: 'NELLY', uid: '700000003');
+
+        // Seen by a whole channel: the games, each once, never a UID
+        $this->assertSame(
+            'Several profiles match "Nelly" (Full Game, Checkin Game). Give the game too, or choose one in the profile option.',
+            $this->selector()->select($this->user, null, 'Nelly', public: true),
+        );
+        $this->assertSame(['Full Game', 'Checkin Game'], ChatProfileSelector::gameNames($this->select(null, null)->profiles));
+    }
+
     public function testProfileOfAnotherUserOrGameOrProviderIsRefused(): void
     {
         $this->world->profile($this->user, 1);
@@ -260,6 +275,64 @@ class ChatProfileSelectorTest extends KernelTestCase
 
         $this->assertCount(ChatProfileSelector::MAX_CHOICES, $choices);
         $this->assertSame('fake:25', $choices[24]->value);
+    }
+
+    public function testAcceptFilterNarrowsTheGameSuggestions(): void
+    {
+        $this->world->profile($this->user, 1);
+        $this->world->profile($this->user, 2, 'checkin_game');
+        $this->world->profile($this->user, 3, 'plain_game');
+        $this->world->profile($this->user, 4);
+
+        $selector = $this->selector();
+        $notCheckIn = static fn (GameProfileInterface $profile): bool => $profile->getGameBiz() !== 'checkin_game';
+        $this->assertSame(['Game full_game' => 'full', 'Game plain_game' => 'plain'], self::choices($selector->suggestGames($this->user, [], '', $notCheckIn)));
+        // A game is listed when one of its profiles is accepted, here the second one
+        $this->assertSame(
+            ['Game checkin_game' => 'ci', 'Game plain_game' => 'plain', 'Game full_game' => 'full'],
+            self::choices($selector->suggestGames($this->user, [], '', static fn (GameProfileInterface $profile): bool => $profile->getId() !== 1)),
+        );
+        // Together with the sections of the command and the input
+        $this->assertSame(['Game full_game' => 'full'], self::choices($selector->suggestGames($this->user, ['check_in'], '', $notCheckIn)));
+        $this->assertSame([], $selector->suggestGames($this->user, ['stamina'], '', static fn (GameProfileInterface $profile): bool => $profile->getGameBiz() !== 'full_game'));
+        $this->assertSame(['Game plain_game' => 'plain'], self::choices($selector->suggestGames($this->user, [], 'PLA', $notCheckIn)));
+        $this->assertSame([], $selector->suggestGames($this->user, [], '', static fn (GameProfileInterface $profile): bool => false));
+    }
+
+    public function testAcceptFilterNarrowsTheProfileSuggestions(): void
+    {
+        $this->world->profile($this->user, 1, nickname: 'Nelly', uid: '700000001');
+        $this->world->profile($this->user, 2, 'checkin_game', nickname: 'Nelly', uid: '700000002');
+        $this->world->profile($this->user, 3, 'plain_game', nickname: 'Plain', uid: '700000003');
+        $this->world->profile($this->user, 4, nickname: 'Ruby', uid: '700000004');
+
+        $selector = $this->selector();
+        $fullGame = static fn (GameProfileInterface $profile): bool => $profile->getGameBiz() === 'full_game';
+        $this->assertSame(
+            ['Full Game · Nelly (700000001)' => 'fake:1', 'Full Game · Ruby (700000004)' => 'fake:4'],
+            self::choices($selector->suggestProfiles($this->user, [], null, '', $fullGame)),
+        );
+        // Together with the game already chosen, the input and the sections of the command
+        $this->assertSame([], $selector->suggestProfiles($this->user, [], 'ci', '', $fullGame));
+        $this->assertSame(['Full Game · Ruby (700000004)' => 'fake:4'], self::choices($selector->suggestProfiles($this->user, [], 'full', 'ruby', $fullGame)));
+        $this->assertSame(
+            ['Checkin Game · Nelly (700000002)' => 'fake:2', 'Full Game · Ruby (700000004)' => 'fake:4'],
+            self::choices($selector->suggestProfiles($this->user, ['check_in'], null, '', static fn (GameProfileInterface $profile): bool => $profile->getId() !== 1)),
+        );
+    }
+
+    public function testAtMostTwentyFiveAcceptedProfileSuggestions(): void
+    {
+        for ($id = 1; $id <= 30; $id++) {
+            $this->world->profile($this->user, $id);
+        }
+
+        // The profiles left out do not count towards the limit
+        $choices = $this->selector()->suggestProfiles($this->user, [], null, '', static fn (GameProfileInterface $profile): bool => $profile->getId() > 3);
+
+        $this->assertCount(ChatProfileSelector::MAX_CHOICES, $choices);
+        $this->assertSame('fake:4', $choices[0]->value);
+        $this->assertSame('fake:28', $choices[24]->value);
     }
 
     public function testRolesOfTheUserLimitTheSuggestions(): void

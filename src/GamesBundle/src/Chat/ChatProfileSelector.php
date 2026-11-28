@@ -39,9 +39,12 @@ class ChatProfileSelector
      * The profiles of the options as typed: game by slug or alias, profile by reference ("hoyoverse:42"), UID or
      * nickname (ignoring case), narrowed by the game when both are given.
      *
+     * @param bool $public whether the refusal may be seen by others (a public answer on Discord): it then names the
+     *                     games only, never a nickname nor a UID
+     *
      * @return ChatProfileSelection|string the selection, or the refusal for the user
      */
-    public function select(User $user, ?string $game, ?string $profile): ChatProfileSelection|string
+    public function select(User $user, ?string $game, ?string $profile, bool $public = false): ChatProfileSelection|string
     {
         $game = self::blankToNull($game);
         $profile = self::blankToNull($profile);
@@ -68,7 +71,7 @@ class ChatProfileSelector
             return $this->selection($descriptor, null, $profiles);
         }
 
-        $found = $this->findProfile($user, $all, $descriptor, $profile);
+        $found = $this->findProfile($user, $all, $descriptor, $profile, $public);
         if (!$found instanceof GameProfileInterface) {
             return $found;
         }
@@ -97,15 +100,17 @@ class ChatProfileSelector
     /**
      * Games of the user's active profiles that may support the command's sections, by name, slug or alias.
      *
-     * @param list<string> $sectionKeys the command's sections; [] = any game
+     * @param list<string>                                  $sectionKeys the command's sections; [] = any game
+     * @param (\Closure(GameProfileInterface): bool)|null $accept      another filter on the profiles (e.g. those
+     *                                                                   with a pull tracker); null = none
      * @return list<ChatChoice> value = slug
      */
-    public function suggestGames(User $user, array $sectionKeys, string $partial): array
+    public function suggestGames(User $user, array $sectionKeys, string $partial, ?\Closure $accept = null): array
     {
         $games = [];
         foreach ($this->registry->findProfilesOf($user) as $profile) {
             $game = $this->registry->describe($profile);
-            if ($game === null || isset($games[$game->slug]) || !$this->mayShow($profile, $sectionKeys)) {
+            if ($game === null || isset($games[$game->slug]) || !$this->mayShow($profile, $sectionKeys) || ($accept !== null && !$accept($profile))) {
                 continue;
             }
             if (self::matches($partial, $game->name, $game->slug, ...$game->aliases)) {
@@ -119,16 +124,17 @@ class ChatProfileSelector
     /**
      * Active profiles of the user that may support the command's sections, narrowed by the game already chosen.
      *
-     * @param list<string> $sectionKeys the command's sections; [] = any profile
+     * @param list<string>                                  $sectionKeys the command's sections; [] = any profile
+     * @param (\Closure(GameProfileInterface): bool)|null $accept      another filter on the profiles; null = none
      * @return list<ChatChoice> name "Game · Nickname (UID)", value = profile reference
      */
-    public function suggestProfiles(User $user, array $sectionKeys, ?string $game, string $partial): array
+    public function suggestProfiles(User $user, array $sectionKeys, ?string $game, string $partial, ?\Closure $accept = null): array
     {
         $descriptor = self::blankToNull($game) !== null ? $this->registry->findGame((string) $game, $user) : null;
 
         $choices = [];
         foreach ($this->registry->findProfilesOf($user, $descriptor) as $profile) {
-            if (!$this->mayShow($profile, $sectionKeys)) {
+            if (!$this->mayShow($profile, $sectionKeys) || ($accept !== null && !$accept($profile))) {
                 continue;
             }
             $label = self::label($profile);
@@ -155,7 +161,7 @@ class ChatProfileSelector
      * @param list<GameProfileInterface> $all
      * @return GameProfileInterface|string the profile, or the refusal
      */
-    private function findProfile(User $user, array $all, ?GameDescriptor $game, string $value): GameProfileInterface|string
+    private function findProfile(User $user, array $all, ?GameDescriptor $game, string $value, bool $public = false): GameProfileInterface|string
     {
         $ref = GameProfileRef::tryFromString($value);
         if ($ref !== null) {
@@ -174,6 +180,14 @@ class ChatProfileSelector
         }
         if (count($matches) > 1) {
             // Never a guess: the same nickname is common across games
+            if ($public) {
+                return sprintf(
+                    'Several profiles match "%s" (%s). Give the game too, or choose one in the profile option.',
+                    self::shorten($value),
+                    implode(', ', self::gameNames($matches)),
+                );
+            }
+
             return sprintf(
                 'Several profiles match "%s": %s. Choose one by its UID, or give the game too.',
                 self::shorten($value),
@@ -182,6 +196,17 @@ class ChatProfileSelector
         }
 
         return $matches[0];
+    }
+
+    /**
+     * The games of the profiles, each once, in their order: how a public answer names several profiles.
+     *
+     * @param list<GameProfileInterface> $profiles
+     * @return list<string>
+     */
+    public static function gameNames(array $profiles): array
+    {
+        return array_values(array_unique(array_map(static fn (GameProfileInterface $profile): string => $profile->getGameName() ?? 'Game', $profiles)));
     }
 
     /**

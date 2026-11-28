@@ -7,10 +7,22 @@ use App\CoreBundle\Service\Chat\ChatActionCodec;
 use App\CoreBundle\Service\Chat\ChatCommandRegistry;
 use App\GamesBundle\Chat\Action\GamesChatAction;
 use App\GamesBundle\Chat\Command\AbstractProfileChatCommand;
+use App\GamesBundle\Chat\Command\PullsChatCommand;
 use App\GamesBundle\Model\Chat\ChatProfileSelection;
 use App\GamesBundle\Model\Profile\GameDescriptor;
 use App\GamesBundle\Model\Profile\GameProfileRef;
 use App\GamesBundle\Service\Profile\GameProfileRegistry;
+use App\GamesBundle\Service\Pull\Card\PullCardBuilderRegistry;
+use App\GryphlineBundle\Entity\GryphlineGameProfile;
+use App\GryphlineBundle\Service\ArknightsEndfieldService;
+use App\GryphlineBundle\Service\Pull\GryphlinePullCardBuilder;
+use App\HoyoverseBundle\Entity\HoyoverseGameProfile;
+use App\HoyoverseBundle\Service\GenshinImpactService;
+use App\HoyoverseBundle\Service\HonkaiImpact3rdService;
+use App\HoyoverseBundle\Service\Pull\HoyoversePullCardBuilder;
+use App\PerfectworldBundle\Entity\PerfectworldGameProfile;
+use App\PerfectworldBundle\Service\NevernessToEvernessService;
+use App\PerfectworldBundle\Service\Pull\PerfectworldPullCardBuilder;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 /**
@@ -58,6 +70,42 @@ class GamesChatWiringTest extends KernelTestCase
         }
         $this->assertSame('Solo i profili di questo gioco', $translator->trans('Only the profiles of this game', [], 'chat', 'it'));
         $this->assertSame('Solo questo profilo', $translator->trans('Only this profile', [], 'chat', 'it'));
+    }
+
+    public function testPullsIsAPublicCommandForTheGamesRoleWithItsItalianDescriptions(): void
+    {
+        $commands = static::getContainer()->get(ChatCommandRegistry::class);
+        $translator = static::getContainer()->get('translator');
+
+        $definition = $commands->getDefinition('pulls');
+        $this->assertInstanceOf(PullsChatCommand::class, $commands->get('pulls'));
+        $this->assertSame('Show the image of the pulls of a game profile', $definition->description);
+        $this->assertSame(AbstractProfileChatCommand::ROLE, $definition->role);
+        $this->assertFalse($definition->ephemeral);
+        $this->assertSame(['game', 'profile', 'banner', 'all', 'player'], array_map(static fn (ChatOption $option): string => $option->name, $definition->options));
+
+        foreach ([
+            'Show the image of the pulls of a game profile' => "Mostra l'immagine delle pull di un profilo di gioco",
+            'Only this banner (all of them when empty)' => 'Solo questo banner (tutti se vuoto)',
+            'Show every S pull, not only the newest ones' => 'Mostra tutte le pull S, non solo le più recenti',
+            'Show the nickname and the UID' => "Mostra il nickname e l'UID",
+        ] as $english => $italian) {
+            $this->assertSame($italian, $translator->trans($english, [], 'chat', 'it'), $english);
+        }
+        foreach ($definition->options as $option) {
+            $this->assertNotSame($option->description, $translator->trans($option->description, [], 'chat', 'it'), sprintf('Italian description of the option "%s"', $option->name));
+        }
+    }
+
+    public function testEveryProviderHasItsPullsCardBuilder(): void
+    {
+        $builders = static::getContainer()->get(PullCardBuilderRegistry::class);
+
+        $this->assertInstanceOf(HoyoversePullCardBuilder::class, $builders->find(new HoyoverseGameProfile()->setGameId(GenshinImpactService::GAME_ID)));
+        $this->assertInstanceOf(GryphlinePullCardBuilder::class, $builders->find(new GryphlineGameProfile()->setGameBiz(ArknightsEndfieldService::GAME_BIZ)));
+        $this->assertInstanceOf(PerfectworldPullCardBuilder::class, $builders->find(new PerfectworldGameProfile()->setGameId(NevernessToEvernessService::GAME_ID)));
+        // A game without pull tracker
+        $this->assertNull($builders->find(new HoyoverseGameProfile()->setGameId(HonkaiImpact3rdService::GAME_ID)));
     }
 
     /**
